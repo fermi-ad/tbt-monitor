@@ -1,0 +1,11 @@
+# Rust artifacts
+target
+
+# VCS and editor noise
+.git
+.gitignore
+.DS_Store
+
+# Build context minimization
+*.log
+**/*.log

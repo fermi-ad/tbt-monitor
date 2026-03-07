@@ -1,0 +1,19 @@
+[package]
+name = "tbt-monitor-tui"
+version = "0.1.0"
+edition = "2024"
+description = "Ratatui monitor for MUON BPM TbT position arrivals across multiple Redis digitizers"
+license = "MIT"
+
+[dependencies]
+anyhow = "1.0"
+clap = { version = "4.5", features = ["derive"] }
+crossterm = "0.28"
+ratatui = "0.28"
+redis = "0.27"
+roxmltree = "0.20"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

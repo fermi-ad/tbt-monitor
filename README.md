@@ -1,0 +1,386 @@
+# tbt-monitor-tui
+
+Rust/Ratatui monitor for MUON BPM TbT arrivals across multiple Redis digitizers.
+
+It does three things:
+
+1. Imports your ACNET XML and generates a monitor config file.
+2. Connects to all configured Redis servers and monitors `*:TBT_POSITION_SCALED` using Redis Streams (`XREAD BLOCK`).
+3. Runs one-shot tune extraction (`Qx/Qy`) from one synchronized spill and writes PNG artifacts.
+
+## Build
+
+```bash
+cd /Users/derekste/Dev/codex/tbt-monitor-tui
+cargo check --offline
+```
+
+## Generate Config from XML
+
+```bash
+cargo run --offline -- import \
+  --source /Users/derekste/Downloads/Config.xml \
+  --output /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg
+```
+
+Optional stream/reconnect tuning while importing:
+
+```bash
+cargo run --offline -- import \
+  --source /Users/derekste/Downloads/Config.xml \
+  --output /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg \
+  --xread-block-ms 1000 \
+  --reconnect-initial-ms 2000 \
+  --reconnect-max-ms 30000
+```
+
+## Run TUI Monitor
+
+```bash
+cargo run --offline -- monitor \
+  --config /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg
+```
+
+Optional runtime overrides:
+
+```bash
+cargo run --offline -- monitor \
+  --config /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg \
+  --xread-block-ms 1000 \
+  --reconnect-initial-ms 2000 \
+  --reconnect-max-ms 30000
+```
+
+`xread_block_ms=0` means `XREAD BLOCK 0` (wait indefinitely for the next entry).
+
+Controls:
+
+- `q` quit
+- `up/down` or `j/k` change selected device
+
+## Run One-Shot Tune Analysis
+
+This command reads one spill snapshot, computes injection-window `Qx/Qy`, always computes sliding-window tune trace, and writes:
+
+- `spectrum_h.png`
+- `spectrum_v.png`
+- `tune_vs_time.png`
+- `sliding_tune.csv`
+
+Alignment for `analyze-spill` is based on the millisecond field of latest `TBT_POSITION_SCALED` stream IDs (mode across streams), not trigger keys.
+
+```bash
+cargo run --offline -- analyze-spill \
+  --config /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg \
+  --out-dir /Users/derekste/Dev/codex/tbt-monitor-tui/out
+```
+
+Optional overrides:
+
+```bash
+cargo run --offline -- analyze-spill \
+  --config /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg \
+  --out-dir /Users/derekste/Dev/codex/tbt-monitor-tui/out \
+  --align-tolerance-ms 1 \
+  --min-aligned-fraction 0.70 \
+  --injection-start-turn 0 \
+  --injection-window-turns 1024 \
+  --sliding-window-turns 1024 \
+  --sliding-stride-turns 128 \
+  --qx-band-min 0.58 \
+  --qx-band-max 0.72 \
+  --qy-band-min 0.58 \
+  --qy-band-max 0.72 \
+  --free-run
+```
+
+No-beam historical mode (no wait for new triggers, scans stream buffers immediately):
+
+```bash
+cargo run --offline -- analyze-spill \
+  --config /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg \
+  --out-dir /Users/derekste/Dev/codex/tbt-monitor-tui/out \
+  --no-beam \
+  --stale-depth 100
+```
+
+`--free-run --no-beam` runs one finite historical sweep (newest to oldest candidates) and exits.
+
+Sliding-window tracking knobs are config-driven (not CLI flags in this phase):
+
+- `enable_peak_tracking=true`
+- `qx_track_half_width=0.005`
+- `qy_track_half_width=0.005`
+- `max_tune_step_per_window=0.005`
+
+When tracking is enabled, `tune_vs_time.png` uses the tracked `selected_tune` curve, and raw global-band peaks are still computed for diagnostics/fallback.
+Fallback-picked windows and suspicious large-step windows are kept in outputs but never reseed the tracker state.
+
+## Free-Run Continuous Capture
+
+Use `--free-run` to keep collecting spill analyses continuously with the same global all-stream alignment logic as one-shot `analyze-spill`.
+
+The process starts stream-watch workers (one per device) only to detect new arrivals. Each arrival wakes a full global snapshot over all configured streams, then writes one timestamped artifact set.
+
+```bash
+cargo run --offline -- analyze-spill \
+  --config /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg \
+  --out-dir /Users/derekste/Dev/codex/tbt-monitor-tui/out \
+  --free-run
+```
+
+Output layout in free-run mode:
+
+- Per-spill files in the output directory:
+  - `spill_<target_ms>_spectrum_h.png`
+  - `spill_<target_ms>_spectrum_v.png`
+  - `spill_<target_ms>_tune_vs_time.png`
+  - `spill_<target_ms>_sliding_tune.csv`
+  - `spill_<target_ms>_summary.txt` (same metadata/summary text printed to console)
+
+Example:
+
+- `out/spill_1772830005123_spectrum_h.png`
+
+## Stream-Driven Behavior
+
+For each device, the monitor:
+
+1. Validates configured `stream_key` types.
+2. Uses `XREAD BLOCK` across all eligible stream keys (no client-side socket read timeout).
+3. Tracks per-stream latest entry ID, `_` payload byte length, and arrival counts.
+4. On connection/read failure, reconnects with slow exponential backoff (`reconnect_initial_ms` to `reconnect_max_ms`).
+
+No fixed-rate polling loop is required for stream arrivals.
+
+## Docker (Mac M1 -> linux/amd64)
+
+Build locally for `x86_64` Linux from Apple Silicon:
+
+```bash
+cd /Users/derekste/Dev/codex/tbt-monitor-tui
+docker build --platform linux/amd64 -t tbt-monitor-tui:amd64 .
+```
+
+Push directly to a registry:
+
+```bash
+docker buildx build \
+  --platform linux/amd64 \
+  -t <your-registry>/tbt-monitor-tui:amd64 \
+  --push \
+  .
+```
+
+Run interactively (for TUI):
+
+```bash
+docker run --rm -it \
+  --name tbt-monitor-tui \
+  <your-registry>/tbt-monitor-tui:amd64
+```
+
+Override config at runtime:
+
+```bash
+docker run --rm -it \
+  -v /path/to/monitor.cfg:/app/config/monitor.cfg:ro \
+  <your-registry>/tbt-monitor-tui:amd64 \
+  monitor --config /app/config/monitor.cfg
+```
+
+## Docker Artifact Export (PNG Files)
+
+Recommended: bind mount host output directory to `/out` in container.
+
+```bash
+mkdir -p "$PWD/out"
+docker run -it \
+  --name tbt-tune \
+  --network host \
+  -v "$PWD/out:/out" \
+  -v /path/to/monitor.cfg:/app/config/monitor.cfg:ro \
+  <your-registry>/tbt-monitor-tui:amd64 \
+  analyze-spill --config /app/config/monitor.cfg --out-dir /out
+```
+
+This writes PNGs directly to host `./out`, so stopping the container does not lose files.
+
+Fallback when no bind mount is used:
+
+```bash
+docker run -it \
+  --name tbt-tune \
+  --network host \
+  <your-registry>/tbt-monitor-tui:amd64 \
+  analyze-spill --config /app/config/monitor.cfg --out-dir /out
+
+docker cp tbt-tune:/out ./out
+```
+
+Use no `--rm` for analysis runs if you may need post-stop file extraction.
+
+Continuous collection (free-run) in Docker:
+
+```bash
+mkdir -p "$PWD/out"
+docker run -it \
+  --name tbt-tune-free \
+  --network host \
+  -v "$PWD/out:/out" \
+  <your-registry>/tbt-monitor-tui:amd64 \
+  analyze-spill --config /app/config/monitor.cfg --out-dir /out --free-run
+```
+
+No-beam in Docker:
+
+```bash
+docker run -it \
+  --name tbt-tune-nobeam \
+  --network host \
+  -v "$PWD/out:/out" \
+  <your-registry>/tbt-monitor-tui:amd64 \
+  analyze-spill --config /app/config/monitor.cfg --out-dir /out --no-beam --stale-depth 100
+```
+
+## Run Robustness Study (Phase 1-3)
+
+This command runs the next analysis phase up through:
+
+1. Window sensitivity studies
+2. BPM-by-BPM quality metrics/ranking
+3. Simple multi-BPM method comparison
+
+SVD is intentionally deferred in this phase.
+
+```bash
+cargo run --offline -- analyze-phase \
+  --config /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg \
+  --out-dir /Users/derekste/Dev/codex/tbt-monitor-tui/out
+```
+
+Continuous robustness-study capture:
+
+```bash
+cargo run --offline -- analyze-phase \
+  --config /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg \
+  --out-dir /Users/derekste/Dev/codex/tbt-monitor-tui/out \
+  --free-run
+```
+
+No-beam historical analyze-phase:
+
+```bash
+cargo run --offline -- analyze-phase \
+  --config /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg \
+  --out-dir /Users/derekste/Dev/codex/tbt-monitor-tui/out \
+  --no-beam \
+  --stale-depth 100
+```
+
+`--free-run --no-beam` performs one historical sweep for analyze-phase artifacts, then exits.
+
+In `--free-run`, each synchronized spill gets timestamped files:
+
+- `spill_<target_ms>_tune_vs_window_start.png`
+- `spill_<target_ms>_tune_vs_window_length.png`
+- `spill_<target_ms>_bpm_quality_table.csv`
+- `spill_<target_ms>_tune_by_bpm.png`
+- `spill_<target_ms>_confidence_by_bpm.png`
+- `spill_<target_ms>_method_comparison.png`
+- `spill_<target_ms>_findings_summary.md` (or prefixed custom `--summary-file`)
+- `spill_<target_ms>_analyze_phase_summary.txt` (console metadata capture)
+
+Configurable study options:
+
+```bash
+cargo run --offline -- analyze-phase \
+  --config /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg \
+  --out-dir /Users/derekste/Dev/codex/tbt-monitor-tui/out \
+  --window-start-min 0 \
+  --window-start-max 2048 \
+  --window-start-step 128 \
+  --window-length-min 512 \
+  --window-length-max 2048 \
+  --window-length-step 256 \
+  --reference-start 0 \
+  --reference-length 1024 \
+  --summary-file findings_summary.md
+```
+
+Generated artifacts:
+
+- `tune_vs_window_start.png`
+- `tune_vs_window_length.png`
+- `bpm_quality_table.csv`
+- `tune_by_bpm.png`
+- `confidence_by_bpm.png`
+- `method_comparison.png`
+- `findings_summary.md`
+
+## Run Multi-Spill Batch Validation
+
+`analyze-spills` collects many synchronized spills using the same wake/snapshot pipeline as `analyze-spill`, then writes spill-to-spill validation outputs.
+
+```bash
+cargo run --offline -- analyze-spills \
+  --config /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg \
+  --out-dir /Users/derekste/Dev/codex/tbt-monitor-tui/out \
+  --count 50
+```
+
+No-beam historical batch mode:
+
+```bash
+cargo run --offline -- analyze-spills \
+  --config /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg \
+  --out-dir /Users/derekste/Dev/codex/tbt-monitor-tui/out \
+  --count 50 \
+  --no-beam \
+  --stale-depth 100
+```
+
+Docker example:
+
+```bash
+mkdir -p "$PWD/out"
+docker run -it \
+  --name tbt-batch \
+  --network host \
+  -v "$PWD/out:/out" \
+  <your-registry>/tbt-monitor-tui:amd64 \
+  analyze-spills --config /app/config/monitor.cfg --out-dir /out --count 50
+```
+
+Main options:
+
+- `--min-confidence 1.5`
+- `--min-aligned-bpm-count 4`
+- `--min-per-plane-bpm 1`
+- `--peak-edge-margin 0.005`
+- `--record-format both|csv|jsonl`
+- `--detailed-artifacts all|representative|none`
+- `--reference-file <path>`
+- `--reference-key target_ms|spill_index`
+- `--reference-match-tolerance-ms 1`
+- `--no-beam`
+- `--stale-depth 100`
+
+Batch outputs:
+
+- `spills_summary.csv`
+- `spills_summary.jsonl` (unless CSV-only mode)
+- `tune_vs_spill.png`
+- `confidence_vs_spill.png`
+- `alignment_vs_spill.png`
+- `tune_scatter_qx_qy.png`
+- `tune_histogram.png`
+- `batch_summary.md`
+- `tune_residuals.png` (only when reference matches exist)
+- `spill_<index>_<target_ms>_sliding_tune.csv` for every analyzed spill
+
+Detailed artifact mode:
+
+- `all`: saves per-spill `spectrum_h/spectrum_v/tune_vs_time/sliding_tune.csv` + summary text for every analyzed spill.
+- `representative`: saves first, highest-confidence, lowest-confidence, lowest-alignment, and BAD spills.
+- `none`: skips per-spill detailed artifacts.

@@ -1,0 +1,19 @@
+# Rust build artifacts
+/target/
+
+# OS/editor cruft
+.DS_Store
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Runtime outputs
+/out/
+*.png
+*.csv
+*.jsonl
+
+# Local reference docs (large, non-source)
+ChatGPT - Synchrotron Tune Calculation plan.pdf
+fermilab-conf-23-514-ad.pdf
