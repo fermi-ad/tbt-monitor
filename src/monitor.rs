@@ -1,3 +1,16 @@
+//! Live stream monitoring runtime for the TUI.
+//!
+//! Runtime model:
+//! - One worker thread per device.
+//! - Stream-native ingestion via `XREAD BLOCK` (no fixed polling loop).
+//! - Worker reconnection with bounded exponential backoff.
+//! - Periodic/device-event snapshots emitted through a channel for rendering.
+//!
+//! Design rationale:
+//! Stream-driven reads reduce idle load while preserving low wake latency and ordering
+//! semantics from Redis stream IDs. This keeps the monitor aligned with the same timing
+//! substrate used later by analysis commands.
+
 use std::cmp::Ordering;
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;

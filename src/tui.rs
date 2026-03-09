@@ -1,3 +1,12 @@
+//! Terminal UI for live monitor updates.
+//!
+//! This module is intentionally presentation-focused:
+//! - receives device updates from `monitor::MonitorRuntime`
+//! - maintains selected-device state
+//! - renders stream/device health and recent activity
+//!
+//! Analysis and synchronization policy lives outside the UI layer.
+
 use std::collections::HashMap;
 use std::io;
 use std::time::{Duration, SystemTime};

@@ -1,3 +1,15 @@
+//! CLI entrypoint for `tbt-monitor-tui`.
+//!
+//! This module is intentionally thin: it parses command-line arguments, applies
+//! command-specific config overrides, and dispatches to feature modules:
+//! - `importer` for XML -> monitor config generation
+//! - `monitor` for live stream monitoring/TUI updates
+//! - `analyze` for synchronized spill analysis and batch workflows
+//!
+//! Design intent:
+//! Keep orchestration and policy wiring here, while keeping computation and I/O
+//! behavior in dedicated modules so changes remain local and testable.
+
 mod analyze;
 mod config;
 mod importer;
@@ -104,6 +116,9 @@ enum Command {
         #[arg(long)]
         qy_band_max: Option<f64>,
 
+        #[arg(long)]
+        min_peak_confidence: Option<f64>,
+
         /// Keep running continuously and save timestamped artifacts per global spill.
         #[arg(long, default_value_t = false)]
         free_run: bool,
@@ -154,6 +169,9 @@ enum Command {
 
         #[arg(long, default_value_t = true)]
         svd_normalize_bpm: bool,
+
+        #[arg(long)]
+        min_peak_confidence: Option<f64>,
 
         #[arg(long, default_value = "findings_summary.md")]
         summary_file: String,
@@ -212,6 +230,9 @@ enum Command {
 
         #[arg(long)]
         qy_band_max: Option<f64>,
+
+        #[arg(long)]
+        min_peak_confidence: Option<f64>,
 
         #[arg(long, default_value_t = 1.5)]
         min_confidence: f64,
@@ -324,6 +345,7 @@ fn main() -> Result<()> {
             qx_band_max,
             qy_band_min,
             qy_band_max,
+            min_peak_confidence,
             free_run,
             no_beam,
             stale_depth,
@@ -361,6 +383,9 @@ fn main() -> Result<()> {
             if let Some(v) = qy_band_max {
                 monitor_config.qy_band_max = v;
             }
+            if let Some(v) = min_peak_confidence {
+                monitor_config.min_peak_confidence = v;
+            }
 
             monitor_config.validate()?;
             let source_mode = if no_beam {
@@ -385,13 +410,17 @@ fn main() -> Result<()> {
             reference_length,
             svd_modes,
             svd_normalize_bpm,
+            min_peak_confidence,
             summary_file,
             free_run,
             no_beam,
             stale_depth,
         } => {
-            let monitor_config = load_monitor_config(&config)
+            let mut monitor_config = load_monitor_config(&config)
                 .with_context(|| format!("failed to load {}", config.display()))?;
+            if let Some(v) = min_peak_confidence {
+                monitor_config.min_peak_confidence = v;
+            }
             monitor_config.validate()?;
 
             let options = StudyOptions {
@@ -432,6 +461,7 @@ fn main() -> Result<()> {
             qx_band_max,
             qy_band_min,
             qy_band_max,
+            min_peak_confidence,
             min_confidence,
             min_aligned_bpm_count,
             min_per_plane_bpm,
@@ -476,6 +506,9 @@ fn main() -> Result<()> {
             }
             if let Some(v) = qy_band_max {
                 monitor_config.qy_band_max = v;
+            }
+            if let Some(v) = min_peak_confidence {
+                monitor_config.min_peak_confidence = v;
             }
 
             monitor_config.validate()?;

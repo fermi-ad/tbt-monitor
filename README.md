@@ -1,4 +1,4 @@
-# tbt-monitor-tui
+# tbt-monitor
 
 Rust/Ratatui monitor for MUON BPM TbT arrivals across multiple Redis digitizers.
 
@@ -8,10 +8,30 @@ It does three things:
 2. Connects to all configured Redis servers and monitors `*:TBT_POSITION_SCALED` using Redis Streams (`XREAD BLOCK`).
 3. Runs one-shot tune extraction (`Qx/Qy`) from one synchronized spill and writes PNG artifacts.
 
+## Documentation Map
+
+- User and operations guide: this `README.md`
+- Implementation architecture: `docs/ARCHITECTURE.md`
+- Design rationale and tradeoffs: `docs/DESIGN_DECISIONS.md`
+- Configuration semantics: `docs/CONFIG_REFERENCE.md`
+- Physics/engineering roadmap mapped from the methodology PDF: `PLAN.md`
+- Coding-assistant orientation for this repository: `AGENTS.md`
+
+`PLAN.md` includes an explicit "plan vs implementation" divergence matrix.
+
+## Repository Layout
+
+- `src/main.rs`: CLI entrypoint and command dispatch.
+- `src/config.rs`: config schema, parser, validation, serializer.
+- `src/importer.rs`: ACNET XML import into monitor config.
+- `src/monitor.rs`: stream-driven live monitor runtime for the TUI.
+- `src/analyze.rs`: synchronized spill analysis, studies, and batch processing.
+- `config/monitor.cfg`: generated/example config with device and stream definitions.
+
 ## Build
 
 ```bash
-cd /Users/derekste/Dev/codex/tbt-monitor-tui
+cd /Users/derekste/Dev/codex/tbt-monitor
 cargo check --offline
 ```
 
@@ -20,7 +40,7 @@ cargo check --offline
 ```bash
 cargo run --offline -- import \
   --source /Users/derekste/Downloads/Config.xml \
-  --output /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg
+  --output /Users/derekste/Dev/codex/tbt-monitor/config/monitor.cfg
 ```
 
 Optional stream/reconnect tuning while importing:
@@ -28,7 +48,7 @@ Optional stream/reconnect tuning while importing:
 ```bash
 cargo run --offline -- import \
   --source /Users/derekste/Downloads/Config.xml \
-  --output /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg \
+  --output /Users/derekste/Dev/codex/tbt-monitor/config/monitor.cfg \
   --xread-block-ms 1000 \
   --reconnect-initial-ms 2000 \
   --reconnect-max-ms 30000
@@ -38,14 +58,14 @@ cargo run --offline -- import \
 
 ```bash
 cargo run --offline -- monitor \
-  --config /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg
+  --config /Users/derekste/Dev/codex/tbt-monitor/config/monitor.cfg
 ```
 
 Optional runtime overrides:
 
 ```bash
 cargo run --offline -- monitor \
-  --config /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg \
+  --config /Users/derekste/Dev/codex/tbt-monitor/config/monitor.cfg \
   --xread-block-ms 1000 \
   --reconnect-initial-ms 2000 \
   --reconnect-max-ms 30000
@@ -67,26 +87,36 @@ This command reads one spill snapshot, computes injection-window `Qx/Qy`, always
 - `tune_vs_time.png`
 - `sliding_tune.csv`
 
-Alignment for `analyze-spill` is based on the millisecond field of latest `TBT_POSITION_SCALED` stream IDs (mode across streams), not trigger keys.
+Summary output for each spill also includes:
+
+- alignment diagnostics across streams/digitizers
+- timeliness diagnostics (`obs_ms - target_ms` min/max/median absolute delta)
+- explicit warnings when a complete stream poll is not available
+
+Alignment for `analyze-spill` is based on the millisecond field of latest
+`TBT_POSITION_SCALED` stream IDs (not trigger keys). Target selection clusters
+adjacent timestamp buckets (currently `±1 ms`) before selecting the representative
+target, which makes synchronized capture resilient to small cross-device jitter.
 
 ```bash
 cargo run --offline -- analyze-spill \
-  --config /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg \
-  --out-dir /Users/derekste/Dev/codex/tbt-monitor-tui/out
+  --config /Users/derekste/Dev/codex/tbt-monitor/config/monitor.cfg \
+  --out-dir /Users/derekste/Dev/codex/tbt-monitor/out
 ```
 
 Optional overrides:
 
 ```bash
 cargo run --offline -- analyze-spill \
-  --config /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg \
-  --out-dir /Users/derekste/Dev/codex/tbt-monitor-tui/out \
+  --config /Users/derekste/Dev/codex/tbt-monitor/config/monitor.cfg \
+  --out-dir /Users/derekste/Dev/codex/tbt-monitor/out \
   --align-tolerance-ms 1 \
   --min-aligned-fraction 0.70 \
   --injection-start-turn 0 \
   --injection-window-turns 1024 \
-  --sliding-window-turns 1024 \
-  --sliding-stride-turns 128 \
+  --sliding-window-turns 2048 \
+  --sliding-stride-turns 256 \
+  --min-peak-confidence 1.5 \
   --qx-band-min 0.58 \
   --qx-band-max 0.72 \
   --qy-band-min 0.58 \
@@ -98,13 +128,17 @@ No-beam historical mode (no wait for new triggers, scans stream buffers immediat
 
 ```bash
 cargo run --offline -- analyze-spill \
-  --config /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg \
-  --out-dir /Users/derekste/Dev/codex/tbt-monitor-tui/out \
+  --config /Users/derekste/Dev/codex/tbt-monitor/config/monitor.cfg \
+  --out-dir /Users/derekste/Dev/codex/tbt-monitor/out \
   --no-beam \
   --stale-depth 100
 ```
 
 `--free-run --no-beam` runs one finite historical sweep (newest to oldest candidates) and exits.
+
+No-beam historical candidate discovery also merges adjacent timestamp buckets
+(`±1 ms`) before ranking candidates, so split coverage patterns (for example
+`96/24` across neighboring milliseconds) are analyzed as one physical spill target.
 
 Sliding-window tracking knobs are config-driven (not CLI flags in this phase):
 
@@ -115,6 +149,9 @@ Sliding-window tracking knobs are config-driven (not CLI flags in this phase):
 
 When tracking is enabled, `tune_vs_time.png` uses the tracked `selected_tune` curve, and raw global-band peaks are still computed for diagnostics/fallback.
 Fallback-picked windows and suspicious large-step windows are kept in outputs but never reseed the tracker state.
+All tune peak picks use a configurable confidence gate (`min_peak_confidence`, default `2.0`), so weak windows are reported as missing tune.
+Use `--min-peak-confidence` on analysis commands for per-run overrides.
+FFT preprocessing also suppresses DC by zeroing bin 0 and ignoring the first few bins during peak search.
 
 ## Free-Run Continuous Capture
 
@@ -122,10 +159,13 @@ Use `--free-run` to keep collecting spill analyses continuously with the same gl
 
 The process starts stream-watch workers (one per device) only to detect new arrivals. Each arrival wakes a full global snapshot over all configured streams, then writes one timestamped artifact set.
 
+Free-run duplicate suppression is also tolerant to adjacent target milliseconds
+(`±1 ms`) to avoid double-writing the same physical spill.
+
 ```bash
 cargo run --offline -- analyze-spill \
-  --config /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg \
-  --out-dir /Users/derekste/Dev/codex/tbt-monitor-tui/out \
+  --config /Users/derekste/Dev/codex/tbt-monitor/config/monitor.cfg \
+  --out-dir /Users/derekste/Dev/codex/tbt-monitor/out \
   --free-run
 ```
 
@@ -158,8 +198,8 @@ No fixed-rate polling loop is required for stream arrivals.
 Build locally for `x86_64` Linux from Apple Silicon:
 
 ```bash
-cd /Users/derekste/Dev/codex/tbt-monitor-tui
-docker build --platform linux/amd64 -t tbt-monitor-tui:amd64 .
+cd /Users/derekste/Dev/codex/tbt-monitor
+docker build --platform linux/amd64 -t tbt-monitor:amd64 .
 ```
 
 Push directly to a registry:
@@ -167,7 +207,7 @@ Push directly to a registry:
 ```bash
 docker buildx build \
   --platform linux/amd64 \
-  -t <your-registry>/tbt-monitor-tui:amd64 \
+  -t <your-registry>/tbt-monitor:amd64 \
   --push \
   .
 ```
@@ -176,8 +216,8 @@ Run interactively (for TUI):
 
 ```bash
 docker run --rm -it \
-  --name tbt-monitor-tui \
-  <your-registry>/tbt-monitor-tui:amd64
+  --name tbt-monitor \
+  <your-registry>/tbt-monitor:amd64
 ```
 
 Override config at runtime:
@@ -185,7 +225,7 @@ Override config at runtime:
 ```bash
 docker run --rm -it \
   -v /path/to/monitor.cfg:/app/config/monitor.cfg:ro \
-  <your-registry>/tbt-monitor-tui:amd64 \
+  <your-registry>/tbt-monitor:amd64 \
   monitor --config /app/config/monitor.cfg
 ```
 
@@ -200,7 +240,7 @@ docker run -it \
   --network host \
   -v "$PWD/out:/out" \
   -v /path/to/monitor.cfg:/app/config/monitor.cfg:ro \
-  <your-registry>/tbt-monitor-tui:amd64 \
+  <your-registry>/tbt-monitor:amd64 \
   analyze-spill --config /app/config/monitor.cfg --out-dir /out
 ```
 
@@ -212,7 +252,7 @@ Fallback when no bind mount is used:
 docker run -it \
   --name tbt-tune \
   --network host \
-  <your-registry>/tbt-monitor-tui:amd64 \
+  <your-registry>/tbt-monitor:amd64 \
   analyze-spill --config /app/config/monitor.cfg --out-dir /out
 
 docker cp tbt-tune:/out ./out
@@ -228,7 +268,7 @@ docker run -it \
   --name tbt-tune-free \
   --network host \
   -v "$PWD/out:/out" \
-  <your-registry>/tbt-monitor-tui:amd64 \
+  <your-registry>/tbt-monitor:amd64 \
   analyze-spill --config /app/config/monitor.cfg --out-dir /out --free-run
 ```
 
@@ -239,7 +279,7 @@ docker run -it \
   --name tbt-tune-nobeam \
   --network host \
   -v "$PWD/out:/out" \
-  <your-registry>/tbt-monitor-tui:amd64 \
+  <your-registry>/tbt-monitor:amd64 \
   analyze-spill --config /app/config/monitor.cfg --out-dir /out --no-beam --stale-depth 100
 ```
 
@@ -255,16 +295,16 @@ SVD is intentionally deferred in this phase.
 
 ```bash
 cargo run --offline -- analyze-phase \
-  --config /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg \
-  --out-dir /Users/derekste/Dev/codex/tbt-monitor-tui/out
+  --config /Users/derekste/Dev/codex/tbt-monitor/config/monitor.cfg \
+  --out-dir /Users/derekste/Dev/codex/tbt-monitor/out
 ```
 
 Continuous robustness-study capture:
 
 ```bash
 cargo run --offline -- analyze-phase \
-  --config /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg \
-  --out-dir /Users/derekste/Dev/codex/tbt-monitor-tui/out \
+  --config /Users/derekste/Dev/codex/tbt-monitor/config/monitor.cfg \
+  --out-dir /Users/derekste/Dev/codex/tbt-monitor/out \
   --free-run
 ```
 
@@ -272,8 +312,8 @@ No-beam historical analyze-phase:
 
 ```bash
 cargo run --offline -- analyze-phase \
-  --config /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg \
-  --out-dir /Users/derekste/Dev/codex/tbt-monitor-tui/out \
+  --config /Users/derekste/Dev/codex/tbt-monitor/config/monitor.cfg \
+  --out-dir /Users/derekste/Dev/codex/tbt-monitor/out \
   --no-beam \
   --stale-depth 100
 ```
@@ -295,8 +335,8 @@ Configurable study options:
 
 ```bash
 cargo run --offline -- analyze-phase \
-  --config /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg \
-  --out-dir /Users/derekste/Dev/codex/tbt-monitor-tui/out \
+  --config /Users/derekste/Dev/codex/tbt-monitor/config/monitor.cfg \
+  --out-dir /Users/derekste/Dev/codex/tbt-monitor/out \
   --window-start-min 0 \
   --window-start-max 2048 \
   --window-start-step 128 \
@@ -324,8 +364,8 @@ Generated artifacts:
 
 ```bash
 cargo run --offline -- analyze-spills \
-  --config /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg \
-  --out-dir /Users/derekste/Dev/codex/tbt-monitor-tui/out \
+  --config /Users/derekste/Dev/codex/tbt-monitor/config/monitor.cfg \
+  --out-dir /Users/derekste/Dev/codex/tbt-monitor/out \
   --count 50
 ```
 
@@ -333,8 +373,8 @@ No-beam historical batch mode:
 
 ```bash
 cargo run --offline -- analyze-spills \
-  --config /Users/derekste/Dev/codex/tbt-monitor-tui/config/monitor.cfg \
-  --out-dir /Users/derekste/Dev/codex/tbt-monitor-tui/out \
+  --config /Users/derekste/Dev/codex/tbt-monitor/config/monitor.cfg \
+  --out-dir /Users/derekste/Dev/codex/tbt-monitor/out \
   --count 50 \
   --no-beam \
   --stale-depth 100
@@ -348,7 +388,7 @@ docker run -it \
   --name tbt-batch \
   --network host \
   -v "$PWD/out:/out" \
-  <your-registry>/tbt-monitor-tui:amd64 \
+  <your-registry>/tbt-monitor:amd64 \
   analyze-spills --config /app/config/monitor.cfg --out-dir /out --count 50
 ```
 
@@ -358,6 +398,7 @@ Main options:
 - `--min-aligned-bpm-count 4`
 - `--min-per-plane-bpm 1`
 - `--peak-edge-margin 0.005`
+- `--min-peak-confidence <f64>`
 - `--record-format both|csv|jsonl`
 - `--detailed-artifacts all|representative|none`
 - `--reference-file <path>`
@@ -365,6 +406,17 @@ Main options:
 - `--reference-match-tolerance-ms 1`
 - `--no-beam`
 - `--stale-depth 100`
+
+Batch quality semantics:
+
+- `INCOMPLETE_TBT_POLL` is emitted when the snapshot observed fewer streams than configured.
+- Timeliness fields are printed per spill in console output:
+  - `timeliness_med_abs_ms`
+  - `timeliness_max_abs_ms`
+- Batch summary aggregates include:
+  - median per-spill median absolute timing delta
+  - median per-spill max absolute timing delta
+  - worst observed max absolute timing delta
 
 Batch outputs:
 
@@ -384,3 +436,13 @@ Detailed artifact mode:
 - `all`: saves per-spill `spectrum_h/spectrum_v/tune_vs_time/sliding_tune.csv` + summary text for every analyzed spill.
 - `representative`: saves first, highest-confidence, lowest-confidence, lowest-alignment, and BAD spills.
 - `none`: skips per-spill detailed artifacts.
+
+## Developer Notes
+
+For implementation-level details and design rationale, use:
+
+- `docs/ARCHITECTURE.md` for module boundaries and runtime data flow.
+- `docs/DESIGN_DECISIONS.md` for explicit tradeoffs and justification.
+- `docs/CONFIG_REFERENCE.md` for key-by-key config behavior.
+- `PLAN.md` for roadmap alignment with the tune-methodology plan PDF.
+- `AGENTS.md` for assistant-oriented repository guidance and invariants.

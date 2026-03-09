@@ -1,3 +1,13 @@
+//! ACNET XML -> `MonitorConfig` importer.
+//!
+//! Import policy:
+//! - Extract DR BPM TbT stream keys and trigger keys from process-scoped XML nodes.
+//! - Prefer deterministic output ordering for diffability and repeatable generated configs.
+//! - Fill safe defaults when XML omits optional fields (for example trigger fallbacks).
+//!
+//! This module intentionally does not perform analysis-time physics decisions; it only
+//! builds a faithful, runnable monitoring/analysis configuration from infrastructure data.
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
@@ -155,12 +165,13 @@ pub fn import_xml_config(path: &Path) -> Result<(MonitorConfig, ImportReport)> {
         min_stream_values: 1,
         injection_start_turn: 0,
         injection_window_turns: 1_024,
-        sliding_window_turns: 1_024,
-        sliding_stride_turns: 128,
+        sliding_window_turns: 2_048,
+        sliding_stride_turns: 256,
         qx_band_min: 0.58,
         qx_band_max: 0.72,
         qy_band_min: 0.58,
         qy_band_max: 0.72,
+        min_peak_confidence: 2.0,
         enable_peak_tracking: true,
         qx_track_half_width: 0.005,
         qy_track_half_width: 0.005,

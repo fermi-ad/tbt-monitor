@@ -1,3 +1,17 @@
+//! Spill analysis and study workflows.
+//!
+//! Core responsibilities:
+//! - Build synchronized spill snapshots from multi-device TbT streams.
+//! - Extract injection and sliding-window tune estimates (`Qx`, `Qy`) with confidence.
+//! - Run robustness studies and batch-quality summaries.
+//! - Emit artifacts (plots, CSV/JSONL, markdown summaries) for operations and review.
+//!
+//! Important timing policy:
+//! - Candidate/target timestamps use small adjacent-bucket clustering (currently ±1 ms)
+//!   to tolerate realistic stream-id jitter across devices.
+//! - Quality classification and warnings preserve partial/incomplete snapshots instead of
+//!   dropping them, because diagnostic visibility is operationally important.
+
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -15,7 +29,9 @@ use crate::config::{DeviceConfig, MonitorConfig, RedisConfig};
 const DEFAULT_XRANGE_COUNT: usize = 128;
 const FREE_RUN_SETTLE_RETRIES: usize = 3;
 const FREE_RUN_SETTLE_DELAY_MS: u64 = 40;
+const ADJACENT_BUCKET_TOLERANCE_MS: u64 = 1;
 const DEFAULT_METHOD_WEAK_CONFIDENCE: f64 = 1.5;
+const MIN_PEAK_SEARCH_BIN: usize = 3;
 const BATCH_SUMMARY_LIMITATIONS: &str = "Current method is spill-by-spill FFT peak-pick (pre-SVD). Tune depends on selected window/band. \
 Sliding-window tune variation may reflect algorithm sensitivity, low SNR, or real machine behavior. \
 No reference monitor cross-check is applied unless reference data is provided.";
@@ -388,6 +404,14 @@ struct HistoricalCandidate {
     observation_count: usize,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct TimelinessStats {
+    min_delta_ms: i64,
+    max_delta_ms: i64,
+    median_abs_delta_ms: f64,
+    max_abs_delta_ms: u64,
+}
+
 #[derive(Debug, Clone)]
 struct SweepPoint {
     x: usize,
@@ -541,6 +565,7 @@ pub fn run_analyze_spills(
     let mut attempt_index = 0usize;
     let mut seen_target_ms = HashSet::<u64>::new();
     let mut results = Vec::<BatchSpillResult>::new();
+    let dedupe_tolerance_ms = target_bucket_tolerance_ms(&config);
 
     while results.len() < options.count {
         let signal = match rx.recv() {
@@ -561,10 +586,11 @@ pub fn run_analyze_spills(
             }
         };
 
-        if !seen_target_ms.insert(snapshot.target_ms) {
+        if target_seen_within_tolerance(&seen_target_ms, snapshot.target_ms, dedupe_tolerance_ms) {
             counters.duplicate_wakes += 1;
             continue;
         }
+        seen_target_ms.insert(snapshot.target_ms);
 
         let spill_index = results.len() + 1;
         let mut trigger_warnings = Vec::new();
@@ -606,8 +632,9 @@ pub fn run_analyze_spills(
                 .unwrap_or(&[]),
         )?;
 
+        let timeliness = timeliness_stats(&snapshot.observations, snapshot.target_ms);
         println!(
-            "[analyze-spills] spill {}/{} target={} quality={} qx={} qy={} conf_h={} conf_v={}",
+            "[analyze-spills] spill {}/{} target={} quality={} qx={} qy={} conf_h={} conf_v={} timeliness_med_abs_ms={} timeliness_max_abs_ms={}",
             spill_index,
             options.count,
             record.target_ms,
@@ -616,6 +643,10 @@ pub fn run_analyze_spills(
             opt_fmt(record.qy_injection),
             opt_fmt(record.confidence_h),
             opt_fmt(record.confidence_v),
+            opt_fmt(timeliness.map(|stats| stats.median_abs_delta_ms)),
+            timeliness
+                .map(|stats| stats.max_abs_delta_ms.to_string())
+                .unwrap_or_else(|| "NA".to_string()),
         );
 
         results.push(BatchSpillResult { record, snapshot });
@@ -669,6 +700,7 @@ fn run_analyze_spills_historical(
     };
     let mut seen_target_ms = HashSet::<u64>::new();
     let mut results = Vec::<BatchSpillResult>::new();
+    let dedupe_tolerance_ms = target_bucket_tolerance_ms(&config);
 
     for candidate in &candidates {
         if results.len() >= options.count {
@@ -676,10 +708,11 @@ fn run_analyze_spills_historical(
         }
 
         counters.historical_candidates_attempted += 1;
-        if !seen_target_ms.insert(candidate.target_ms) {
+        if target_seen_within_tolerance(&seen_target_ms, candidate.target_ms, dedupe_tolerance_ms) {
             counters.duplicate_wakes += 1;
             continue;
         }
+        seen_target_ms.insert(candidate.target_ms);
 
         let snapshot = match analyze_spill_snapshot_at_target(&config, candidate.target_ms) {
             Ok(snapshot) => snapshot,
@@ -737,8 +770,9 @@ fn run_analyze_spills_historical(
                 .unwrap_or(&[]),
         )?;
 
+        let timeliness = timeliness_stats(&snapshot.observations, snapshot.target_ms);
         println!(
-            "[analyze-spills no-beam] spill {}/{} target={} coverage={} qx={} qy={} conf_h={} conf_v={}",
+            "[analyze-spills no-beam] spill {}/{} target={} coverage={} qx={} qy={} conf_h={} conf_v={} timeliness_med_abs_ms={} timeliness_max_abs_ms={}",
             spill_index,
             options.count,
             record.target_ms,
@@ -747,6 +781,10 @@ fn run_analyze_spills_historical(
             opt_fmt(record.qy_injection),
             opt_fmt(record.confidence_h),
             opt_fmt(record.confidence_v),
+            opt_fmt(timeliness.map(|stats| stats.median_abs_delta_ms)),
+            timeliness
+                .map(|stats| stats.max_abs_delta_ms.to_string())
+                .unwrap_or_else(|| "NA".to_string()),
         );
 
         results.push(BatchSpillResult { record, snapshot });
@@ -1045,6 +1083,7 @@ fn run_analyze_study_free_run(
     drop(tx);
 
     let mut last_written_target_ms: Option<u64> = None;
+    let dedupe_tolerance_ms = target_bucket_tolerance_ms(&config);
     loop {
         let signal = match rx.recv() {
             Ok(signal) => signal,
@@ -1062,7 +1101,10 @@ fn run_analyze_study_free_run(
             }
         };
 
-        if last_written_target_ms == Some(snapshot.target_ms) {
+        if last_written_target_ms
+            .map(|last| abs_diff_u64(last, snapshot.target_ms) <= dedupe_tolerance_ms)
+            .unwrap_or(false)
+        {
             continue;
         }
 
@@ -1276,7 +1318,8 @@ fn resolve_trigger_timestamp(
     }
 
     let ms_values = matches.iter().map(|(ms, _)| *ms).collect::<Vec<_>>();
-    let chosen_ms = choose_target_millisecond(&ms_values).unwrap_or(target_ms);
+    let chosen_ms = choose_target_millisecond(&ms_values, target_bucket_tolerance_ms(config))
+        .unwrap_or(target_ms);
     let source = if matches
         .iter()
         .any(|(ms, rank)| *ms == chosen_ms && *rank == 0usize)
@@ -1424,6 +1467,12 @@ fn build_spill_record(
 
     if aligned_fraction < config.min_aligned_fraction {
         quality_flags.push("LOW_ALIGNMENT_FRACTION".to_string());
+        marginal = true;
+    }
+    // Missing configured streams is a data-quality issue, not an automatic hard
+    // failure: keep the spill for diagnostics but mark as marginal.
+    if snapshot.observations.len() < requested_streams {
+        quality_flags.push("INCOMPLETE_TBT_POLL".to_string());
         marginal = true;
     }
     if used_streams_total < options.min_aligned_bpm_count {
@@ -1869,6 +1918,9 @@ struct BatchAggregate {
     median_conf_h_good: Option<f64>,
     median_conf_v_good: Option<f64>,
     median_aligned_fraction: Option<f64>,
+    median_timeliness_median_abs_ms: Option<f64>,
+    median_timeliness_max_abs_ms: Option<f64>,
+    worst_timeliness_max_abs_ms: Option<f64>,
     stale_depth_scanned: Option<usize>,
     historical_candidates_discovered: usize,
     historical_candidates_attempted: usize,
@@ -1920,6 +1972,16 @@ fn summarize_batch(results: &[BatchSpillResult], counters: &BatchRunCounters) ->
         .iter()
         .map(|r| r.record.aligned_fraction)
         .collect::<Vec<_>>();
+    let timeliness_median_abs = results
+        .iter()
+        .filter_map(|r| timeliness_stats(&r.snapshot.observations, r.snapshot.target_ms))
+        .map(|stats| stats.median_abs_delta_ms)
+        .collect::<Vec<_>>();
+    let timeliness_max_abs = results
+        .iter()
+        .filter_map(|r| timeliness_stats(&r.snapshot.observations, r.snapshot.target_ms))
+        .map(|stats| stats.max_abs_delta_ms as f64)
+        .collect::<Vec<_>>();
 
     BatchAggregate {
         spills_analyzed,
@@ -1936,6 +1998,9 @@ fn summarize_batch(results: &[BatchSpillResult], counters: &BatchRunCounters) ->
         median_conf_h_good: median(&conf_h_good),
         median_conf_v_good: median(&conf_v_good),
         median_aligned_fraction: median(&aligned),
+        median_timeliness_median_abs_ms: median(&timeliness_median_abs),
+        median_timeliness_max_abs_ms: median(&timeliness_max_abs),
+        worst_timeliness_max_abs_ms: timeliness_max_abs.iter().copied().reduce(f64::max),
         stale_depth_scanned: counters.stale_depth_scanned,
         historical_candidates_discovered: counters.historical_candidates_discovered,
         historical_candidates_attempted: counters.historical_candidates_attempted,
@@ -1978,10 +2043,22 @@ fn print_batch_console_summary(aggregate: &BatchAggregate) {
         "  median aligned fraction: {}",
         opt_fmt(aggregate.median_aligned_fraction)
     );
+    println!(
+        "  timeliness median|delta| ms: {}",
+        opt_fmt(aggregate.median_timeliness_median_abs_ms)
+    );
+    println!(
+        "  timeliness median max|delta| ms: {}",
+        opt_fmt(aggregate.median_timeliness_max_abs_ms)
+    );
+    println!(
+        "  timeliness worst max|delta| ms: {}",
+        opt_fmt(aggregate.worst_timeliness_max_abs_ms)
+    );
     if let Some(stale_depth) = aggregate.stale_depth_scanned {
         println!("  stale_depth scanned: {}", stale_depth);
         println!(
-            "  historical candidates discovered (unique ms): {}",
+            "  historical candidates discovered (merged target windows): {}",
             aggregate.historical_candidates_discovered
         );
         println!(
@@ -2042,12 +2119,24 @@ fn write_batch_summary_markdown(
         "- median aligned fraction: {}",
         opt_fmt(aggregate.median_aligned_fraction)
     ));
+    lines.push(format!(
+        "- timeliness median|delta| ms: {}",
+        opt_fmt(aggregate.median_timeliness_median_abs_ms)
+    ));
+    lines.push(format!(
+        "- timeliness median max|delta| ms: {}",
+        opt_fmt(aggregate.median_timeliness_max_abs_ms)
+    ));
+    lines.push(format!(
+        "- timeliness worst max|delta| ms: {}",
+        opt_fmt(aggregate.worst_timeliness_max_abs_ms)
+    ));
     if let Some(stale_depth) = aggregate.stale_depth_scanned {
         lines.push(String::new());
         lines.push("## Historical Source Diagnostics".to_string());
         lines.push(format!("- stale_depth scanned: {}", stale_depth));
         lines.push(format!(
-            "- historical candidates discovered (unique ms): {}",
+            "- historical candidates discovered (merged target windows): {}",
             aggregate.historical_candidates_discovered
         ));
         lines.push(format!(
@@ -3006,7 +3095,11 @@ fn compute_window_start_sweep(
             }
         } else {
             let spectrum = average_spectrum(&plane.traces, start, fixed_length)?;
-            let peak = pick_peak_in_band(&spectrum, plane.plane.tune_band(config));
+            let peak = pick_peak_in_band(
+                &spectrum,
+                plane.plane.tune_band(config),
+                config.min_peak_confidence,
+            );
             SweepPoint {
                 x: start,
                 tune: peak.as_ref().map(|p| p.tune),
@@ -3034,7 +3127,11 @@ fn compute_window_length_sweep(
             }
         } else {
             let spectrum = average_spectrum(&plane.traces, fixed_start, length)?;
-            let peak = pick_peak_in_band(&spectrum, plane.plane.tune_band(config));
+            let peak = pick_peak_in_band(
+                &spectrum,
+                plane.plane.tune_band(config),
+                config.min_peak_confidence,
+            );
             SweepPoint {
                 x: length,
                 tune: peak.as_ref().map(|p| p.tune),
@@ -3131,9 +3228,9 @@ fn compute_bpm_metrics(
     for trace in &plane.traces {
         let rms = trace_window_rms(trace, reference_start, reference_length).unwrap_or(0.0);
         let spectrum = compute_trace_spectrum(trace, reference_start, reference_length);
-        let peak = spectrum
-            .as_ref()
-            .and_then(|s| pick_peak_in_band(s, plane.plane.tune_band(config)));
+        let peak = spectrum.as_ref().and_then(|s| {
+            pick_peak_in_band(s, plane.plane.tune_band(config), config.min_peak_confidence)
+        });
 
         metrics.push(BpmMetric {
             plane: plane.plane,
@@ -3455,11 +3552,11 @@ fn method_peak_for_window(
             let key = best_stream_key?;
             let trace = plane.traces.iter().find(|t| t.stream_key == key)?;
             let spectrum = compute_trace_spectrum(trace, start, length)?;
-            pick_peak_in_band(&spectrum, band)
+            pick_peak_in_band(&spectrum, band, config.min_peak_confidence)
         }
         "UNWEIGHTED" => {
             let spectrum = average_spectrum(&plane.traces, start, length).ok()?;
-            pick_peak_in_band(&spectrum, band)
+            pick_peak_in_band(&spectrum, band, config.min_peak_confidence)
         }
         "WEIGHTED" => {
             let mut spectra = Vec::<(String, Vec<f64>)>::new();
@@ -3469,7 +3566,7 @@ fn method_peak_for_window(
                 }
             }
             let spectrum = average_weighted_spectra(&spectra, weights)?;
-            pick_peak_in_band(&spectrum, band)
+            pick_peak_in_band(&spectrum, band, config.min_peak_confidence)
         }
         _ => None,
     }
@@ -4062,7 +4159,7 @@ fn run_analyze_spill_historical(
     println!("no-beam sweep summary:");
     println!("  stale_depth scanned: {}", stale_depth);
     println!(
-        "  historical candidates discovered (unique ms): {}",
+        "  historical candidates discovered (merged target windows): {}",
         candidates.len()
     );
     println!("  candidates attempted: {}", attempted);
@@ -4206,7 +4303,7 @@ fn run_analyze_study_historical(
     println!("no-beam analyze-phase sweep summary:");
     println!("  stale_depth scanned: {}", stale_depth);
     println!(
-        "  historical candidates discovered (unique ms): {}",
+        "  historical candidates discovered (merged target windows): {}",
         candidates.len()
     );
     println!("  candidates attempted: {}", attempted);
@@ -4261,6 +4358,7 @@ fn run_analyze_spill_free_run(config: MonitorConfig, out_dir: &Path) -> Result<(
     drop(tx);
 
     let mut last_written_target_ms: Option<u64> = None;
+    let dedupe_tolerance_ms = target_bucket_tolerance_ms(&config);
     loop {
         let signal = match rx.recv() {
             Ok(signal) => signal,
@@ -4278,7 +4376,10 @@ fn run_analyze_spill_free_run(config: MonitorConfig, out_dir: &Path) -> Result<(
             }
         };
 
-        if last_written_target_ms == Some(snapshot.target_ms) {
+        if last_written_target_ms
+            .map(|last| abs_diff_u64(last, snapshot.target_ms) <= dedupe_tolerance_ms)
+            .unwrap_or(false)
+        {
             continue;
         }
 
@@ -4403,15 +4504,25 @@ fn analyze_spill_snapshot_with_retries(config: &MonitorConfig) -> Result<SpillSn
 
 fn analyze_spill_snapshot(config: &MonitorConfig) -> Result<SpillSnapshot> {
     let mut warnings = Vec::<String>::new();
+    let requested_streams = count_requested_tbt_streams(config);
 
     let mut tbt_observations = collect_latest_tbt_observations(config, &mut warnings)?;
     if tbt_observations.is_empty() {
         bail!("no latest TBT observations were available from any configured device");
     }
+    if tbt_observations.len() < requested_streams {
+        warnings.push(format!(
+            "incomplete TBT poll at target selection: observed {} of {} configured streams",
+            tbt_observations.len(),
+            requested_streams
+        ));
+    }
 
-    let target_ms =
-        choose_target_millisecond(&tbt_observations.iter().map(|o| o.ms).collect::<Vec<_>>())
-            .ok_or_else(|| anyhow!("failed to choose target TBT millisecond"))?;
+    let target_ms = choose_target_millisecond(
+        &tbt_observations.iter().map(|o| o.ms).collect::<Vec<_>>(),
+        target_bucket_tolerance_ms(config),
+    )
+    .ok_or_else(|| anyhow!("failed to choose target TBT millisecond"))?;
 
     for obs in &mut tbt_observations {
         obs.aligned = abs_diff_u64(obs.ms, target_ms) <= config.align_tolerance_ms;
@@ -4435,6 +4546,13 @@ fn analyze_spill_snapshot(config: &MonitorConfig) -> Result<SpillSnapshot> {
             config.align_tolerance_ms,
             target_ms
         );
+    }
+    if traces.len() < requested_streams {
+        warnings.push(format!(
+            "incomplete near-target poll: usable traces {} of {} configured streams",
+            traces.len(),
+            requested_streams
+        ));
     }
 
     let horizontal = traces
@@ -4469,6 +4587,7 @@ fn analyze_spill_snapshot_at_target(
     target_ms: u64,
 ) -> Result<SpillSnapshot> {
     let mut warnings = Vec::<String>::new();
+    let requested_streams = count_requested_tbt_streams(config);
 
     let (traces, observations) = collect_stream_traces_with_observations(
         config,
@@ -4490,6 +4609,14 @@ fn analyze_spill_snapshot_at_target(
             target_ms
         ));
     } else {
+        if observations.len() < requested_streams {
+            warnings.push(format!(
+                "incomplete historical poll: observed {} of {} configured streams near target {}",
+                observations.len(),
+                requested_streams,
+                target_ms
+            ));
+        }
         let aligned = observations.iter().filter(|obs| obs.aligned).count();
         let aligned_fraction = aligned as f64 / observations.len() as f64;
         if aligned_fraction < config.min_aligned_fraction {
@@ -4499,6 +4626,14 @@ fn analyze_spill_snapshot_at_target(
                 config.min_aligned_fraction * 100.0
             ));
         }
+    }
+    if traces.len() < requested_streams {
+        warnings.push(format!(
+            "incomplete historical near-target poll: usable traces {} of {} configured streams at target {}",
+            traces.len(),
+            requested_streams,
+            target_ms
+        ));
     }
 
     let horizontal = traces
@@ -4671,22 +4806,56 @@ fn discover_historical_candidates(
         bail!("no TBT_POSITION_SCALED streams were available to scan");
     }
 
-    Ok(rank_historical_candidates(coverage_map, observation_count))
+    Ok(rank_historical_candidates(
+        coverage_map,
+        observation_count,
+        ADJACENT_BUCKET_TOLERANCE_MS,
+    ))
 }
 
 fn rank_historical_candidates(
     coverage_map: HashMap<u64, HashSet<String>>,
     observation_count: HashMap<u64, usize>,
+    merge_tolerance_ms: u64,
 ) -> Vec<HistoricalCandidate> {
-    let mut candidates = observation_count
+    let mut all_ms = coverage_map
+        .keys()
+        .chain(observation_count.keys())
+        .copied()
+        .collect::<Vec<_>>();
+    all_ms.sort_unstable();
+    all_ms.dedup();
+
+    // In no-beam mode, one physical spill can be split across adjacent timestamps.
+    let mut clustered_ms = Vec::<Vec<u64>>::new();
+    for ms in all_ms {
+        if let Some(cluster) = clustered_ms.last_mut() {
+            let last_ms = *cluster.last().expect("cluster has at least one timestamp");
+            if ms.saturating_sub(last_ms) <= merge_tolerance_ms {
+                cluster.push(ms);
+                continue;
+            }
+        }
+        clustered_ms.push(vec![ms]);
+    }
+
+    let mut candidates = clustered_ms
         .into_iter()
-        .map(|(target_ms, count)| HistoricalCandidate {
-            target_ms,
-            stream_coverage: coverage_map
-                .get(&target_ms)
-                .map(|set| set.len())
-                .unwrap_or(0),
-            observation_count: count,
+        .map(|cluster| {
+            let target_ms = *cluster.last().expect("cluster has at least one timestamp");
+            let mut merged_streams = HashSet::<String>::new();
+            let mut merged_observations = 0usize;
+            for ms in cluster {
+                if let Some(streams) = coverage_map.get(&ms) {
+                    merged_streams.extend(streams.iter().cloned());
+                }
+                merged_observations += observation_count.get(&ms).copied().unwrap_or(0);
+            }
+            HistoricalCandidate {
+                target_ms,
+                stream_coverage: merged_streams.len(),
+                observation_count: merged_observations,
+            }
         })
         .collect::<Vec<_>>();
 
@@ -5070,7 +5239,11 @@ fn analyze_plane(
             config.injection_start_turn,
             config.injection_window_turns,
         ) {
-            if let Some(peak) = pick_peak_in_band(&spectrum, plane.tune_band(config)) {
+            if let Some(peak) = pick_peak_in_band(
+                &spectrum,
+                plane.tune_band(config),
+                config.min_peak_confidence,
+            ) {
                 if peak.confidence > best_bpm_conf {
                     best_bpm_conf = peak.confidence;
                     best_bpm_stream = Some(trace.stream_key.clone());
@@ -5086,7 +5259,11 @@ fn analyze_plane(
     )
     .with_context(|| format!("failed injection spectrum for plane {}", plane.label()))?;
 
-    let injection_peak = pick_peak_in_band(&injection_spectrum, plane.tune_band(config));
+    let injection_peak = pick_peak_in_band(
+        &injection_spectrum,
+        plane.tune_band(config),
+        config.min_peak_confidence,
+    );
     if injection_peak.is_none() {
         warnings.push(format!(
             "plane {} had no injection peak in configured tune band",
@@ -5104,6 +5281,7 @@ fn analyze_plane(
         config.enable_peak_tracking,
         plane.track_half_width(config),
         config.max_tune_step_per_window,
+        config.min_peak_confidence,
     )?;
 
     if diagnostics.fallback_count > 0 {
@@ -5158,6 +5336,7 @@ fn compute_sliding_tunes(
     enable_tracking: bool,
     track_half_width: f64,
     max_step_per_window: f64,
+    min_peak_confidence: f64,
 ) -> Result<(Vec<SlidingPoint>, SlidingDiagnostics)> {
     if window_turns > total_turns {
         return Ok((
@@ -5180,7 +5359,7 @@ fn compute_sliding_tunes(
 
     for start in (0..=last_start).step_by(stride_turns.max(1)) {
         let spectrum = average_spectrum(traces, start, window_turns)?;
-        let raw_peak = pick_peak_in_band(&spectrum, band);
+        let raw_peak = pick_peak_in_band(&spectrum, band, min_peak_confidence);
 
         let mut tracked_local_peak: Option<PeakResult> = None;
         let selected_peak: Option<PeakResult>;
@@ -5192,7 +5371,7 @@ fn compute_sliding_tunes(
             selected_peak = raw_peak.clone();
         } else if let Some(trusted) = previous_trusted_tune {
             if let Some(local_band) = local_tracking_band(band, trusted, track_half_width) {
-                tracked_local_peak = pick_peak_in_band(&spectrum, local_band);
+                tracked_local_peak = pick_peak_in_band(&spectrum, local_band, min_peak_confidence);
             }
 
             if tracked_local_peak.is_some() {
@@ -5284,7 +5463,11 @@ fn average_spectrum(traces: &[StreamTrace], start: usize, window_turns: usize) -
             signal.push((value - mean) * hann[idx]);
         }
 
-        let spectrum = spectrum_power(&signal);
+        let mut spectrum = spectrum_power(&signal);
+        if let Some(dc_bin) = spectrum.first_mut() {
+            // Explicitly suppress residual DC contribution before accumulation/peak search.
+            *dc_bin = 0.0;
+        }
         for (idx, power) in spectrum.into_iter().enumerate() {
             accum[idx] += power;
         }
@@ -5302,7 +5485,11 @@ fn average_spectrum(traces: &[StreamTrace], start: usize, window_turns: usize) -
     Ok(accum)
 }
 
-fn pick_peak_in_band(spectrum: &[f64], band: (f64, f64)) -> Option<PeakResult> {
+fn pick_peak_in_band(
+    spectrum: &[f64],
+    band: (f64, f64),
+    min_peak_confidence: f64,
+) -> Option<PeakResult> {
     let n = spectrum.len();
     if n < 8 {
         return None;
@@ -5311,7 +5498,7 @@ fn pick_peak_in_band(spectrum: &[f64], band: (f64, f64)) -> Option<PeakResult> {
     let mut start_idx = (band.0 * n as f64).floor() as usize;
     let mut end_idx = (band.1 * n as f64).ceil() as usize;
 
-    start_idx = start_idx.clamp(1, n.saturating_sub(2));
+    start_idx = start_idx.clamp(MIN_PEAK_SEARCH_BIN, n.saturating_sub(2));
     end_idx = end_idx.clamp(2, n.saturating_sub(1));
 
     if end_idx <= start_idx {
@@ -5354,6 +5541,9 @@ fn pick_peak_in_band(spectrum: &[f64], band: (f64, f64)) -> Option<PeakResult> {
     band_values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
     let median = band_values[band_values.len() / 2].max(1e-12);
     let confidence = best_power / median;
+    if confidence < min_peak_confidence {
+        return None;
+    }
 
     Some(PeakResult {
         tune,
@@ -5499,7 +5689,7 @@ fn classify_plane(key: &str) -> Option<Plane> {
     }
 }
 
-fn choose_target_millisecond(values: &[u64]) -> Option<u64> {
+fn choose_target_millisecond(values: &[u64], merge_tolerance_ms: u64) -> Option<u64> {
     if values.is_empty() {
         return None;
     }
@@ -5509,12 +5699,51 @@ fn choose_target_millisecond(values: &[u64]) -> Option<u64> {
         *counts.entry(*value).or_insert(0) += 1;
     }
 
-    counts
-        .into_iter()
-        .max_by(|(ms_a, count_a), (ms_b, count_b)| {
-            count_a.cmp(count_b).then_with(|| ms_a.cmp(ms_b))
-        })
-        .map(|(ms, _)| ms)
+    // Cluster neighboring millisecond buckets so one physical spill is not split
+    // across adjacent stream-id timestamps.
+    let mut unique_ms = counts.keys().copied().collect::<Vec<_>>();
+    unique_ms.sort_unstable();
+
+    let mut clusters = Vec::<Vec<u64>>::new();
+    for ms in unique_ms {
+        if let Some(cluster) = clusters.last_mut() {
+            let last_ms = *cluster.last().expect("cluster has at least one timestamp");
+            if ms.saturating_sub(last_ms) <= merge_tolerance_ms {
+                cluster.push(ms);
+                continue;
+            }
+        }
+        clusters.push(vec![ms]);
+    }
+
+    // Pick the cluster with the highest aggregate support, then pick that
+    // cluster's strongest (and newest on ties) representative millisecond.
+    let mut best: Option<(usize, u64)> = None;
+    for cluster in clusters {
+        let mut total_count = 0usize;
+        let mut representative_ms = 0u64;
+        let mut representative_count = 0usize;
+
+        for ms in cluster {
+            let count = counts.get(&ms).copied().unwrap_or(0);
+            total_count += count;
+            if count > representative_count
+                || (count == representative_count && ms > representative_ms)
+            {
+                representative_count = count;
+                representative_ms = ms;
+            }
+        }
+
+        match best {
+            Some((best_total, best_ms))
+                if total_count < best_total
+                    || (total_count == best_total && representative_ms <= best_ms) => {}
+            _ => best = Some((total_count, representative_ms)),
+        }
+    }
+
+    best.map(|(_, ms)| ms)
 }
 
 fn parse_stream_id(id: &str) -> Option<(u64, u64)> {
@@ -5531,6 +5760,51 @@ fn compare_stream_ids(a: &str, b: &str) -> Ordering {
 
 fn abs_diff_u64(a: u64, b: u64) -> u64 {
     a.max(b) - a.min(b)
+}
+
+fn target_bucket_tolerance_ms(config: &MonitorConfig) -> u64 {
+    // Keep clustering tolerance conservative and bounded by alignment policy.
+    config.align_tolerance_ms.min(ADJACENT_BUCKET_TOLERANCE_MS)
+}
+
+fn target_seen_within_tolerance(seen: &HashSet<u64>, target_ms: u64, tolerance_ms: u64) -> bool {
+    seen.iter()
+        .any(|seen_ms| abs_diff_u64(*seen_ms, target_ms) <= tolerance_ms)
+}
+
+fn signed_delta_ms(ms: u64, target_ms: u64) -> i64 {
+    if ms >= target_ms {
+        ms.saturating_sub(target_ms).min(i64::MAX as u64) as i64
+    } else {
+        -(target_ms.saturating_sub(ms).min(i64::MAX as u64) as i64)
+    }
+}
+
+fn timeliness_stats(observations: &[TbtObservation], target_ms: u64) -> Option<TimelinessStats> {
+    if observations.is_empty() {
+        return None;
+    }
+
+    let mut min_delta = i64::MAX;
+    let mut max_delta = i64::MIN;
+    let mut abs_deltas = Vec::<f64>::with_capacity(observations.len());
+    let mut max_abs_delta = 0u64;
+
+    for obs in observations {
+        let delta = signed_delta_ms(obs.ms, target_ms);
+        min_delta = min_delta.min(delta);
+        max_delta = max_delta.max(delta);
+        let abs_delta = abs_diff_u64(obs.ms, target_ms);
+        max_abs_delta = max_abs_delta.max(abs_delta);
+        abs_deltas.push(abs_delta as f64);
+    }
+
+    Some(TimelinessStats {
+        min_delta_ms: min_delta,
+        max_delta_ms: max_delta,
+        median_abs_delta_ms: median(&abs_deltas).unwrap_or(0.0),
+        max_abs_delta_ms: max_abs_delta,
+    })
 }
 
 fn hann_window(n: usize) -> Vec<f64> {
@@ -5884,16 +6158,27 @@ fn compose_spill_summary_lines(
         "alignment threshold: min_aligned_fraction={:.2}",
         config.min_aligned_fraction
     ));
+    if let Some(stats) = timeliness_stats(observations, snapshot.target_ms) {
+        lines.push(format!(
+            "TBT timeliness (obs ms - target_ms): min={} ms max={} ms median|delta|={:.2} ms max|delta|={} ms",
+            stats.min_delta_ms,
+            stats.max_delta_ms,
+            stats.median_abs_delta_ms,
+            stats.max_abs_delta_ms
+        ));
+    }
 
     if verbose_observations {
         lines.push("TBT latest-id samples:".to_string());
         for obs in observations {
+            let delta_ms = signed_delta_ms(obs.ms, snapshot.target_ms);
             lines.push(format!(
-                "  {} {} {} [{}]",
+                "  {} {} {} [{}; delta_ms={}]",
                 obs.bpm_ip,
                 obs.stream_key,
                 obs.id,
-                if obs.aligned { "aligned" } else { "off-target" }
+                if obs.aligned { "aligned" } else { "off-target" },
+                delta_ms
             ));
         }
     }
@@ -6617,8 +6902,14 @@ mod tests {
 
     #[test]
     fn choose_target_millisecond_uses_mode() {
-        let target = choose_target_millisecond(&[10, 11, 11, 12, 12, 12, 5]);
+        let target = choose_target_millisecond(&[10, 11, 11, 12, 12, 12, 5], 0);
         assert_eq!(target, Some(12));
+    }
+
+    #[test]
+    fn choose_target_millisecond_merges_adjacent_buckets() {
+        let target = choose_target_millisecond(&[10, 10, 11, 11, 20, 20, 20], 1);
+        assert_eq!(target, Some(11));
     }
 
     #[test]
@@ -6642,13 +6933,42 @@ mod tests {
         ];
 
         let spectrum = average_spectrum(&traces, 0, 1024).expect("spectrum");
-        let peak = pick_peak_in_band(&spectrum, (0.58, 0.72)).expect("peak in band");
+        let peak = pick_peak_in_band(&spectrum, (0.58, 0.72), 2.0).expect("peak in band");
 
         assert!(
             (peak.tune - q).abs() < 0.01,
             "expected around {q}, got {}",
             peak.tune
         );
+    }
+
+    #[test]
+    fn pick_peak_rejects_low_confidence() {
+        let mut spectrum = vec![1.0f64; 1024];
+        spectrum[640] = 1.5; // confidence 1.5 against median 1.0 -> rejected
+        let peak = pick_peak_in_band(&spectrum, (0.58, 0.72), 2.0);
+        assert!(peak.is_none(), "weak peaks should be rejected");
+    }
+
+    #[test]
+    fn dc_bin_zeroed_in_average_spectrum() {
+        let mut trace = make_trace(Plane::Horizontal, 0.63, 1024, 0.0);
+        for value in &mut trace.samples {
+            *value += 10.0;
+        }
+        let spectrum = average_spectrum(&[trace], 0, 1024).expect("spectrum");
+        assert_eq!(spectrum[0], 0.0);
+        assert!(spectrum.iter().skip(1).any(|v| *v > 0.0));
+    }
+
+    #[test]
+    fn peak_search_ignores_first_bins() {
+        let mut spectrum = vec![0.1f64; 1024];
+        spectrum[1] = 100.0;
+        spectrum[2] = 90.0;
+        spectrum[20] = 50.0;
+        let peak = pick_peak_in_band(&spectrum, (0.0, 0.1), 2.0).expect("peak");
+        assert!(peak.tune > 0.015, "expected search to ignore bins 0..2");
     }
 
     #[test]
@@ -6679,6 +6999,7 @@ mod tests {
             true,
             0.01,
             0.02,
+            0.1,
         )
         .expect("sliding");
         assert!(points.len() > 5);
@@ -6714,6 +7035,7 @@ mod tests {
             true,
             0.005,
             0.05,
+            0.1,
         )
         .expect("sliding");
 
@@ -6737,6 +7059,7 @@ mod tests {
             true,
             0.005,
             0.001,
+            0.1,
         )
         .expect("sliding");
 
@@ -6763,6 +7086,7 @@ mod tests {
             false,
             0.01,
             0.01,
+            0.1,
         )
         .expect("sliding");
 
@@ -6788,6 +7112,7 @@ mod tests {
             true,
             0.01,
             0.01,
+            0.1,
         )
         .expect("sliding");
 
@@ -6812,10 +7137,53 @@ mod tests {
 
         let observations =
             HashMap::from([(1770u64, 8usize), (1780u64, 2usize), (1760u64, 15usize)]);
-        let ranked = rank_historical_candidates(coverage, observations);
+        let ranked = rank_historical_candidates(coverage, observations, 1);
 
         let order = ranked.iter().map(|c| c.target_ms).collect::<Vec<_>>();
         assert_eq!(order, vec![1780, 1770, 1760]);
+    }
+
+    #[test]
+    fn historical_candidate_ranking_merges_adjacent_milliseconds() {
+        let mut coverage = HashMap::<u64, HashSet<String>>::new();
+        coverage.insert(
+            1000,
+            HashSet::from(["s1".to_string(), "s2".to_string(), "s3".to_string()]),
+        );
+        coverage.insert(
+            1001,
+            HashSet::from(["s4".to_string(), "s5".to_string(), "s6".to_string()]),
+        );
+
+        let observations = HashMap::from([(1000u64, 3usize), (1001u64, 3usize)]);
+        let ranked = rank_historical_candidates(coverage, observations, 1);
+
+        assert_eq!(ranked.len(), 1);
+        assert_eq!(ranked[0].target_ms, 1001);
+        assert_eq!(ranked[0].stream_coverage, 6);
+        assert_eq!(ranked[0].observation_count, 6);
+    }
+
+    #[test]
+    fn historical_candidate_ranking_does_not_merge_across_large_gap() {
+        let mut coverage = HashMap::<u64, HashSet<String>>::new();
+        coverage.insert(
+            1000,
+            HashSet::from(["s1".to_string(), "s2".to_string(), "s3".to_string()]),
+        );
+        coverage.insert(
+            1002,
+            HashSet::from(["s4".to_string(), "s5".to_string(), "s6".to_string()]),
+        );
+
+        let observations = HashMap::from([(1000u64, 3usize), (1002u64, 3usize)]);
+        let ranked = rank_historical_candidates(coverage, observations, 1);
+
+        assert_eq!(ranked.len(), 2);
+        assert_eq!(ranked[0].target_ms, 1002);
+        assert_eq!(ranked[0].stream_coverage, 3);
+        assert_eq!(ranked[1].target_ms, 1000);
+        assert_eq!(ranked[1].stream_coverage, 3);
     }
 
     #[test]

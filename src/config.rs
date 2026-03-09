@@ -1,3 +1,15 @@
+//! Monitor configuration model, parser, serializer, and validation rules.
+//!
+//! Why this module exists:
+//! - Keep all config semantics centralized (defaults, parser behavior, validation).
+//! - Make CLI overrides safe by validating a single `MonitorConfig` model.
+//! - Keep backward compatibility for historical config keys (for example `poll_ms`).
+//!
+//! Design constraints:
+//! - Human-editable flat text format with repeated `[[device]]` sections.
+//! - Strict unknown-key rejection to avoid silent misconfiguration.
+//! - Validation guards against analysis/runtime states known to produce unusable data.
+
 use std::fs;
 use std::path::Path;
 
@@ -17,6 +29,7 @@ pub struct MonitorConfig {
     pub qx_band_max: f64,
     pub qy_band_min: f64,
     pub qy_band_max: f64,
+    pub min_peak_confidence: f64,
     pub enable_peak_tracking: bool,
     pub qx_track_half_width: f64,
     pub qy_track_half_width: f64,
@@ -96,6 +109,7 @@ impl MonitorConfig {
 
         validate_band("qx", self.qx_band_min, self.qx_band_max)?;
         validate_band("qy", self.qy_band_min, self.qy_band_max)?;
+        validate_peak_confidence(self.min_peak_confidence)?;
 
         validate_tracking_param("qx_track_half_width", self.qx_track_half_width)?;
         validate_tracking_param("qy_track_half_width", self.qy_track_half_width)?;
@@ -131,12 +145,13 @@ pub fn load_monitor_config(path: &Path) -> Result<MonitorConfig> {
     let mut min_stream_values = 1usize;
     let mut injection_start_turn = 0usize;
     let mut injection_window_turns = 1_024usize;
-    let mut sliding_window_turns = 1_024usize;
-    let mut sliding_stride_turns = 128usize;
+    let mut sliding_window_turns = 2_048usize;
+    let mut sliding_stride_turns = 256usize;
     let mut qx_band_min = 0.58f64;
     let mut qx_band_max = 0.72f64;
     let mut qy_band_min = 0.58f64;
     let mut qy_band_max = 0.72f64;
+    let mut min_peak_confidence = 2.0f64;
     let mut enable_peak_tracking = true;
     let mut qx_track_half_width = 0.005f64;
     let mut qy_track_half_width = 0.005f64;
@@ -281,6 +296,11 @@ pub fn load_monitor_config(path: &Path) -> Result<MonitorConfig> {
                         .parse::<f64>()
                         .with_context(|| format!("invalid qy_band_max on line {}", line_no + 1))?
                 }
+                "min_peak_confidence" => {
+                    min_peak_confidence = value.parse::<f64>().with_context(|| {
+                        format!("invalid min_peak_confidence on line {}", line_no + 1)
+                    })?
+                }
                 "enable_peak_tracking" => {
                     enable_peak_tracking = parse_bool(value).with_context(|| {
                         format!("invalid enable_peak_tracking on line {}", line_no + 1)
@@ -335,6 +355,7 @@ pub fn load_monitor_config(path: &Path) -> Result<MonitorConfig> {
         qx_band_max,
         qy_band_min,
         qy_band_max,
+        min_peak_confidence,
         enable_peak_tracking,
         qx_track_half_width,
         qy_track_half_width,
@@ -381,6 +402,10 @@ pub fn save_monitor_config(path: &Path, config: &MonitorConfig) -> Result<()> {
     out.push_str(&format!("qx_band_max={}\n", config.qx_band_max));
     out.push_str(&format!("qy_band_min={}\n", config.qy_band_min));
     out.push_str(&format!("qy_band_max={}\n", config.qy_band_max));
+    out.push_str(&format!(
+        "min_peak_confidence={}\n",
+        config.min_peak_confidence
+    ));
     out.push_str(&format!(
         "enable_peak_tracking={}\n",
         config.enable_peak_tracking
@@ -455,6 +480,13 @@ fn validate_tracking_param(name: &str, value: f64) -> Result<()> {
     Ok(())
 }
 
+fn validate_peak_confidence(value: f64) -> Result<()> {
+    if !value.is_finite() || value <= 0.0 {
+        bail!("min_peak_confidence must be finite and > 0");
+    }
+    Ok(())
+}
+
 fn parse_bool(value: &str) -> Result<bool> {
     match value.trim().to_ascii_lowercase().as_str() {
         "true" | "1" | "yes" | "on" => Ok(true),
@@ -496,7 +528,10 @@ stream_key={MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_SCALED
         let config = load_monitor_config(&path).expect("load config");
         let _ = fs::remove_file(path);
 
+        assert!((config.min_peak_confidence - 2.0).abs() < 1e-12);
         assert!(config.enable_peak_tracking);
+        assert_eq!(config.sliding_window_turns, 2048);
+        assert_eq!(config.sliding_stride_turns, 256);
         assert!((config.qx_track_half_width - 0.005).abs() < 1e-12);
         assert!((config.qy_track_half_width - 0.005).abs() < 1e-12);
         assert!((config.max_tune_step_per_window - 0.005).abs() < 1e-12);
@@ -509,12 +544,14 @@ stream_key={MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_SCALED
         text.push_str("qx_track_half_width=0.01\n");
         text.push_str("qy_track_half_width=0.02\n");
         text.push_str("max_tune_step_per_window=0.03\n");
+        text.push_str("min_peak_confidence=1.1\n");
         text.push_str(&base_config_text());
         let path = write_temp_config(&text);
         let config = load_monitor_config(&path).expect("load config");
         let _ = fs::remove_file(path);
 
         assert!(!config.enable_peak_tracking);
+        assert!((config.min_peak_confidence - 1.1).abs() < 1e-12);
         assert!((config.qx_track_half_width - 0.01).abs() < 1e-12);
         assert!((config.qy_track_half_width - 0.02).abs() < 1e-12);
         assert!((config.max_tune_step_per_window - 0.03).abs() < 1e-12);
@@ -530,6 +567,10 @@ stream_key={MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_SCALED
         assert!(config.validate().is_err());
 
         config.qx_track_half_width = 0.005;
+        config.min_peak_confidence = 0.0;
+        assert!(config.validate().is_err());
+
+        config.min_peak_confidence = 2.0;
         config.max_tune_step_per_window = 0.75;
         assert!(config.validate().is_err());
     }
