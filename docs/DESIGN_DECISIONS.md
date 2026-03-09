@@ -107,6 +107,51 @@ Tradeoffs:
 - Wider compatibility surface when fields change.
 - Requires discipline around output schema evolution.
 
+## DD-009: Standardized tune-plot Y-axis bounds
+
+Decision:
+- Use config-defined fixed tune Y-axis bounds (`tune_plot_y_min/max`) for
+  tune-valued trend/comparison plots instead of per-plot autoscaling.
+- Render `tune_vs_time` with horizontal `0.1`-spacing Y-grid lines.
+
+Why:
+- Visual comparisons across spills/runs are unreliable when each plot autoscales.
+- Fixed scaling makes drift/outlier interpretation more consistent for physics review.
+- Grid lines improve quick manual readout during operations.
+
+Tradeoffs:
+- Out-of-range tune values can clip at plot edges if bounds are too tight.
+- Operators must keep configured bounds aligned with current machine regime.
+
+## DD-010: Batch-end composite waterfall generation for `analyze-spills`
+
+Decision:
+- Always emit composite horizontal/vertical waterfall plots at the end of
+  `analyze-spills` (`--count` successful spills).
+
+Why:
+- Physics review needs a single cross-spill view of tune-vs-time evolution.
+- Batch-end synthesis reduces manual plot stitching and improves run-to-run review speed.
+
+Tradeoffs:
+- Additional plot generation time at batch completion.
+- 3D-style projection is a visualization aid, not a substitute for raw CSV records.
+
+## DD-011: Per-spill top-down spectrograms with normalized heat scale
+
+Decision:
+- Emit per-spill `spectrogram_h.png` and `spectrogram_v.png` heatmaps.
+- Use tune on X, time on Y (from `turn_period_us`), and normalized log spectral
+  power for color intensity.
+
+Why:
+- Provides a physics-review view of tune evolution without perspective distortion.
+- Normalized heat scaling keeps weak/strong structures readable within a spill.
+
+Tradeoffs:
+- Heat colors are normalized per plot, so absolute color intensity is not directly
+  comparable between different spills without raw-spectrum reference.
+
 ## Decision Update Rule
 
 When changing one of these decisions, update:

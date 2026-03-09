@@ -96,10 +96,27 @@ Rationale:
 
 Main artifact families:
 - per-spill spectra and tune traces (`png`)
+- per-spill top-down spectrogram heatmaps (`png`)
 - per-spill sliding samples (`csv`)
 - per-spill summaries (`txt`)
 - batch records (`csv`/`jsonl`)
-- batch plots and markdown summary
+- batch plots (including composite H/V waterfall) and markdown summary
+
+Tune-valued plot scaling policy:
+- Tune Y-axis bounds are config-driven via `tune_plot_y_min` and `tune_plot_y_max`.
+- This keeps spill/batch/study tune visuals comparable across runs.
+- `tune_vs_time` additionally renders horizontal grid lines at `0.1` tune spacing
+  within the configured range for quick manual readout.
+- Composite waterfall plots use spill order as sequence axis and sliding-window
+  center-turn as projected Z-axis depth.
+- Per-spill spectrogram heatmaps use tune on X, time on Y (`turn_period_us`
+  conversion), and normalized log spectral power for color intensity.
+
+Windowing policy:
+- `injection_window_turns` serves only the single representative injection tune
+  estimate path.
+- Default operations keep `injection_window_turns == sliding_window_turns`;
+  divergence is reserved for intentional study runs.
 
 When changing artifact fields or meaning, update:
 - `README.md`

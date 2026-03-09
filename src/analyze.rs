@@ -116,6 +116,7 @@ struct PlaneAnalysis {
     injection_spectrum: Vec<f64>,
     injection_peak: Option<PeakResult>,
     sliding: Vec<SlidingPoint>,
+    sliding_spectra: Vec<Vec<f64>>,
     sliding_fallback_count: usize,
     sliding_suspicious_count: usize,
 }
@@ -145,6 +146,8 @@ struct SpillSnapshot {
 struct SpillOutputPaths {
     spectrum_h: PathBuf,
     spectrum_v: PathBuf,
+    spectrogram_h: PathBuf,
+    spectrogram_v: PathBuf,
     tune_vs_time: PathBuf,
     sliding_tune_csv: PathBuf,
 }
@@ -658,7 +661,8 @@ pub fn run_analyze_spills(
         .any(|r| r.record.residual_qx.is_some() || r.record.residual_qy.is_some());
 
     write_batch_records(out_dir, &results, options.record_format)?;
-    write_batch_summary_plots(out_dir, &results, &options, has_reference_match)?;
+    write_batch_summary_plots(out_dir, &config, &results, &options, has_reference_match)?;
+    write_composite_waterfall_plots(out_dir, &config, &results)?;
     write_batch_detailed_artifacts(out_dir, &config, &results, options.detailed_artifacts)?;
 
     let aggregate = summarize_batch(&results, &counters);
@@ -812,7 +816,8 @@ fn run_analyze_spills_historical(
         .any(|r| r.record.residual_qx.is_some() || r.record.residual_qy.is_some());
 
     write_batch_records(out_dir, &results, options.record_format)?;
-    write_batch_summary_plots(out_dir, &results, &options, has_reference_match)?;
+    write_batch_summary_plots(out_dir, &config, &results, &options, has_reference_match)?;
+    write_composite_waterfall_plots(out_dir, &config, &results)?;
     write_batch_detailed_artifacts(out_dir, &config, &results, options.detailed_artifacts)?;
 
     let aggregate = summarize_batch(&results, &counters);
@@ -972,12 +977,16 @@ fn run_analyze_study_for_snapshot(
         "WINDOW START",
         &h_start_sweep,
         &v_start_sweep,
+        config.tune_plot_y_min,
+        config.tune_plot_y_max,
     )?;
     write_window_sensitivity_png(
         &output_paths.tune_vs_window_length,
         "WINDOW LENGTH",
         &h_length_sweep,
         &v_length_sweep,
+        config.tune_plot_y_min,
+        config.tune_plot_y_max,
     )?;
 
     let mut bpm_metrics = Vec::<BpmMetric>::new();
@@ -1003,6 +1012,8 @@ fn run_analyze_study_for_snapshot(
         &output_paths.tune_by_bpm,
         &output_paths.confidence_by_bpm,
         &bpm_metrics,
+        config.tune_plot_y_min,
+        config.tune_plot_y_max,
     )?;
 
     let mut method_results = Vec::<MethodResult>::new();
@@ -1028,7 +1039,12 @@ fn run_analyze_study_for_snapshot(
             &length_values,
         )?);
     }
-    write_method_comparison_png(&output_paths.method_comparison, &method_results)?;
+    write_method_comparison_png(
+        &output_paths.method_comparison,
+        &method_results,
+        config.tune_plot_y_min,
+        config.tune_plot_y_max,
+    )?;
 
     write_findings_summary(
         &output_paths.findings_summary,
@@ -2324,18 +2340,29 @@ fn json_string_array(values: &[String]) -> String {
 
 fn write_batch_summary_plots(
     out_dir: &Path,
+    config: &MonitorConfig,
     results: &[BatchSpillResult],
     options: &BatchOptions,
     has_reference: bool,
 ) -> Result<()> {
-    write_tune_vs_spill_png(&out_dir.join("tune_vs_spill.png"), results)?;
+    write_tune_vs_spill_png(
+        &out_dir.join("tune_vs_spill.png"),
+        results,
+        config.tune_plot_y_min,
+        config.tune_plot_y_max,
+    )?;
     write_confidence_vs_spill_png(
         &out_dir.join("confidence_vs_spill.png"),
         results,
         options.min_confidence,
     )?;
     write_alignment_vs_spill_png(&out_dir.join("alignment_vs_spill.png"), results)?;
-    write_tune_scatter_png(&out_dir.join("tune_scatter_qx_qy.png"), results)?;
+    write_tune_scatter_png(
+        &out_dir.join("tune_scatter_qx_qy.png"),
+        results,
+        config.tune_plot_y_min,
+        config.tune_plot_y_max,
+    )?;
     write_tune_histogram_png(&out_dir.join("tune_histogram.png"), results)?;
     if has_reference {
         write_tune_residuals_png(&out_dir.join("tune_residuals.png"), results)?;
@@ -2343,7 +2370,229 @@ fn write_batch_summary_plots(
     Ok(())
 }
 
-fn write_tune_vs_spill_png(path: &Path, results: &[BatchSpillResult]) -> Result<()> {
+fn write_composite_waterfall_plots(
+    out_dir: &Path,
+    config: &MonitorConfig,
+    results: &[BatchSpillResult],
+) -> Result<()> {
+    write_composite_waterfall_png(
+        &out_dir.join("composite_waterfall_h.png"),
+        Plane::Horizontal,
+        config,
+        results,
+    )?;
+    write_composite_waterfall_png(
+        &out_dir.join("composite_waterfall_v.png"),
+        Plane::Vertical,
+        config,
+        results,
+    )?;
+    Ok(())
+}
+
+fn write_composite_waterfall_png(
+    path: &Path,
+    plane: Plane,
+    config: &MonitorConfig,
+    results: &[BatchSpillResult],
+) -> Result<()> {
+    let mut image = RgbImage::new(1600, 1000);
+    image.fill([255, 255, 255]);
+
+    let origin_x = 120.0f64;
+    let origin_y = image.height as f64 - 120.0;
+    let axis_x_len = 860.0f64; // spill index axis
+    let axis_y_len = 520.0f64; // tune axis
+    let axis_z_dx = 420.0f64; // projected time (Z) axis x-offset
+    let axis_z_dy = 260.0f64; // projected time (Z) axis y-offset
+    let axis_color = [0, 0, 0];
+    let frame_color = [200, 200, 200];
+
+    let project = |x_norm: f64, y_norm: f64, z_norm: f64| -> (i32, i32) {
+        let x = origin_x + x_norm * axis_x_len + z_norm * axis_z_dx;
+        let y = origin_y - y_norm * axis_y_len - z_norm * axis_z_dy;
+        (x.round() as i32, y.round() as i32)
+    };
+
+    let p000 = project(0.0, 0.0, 0.0);
+    let p100 = project(1.0, 0.0, 0.0);
+    let p010 = project(0.0, 1.0, 0.0);
+    let p001 = project(0.0, 0.0, 1.0);
+    let p110 = project(1.0, 1.0, 0.0);
+    let p101 = project(1.0, 0.0, 1.0);
+    let p011 = project(0.0, 1.0, 1.0);
+    let p111 = project(1.0, 1.0, 1.0);
+
+    // 3D bounding frame.
+    image.draw_line(p000.0, p000.1, p100.0, p100.1, axis_color);
+    image.draw_line(p000.0, p000.1, p010.0, p010.1, axis_color);
+    image.draw_line(p000.0, p000.1, p001.0, p001.1, axis_color);
+    image.draw_line(p100.0, p100.1, p110.0, p110.1, frame_color);
+    image.draw_line(p100.0, p100.1, p101.0, p101.1, frame_color);
+    image.draw_line(p010.0, p010.1, p110.0, p110.1, frame_color);
+    image.draw_line(p010.0, p010.1, p011.0, p011.1, frame_color);
+    image.draw_line(p001.0, p001.1, p101.0, p101.1, frame_color);
+    image.draw_line(p001.0, p001.1, p011.0, p011.1, frame_color);
+    image.draw_line(p110.0, p110.1, p111.0, p111.1, frame_color);
+    image.draw_line(p101.0, p101.1, p111.0, p111.1, frame_color);
+    image.draw_line(p011.0, p011.1, p111.0, p111.1, frame_color);
+
+    // Axes labels.
+    draw_text_small(
+        &mut image,
+        p100.0 - 40,
+        p100.1 + 18,
+        "SPILL ORDER",
+        [0, 0, 0],
+        2,
+    );
+    draw_text_small(&mut image, p010.0 - 30, p010.1 - 18, "TUNE", [0, 0, 0], 2);
+    draw_text_small(
+        &mut image,
+        p001.0 + 8,
+        p001.1 - 10,
+        "TIME (Z)",
+        [0, 0, 0],
+        2,
+    );
+
+    let z_max_turn = results
+        .iter()
+        .filter_map(|result| match plane {
+            Plane::Horizontal => result.snapshot.h_analysis.as_ref(),
+            Plane::Vertical => result.snapshot.v_analysis.as_ref(),
+        })
+        .flat_map(|analysis| {
+            analysis
+                .sliding
+                .iter()
+                .map(|point| point.center_turn as f64)
+        })
+        .fold(1.0f64, f64::max);
+
+    // Y-axis tune ticks.
+    let y_min = config.tune_plot_y_min;
+    let y_max = config.tune_plot_y_max;
+    let y_span = (y_max - y_min).max(1e-12);
+    let mut y_tick = (y_min / 0.02).ceil() * 0.02;
+    while y_tick <= y_max + 1e-9 {
+        let yn = ((y_tick - y_min) / y_span).clamp(0.0, 1.0);
+        let a = project(0.0, yn, 0.0);
+        let b = project(0.0, yn, 1.0);
+        image.draw_line(a.0, a.1, b.0, b.1, [235, 235, 235]);
+        let label = format!("{y_tick:.2}");
+        draw_text_small(&mut image, a.0 - 42, a.1 - 6, &label, [0, 0, 0], 2);
+        y_tick += 0.02;
+    }
+
+    // Z-axis time ticks (turn number).
+    for i in 0..=5 {
+        let zn = i as f64 / 5.0;
+        let p = project(0.0, 0.0, zn);
+        let q = project(1.0, 0.0, zn);
+        image.draw_line(p.0, p.1, q.0, q.1, [240, 240, 240]);
+        let label = format!("{:.0}", z_max_turn * zn);
+        draw_text_small(&mut image, p.0 - 12, p.1 + 12, &label, [0, 0, 0], 2);
+    }
+
+    // X-axis ticks (spill sequence index).
+    let spill_count = results.len().max(1);
+    for i in 0..=5 {
+        let xn = i as f64 / 5.0;
+        let p = project(xn, 0.0, 0.0);
+        let q = project(xn, 0.0, 1.0);
+        image.draw_line(p.0, p.1, q.0, q.1, [240, 240, 240]);
+        let spill_label = ((spill_count as f64 - 1.0) * xn + 1.0).round() as i64;
+        draw_text_small(
+            &mut image,
+            p.0 - 6,
+            p.1 + 18,
+            &spill_label.to_string(),
+            [0, 0, 0],
+            2,
+        );
+    }
+
+    let mut plotted_any = false;
+    let x_den = (spill_count.saturating_sub(1)).max(1) as f64;
+    for (spill_idx, result) in results.iter().enumerate() {
+        let analysis = match plane {
+            Plane::Horizontal => result.snapshot.h_analysis.as_ref(),
+            Plane::Vertical => result.snapshot.v_analysis.as_ref(),
+        };
+        let Some(analysis) = analysis else {
+            continue;
+        };
+
+        let points = analysis
+            .sliding
+            .iter()
+            .filter_map(|point| {
+                point
+                    .selected_tune
+                    .map(|tune| (point.center_turn as f64, tune))
+            })
+            .filter(|(_, tune)| tune.is_finite())
+            .collect::<Vec<_>>();
+        if points.is_empty() {
+            continue;
+        }
+        plotted_any = true;
+
+        let spill_norm = spill_idx as f64 / x_den;
+        let base_color = if plane == Plane::Horizontal {
+            [0, 70, 220]
+        } else {
+            [220, 0, 0]
+        };
+        let color = scale_color(base_color, 0.45 + 0.55 * spill_norm);
+        let bar_color = scale_color(color, 0.7);
+
+        // Waterfall "histogram bars" per time sample.
+        let step = (points.len() / 64).max(1);
+        for (idx, (turn, tune)) in points.iter().enumerate() {
+            if idx % step != 0 {
+                continue;
+            }
+            let z_norm = (turn / z_max_turn).clamp(0.0, 1.0);
+            let y_norm = ((tune - y_min) / y_span).clamp(0.0, 1.0);
+            let floor = project(spill_norm, 0.0, z_norm);
+            let top = project(spill_norm, y_norm, z_norm);
+            image.draw_line(floor.0, floor.1, top.0, top.1, bar_color);
+        }
+
+        // Tune trajectory per spill in (Y,T) at fixed spill index.
+        for window in points.windows(2) {
+            let (t0, q0) = window[0];
+            let (t1, q1) = window[1];
+            let z0 = (t0 / z_max_turn).clamp(0.0, 1.0);
+            let z1 = (t1 / z_max_turn).clamp(0.0, 1.0);
+            let y0 = ((q0 - y_min) / y_span).clamp(0.0, 1.0);
+            let y1 = ((q1 - y_min) / y_span).clamp(0.0, 1.0);
+            let p0 = project(spill_norm, y0, z0);
+            let p1 = project(spill_norm, y1, z1);
+            image.draw_line(p0.0, p0.1, p1.0, p1.1, color);
+        }
+    }
+
+    let title = match plane {
+        Plane::Horizontal => "COMPOSITE WATERFALL H (TUNE VS TIME)",
+        Plane::Vertical => "COMPOSITE WATERFALL V (TUNE VS TIME)",
+    };
+    draw_text_small(&mut image, 20, 18, title, [0, 0, 0], 3);
+    if !plotted_any {
+        draw_text_small(&mut image, 20, 54, "NO DATA", [140, 0, 0], 3);
+    }
+
+    write_png_rgb(path, &image)
+}
+
+fn write_tune_vs_spill_png(
+    path: &Path,
+    results: &[BatchSpillResult],
+    tune_y_min: f64,
+    tune_y_max: f64,
+) -> Result<()> {
     let mut image = RgbImage::new(1280, 720);
     image.fill([255, 255, 255]);
     let bounds = PlotBounds {
@@ -2355,22 +2604,7 @@ fn write_tune_vs_spill_png(path: &Path, results: &[BatchSpillResult]) -> Result<
     draw_axes(&mut image, bounds, [0, 0, 0]);
 
     let x_max = results.len().max(1) as f64;
-    let mut y_values = results
-        .iter()
-        .flat_map(|r| [r.record.qx_injection, r.record.qy_injection])
-        .flatten()
-        .filter(|v| v.is_finite())
-        .collect::<Vec<_>>();
-    if y_values.is_empty() {
-        y_values.extend([0.0, 1.0]);
-    }
-    let y_min = y_values.iter().copied().fold(f64::INFINITY, f64::min);
-    let y_max = y_values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-    let pad = ((y_max - y_min) * 0.1).max(0.01);
-    let y0 = (y_min - pad).clamp(0.0, 1.0);
-    let y1 = (y_max + pad).clamp(0.0, 1.0);
-
-    draw_xy_ticks(&mut image, bounds, 1.0, x_max, y0, y1);
+    draw_xy_ticks(&mut image, bounds, 1.0, x_max, tune_y_min, tune_y_max);
     let qx_points = results
         .iter()
         .filter_map(|r| {
@@ -2393,8 +2627,8 @@ fn write_tune_vs_spill_png(path: &Path, results: &[BatchSpillResult]) -> Result<
         &qx_points,
         1.0,
         x_max,
-        y0,
-        y1,
+        tune_y_min,
+        tune_y_max,
         [0, 70, 220],
     );
     draw_polyline_xy(
@@ -2403,8 +2637,8 @@ fn write_tune_vs_spill_png(path: &Path, results: &[BatchSpillResult]) -> Result<
         &qy_points,
         1.0,
         x_max,
-        y0,
-        y1,
+        tune_y_min,
+        tune_y_max,
         [220, 0, 0],
     );
 
@@ -2417,8 +2651,8 @@ fn write_tune_vs_spill_png(path: &Path, results: &[BatchSpillResult]) -> Result<
                 qx,
                 1.0,
                 x_max,
-                y0,
-                y1,
+                tune_y_min,
+                tune_y_max,
                 quality_color(result.record.quality_label),
             );
         }
@@ -2430,8 +2664,8 @@ fn write_tune_vs_spill_png(path: &Path, results: &[BatchSpillResult]) -> Result<
                 qy,
                 1.0,
                 x_max,
-                y0,
-                y1,
+                tune_y_min,
+                tune_y_max,
                 quality_color(result.record.quality_label),
             );
         }
@@ -2669,7 +2903,12 @@ fn write_alignment_vs_spill_png(path: &Path, results: &[BatchSpillResult]) -> Re
     write_png_rgb(path, &image)
 }
 
-fn write_tune_scatter_png(path: &Path, results: &[BatchSpillResult]) -> Result<()> {
+fn write_tune_scatter_png(
+    path: &Path,
+    results: &[BatchSpillResult],
+    tune_y_min: f64,
+    tune_y_max: f64,
+) -> Result<()> {
     let mut image = RgbImage::new(900, 900);
     image.fill([255, 255, 255]);
     let bounds = PlotBounds {
@@ -2689,21 +2928,16 @@ fn write_tune_scatter_png(path: &Path, results: &[BatchSpillResult]) -> Result<(
         .collect::<Vec<_>>();
 
     let mut qx_vals = points.iter().map(|(qx, _, _)| *qx).collect::<Vec<_>>();
-    let mut qy_vals = points.iter().map(|(_, qy, _)| *qy).collect::<Vec<_>>();
     if qx_vals.is_empty() {
         qx_vals.extend([0.0, 1.0]);
-        qy_vals.extend([0.0, 1.0]);
     }
     let x_min = qx_vals.iter().copied().fold(f64::INFINITY, f64::min);
     let x_max = qx_vals.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-    let y_min = qy_vals.iter().copied().fold(f64::INFINITY, f64::min);
-    let y_max = qy_vals.iter().copied().fold(f64::NEG_INFINITY, f64::max);
     let x_pad = ((x_max - x_min) * 0.1).max(0.01);
-    let y_pad = ((y_max - y_min) * 0.1).max(0.01);
     let x0 = (x_min - x_pad).clamp(0.0, 1.0);
     let x1 = (x_max + x_pad).clamp(0.0, 1.0);
-    let y0 = (y_min - y_pad).clamp(0.0, 1.0);
-    let y1 = (y_max + y_pad).clamp(0.0, 1.0);
+    let y0 = tune_y_min;
+    let y1 = tune_y_max;
 
     draw_xy_ticks(&mut image, bounds, x0, x1, y0, y1);
     for (qx, qy, quality) in points {
@@ -2991,6 +3225,38 @@ fn quality_color(quality: SpillQuality) -> [u8; 3] {
         SpillQuality::Marginal => [220, 140, 0],
         SpillQuality::Bad => [220, 0, 0],
     }
+}
+
+fn scale_color(color: [u8; 3], factor: f64) -> [u8; 3] {
+    let factor = factor.clamp(0.0, 1.0);
+    [
+        (color[0] as f64 * factor).round() as u8,
+        (color[1] as f64 * factor).round() as u8,
+        (color[2] as f64 * factor).round() as u8,
+    ]
+}
+
+fn heatmap_color(norm: f64) -> [u8; 3] {
+    let t = norm.clamp(0.0, 1.0);
+    let stops = [
+        (0.0, [20u8, 35u8, 90u8]),
+        (0.35, [30u8, 180u8, 230u8]),
+        (0.70, [110u8, 220u8, 120u8]),
+        (1.0, [255u8, 220u8, 40u8]),
+    ];
+    for idx in 0..(stops.len() - 1) {
+        let (t0, c0) = stops[idx];
+        let (t1, c1) = stops[idx + 1];
+        if t >= t0 && t <= t1 {
+            let local = if t1 > t0 { (t - t0) / (t1 - t0) } else { 0.0 };
+            return [
+                (c0[0] as f64 + (c1[0] as f64 - c0[0] as f64) * local).round() as u8,
+                (c0[1] as f64 + (c1[1] as f64 - c0[1] as f64) * local).round() as u8,
+                (c0[2] as f64 + (c1[2] as f64 - c0[2] as f64) * local).round() as u8,
+            ];
+        }
+    }
+    stops[stops.len() - 1].1
 }
 
 fn validate_study_options(options: &StudyOptions) -> Result<()> {
@@ -3329,13 +3595,22 @@ fn write_bpm_tune_confidence_plots(
     tune_path: &Path,
     confidence_path: &Path,
     metrics: &[BpmMetric],
+    tune_y_min: f64,
+    tune_y_max: f64,
 ) -> Result<()> {
-    write_metric_by_bpm_png(tune_path, metrics, |metric| metric.tune, "TUNE BY BPM")?;
+    write_metric_by_bpm_png(
+        tune_path,
+        metrics,
+        |metric| metric.tune,
+        "TUNE BY BPM",
+        Some((tune_y_min, tune_y_max)),
+    )?;
     write_metric_by_bpm_png(
         confidence_path,
         metrics,
         |metric| metric.confidence,
         "CONF BY BPM",
+        None,
     )?;
     Ok(())
 }
@@ -3345,6 +3620,7 @@ fn write_metric_by_bpm_png(
     metrics: &[BpmMetric],
     value_fn: impl Fn(&BpmMetric) -> Option<f64>,
     title: &str,
+    fixed_y_range: Option<(f64, f64)>,
 ) -> Result<()> {
     let mut image = RgbImage::new(1280, 720);
     image.fill([255, 255, 255]);
@@ -3401,19 +3677,25 @@ fn write_metric_by_bpm_png(
         values.push(0.0);
         values.push(1.0);
     }
-    let y_min = values
-        .iter()
-        .copied()
-        .fold(f64::INFINITY, f64::min)
-        .min(0.0);
-    let y_max = values
-        .iter()
-        .copied()
-        .fold(f64::NEG_INFINITY, f64::max)
-        .max(1.0);
-    let pad = ((y_max - y_min) * 0.1).max(0.01);
-    let y0 = (y_min - pad).clamp(-1.0e9, 1.0e9);
-    let y1 = (y_max + pad).clamp(-1.0e9, 1.0e9);
+    let (y0, y1) = if let Some((min, max)) = fixed_y_range {
+        (min, max)
+    } else {
+        let y_min = values
+            .iter()
+            .copied()
+            .fold(f64::INFINITY, f64::min)
+            .min(0.0);
+        let y_max = values
+            .iter()
+            .copied()
+            .fold(f64::NEG_INFINITY, f64::max)
+            .max(1.0);
+        let pad = ((y_max - y_min) * 0.1).max(0.01);
+        (
+            (y_min - pad).clamp(-1.0e9, 1.0e9),
+            (y_max + pad).clamp(-1.0e9, 1.0e9),
+        )
+    };
 
     draw_xy_ticks(&mut image, bounds, 1.0, x_max, y0, y1);
     draw_polyline_xy(
@@ -3572,7 +3854,12 @@ fn method_peak_for_window(
     }
 }
 
-fn write_method_comparison_png(path: &Path, methods: &[MethodResult]) -> Result<()> {
+fn write_method_comparison_png(
+    path: &Path,
+    methods: &[MethodResult],
+    tune_y_min: f64,
+    tune_y_max: f64,
+) -> Result<()> {
     let mut image = RgbImage::new(1280, 900);
     image.fill([255, 255, 255]);
 
@@ -3632,7 +3919,7 @@ fn write_method_comparison_png(path: &Path, methods: &[MethodResult]) -> Result<
         .filter_map(|(idx, row)| row.confidence.map(|v| (idx as f64 + 1.0, v)))
         .collect::<Vec<_>>();
 
-    draw_xy_ticks(&mut image, tune_bounds, 1.0, 3.0, 0.0, 1.0);
+    draw_xy_ticks(&mut image, tune_bounds, 1.0, 3.0, tune_y_min, tune_y_max);
     draw_xy_ticks(
         &mut image,
         conf_bounds,
@@ -3654,8 +3941,8 @@ fn write_method_comparison_png(path: &Path, methods: &[MethodResult]) -> Result<
         &h_tune,
         1.0,
         3.0,
-        0.0,
-        1.0,
+        tune_y_min,
+        tune_y_max,
         [0, 70, 220],
     );
     draw_polyline_xy(
@@ -3664,8 +3951,8 @@ fn write_method_comparison_png(path: &Path, methods: &[MethodResult]) -> Result<
         &v_tune,
         1.0,
         3.0,
-        0.0,
-        1.0,
+        tune_y_min,
+        tune_y_max,
         [220, 0, 0],
     );
     let conf_max = (h_conf
@@ -3728,6 +4015,8 @@ fn write_window_sensitivity_png(
     title: &str,
     horizontal: &[SweepPoint],
     vertical: &[SweepPoint],
+    tune_y_min: f64,
+    tune_y_max: f64,
 ) -> Result<()> {
     let mut image = RgbImage::new(1280, 900);
     image.fill([255, 255, 255]);
@@ -3781,7 +4070,14 @@ fn write_window_sensitivity_png(
         .filter_map(|p| p.confidence.map(|v| (p.x as f64, v)))
         .collect::<Vec<_>>();
 
-    draw_xy_ticks(&mut image, tune_bounds, x_min, x_max, 0.0, 1.0);
+    draw_xy_ticks(
+        &mut image,
+        tune_bounds,
+        x_min,
+        x_max,
+        tune_y_min,
+        tune_y_max,
+    );
     let conf_max = h_conf
         .iter()
         .chain(v_conf.iter())
@@ -3796,8 +4092,8 @@ fn write_window_sensitivity_png(
         &h_tune,
         x_min,
         x_max,
-        0.0,
-        1.0,
+        tune_y_min,
+        tune_y_max,
         [0, 70, 220],
     );
     draw_polyline_xy(
@@ -3806,8 +4102,8 @@ fn write_window_sensitivity_png(
         &v_tune,
         x_min,
         x_max,
-        0.0,
-        1.0,
+        tune_y_min,
+        tune_y_max,
         [220, 0, 0],
     );
     draw_polyline_xy(
@@ -4669,16 +4965,20 @@ fn write_spill_outputs(
     config: &MonitorConfig,
     snapshot: &SpillSnapshot,
 ) -> Result<SpillOutputPaths> {
-    let (h_name, v_name, t_name, s_name) = match stem {
+    let (h_name, v_name, hg_name, vg_name, t_name, s_name) = match stem {
         Some(stem) => (
             format!("{stem}_spectrum_h.png"),
             format!("{stem}_spectrum_v.png"),
+            format!("{stem}_spectrogram_h.png"),
+            format!("{stem}_spectrogram_v.png"),
             format!("{stem}_tune_vs_time.png"),
             format!("{stem}_sliding_tune.csv"),
         ),
         None => (
             "spectrum_h.png".to_string(),
             "spectrum_v.png".to_string(),
+            "spectrogram_h.png".to_string(),
+            "spectrogram_v.png".to_string(),
             "tune_vs_time.png".to_string(),
             "sliding_tune.csv".to_string(),
         ),
@@ -4687,6 +4987,8 @@ fn write_spill_outputs(
     let paths = SpillOutputPaths {
         spectrum_h: out_dir.join(h_name),
         spectrum_v: out_dir.join(v_name),
+        spectrogram_h: out_dir.join(hg_name),
+        spectrogram_v: out_dir.join(vg_name),
         tune_vs_time: out_dir.join(t_name),
         sliding_tune_csv: out_dir.join(s_name),
     };
@@ -4713,6 +5015,30 @@ fn write_spill_outputs(
         write_empty_png(&paths.spectrum_v)?;
     }
 
+    if let Some(h) = snapshot.h_analysis.as_ref() {
+        write_spectrogram_png(
+            &paths.spectrogram_h,
+            h.plane,
+            &h.sliding_spectra,
+            &h.sliding,
+            config,
+        )?;
+    } else {
+        write_empty_png(&paths.spectrogram_h)?;
+    }
+
+    if let Some(v) = snapshot.v_analysis.as_ref() {
+        write_spectrogram_png(
+            &paths.spectrogram_v,
+            v.plane,
+            &v.sliding_spectra,
+            &v.sliding,
+            config,
+        )?;
+    } else {
+        write_empty_png(&paths.spectrogram_v)?;
+    }
+
     write_tune_trace_png(
         &paths.tune_vs_time,
         snapshot
@@ -4725,6 +5051,8 @@ fn write_spill_outputs(
             .as_ref()
             .map(|a| a.sliding.as_slice())
             .unwrap_or(&[]),
+        config.tune_plot_y_min,
+        config.tune_plot_y_max,
     )?;
 
     write_spill_sliding_csv(
@@ -5271,7 +5599,7 @@ fn analyze_plane(
         ));
     }
 
-    let (sliding, diagnostics) = compute_sliding_tunes(
+    let (sliding, sliding_spectra, diagnostics) = compute_sliding_tunes(
         &filtered,
         consensus_turns,
         config.sliding_window_turns,
@@ -5321,6 +5649,7 @@ fn analyze_plane(
         injection_spectrum,
         injection_peak,
         sliding,
+        sliding_spectra,
         sliding_fallback_count: diagnostics.fallback_count,
         sliding_suspicious_count: diagnostics.suspicious_count,
     }))
@@ -5337,9 +5666,10 @@ fn compute_sliding_tunes(
     track_half_width: f64,
     max_step_per_window: f64,
     min_peak_confidence: f64,
-) -> Result<(Vec<SlidingPoint>, SlidingDiagnostics)> {
+) -> Result<(Vec<SlidingPoint>, Vec<Vec<f64>>, SlidingDiagnostics)> {
     if window_turns > total_turns {
         return Ok((
+            Vec::new(),
             Vec::new(),
             SlidingDiagnostics {
                 fallback_count: 0,
@@ -5351,6 +5681,7 @@ fn compute_sliding_tunes(
     }
 
     let mut points = Vec::new();
+    let mut spectra = Vec::<Vec<f64>>::new();
     let last_start = total_turns - window_turns;
     let mut previous_trusted_tune = seed_tune;
     let mut fallback_count = 0usize;
@@ -5411,10 +5742,12 @@ fn compute_sliding_tunes(
             suspicious_step,
             step_delta,
         });
+        spectra.push(spectrum);
     }
 
     Ok((
         points,
+        spectra,
         SlidingDiagnostics {
             fallback_count,
             suspicious_count,
@@ -5977,6 +6310,8 @@ fn write_tune_trace_png(
     path: &Path,
     horizontal: &[SlidingPoint],
     vertical: &[SlidingPoint],
+    tune_y_min: f64,
+    tune_y_max: f64,
 ) -> Result<()> {
     let mut image = RgbImage::new(1280, 720);
     image.fill([255, 255, 255]);
@@ -5996,31 +6331,15 @@ fn write_tune_trace_png(
         .map(|point| point.center_turn as f64)
         .fold(1.0f64, f64::max);
 
-    let mut values = horizontal
-        .iter()
-        .chain(vertical.iter())
-        .filter_map(|point| point.selected_tune)
-        .filter(|tune| tune.is_finite())
-        .collect::<Vec<_>>();
-
-    let (y_min, y_max) = if values.is_empty() {
-        (0.0, 1.0)
-    } else {
-        values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
-        let min = values[0];
-        let max = values[values.len() - 1];
-        let pad = ((max - min) * 0.1).max(0.01);
-        ((min - pad).clamp(0.0, 1.0), (max + pad).clamp(0.0, 1.0))
-    };
-
-    draw_trace_ticks(&mut image, bounds, x_max, y_min, y_max);
+    draw_trace_ticks(&mut image, bounds, x_max, tune_y_min, tune_y_max, 0.1);
 
     for segment in finite_segments(horizontal) {
         let normalized = segment
             .iter()
             .map(|(x_turn, y_tune)| {
                 let x = (x_turn / x_max).clamp(0.0, 1.0);
-                let y = ((y_tune - y_min) / (y_max - y_min).max(1e-12)).clamp(0.0, 1.0);
+                let y =
+                    ((y_tune - tune_y_min) / (tune_y_max - tune_y_min).max(1e-12)).clamp(0.0, 1.0);
                 (x, y)
             })
             .collect::<Vec<_>>();
@@ -6036,7 +6355,8 @@ fn write_tune_trace_png(
             .iter()
             .map(|(x_turn, y_tune)| {
                 let x = (x_turn / x_max).clamp(0.0, 1.0);
-                let y = ((y_tune - y_min) / (y_max - y_min).max(1e-12)).clamp(0.0, 1.0);
+                let y =
+                    ((y_tune - tune_y_min) / (tune_y_max - tune_y_min).max(1e-12)).clamp(0.0, 1.0);
                 (x, y)
             })
             .collect::<Vec<_>>();
@@ -6052,6 +6372,174 @@ fn write_tune_trace_png(
         &mut image,
         (legend_x, bounds.top as i32 + 8),
         &[([0, 70, 220], "H"), ([220, 0, 0], "V")],
+    );
+
+    write_png_rgb(path, &image)
+}
+
+fn write_spectrogram_png(
+    path: &Path,
+    plane: Plane,
+    spectra: &[Vec<f64>],
+    sliding: &[SlidingPoint],
+    config: &MonitorConfig,
+) -> Result<()> {
+    if spectra.is_empty() || sliding.is_empty() {
+        return write_empty_png(path);
+    }
+    let rows = spectra.len().min(sliding.len());
+    if rows == 0 {
+        return write_empty_png(path);
+    }
+    let n_bins = spectra
+        .iter()
+        .take(rows)
+        .map(|row| row.len())
+        .min()
+        .unwrap_or(0);
+    if n_bins == 0 {
+        return write_empty_png(path);
+    }
+
+    let tune_min = config.tune_plot_y_min.clamp(0.0, 1.0);
+    let tune_max = config.tune_plot_y_max.clamp(tune_min + 1e-6, 1.0);
+    let bin_start = ((tune_min * n_bins as f64).floor() as usize).min(n_bins - 1);
+    let mut bin_end = ((tune_max * n_bins as f64).ceil() as usize).max(bin_start + 1);
+    bin_end = bin_end.min(n_bins);
+
+    let mut log_values = Vec::<f64>::new();
+    for row in spectra.iter().take(rows) {
+        for power in &row[bin_start..bin_end] {
+            if power.is_finite() {
+                log_values.push((power.max(1e-12)).log10());
+            }
+        }
+    }
+    if log_values.is_empty() {
+        return write_empty_png(path);
+    }
+    log_values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+    let lo_idx = ((log_values.len() - 1) as f64 * 0.05).round() as usize;
+    let hi_idx = ((log_values.len() - 1) as f64 * 0.995).round() as usize;
+    let log_lo = log_values[lo_idx.min(log_values.len() - 1)];
+    let log_hi = log_values[hi_idx.min(log_values.len() - 1)].max(log_lo + 1e-9);
+    let log_span = (log_hi - log_lo).max(1e-9);
+
+    let mut image = RgbImage::new(1280, 780);
+    image.fill([255, 255, 255]);
+    let bounds = PlotBounds {
+        left: 90,
+        right: 20,
+        top: 30,
+        bottom: 70,
+    };
+    let x0 = bounds.left;
+    let x1 = image.width.saturating_sub(bounds.right);
+    let y0 = bounds.top;
+    let y1 = image.height.saturating_sub(bounds.bottom);
+    let plot_w = x1.saturating_sub(x0).max(1);
+    let plot_h = y1.saturating_sub(y0).max(1);
+
+    for py in y0..y1 {
+        let row_idx = (((py - y0) as f64 / plot_h as f64) * rows as f64).floor() as usize;
+        let row_idx = row_idx.min(rows - 1);
+        let row = &spectra[row_idx];
+        for px in x0..x1 {
+            let x_norm = ((px - x0) as f64 / plot_w as f64).clamp(0.0, 1.0);
+            let tune = tune_min + (tune_max - tune_min) * x_norm;
+            let mut bin = (tune * n_bins as f64).floor() as usize;
+            bin = bin.clamp(bin_start, bin_end.saturating_sub(1));
+            let power = row.get(bin).copied().unwrap_or(0.0).max(1e-12);
+            let log_power = power.log10();
+            let norm = ((log_power - log_lo) / log_span).clamp(0.0, 1.0);
+            image.set_pixel(px as i32, py as i32, heatmap_color(norm));
+        }
+    }
+
+    // Border box.
+    image.draw_line(x0 as i32, y0 as i32, x1 as i32, y0 as i32, [0, 0, 0]);
+    image.draw_line(x0 as i32, y1 as i32, x1 as i32, y1 as i32, [0, 0, 0]);
+    image.draw_line(x0 as i32, y0 as i32, x0 as i32, y1 as i32, [0, 0, 0]);
+    image.draw_line(x1 as i32, y0 as i32, x1 as i32, y1 as i32, [0, 0, 0]);
+
+    // X-axis ticks: tune.
+    for i in 0..=6 {
+        let x_norm = i as f64 / 6.0;
+        let x = (x0 as f64 + x_norm * plot_w as f64).round() as i32;
+        image.draw_line(x, y1 as i32, x, y1 as i32 + 6, [80, 80, 80]);
+        let value = tune_min + (tune_max - tune_min) * x_norm;
+        let label = format!("{value:.2}");
+        let w = text_width_px(&label, 2);
+        draw_text_small(&mut image, x - w / 2, y1 as i32 + 10, &label, [0, 0, 0], 2);
+    }
+
+    // Y-axis ticks: time in ms, top-down (increasing downward).
+    let max_turn = sliding
+        .iter()
+        .take(rows)
+        .map(|point| point.center_turn as f64)
+        .fold(1.0f64, f64::max);
+    let max_time_ms = max_turn * config.turn_period_us / 1000.0;
+    for i in 0..=6 {
+        let y_norm = i as f64 / 6.0;
+        let y = (y0 as f64 + y_norm * plot_h as f64).round() as i32;
+        image.draw_line(x0 as i32 - 6, y, x0 as i32, y, [80, 80, 80]);
+        let value = max_time_ms * y_norm;
+        let label = format!("{value:.2}");
+        let w = text_width_px(&label, 2);
+        draw_text_small(&mut image, x0 as i32 - 12 - w, y - 4, &label, [0, 0, 0], 2);
+    }
+
+    // Overlay selected-tune trajectory for readability.
+    let mut selected_line = Vec::<(i32, i32)>::new();
+    for (row_idx, point) in sliding.iter().take(rows).enumerate() {
+        let Some(tune) = point.selected_tune else {
+            continue;
+        };
+        if !tune.is_finite() || tune < tune_min || tune > tune_max {
+            continue;
+        }
+        let x = x0 as f64 + ((tune - tune_min) / (tune_max - tune_min).max(1e-12)) * plot_w as f64;
+        let y = y0 as f64 + ((row_idx as f64 + 0.5) / rows as f64) * plot_h as f64;
+        selected_line.push((x.round() as i32, y.round() as i32));
+    }
+    for segment in selected_line.windows(2) {
+        let a = segment[0];
+        let b = segment[1];
+        image.draw_line(a.0, a.1, b.0, b.1, [255, 255, 255]);
+    }
+
+    let title = match plane {
+        Plane::Horizontal => "H TUNE SPECTROGRAM",
+        Plane::Vertical => "V TUNE SPECTROGRAM",
+    };
+    draw_text_small(&mut image, x0 as i32 + 4, 8, title, [0, 0, 0], 2);
+    draw_text_small(
+        &mut image,
+        x0 as i32 + 4,
+        24,
+        &format!("TURN PERIOD: {:.3} us", config.turn_period_us),
+        [0, 0, 0],
+        2,
+    );
+    let x_label = "TUNE";
+    let x_label_w = text_width_px(x_label, 2);
+    let image_height = image.height as i32;
+    draw_text_small(
+        &mut image,
+        (x0 + plot_w / 2) as i32 - x_label_w / 2,
+        image_height - 24,
+        x_label,
+        [0, 0, 0],
+        2,
+    );
+    draw_text_small(
+        &mut image,
+        8,
+        (y0 + plot_h / 2) as i32,
+        "TIME AFTER INJECTION [MS]",
+        [0, 0, 0],
+        2,
     );
 
     write_png_rgb(path, &image)
@@ -6230,6 +6718,8 @@ fn compose_spill_summary_lines(
     lines.push("output files:".to_string());
     lines.push(format!("  {}", paths.spectrum_h.display()));
     lines.push(format!("  {}", paths.spectrum_v.display()));
+    lines.push(format!("  {}", paths.spectrogram_h.display()));
+    lines.push(format!("  {}", paths.spectrogram_v.display()));
     lines.push(format!("  {}", paths.tune_vs_time.display()));
     lines.push(format!("  {}", paths.sliding_tune_csv.display()));
 
@@ -6380,14 +6870,23 @@ fn draw_spectrum_ticks(image: &mut RgbImage, bounds: PlotBounds, max_y: f64) {
     }
 }
 
-fn draw_trace_ticks(image: &mut RgbImage, bounds: PlotBounds, x_max: f64, y_min: f64, y_max: f64) {
+fn draw_trace_ticks(
+    image: &mut RgbImage,
+    bounds: PlotBounds,
+    x_max: f64,
+    y_min: f64,
+    y_max: f64,
+    y_grid_step: f64,
+) {
     let axis_color = [80, 80, 80];
     let label_color = [0, 0, 0];
+    let grid_color = [220, 220, 220];
     let tick_len = 6;
     let scale = 2;
 
     let y_axis = (image.height - bounds.bottom) as i32;
     let x_axis = bounds.left as i32;
+    let x_right = (image.width - bounds.right) as i32;
 
     for i in 0..=5 {
         let x_norm = i as f64 / 5.0;
@@ -6406,11 +6905,24 @@ fn draw_trace_ticks(image: &mut RgbImage, bounds: PlotBounds, x_max: f64, y_min:
         );
     }
 
-    for i in 0..=5 {
-        let y_norm = i as f64 / 5.0;
+    let mut y_ticks = vec![y_min, y_max];
+    if y_grid_step.is_finite() && y_grid_step > 0.0 {
+        let mut value = (y_min / y_grid_step).ceil() * y_grid_step;
+        while value < y_max {
+            if value > y_min && value < y_max {
+                y_ticks.push(value);
+            }
+            value += y_grid_step;
+        }
+    }
+    y_ticks.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+    y_ticks.dedup_by(|a, b| (*a - *b).abs() <= 1e-9);
+
+    for value in y_ticks {
+        let y_norm = ((value - y_min) / (y_max - y_min).max(1e-12)).clamp(0.0, 1.0);
         let y = y_from_norm(image, bounds, y_norm);
         image.draw_line(x_axis - tick_len, y, x_axis, y, axis_color);
-        let value = y_min + (y_max - y_min) * y_norm;
+        image.draw_line(x_axis + 1, y, x_right, y, grid_color);
         let label = format_number_label(value);
         let w = text_width_px(&label, scale);
         draw_text_small(
@@ -6989,7 +7501,7 @@ mod tests {
             samples,
         };
 
-        let (points, diagnostics) = compute_sliding_tunes(
+        let (points, _spectra, diagnostics) = compute_sliding_tunes(
             &[trace],
             n,
             512,
@@ -7025,7 +7537,7 @@ mod tests {
     fn local_miss_sets_global_fallback_flag() {
         let window = 512usize;
         let trace = make_piecewise_trace(Plane::Horizontal, &[0.62, 0.62, 0.62], window);
-        let (points, diagnostics) = compute_sliding_tunes(
+        let (points, _spectra, diagnostics) = compute_sliding_tunes(
             &[trace],
             window * 3,
             window,
@@ -7049,7 +7561,7 @@ mod tests {
     fn suspicious_step_does_not_reseed_tracker_state() {
         let window = 512usize;
         let trace = make_piecewise_trace(Plane::Horizontal, &[0.62, 0.63, 0.64], window);
-        let (points, diagnostics) = compute_sliding_tunes(
+        let (points, _spectra, diagnostics) = compute_sliding_tunes(
             &[trace],
             window * 3,
             window,
@@ -7076,7 +7588,7 @@ mod tests {
     #[test]
     fn tracking_disabled_matches_raw_global_peak() {
         let trace = make_trace(Plane::Horizontal, 0.63, 2048, 0.0);
-        let (points, diagnostics) = compute_sliding_tunes(
+        let (points, _spectra, diagnostics) = compute_sliding_tunes(
             &[trace],
             2048,
             512,
@@ -7102,7 +7614,7 @@ mod tests {
     #[test]
     fn missing_seed_uses_raw_only_and_counts_windows() {
         let trace = make_trace(Plane::Vertical, 0.64, 2048, 0.2);
-        let (points, diagnostics) = compute_sliding_tunes(
+        let (points, _spectra, diagnostics) = compute_sliding_tunes(
             &[trace],
             2048,
             512,
@@ -7226,16 +7738,148 @@ mod tests {
         let v = dir.join("spectrum_v.png");
         let t = dir.join("tune_vs_time.png");
 
-        write_spectrum_png(&h, &spectrum, (0.58, 0.72), Some(0.62)).expect("h plot");
-        write_spectrum_png(&v, &spectrum, (0.58, 0.72), Some(0.64)).expect("v plot");
+        write_spectrum_png(&h, &spectrum, (0.58, 0.74), Some(0.62)).expect("h plot");
+        write_spectrum_png(&v, &spectrum, (0.58, 0.74), Some(0.64)).expect("v plot");
         write_tune_trace_png(
             &t,
             &[sample_point(256, 0.61), sample_point(384, 0.615)],
             &[sample_point(256, 0.63), sample_point(384, 0.635)],
+            0.58,
+            0.74,
         )
         .expect("trace plot");
 
         for file in [&h, &v, &t] {
+            let meta = fs::metadata(file).expect("metadata");
+            assert!(meta.len() > 0, "expected non-empty png {}", file.display());
+        }
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn writes_composite_waterfall_png_with_empty_results() {
+        let dir = std::env::temp_dir().join(format!(
+            "tbt-monitor-tui-waterfall-test-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).expect("create temp dir");
+
+        let config = MonitorConfig {
+            xread_block_ms: 1000,
+            reconnect_initial_ms: 2000,
+            reconnect_max_ms: 30000,
+            min_stream_values: 1,
+            injection_start_turn: 0,
+            injection_window_turns: 1024,
+            sliding_window_turns: 2048,
+            sliding_stride_turns: 256,
+            turn_period_us: 1.6,
+            tune_plot_y_min: 0.58,
+            tune_plot_y_max: 0.74,
+            qx_band_min: 0.58,
+            qx_band_max: 0.74,
+            qy_band_min: 0.58,
+            qy_band_max: 0.74,
+            min_peak_confidence: 2.0,
+            enable_peak_tracking: true,
+            qx_track_half_width: 0.005,
+            qy_track_half_width: 0.005,
+            max_tune_step_per_window: 0.005,
+            align_tolerance_ms: 1,
+            min_aligned_fraction: 0.70,
+            devices: Vec::new(),
+        };
+
+        let h_path = dir.join("composite_waterfall_h.png");
+        let v_path = dir.join("composite_waterfall_v.png");
+
+        write_composite_waterfall_png(&h_path, Plane::Horizontal, &config, &[])
+            .expect("write horizontal waterfall");
+        write_composite_waterfall_png(&v_path, Plane::Vertical, &config, &[])
+            .expect("write vertical waterfall");
+
+        for file in [&h_path, &v_path] {
+            let meta = fs::metadata(file).expect("metadata");
+            assert!(meta.len() > 0, "expected non-empty png {}", file.display());
+        }
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn writes_per_spill_spectrogram_png() {
+        let dir = std::env::temp_dir().join(format!(
+            "tbt-monitor-tui-spectrogram-test-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).expect("create temp dir");
+
+        let config = MonitorConfig {
+            xread_block_ms: 1000,
+            reconnect_initial_ms: 2000,
+            reconnect_max_ms: 30000,
+            min_stream_values: 1,
+            injection_start_turn: 0,
+            injection_window_turns: 1024,
+            sliding_window_turns: 2048,
+            sliding_stride_turns: 256,
+            turn_period_us: 1.6,
+            tune_plot_y_min: 0.58,
+            tune_plot_y_max: 0.74,
+            qx_band_min: 0.58,
+            qx_band_max: 0.74,
+            qy_band_min: 0.58,
+            qy_band_max: 0.74,
+            min_peak_confidence: 2.0,
+            enable_peak_tracking: true,
+            qx_track_half_width: 0.005,
+            qy_track_half_width: 0.005,
+            max_tune_step_per_window: 0.005,
+            align_tolerance_ms: 1,
+            min_aligned_fraction: 0.70,
+            devices: Vec::new(),
+        };
+
+        let rows = 48usize;
+        let bins = 1024usize;
+        let mut spectra = Vec::<Vec<f64>>::new();
+        let mut sliding = Vec::<SlidingPoint>::new();
+        for idx in 0..rows {
+            let tune = 0.595 + 0.015 * (idx as f64 / rows as f64);
+            let mut row = vec![1e-3f64; bins];
+            for (bin, value) in row.iter_mut().enumerate().take(bins) {
+                let t = bin as f64 / bins as f64;
+                *value += ((t - tune).powi(2) * -18000.0).exp();
+            }
+            spectra.push(row);
+            sliding.push(SlidingPoint {
+                center_turn: 128 + idx * 128,
+                raw_global_tune: Some(tune),
+                tracked_local_tune: Some(tune),
+                selected_tune: Some(tune),
+                raw_global_confidence: Some(3.0),
+                selected_confidence: Some(3.0),
+                used_global_fallback: false,
+                suspicious_step: false,
+                step_delta: Some(0.0),
+            });
+        }
+
+        let h_path = dir.join("spectrogram_h.png");
+        let v_path = dir.join("spectrogram_v.png");
+        write_spectrogram_png(&h_path, Plane::Horizontal, &spectra, &sliding, &config)
+            .expect("write H spectrogram");
+        write_spectrogram_png(&v_path, Plane::Vertical, &spectra, &sliding, &config)
+            .expect("write V spectrogram");
+
+        for file in [&h_path, &v_path] {
             let meta = fs::metadata(file).expect("metadata");
             assert!(meta.len() > 0, "expected non-empty png {}", file.display());
         }

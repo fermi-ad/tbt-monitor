@@ -19,11 +19,22 @@ This reference describes `config/monitor.cfg` keys used by runtime and analysis 
 - `injection_start_turn`
   - Start index for injection-window tune extraction.
 - `injection_window_turns`
-  - Length of injection analysis window.
+  - Length of injection analysis window used only for the single representative
+    injection tune estimate.
+  - Recommended default practice: keep equal to `sliding_window_turns`; diverge
+    only for deliberate study workflows.
 - `sliding_window_turns`
   - Window length for tune-vs-time sliding analysis.
 - `sliding_stride_turns`
   - Step size between sliding windows.
+- `turn_period_us`
+  - Conversion from turn index to physical time (`1 turn = turn_period_us` microseconds).
+  - Used for spectrogram time axis labeling.
+  - Default: `1.6`.
+- `tune_plot_y_min`, `tune_plot_y_max`
+  - Fixed Y-axis range for tune-valued plots (`tune_vs_time`, batch tune trend,
+    tune-by-BPM, study tune panels, and composite waterfall tune axis).
+  - Defaults are `0.58` to `0.74`.
 
 ## Tune-Band and Confidence Keys
 
@@ -63,4 +74,8 @@ Each `[[device]]` defines:
 - Tune `min_peak_confidence` by signal regime:
   - higher for stricter quality gating
   - lower when signal amplitude is weak but expected
+- Keep `tune_plot_y_min/max` fixed across runs when comparing tune trends
+  between datasets; this avoids visual auto-scaling bias.
+- Keep `turn_period_us` aligned with machine timing assumptions so spectrogram
+  time labels remain physically meaningful.
 - Prefer explicit trigger fallback keys to preserve trigger timestamp robustness.

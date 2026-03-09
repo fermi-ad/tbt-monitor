@@ -28,6 +28,26 @@ When behavior changes, update all of:
 - architecture/rationale docs (`docs/*.md`)
 - plan alignment (`PLAN.md`) if roadmap fit changes
 
+## Definition of Done (Doc Sync Gate)
+
+No feature/fix is complete until code, tests, and docs are updated in the
+same change.
+
+Required completion checks:
+
+1. Backlog item status is moved to `done` in `ENGINEERING_BACKLOG.md`.
+2. Affected docs listed in the backlog item's `Docs:` line are updated.
+3. `README.md` is updated for user-visible behavior/CLI/artifact changes.
+4. `docs/ARCHITECTURE.md` and `docs/DESIGN_DECISIONS.md` are updated when
+   module boundaries, data flow, or rationale/tradeoffs change.
+5. `PLAN.md` is updated when plan alignment/divergence changes.
+6. `PHYSICS.md` and/or `ANALYSIS_CHECKLIST.md` are updated when physics
+   validation scope, acceptance criteria, or remaining analysis tasks change.
+7. Tests are added or updated for behavior changes.
+
+If any required doc update is intentionally deferred, record a short reason in
+the same backlog item under `Notes:`.
+
 ## Common Tasks
 
 ### Add an analysis metric

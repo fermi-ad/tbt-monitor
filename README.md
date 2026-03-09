@@ -96,6 +96,8 @@ This command reads one spill snapshot, computes injection-window `Qx/Qy`, always
 
 - `spectrum_h.png`
 - `spectrum_v.png`
+- `spectrogram_h.png` (top-down tune heatmap vs time)
+- `spectrogram_v.png` (top-down tune heatmap vs time)
 - `tune_vs_time.png`
 - `sliding_tune.csv`
 
@@ -125,14 +127,14 @@ cargo run --offline -- analyze-spill \
   --align-tolerance-ms 1 \
   --min-aligned-fraction 0.70 \
   --injection-start-turn 0 \
-  --injection-window-turns 1024 \
+  --injection-window-turns 2048 \
   --sliding-window-turns 2048 \
   --sliding-stride-turns 256 \
   --min-peak-confidence 1.5 \
   --qx-band-min 0.58 \
-  --qx-band-max 0.72 \
+  --qx-band-max 0.74 \
   --qy-band-min 0.58 \
-  --qy-band-max 0.72 \
+  --qy-band-max 0.74 \
   --free-run
 ```
 
@@ -158,8 +160,15 @@ Sliding-window tracking knobs are config-driven (not CLI flags in this phase):
 - `qx_track_half_width=0.005`
 - `qy_track_half_width=0.005`
 - `max_tune_step_per_window=0.005`
+- `turn_period_us=1.6`
+- `tune_plot_y_min=0.58`
+- `tune_plot_y_max=0.74`
 
 When tracking is enabled, `tune_vs_time.png` uses the tracked `selected_tune` curve, and raw global-band peaks are still computed for diagnostics/fallback.
+Tune-valued Y axes are fixed to `tune_plot_y_min/max` (including batch/study tune trend plots) for cross-run visual comparability.
+`tune_vs_time.png` also draws horizontal Y-grid lines at `0.1` tune intervals within the configured range.
+`spectrogram_h/v.png` are top-down heatmaps with tune on X and time (from `turn_period_us`) on Y; heat intensity uses normalized log spectral power.
+`injection_window_turns` is used only for the single representative injection tune estimate; default practice is to keep it equal to `sliding_window_turns` and only diverge during deliberate studies.
 Fallback-picked windows and suspicious large-step windows are kept in outputs but never reseed the tracker state.
 All tune peak picks use a configurable confidence gate (`min_peak_confidence`, default `2.0`), so weak windows are reported as missing tune.
 Use `--min-peak-confidence` on analysis commands for per-run overrides.
@@ -186,6 +195,8 @@ Output layout in free-run mode:
 - Per-spill files in the output directory:
   - `spill_<target_ms>_spectrum_h.png`
   - `spill_<target_ms>_spectrum_v.png`
+  - `spill_<target_ms>_spectrogram_h.png`
+  - `spill_<target_ms>_spectrogram_v.png`
   - `spill_<target_ms>_tune_vs_time.png`
   - `spill_<target_ms>_sliding_tune.csv`
   - `spill_<target_ms>_summary.txt` (same metadata/summary text printed to console)
@@ -373,6 +384,7 @@ Generated artifacts:
 ## Run Multi-Spill Batch Validation
 
 `analyze-spills` collects many synchronized spills using the same wake/snapshot pipeline as `analyze-spill`, then writes spill-to-spill validation outputs.
+At completion (`--count` successful spills), it also writes composite horizontal/vertical waterfall plots across the batch.
 
 ```bash
 cargo run --offline -- analyze-spills \
@@ -439,13 +451,15 @@ Batch outputs:
 - `alignment_vs_spill.png`
 - `tune_scatter_qx_qy.png`
 - `tune_histogram.png`
+- `composite_waterfall_h.png` (3D-style composite; time/turn on Z)
+- `composite_waterfall_v.png` (3D-style composite; time/turn on Z)
 - `batch_summary.md`
 - `tune_residuals.png` (only when reference matches exist)
 - `spill_<index>_<target_ms>_sliding_tune.csv` for every analyzed spill
 
 Detailed artifact mode:
 
-- `all`: saves per-spill `spectrum_h/spectrum_v/tune_vs_time/sliding_tune.csv` + summary text for every analyzed spill.
+- `all`: saves per-spill `spectrum_h/spectrum_v/spectrogram_h/spectrogram_v/tune_vs_time/sliding_tune.csv` + summary text for every analyzed spill.
 - `representative`: saves first, highest-confidence, lowest-confidence, lowest-alignment, and BAD spills.
 - `none`: skips per-spill detailed artifacts.
 

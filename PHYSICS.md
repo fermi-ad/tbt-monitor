@@ -12,10 +12,12 @@ The software pipeline already provides:
 - injection-window and sliding-window tune extraction (`Qx`, `Qy`)
 - tracked sliding peaks with fallback/suspicious-step diagnostics
 - per-spill artifacts:
-  - `spectrum_h.png`, `spectrum_v.png`, `tune_vs_time.png`, `sliding_tune.csv`
+  - `spectrum_h.png`, `spectrum_v.png`, `spectrogram_h.png`, `spectrogram_v.png`,
+    `tune_vs_time.png`, `sliding_tune.csv`
 - batch artifacts:
   - `tune_vs_spill.png`, `confidence_vs_spill.png`, `alignment_vs_spill.png`,
-    `tune_scatter_qx_qy.png`, `tune_histogram.png`, `batch_summary.md`
+    `tune_scatter_qx_qy.png`, `tune_histogram.png`,
+    `composite_waterfall_h.png`, `composite_waterfall_v.png`, `batch_summary.md`
 - quality semantics and labels (`GOOD`, `MARGINAL`, `BAD`) with explicit flags
   (for example `INCOMPLETE_TBT_POLL`, `LOW_ALIGNMENT_FRACTION`, low-confidence
   and band-edge flags)

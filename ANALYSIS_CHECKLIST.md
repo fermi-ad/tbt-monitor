@@ -9,6 +9,7 @@ exist in the repository (`README.md`, `PLAN.md`, `docs/ARCHITECTURE.md`).
 The following are already available and should be treated as baseline:
 
 - per-spill artifacts: `spectrum_h/v`, `tune_vs_time`, `sliding_tune.csv`
+- per-spill spectrograms: `spectrogram_h/v` (top-down tune heatmap vs time with normalized log-power color scale)
 - batch artifacts:
   - `tune_vs_spill.png` (contains both `Qx` and `Qy`)
   - `confidence_vs_spill.png`
@@ -28,22 +29,7 @@ The following are already available and should be treated as baseline:
 
 ## 2. Open Implementation Work (Current TODO)
 
-### 2.1 Per-spill spectrogram / waterfall
-
-Add:
-
-- `spill_<id>_spectrogram_h.png`
-- `spill_<id>_spectrogram_v.png`
-
-Requirements:
-
-- x-axis: tune
-- y-axis: sliding-window center (turn or converted time)
-- color: normalized spectral power
-- overlays: tracked tune path; optional raw peak path
-- include colorbar and clear axis labels
-
-### 2.2 Aggregate median spectrogram
+### 2.1 Aggregate median spectrogram
 
 Add:
 
@@ -56,7 +42,7 @@ Method:
 - compute median power per `[window, tune_bin]`
 - overlay median tracked tune path
 
-### 2.3 BPM subset consistency checks
+### 2.2 BPM subset consistency checks
 
 Add:
 
@@ -70,7 +56,7 @@ Modes:
 - first/second half split
 - random fixed-size subsets
 
-### 2.4 Best-BPM vs all-BPM spectrum comparison plot
+### 2.3 Best-BPM vs all-BPM spectrum comparison plot
 
 Add:
 
@@ -83,7 +69,7 @@ Compare:
 - all-BPM unweighted average
 - all-BPM weighted average
 
-### 2.5 FFT resolution metadata in summaries
+### 2.4 FFT resolution metadata in summaries
 
 Add summary fields:
 
@@ -91,7 +77,7 @@ Add summary fields:
 - `tune_bin_spacing`
 - `peak_refinement_method`
 
-### 2.6 Optional frequency-axis cross-check mode
+### 2.5 Optional frequency-axis cross-check mode
 
 Add optional outputs:
 
@@ -103,7 +89,7 @@ Config keys to consider:
 - `revolution_frequency_hz`
 - `plot_frequency_axis`
 
-### 2.7 Physics-specific summary artifact
+### 2.6 Physics-specific summary artifact
 
 Add:
 
@@ -117,7 +103,7 @@ Include:
 - representative spill IDs and key outliers
 - tracking fallback/suspicious-step notes
 
-### 2.8 Dedicated physics-usable classification
+### 2.7 Dedicated physics-usable classification
 
 Keep existing `status` and `quality_label`, and add optional:
 
@@ -134,13 +120,12 @@ Improve consistency across plot outputs:
 
 ## 4. Immediate Execution Order
 
-1. per-spill spectrogram/waterfall
-2. aggregate median spectrogram
-3. BPM subset consistency checks
-4. best-BPM vs all-BPM spectrum comparison
-5. FFT resolution metadata fields
-6. optional frequency-axis mode
-7. `physics_summary.md` and `physics_usable` flag integration
+1. aggregate median spectrogram
+2. BPM subset consistency checks
+3. best-BPM vs all-BPM spectrum comparison
+4. FFT resolution metadata fields
+5. optional frequency-axis mode
+6. `physics_summary.md` and `physics_usable` flag integration
 
 SVD/PCA remains deferred until the above baseline physics-review artifacts are
 in place.
