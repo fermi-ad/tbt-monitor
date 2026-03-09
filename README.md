@@ -1,12 +1,22 @@
 # tbt-monitor
 
-Rust/Ratatui monitor for MUON BPM TbT arrivals across multiple Redis digitizers.
+Rust/Ratatui platform for Synchrotron BPM turn-by-turn (TbT) tune analysis
+across multiple Redis digitizers.
 
-It does three things:
+The project is aimed at physics validation and operations support, not just
+stream monitoring. Current scope includes:
 
-1. Imports your ACNET XML and generates a monitor config file.
-2. Connects to all configured Redis servers and monitors `*:TBT_POSITION_SCALED` using Redis Streams (`XREAD BLOCK`).
-3. Runs one-shot tune extraction (`Qx/Qy`) from one synchronized spill and writes PNG artifacts.
+- ACNET XML import into validated monitor/analyzer config
+- live stream health monitoring via Redis Streams (`XREAD BLOCK`)
+- synchronized global spill capture with adjacent-ms target clustering
+- injection-window and sliding-window tune extraction (`Qx/Qy`) with confidence gating
+- tracked sliding tune diagnostics (fallback/suspicious-step visibility)
+- robustness studies (`analyze-phase`) for window sensitivity and BPM/method comparison
+- multi-spill batch validation (`analyze-spills`) with quality flags, timeliness metrics,
+  and optional external reference residuals
+
+Primary objective: determine when BPM-derived tune estimates are physically
+credible and operationally useful for Delivery Ring studies.
 
 ## Documentation Map
 
@@ -15,6 +25,8 @@ It does three things:
 - Design rationale and tradeoffs: `docs/DESIGN_DECISIONS.md`
 - Configuration semantics: `docs/CONFIG_REFERENCE.md`
 - Physics/engineering roadmap mapped from the methodology PDF: `PLAN.md`
+- Physics-validation guide and acceptance framing: `PHYSICS.md`
+- Remaining implementation work for physics review artifacts: `ANALYSIS_CHECKLIST.md`
 - Coding-assistant orientation for this repository: `AGENTS.md`
 
 `PLAN.md` includes an explicit "plan vs implementation" divergence matrix.

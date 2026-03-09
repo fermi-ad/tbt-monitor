@@ -1,283 +1,145 @@
 # PHYSICS.md
-Beam Physics Validation Checklist for BPM-Derived Tune Monitor
+Beam Physics Validation Guide for BPM-Derived Tune Monitor
 
-This document defines the **beam physics questions and validation tests**
-required to determine whether BPM turn-by-turn data can reliably measure
-betatron tune in the Mu2e Delivery Ring.
+This document tracks the physics-validation work needed to establish that the
+existing BPM tune pipeline is physically credible for Delivery Ring operations.
 
-The software framework (Redis ingestion, spill capture, FFT analysis,
-tracked peak extraction, batch validation) already exists in this repository.
+## 1. Implemented Baseline (Current Repository)
 
-This file defines the **physics checks** required to confirm that the results
-are physically meaningful and operationally useful.
+The software pipeline already provides:
 
----
+- synchronized multi-BPM spill capture with adjacent-ms clustering (`±1 ms`)
+- injection-window and sliding-window tune extraction (`Qx`, `Qy`)
+- tracked sliding peaks with fallback/suspicious-step diagnostics
+- per-spill artifacts:
+  - `spectrum_h.png`, `spectrum_v.png`, `tune_vs_time.png`, `sliding_tune.csv`
+- batch artifacts:
+  - `tune_vs_spill.png`, `confidence_vs_spill.png`, `alignment_vs_spill.png`,
+    `tune_scatter_qx_qy.png`, `tune_histogram.png`, `batch_summary.md`
+- quality semantics and labels (`GOOD`, `MARGINAL`, `BAD`) with explicit flags
+  (for example `INCOMPLETE_TBT_POLL`, `LOW_ALIGNMENT_FRACTION`, low-confidence
+  and band-edge flags)
+- optional reference matching in batch mode (`reference-file`) with residual
+  outputs (`tune_residuals.png`)
 
-# 1. Core Physics Question
+Physics validation should build on this baseline instead of redefining these as
+new software tasks.
 
-Can synchronized BPM turn-by-turn data be used to reliably measure the
-horizontal and vertical betatron tune during the Delivery Ring spill?
+## 2. Core Physics Question
 
-The answer requires confirming:
+Can synchronized BPM turn-by-turn data reliably measure horizontal and vertical
+betatron tune during the spill in a way that is operationally useful?
 
-- the extracted spectral peaks correspond to real betatron motion
-- the measured tune values are stable and physically consistent
-- spill evolution matches known machine behavior
-- BPM-derived measurements agree with the existing Schottky tune monitor
+This requires confirming:
 
----
+- extracted peaks correspond to true betatron motion
+- measured tune is stable and physically consistent spill-to-spill
+- in-spill tune evolution reflects machine behavior, not analysis artifacts
+- BPM-derived values agree reasonably with reference tune measurements
 
-# 2. Required Physics Validation Tests
+## 3. Required Physics Validation Tests
 
-## 2.1 Injection Tune Stability
+### 3.1 Injection Tune Stability
 
-Compute injection-window tune for **~100 spills**.
-
-Expected behavior:
-
-- Tune should cluster tightly spill-to-spill.
-
-Typical expectation:
-
-
-σ(Qx) ≈ 0.001–0.01
-σ(Qy) ≈ 0.001–0.01
-
-
-Deliverables:
-
-- histogram of Qx injection
-- histogram of Qy injection
-- median + stddev summary
-
-Purpose:
-
-Confirm that the peak corresponds to a stable machine parameter.
-
----
-
-## 2.2 Tune Evolution Through Spill
-
-Plot sliding-window tune vs time.
+Run at least ~100 spills and evaluate injection-window tune spread.
 
 Expected behavior:
 
-- tune evolution should be **smooth**
-- tune may drift toward resonance during extraction
-- motion should be physically continuous (no bin-hopping)
+- tune clusters tightly in steady machine state
+- representative range for spread is order `1e-3` to `1e-2` (machine-dependent)
 
 Deliverables:
 
-- tune_vs_time plots
-- median tune trajectory across many spills
-- envelope of tune variation
+- injection-tune histogram evidence (existing `tune_histogram.png` is acceptable)
+- median and standard deviation for `Qx` and `Qy`
+- accepted-spill count and quality breakdown
 
-Purpose:
+### 3.2 Tune Evolution Through Spill
 
-Verify that observed motion reflects machine dynamics rather than analysis artifacts.
+Use sliding-window outputs to assess continuity.
 
----
+Expected behavior:
 
-## 2.3 Spectral Peak Validation
-
-Inspect BPM-averaged spectra.
-
-A valid tune signal should exhibit:
-
-- a **distinct narrow spectral peak**
-- consistent location across spills
-- separation from noise floor
+- smooth evolution absent abrupt machine changes
+- limited fallback/suspicious-step rates for accepted spills
 
 Deliverables:
 
-- horizontal spectrum plots
-- vertical spectrum plots
-- zoomed view around tune band
+- representative `tune_vs_time` traces
+- median trajectory and spread across accepted spills
+- fallback and suspicious-step summary statistics
 
-Purpose:
+### 3.3 Spectral Peak Validation
 
-Confirm the algorithm is selecting a real spectral line.
+Confirm peak morphology is physically plausible.
 
----
+Expected behavior:
 
-## 2.4 Revolution Harmonic Cross-Check
-
-The Delivery Ring revolution frequency is approximately:
-
-
-f_rev ≈ 590.08 kHz
-
-
-FFT frequency scaling should produce visible harmonic structure
-at integer multiples of the revolution frequency.
+- distinct narrow peak in configured tune bands
+- repeatable location across accepted spills
+- clear separation from noise floor
 
 Deliverables:
 
-- annotated spectrum showing revolution harmonics
-- verification that FFT frequency axis is correctly scaled
+- representative `spectrum_h` and `spectrum_v`
+- tune-band zooms for accepted spills
 
-Purpose:
+### 3.4 BPM Coherence Test
 
-Validate the frequency calibration of the analysis.
-
----
-
-## 2.5 BPM Coherence Test
-
-True betatron motion should appear coherently across BPMs.
-
-Test:
-
-- compute tune using subsets of BPMs
-- verify consistent peak location
-
-Optional metrics:
-
-- cross-BPM spectral coherence
-- SVD/PCA mode extraction
+Confirm tune is not dominated by a small BPM subset.
 
 Deliverables:
 
-- tune estimates from multiple BPM subsets
-- comparison plot
+- subset-consistency results (all BPMs vs splits/subsets)
+- cross-BPM coherence evidence (or equivalent consistency metric)
 
-Purpose:
+### 3.5 Reference Monitor Comparison
 
-Confirm signal is beam motion rather than local noise.
+Compare BPM tune against Schottky-equivalent reference values.
 
----
+Notes:
 
-## 2.6 Comparison with Existing Tune Monitor
-
-Compare BPM-derived tune to the Schottky system.
-
-Possible approaches:
-
-- spill-averaged comparison
-- time-slice comparison within spill
+- current repo supports external reference-file matching, not direct Schottky
+  ingestion
 
 Deliverables:
 
-- Qx_BPM vs Qx_Schottky
-- Qy_BPM vs Qy_Schottky
-- residual statistics
+- residual statistics and trend plots for matched samples
+- tolerance definition for acceptable BPM-vs-reference disagreement
 
-Purpose:
+## 4. Expected Operational Tune Region
 
-Establish credibility of BPM-derived measurement.
+Working expectations (subject to machine state and optics settings):
 
----
+- `Qx ~ 0.69`
+- `Qy ~ 0.71`
 
-# 3. Expected Operational Tune Range
+Operationally large unexplained shifts should trigger data-quality and
+machine-state review before interpretation.
 
-Approximate Delivery Ring tune region:
+## 5. Canonical Quality Signals
 
+Use repository field names when reviewing outputs:
 
-Qx ≈ ~0.69
-Qy ≈ ~0.71
+- `aligned_fraction`
+- `confidence_h`, `confidence_v`
+- `sliding_fallback_count_h`, `sliding_fallback_count_v`
+- `sliding_suspicious_count_h`, `sliding_suspicious_count_v`
+- `quality_label` and `quality_flags`
 
+## 6. Known Limitations
 
-Observed tune values should remain within reasonable proximity
-to these ranges unless machine settings change.
+- no direct Schottky ingestion/auto-sync path in this repository
+- no dedicated cross-BPM coherence metric exported as first-class batch field
+- no dedicated clipping/saturation diagnostic exported yet
+- no SVD/PCA tune path in production flow yet
 
-Large spill-to-spill variation (> ~0.05) likely indicates analysis errors.
+## 7. Acceptance Criteria
 
----
+The BPM tune monitor is successful when:
 
-# 4. Signal Quality Metrics
-
-The analysis pipeline should report the following diagnostics:
-
-| Metric | Purpose |
-|------|------|
-| alignment_fraction | confirm BPM synchronization |
-| spectral_confidence | peak significance |
-| fallback_count | peak-tracking robustness |
-| suspicious_step_count | detect bin hopping |
-
-Spills failing quality criteria should be flagged as:
-
-
-GOOD
-MARGINAL
-BAD
-
-
----
-
-# 5. Known Limitations
-
-The BPM-derived tune monitor differs from the Schottky system:
-
-Schottky monitor advantages:
-
-- resonant pickup
-- higher SNR
-- dedicated frequency measurement
-
-BPM system advantages:
-
-- existing instrumentation
-- distributed measurement across ring
-- flexible analysis
-
-The BPM approach should be considered a **complementary diagnostic**
-unless proven equivalent in performance.
-
----
-
-# 6. Future Physics Improvements
-
-Potential enhancements:
-
-### SVD/PCA Orbit Decomposition
-Extract dominant coherent betatron mode.
-
-### Multi-spill Averaging
-Improve spectral SNR.
-
-### Window Optimization
-Increase FFT resolution for tune tracking.
-
-### Beam Excitation Studies
-Introduce controlled oscillations to verify response.
-
----
-
-# 7. Acceptance Criteria
-
-The BPM tune monitor is considered successful if:
-
-1. Injection tune clusters tightly across spills.
-2. Spectra show clear, repeatable tune peaks.
-3. Sliding tune traces are smooth and physically plausible.
-4. BPM subset analysis yields consistent tune values.
-5. Results agree reasonably with the Schottky system.
-
----
-
-# 8. Responsibilities
-
-Software (Codex / developers):
-
-- data ingestion
-- signal processing
-- plotting
-- batch analysis
-
-Beam physicists:
-
-- interpret tune evolution
-- confirm expected machine behavior
-- validate results against operational measurements
-
----
-
-# 9. Summary
-
-This repository provides a full pipeline for BPM-based tune measurement.
-
-The remaining task is **physics validation**, not software development.
-
-Successful validation would demonstrate that BPM TbT data can provide a
-useful complementary tune diagnostic for Delivery Ring operations.
+1. injection tune is stable over many spills in steady conditions
+2. spectral peaks are repeatable and physically plausible
+3. sliding tune evolution is smooth for accepted-quality spills
+4. subset/coherence checks support ring-wide beam-motion interpretation
+5. BPM-vs-reference residuals are operationally acceptable
