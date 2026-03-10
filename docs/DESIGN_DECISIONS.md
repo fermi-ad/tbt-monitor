@@ -143,6 +143,7 @@ Decision:
 - Emit per-spill `spectrogram_h.png` and `spectrogram_v.png` heatmaps.
 - Use tune on X, time on Y (from `turn_period_us`), and normalized log spectral
   power for color intensity.
+- Map rows discretely to sliding-window FFT steps (one row per step).
 
 Why:
 - Provides a physics-review view of tune evolution without perspective distortion.
@@ -151,6 +152,27 @@ Why:
 Tradeoffs:
 - Heat colors are normalized per plot, so absolute color intensity is not directly
   comparable between different spills without raw-spectrum reference.
+
+## DD-012: Optional success-count stop condition for free-run analysis modes
+
+Decision:
+- `analyze-spill --free-run` and `analyze-phase --free-run` accept optional
+  `--count N` and stop after `N` successful analyses.
+- If `--count` is omitted, free-run remains unbounded (Ctrl-C stop).
+- In `--no-beam --free-run`, count targets successful analyses across discovered
+  historical candidates; if exhaustion occurs before `N`, the command exits with
+  an explicit error.
+
+Why:
+- Operators need both long-running capture and bounded capture without switching
+  command families.
+- Using successful analyses (not wake count) keeps stop semantics aligned with
+  produced artifacts and downstream batch-style review.
+
+Tradeoffs:
+- Historical free-run with strict count can fail when stale depth is insufficient.
+- Additional CLI surface requires clear docs to avoid confusion with
+  `analyze-spills --count` (which is always required).
 
 ## Decision Update Rule
 

@@ -451,18 +451,28 @@ pub fn run_analyze_spill(
     config: MonitorConfig,
     out_dir: &Path,
     free_run: bool,
+    free_run_count: Option<usize>,
     source_mode: SpillSourceMode,
 ) -> Result<()> {
     config.validate()?;
+    if !free_run && free_run_count.is_some() {
+        bail!("analyze-spill: --count is only supported with --free-run");
+    }
     fs::create_dir_all(out_dir)
         .with_context(|| format!("failed to create output directory {}", out_dir.display()))?;
 
     if let SpillSourceMode::Historical { stale_depth } = source_mode {
-        return run_analyze_spill_historical(config, out_dir, free_run, stale_depth.max(1));
+        return run_analyze_spill_historical(
+            config,
+            out_dir,
+            free_run,
+            free_run_count,
+            stale_depth.max(1),
+        );
     }
 
     if free_run {
-        return run_analyze_spill_free_run(config, out_dir);
+        return run_analyze_spill_free_run(config, out_dir, free_run_count);
     }
 
     run_analyze_spill_once(config, out_dir)
@@ -482,10 +492,14 @@ pub fn run_analyze_study(
     out_dir: &Path,
     options: StudyOptions,
     free_run: bool,
+    free_run_count: Option<usize>,
     source_mode: SpillSourceMode,
 ) -> Result<()> {
     validate_study_options(&options)?;
     config.validate()?;
+    if !free_run && free_run_count.is_some() {
+        bail!("analyze-phase: --count is only supported with --free-run");
+    }
     fs::create_dir_all(out_dir)
         .with_context(|| format!("failed to create output directory {}", out_dir.display()))?;
 
@@ -495,12 +509,13 @@ pub fn run_analyze_study(
             out_dir,
             options,
             free_run,
+            free_run_count,
             stale_depth.max(1),
         );
     }
 
     if free_run {
-        return run_analyze_study_free_run(config, out_dir, options);
+        return run_analyze_study_free_run(config, out_dir, options, free_run_count);
     }
 
     let snapshot = analyze_spill_snapshot(&config)?;
@@ -1071,6 +1086,7 @@ fn run_analyze_study_free_run(
     config: MonitorConfig,
     out_dir: &Path,
     options: StudyOptions,
+    free_run_count: Option<usize>,
 ) -> Result<()> {
     if config.devices.is_empty() {
         bail!("config has no devices for free-run analyze-phase");
@@ -1080,7 +1096,12 @@ fn run_analyze_study_free_run(
         "analyze-phase free-run mode: watching {} devices, running global all-stream snapshots",
         config.devices.len()
     );
-    println!("press Ctrl-C to stop");
+    if let Some(count) = free_run_count {
+        println!("free-run stop condition: {count} successful analyses");
+        println!("press Ctrl-C to stop early");
+    } else {
+        println!("press Ctrl-C to stop");
+    }
 
     let (tx, rx) = mpsc::channel::<FreeRunSignal>();
 
@@ -1100,6 +1121,7 @@ fn run_analyze_study_free_run(
 
     let mut last_written_target_ms: Option<u64> = None;
     let dedupe_tolerance_ms = target_bucket_tolerance_ms(&config);
+    let mut successful = 0usize;
     loop {
         let signal = match rx.recv() {
             Ok(signal) => signal,
@@ -1147,6 +1169,20 @@ fn run_analyze_study_free_run(
                     );
                 }
                 last_written_target_ms = Some(target_ms);
+                successful += 1;
+                if let Some(limit) = free_run_count {
+                    println!(
+                        "[analyze-phase free-run] successful analyses: {}/{}",
+                        successful, limit
+                    );
+                    if successful >= limit {
+                        println!(
+                            "[analyze-phase free-run] reached requested count ({}), exiting",
+                            limit
+                        );
+                        return Ok(());
+                    }
+                }
             }
             Err(err) => {
                 eprintln!(
@@ -4332,6 +4368,7 @@ fn run_analyze_spill_historical(
     config: MonitorConfig,
     out_dir: &Path,
     free_run: bool,
+    free_run_count: Option<usize>,
     stale_depth: usize,
 ) -> Result<()> {
     let candidates = discover_historical_candidates(&config, stale_depth)?;
@@ -4402,7 +4439,17 @@ fn run_analyze_spill_historical(
     let mut attempted = 0usize;
     let mut skipped = 0usize;
     let mut successful = 0usize;
+    let max_successes = free_run_count.unwrap_or(usize::MAX);
+    if let Some(limit) = free_run_count {
+        println!(
+            "no-beam free-run stop condition: {} successful analyses",
+            limit
+        );
+    }
     for candidate in &candidates {
+        if successful >= max_successes {
+            break;
+        }
         attempted += 1;
         let snapshot = match analyze_spill_snapshot_at_target(&config, candidate.target_ms) {
             Ok(snapshot) => snapshot,
@@ -4462,6 +4509,18 @@ fn run_analyze_spill_historical(
     println!("  candidates skipped unresolved: {}", skipped);
     println!("  successful analyses: {}", successful);
 
+    if let Some(limit) = free_run_count {
+        if successful < limit {
+            bail!(
+                "no-beam free-run requested {} successful analyses but only {} succeeded (stale_depth={}, candidates_discovered={})",
+                limit,
+                successful,
+                stale_depth,
+                candidates.len()
+            );
+        }
+    }
+
     if successful == 0 {
         bail!(
             "no historical spill candidates produced usable analysis outputs (attempted {}, stale_depth={})",
@@ -4478,6 +4537,7 @@ fn run_analyze_study_historical(
     out_dir: &Path,
     options: StudyOptions,
     free_run: bool,
+    free_run_count: Option<usize>,
     stale_depth: usize,
 ) -> Result<()> {
     let candidates = discover_historical_candidates(&config, stale_depth)?;
@@ -4545,7 +4605,17 @@ fn run_analyze_study_historical(
     let mut attempted = 0usize;
     let mut skipped = 0usize;
     let mut successful = 0usize;
+    let max_successes = free_run_count.unwrap_or(usize::MAX);
+    if let Some(limit) = free_run_count {
+        println!(
+            "no-beam analyze-phase free-run stop condition: {} successful analyses",
+            limit
+        );
+    }
     for candidate in &candidates {
+        if successful >= max_successes {
+            break;
+        }
         attempted += 1;
         let snapshot = match analyze_spill_snapshot_at_target(&config, candidate.target_ms) {
             Ok(snapshot) => snapshot,
@@ -4606,6 +4676,18 @@ fn run_analyze_study_historical(
     println!("  candidates skipped unresolved: {}", skipped);
     println!("  successful analyses: {}", successful);
 
+    if let Some(limit) = free_run_count {
+        if successful < limit {
+            bail!(
+                "no-beam analyze-phase free-run requested {} successful analyses but only {} succeeded (stale_depth={}, candidates_discovered={})",
+                limit,
+                successful,
+                stale_depth,
+                candidates.len()
+            );
+        }
+    }
+
     if successful == 0 {
         bail!(
             "no historical spill candidates produced usable analyze-phase outputs (attempted {}, stale_depth={})",
@@ -4626,7 +4708,11 @@ fn run_analyze_spill_once(config: MonitorConfig, out_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-fn run_analyze_spill_free_run(config: MonitorConfig, out_dir: &Path) -> Result<()> {
+fn run_analyze_spill_free_run(
+    config: MonitorConfig,
+    out_dir: &Path,
+    free_run_count: Option<usize>,
+) -> Result<()> {
     if config.devices.is_empty() {
         bail!("config has no devices for free-run analyze-spill");
     }
@@ -4635,7 +4721,12 @@ fn run_analyze_spill_free_run(config: MonitorConfig, out_dir: &Path) -> Result<(
         "analyze-spill free-run mode: watching {} devices, running global all-stream snapshots",
         config.devices.len()
     );
-    println!("press Ctrl-C to stop");
+    if let Some(count) = free_run_count {
+        println!("free-run stop condition: {count} successful analyses");
+        println!("press Ctrl-C to stop early");
+    } else {
+        println!("press Ctrl-C to stop");
+    }
 
     let (tx, rx) = mpsc::channel::<FreeRunSignal>();
 
@@ -4655,6 +4746,7 @@ fn run_analyze_spill_free_run(config: MonitorConfig, out_dir: &Path) -> Result<(
 
     let mut last_written_target_ms: Option<u64> = None;
     let dedupe_tolerance_ms = target_bucket_tolerance_ms(&config);
+    let mut successful = 0usize;
     loop {
         let signal = match rx.recv() {
             Ok(signal) => signal,
@@ -4701,6 +4793,14 @@ fn run_analyze_spill_free_run(config: MonitorConfig, out_dir: &Path) -> Result<(
                     );
                 }
                 last_written_target_ms = Some(snapshot.target_ms);
+                successful += 1;
+                if let Some(limit) = free_run_count {
+                    println!("[free-run] successful analyses: {}/{}", successful, limit);
+                    if successful >= limit {
+                        println!("[free-run] reached requested count ({}), exiting", limit);
+                        return Ok(());
+                    }
+                }
             }
             Err(err) => {
                 eprintln!(
@@ -6425,7 +6525,12 @@ fn write_spectrogram_png(
     let log_hi = log_values[hi_idx.min(log_values.len() - 1)].max(log_lo + 1e-9);
     let log_span = (log_hi - log_lo).max(1e-9);
 
-    let mut image = RgbImage::new(1280, 780);
+    let plot_h_target = rows.max(240);
+    let image_h = 30usize
+        .saturating_add(plot_h_target)
+        .saturating_add(70)
+        .max(420);
+    let mut image = RgbImage::new(1280, image_h);
     image.fill([255, 255, 255]);
     let bounds = PlotBounds {
         left: 90,
@@ -6440,19 +6545,32 @@ fn write_spectrogram_png(
     let plot_w = x1.saturating_sub(x0).max(1);
     let plot_h = y1.saturating_sub(y0).max(1);
 
-    for py in y0..y1 {
-        let row_idx = (((py - y0) as f64 / plot_h as f64) * rows as f64).floor() as usize;
-        let row_idx = row_idx.min(rows - 1);
+    let mut bins_by_x = Vec::<usize>::with_capacity(plot_w as usize);
+    for px in x0..x1 {
+        let x_norm = ((px - x0) as f64 / plot_w as f64).clamp(0.0, 1.0);
+        let tune = tune_min + (tune_max - tune_min) * x_norm;
+        let mut bin = (tune * n_bins as f64).floor() as usize;
+        bin = bin.clamp(bin_start, bin_end.saturating_sub(1));
+        bins_by_x.push(bin);
+    }
+
+    // Render one discrete heatmap row per sliding FFT window.
+    for row_idx in 0..rows {
         let row = &spectra[row_idx];
-        for px in x0..x1 {
-            let x_norm = ((px - x0) as f64 / plot_w as f64).clamp(0.0, 1.0);
-            let tune = tune_min + (tune_max - tune_min) * x_norm;
-            let mut bin = (tune * n_bins as f64).floor() as usize;
-            bin = bin.clamp(bin_start, bin_end.saturating_sub(1));
+        let row_y0 = y0 + (row_idx * plot_h) / rows;
+        let mut row_y1 = y0 + ((row_idx + 1) * plot_h) / rows;
+        if row_y1 <= row_y0 {
+            row_y1 = row_y0 + 1;
+        }
+        for (x_offset, px) in (x0..x1).enumerate() {
+            let bin = bins_by_x[x_offset];
             let power = row.get(bin).copied().unwrap_or(0.0).max(1e-12);
             let log_power = power.log10();
             let norm = ((log_power - log_lo) / log_span).clamp(0.0, 1.0);
-            image.set_pixel(px as i32, py as i32, heatmap_color(norm));
+            let color = heatmap_color(norm);
+            for py in row_y0..row_y1.min(y1) {
+                image.set_pixel(px as i32, py as i32, color);
+            }
         }
     }
 
@@ -6473,34 +6591,48 @@ fn write_spectrogram_png(
         draw_text_small(&mut image, x - w / 2, y1 as i32 + 10, &label, [0, 0, 0], 2);
     }
 
-    // Y-axis ticks: time in ms, top-down (increasing downward).
-    let max_turn = sliding
+    // Y-axis ticks: time in ms from first to last sliding-window center turn (top-down).
+    let first_turn = sliding
         .iter()
         .take(rows)
         .map(|point| point.center_turn as f64)
-        .fold(1.0f64, f64::max);
-    let max_time_ms = max_turn * config.turn_period_us / 1000.0;
+        .next()
+        .unwrap_or(0.0);
+    let last_turn = sliding
+        .iter()
+        .take(rows)
+        .map(|point| point.center_turn as f64)
+        .last()
+        .unwrap_or(first_turn);
+    let first_time_ms = first_turn * config.turn_period_us / 1000.0;
+    let last_time_ms = last_turn * config.turn_period_us / 1000.0;
+    let time_span_ms = (last_time_ms - first_time_ms).max(0.0);
     for i in 0..=6 {
         let y_norm = i as f64 / 6.0;
         let y = (y0 as f64 + y_norm * plot_h as f64).round() as i32;
         image.draw_line(x0 as i32 - 6, y, x0 as i32, y, [80, 80, 80]);
-        let value = max_time_ms * y_norm;
+        let value = first_time_ms + time_span_ms * y_norm;
         let label = format!("{value:.2}");
         let w = text_width_px(&label, 2);
         draw_text_small(&mut image, x0 as i32 - 12 - w, y - 4, &label, [0, 0, 0], 2);
     }
 
-    // Overlay selected-tune trajectory for readability.
+    // Overlay raw per-window peak trajectory (unconstrained by tracking state).
     let mut selected_line = Vec::<(i32, i32)>::new();
     for (row_idx, point) in sliding.iter().take(rows).enumerate() {
-        let Some(tune) = point.selected_tune else {
+        let Some(tune) = point.raw_global_tune else {
             continue;
         };
         if !tune.is_finite() || tune < tune_min || tune > tune_max {
             continue;
         }
         let x = x0 as f64 + ((tune - tune_min) / (tune_max - tune_min).max(1e-12)) * plot_w as f64;
-        let y = y0 as f64 + ((row_idx as f64 + 0.5) / rows as f64) * plot_h as f64;
+        let row_y0 = y0 + (row_idx * plot_h) / rows;
+        let mut row_y1 = y0 + ((row_idx + 1) * plot_h) / rows;
+        if row_y1 <= row_y0 {
+            row_y1 = row_y0 + 1;
+        }
+        let y = ((row_y0 + row_y1.min(y1)) as f64) * 0.5;
         selected_line.push((x.round() as i32, y.round() as i32));
     }
     for segment in selected_line.windows(2) {

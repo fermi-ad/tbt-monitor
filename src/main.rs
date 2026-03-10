@@ -18,7 +18,7 @@ mod tui;
 
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 
 use analyze::{
@@ -123,6 +123,10 @@ enum Command {
         #[arg(long, default_value_t = false)]
         free_run: bool,
 
+        /// In free-run mode, stop after this many successful analyses.
+        #[arg(long)]
+        count: Option<usize>,
+
         /// Use historical stream buffers instead of waiting for new arrivals.
         #[arg(long, default_value_t = false)]
         no_beam: bool,
@@ -179,6 +183,10 @@ enum Command {
         /// Keep running continuously and save timestamped robustness-study artifacts per global spill.
         #[arg(long, default_value_t = false)]
         free_run: bool,
+
+        /// In free-run mode, stop after this many successful analyses.
+        #[arg(long)]
+        count: Option<usize>,
 
         /// Use historical stream buffers instead of waiting for new arrivals.
         #[arg(long, default_value_t = false)]
@@ -347,9 +355,17 @@ fn main() -> Result<()> {
             qy_band_max,
             min_peak_confidence,
             free_run,
+            count,
             no_beam,
             stale_depth,
         } => {
+            if !free_run && count.is_some() {
+                bail!("--count requires --free-run for analyze-spill");
+            }
+            if matches!(count, Some(0)) {
+                bail!("--count must be >= 1 for analyze-spill");
+            }
+
             let mut monitor_config = load_monitor_config(&config)
                 .with_context(|| format!("failed to load {}", config.display()))?;
 
@@ -395,7 +411,7 @@ fn main() -> Result<()> {
             } else {
                 SpillSourceMode::LiveLatest
             };
-            run_analyze_spill(monitor_config, &out_dir, free_run, source_mode)?;
+            run_analyze_spill(monitor_config, &out_dir, free_run, count, source_mode)?;
         }
         Command::AnalyzePhase {
             config,
@@ -413,9 +429,17 @@ fn main() -> Result<()> {
             min_peak_confidence,
             summary_file,
             free_run,
+            count,
             no_beam,
             stale_depth,
         } => {
+            if !free_run && count.is_some() {
+                bail!("--count requires --free-run for analyze-phase");
+            }
+            if matches!(count, Some(0)) {
+                bail!("--count must be >= 1 for analyze-phase");
+            }
+
             let mut monitor_config = load_monitor_config(&config)
                 .with_context(|| format!("failed to load {}", config.display()))?;
             if let Some(v) = min_peak_confidence {
@@ -445,7 +469,14 @@ fn main() -> Result<()> {
                 SpillSourceMode::LiveLatest
             };
 
-            run_analyze_study(monitor_config, &out_dir, options, free_run, source_mode)?;
+            run_analyze_study(
+                monitor_config,
+                &out_dir,
+                options,
+                free_run,
+                count,
+                source_mode,
+            )?;
         }
         Command::AnalyzeSpills {
             config,

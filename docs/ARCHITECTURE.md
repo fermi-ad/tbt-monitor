@@ -53,10 +53,12 @@ The program reads Redis stream data from many BPM devices and converts it into s
 4. Split by plane, enforce consensus window/length validity.
 5. Perform injection-window and sliding-window spectral analysis.
 6. Emit plots/CSV and a text summary with quality + timeliness diagnostics.
+7. In `--free-run`, repeat until Ctrl-C or optional `--count` successful analyses.
 
 ### Analyze Phase (`analyze-phase`)
 
 Builds the same synchronized snapshot, then runs sweeps and method-comparison artifacts for robustness studies.
+In `--free-run`, it repeats until Ctrl-C or optional `--count` successful analyses.
 
 ### Analyze Spills (`analyze-spills`)
 
@@ -111,6 +113,8 @@ Tune-valued plot scaling policy:
   center-turn as projected Z-axis depth.
 - Per-spill spectrogram heatmaps use tune on X, time on Y (`turn_period_us`
   conversion), and normalized log spectral power for color intensity.
+- Spectrogram row semantics are discrete: one row per sliding-window FFT step
+  in spill order.
 
 Windowing policy:
 - `injection_window_turns` serves only the single representative injection tune

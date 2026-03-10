@@ -135,7 +135,8 @@ cargo run --offline -- analyze-spill \
   --qx-band-max 0.74 \
   --qy-band-min 0.58 \
   --qy-band-max 0.74 \
-  --free-run
+  --free-run \
+  --count 25
 ```
 
 No-beam historical mode (no wait for new triggers, scans stream buffers immediately):
@@ -148,7 +149,8 @@ cargo run --offline -- analyze-spill \
   --stale-depth 100
 ```
 
-`--free-run --no-beam` runs one finite historical sweep (newest to oldest candidates) and exits.
+`--free-run --no-beam` runs a finite historical sweep (newest to oldest candidates) and exits.
+Add `--count N` to stop after `N` successful analyses; without `--count`, it scans all discovered candidates.
 
 No-beam historical candidate discovery also merges adjacent timestamp buckets
 (`±1 ms`) before ranking candidates, so split coverage patterns (for example
@@ -167,7 +169,7 @@ Sliding-window tracking knobs are config-driven (not CLI flags in this phase):
 When tracking is enabled, `tune_vs_time.png` uses the tracked `selected_tune` curve, and raw global-band peaks are still computed for diagnostics/fallback.
 Tune-valued Y axes are fixed to `tune_plot_y_min/max` (including batch/study tune trend plots) for cross-run visual comparability.
 `tune_vs_time.png` also draws horizontal Y-grid lines at `0.1` tune intervals within the configured range.
-`spectrogram_h/v.png` are top-down heatmaps with tune on X and time (from `turn_period_us`) on Y; heat intensity uses normalized log spectral power.
+`spectrogram_h/v.png` are top-down heatmaps with tune on X and time (from `turn_period_us`) on Y; each row corresponds to one sliding-window FFT step, and heat intensity uses normalized log spectral power.
 `injection_window_turns` is used only for the single representative injection tune estimate; default practice is to keep it equal to `sliding_window_turns` and only diverge during deliberate studies.
 Fallback-picked windows and suspicious large-step windows are kept in outputs but never reseed the tracker state.
 All tune peak picks use a configurable confidence gate (`min_peak_confidence`, default `2.0`), so weak windows are reported as missing tune.
@@ -177,6 +179,7 @@ FFT preprocessing also suppresses DC by zeroing bin 0 and ignoring the first few
 ## Free-Run Continuous Capture
 
 Use `--free-run` to keep collecting spill analyses continuously with the same global all-stream alignment logic as one-shot `analyze-spill`.
+Add optional `--count N` to stop automatically after `N` successful spill analyses.
 
 The process starts stream-watch workers (one per device) only to detect new arrivals. Each arrival wakes a full global snapshot over all configured streams, then writes one timestamped artifact set.
 
@@ -187,7 +190,8 @@ Free-run duplicate suppression is also tolerant to adjacent target milliseconds
 cargo run --offline -- analyze-spill \
   --config /Users/derekste/Dev/codex/tbt-monitor/config/monitor.cfg \
   --out-dir /Users/derekste/Dev/codex/tbt-monitor/out \
-  --free-run
+  --free-run \
+  --count 25
 ```
 
 Output layout in free-run mode:
@@ -328,7 +332,8 @@ Continuous robustness-study capture:
 cargo run --offline -- analyze-phase \
   --config /Users/derekste/Dev/codex/tbt-monitor/config/monitor.cfg \
   --out-dir /Users/derekste/Dev/codex/tbt-monitor/out \
-  --free-run
+  --free-run \
+  --count 25
 ```
 
 No-beam historical analyze-phase:
@@ -341,7 +346,8 @@ cargo run --offline -- analyze-phase \
   --stale-depth 100
 ```
 
-`--free-run --no-beam` performs one historical sweep for analyze-phase artifacts, then exits.
+`--free-run --no-beam` performs a finite historical sweep for analyze-phase artifacts, then exits.
+Add `--count N` to stop after `N` successful analyses; without `--count`, it scans all discovered candidates.
 
 In `--free-run`, each synchronized spill gets timestamped files:
 
