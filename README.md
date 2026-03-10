@@ -99,6 +99,7 @@ This command reads one spill snapshot, computes injection-window `Qx/Qy`, always
 - `spectrogram_h.png` (top-down tune heatmap vs time)
 - `spectrogram_v.png` (top-down tune heatmap vs time)
 - `tune_vs_time.png`
+- `tune_validation.png` (2x2 validation figure: H/V spectrogram + H/V tune traces)
 - `sliding_tune.csv`
 
 Summary output for each spill also includes:
@@ -151,6 +152,7 @@ cargo run --offline -- analyze-spill \
 
 `--free-run --no-beam` runs a finite historical sweep (newest to oldest candidates) and exits.
 Add `--count N` to stop after `N` successful analyses; without `--count`, it scans all discovered candidates.
+With `--count`, the command also writes batch-level summary/composite outputs for the collected spills before exit.
 
 No-beam historical candidate discovery also merges adjacent timestamp buckets
 (`±1 ms`) before ranking candidates, so split coverage patterns (for example
@@ -180,6 +182,10 @@ FFT preprocessing also suppresses DC by zeroing bin 0 and ignoring the first few
 
 Use `--free-run` to keep collecting spill analyses continuously with the same global all-stream alignment logic as one-shot `analyze-spill`.
 Add optional `--count N` to stop automatically after `N` successful spill analyses.
+When `--count` is set, `analyze-spill` also synthesizes batch-level outputs at exit:
+`spills_summary.csv/jsonl`, `tune_vs_spill.png`, `confidence_vs_spill.png`,
+`alignment_vs_spill.png`, `tune_scatter_qx_qy.png`, `tune_histogram.png`,
+`composite_waterfall_h.png`, `composite_waterfall_v.png`, and `batch_summary.md`.
 
 The process starts stream-watch workers (one per device) only to detect new arrivals. Each arrival wakes a full global snapshot over all configured streams, then writes one timestamped artifact set.
 
@@ -202,6 +208,7 @@ Output layout in free-run mode:
   - `spill_<target_ms>_spectrogram_h.png`
   - `spill_<target_ms>_spectrogram_v.png`
   - `spill_<target_ms>_tune_vs_time.png`
+  - `spill_<target_ms>_tune_validation.png`
   - `spill_<target_ms>_sliding_tune.csv`
   - `spill_<target_ms>_summary.txt` (same metadata/summary text printed to console)
 
@@ -465,7 +472,7 @@ Batch outputs:
 
 Detailed artifact mode:
 
-- `all`: saves per-spill `spectrum_h/spectrum_v/spectrogram_h/spectrogram_v/tune_vs_time/sliding_tune.csv` + summary text for every analyzed spill.
+- `all`: saves per-spill `spectrum_h/spectrum_v/spectrogram_h/spectrogram_v/tune_vs_time/tune_validation/sliding_tune.csv` + summary text for every analyzed spill.
 - `representative`: saves first, highest-confidence, lowest-confidence, lowest-alignment, and BAD spills.
 - `none`: skips per-spill detailed artifacts.
 

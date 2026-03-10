@@ -162,6 +162,8 @@ Decision:
 - In `--no-beam --free-run`, count targets successful analyses across discovered
   historical candidates; if exhaustion occurs before `N`, the command exits with
   an explicit error.
+- In `analyze-spill --free-run --count`, collected spills are also synthesized
+  into batch-level summary/composite outputs at exit.
 
 Why:
 - Operators need both long-running capture and bounded capture without switching
@@ -173,6 +175,26 @@ Tradeoffs:
 - Historical free-run with strict count can fail when stale depth is insufficient.
 - Additional CLI surface requires clear docs to avoid confusion with
   `analyze-spills --count` (which is always required).
+
+## DD-013: Per-spill tune-validation composite artifact
+
+Decision:
+- Emit one per-spill composite figure (`tune_validation.png`) combining:
+  H/V spectrograms and H/V tune-vs-time panels in a 2x2 layout.
+- Spectrogram panels overlay both tracked (`selected_tune`) and raw global tune
+  trajectories, with row registration marks by sliding-window step.
+- Tune-vs-time panels overlay tracked and raw traces and annotate suspicious-step
+  and fallback windows.
+
+Why:
+- Physics review needs an immediate visual check that tracked tune follows the
+  dominant spectral ridge without opening multiple files.
+- Side-by-side H/V and spectrogram/trace views reduce false confidence from
+  single-plot inspection.
+
+Tradeoffs:
+- Additional per-spill artifact generation cost and output file volume.
+- Composite readability depends on balanced panel scaling and label layout.
 
 ## Decision Update Rule
 

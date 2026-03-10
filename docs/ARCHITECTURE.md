@@ -54,6 +54,8 @@ The program reads Redis stream data from many BPM devices and converts it into s
 5. Perform injection-window and sliding-window spectral analysis.
 6. Emit plots/CSV and a text summary with quality + timeliness diagnostics.
 7. In `--free-run`, repeat until Ctrl-C or optional `--count` successful analyses.
+8. In `--free-run --count`, synthesize batch summary/composite outputs for the
+   collected spills at exit.
 
 ### Analyze Phase (`analyze-phase`)
 
@@ -99,6 +101,7 @@ Rationale:
 Main artifact families:
 - per-spill spectra and tune traces (`png`)
 - per-spill top-down spectrogram heatmaps (`png`)
+- per-spill 2x2 tune-validation composite (`png`)
 - per-spill sliding samples (`csv`)
 - per-spill summaries (`txt`)
 - batch records (`csv`/`jsonl`)

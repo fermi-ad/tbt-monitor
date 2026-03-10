@@ -149,6 +149,7 @@ struct SpillOutputPaths {
     spectrogram_h: PathBuf,
     spectrogram_v: PathBuf,
     tune_vs_time: PathBuf,
+    tune_validation: PathBuf,
     sliding_tune_csv: PathBuf,
 }
 
@@ -838,6 +839,91 @@ fn run_analyze_spills_historical(
     let aggregate = summarize_batch(&results, &counters);
     print_batch_console_summary(&aggregate);
     write_batch_summary_markdown(out_dir, &aggregate, &options, has_reference_file)?;
+
+    Ok(())
+}
+
+fn default_free_run_batch_options(count: usize) -> BatchOptions {
+    BatchOptions {
+        count: count.max(1),
+        min_confidence: 1.5,
+        min_aligned_bpm_count: 4,
+        min_per_plane_bpm: 1,
+        peak_edge_margin: 0.005,
+        record_format: BatchRecordFormat::Both,
+        detailed_artifacts: DetailedArtifactsMode::None,
+        reference_file: None,
+        reference_key: ReferenceKey::TargetMs,
+        reference_match_tolerance_ms: 1,
+    }
+}
+
+fn synthesize_batch_outputs_from_captured_spills(
+    out_dir: &Path,
+    config: &MonitorConfig,
+    captured: Vec<(usize, SpillSnapshot)>,
+    counters: BatchRunCounters,
+    context_label: &str,
+) -> Result<()> {
+    if captured.is_empty() {
+        return Ok(());
+    }
+
+    let options = default_free_run_batch_options(captured.len());
+    let mut results = Vec::<BatchSpillResult>::with_capacity(captured.len());
+
+    for (spill_idx, (attempt_index, snapshot)) in captured.into_iter().enumerate() {
+        let spill_index = spill_idx + 1;
+
+        let mut trigger_warnings = Vec::new();
+        let (trigger_ms, trigger_source) =
+            resolve_trigger_timestamp(config, snapshot.target_ms, &mut trigger_warnings)?;
+
+        let mut record = build_spill_record(
+            config,
+            &options,
+            &snapshot,
+            spill_index,
+            attempt_index,
+            trigger_ms,
+            trigger_source.to_string(),
+        )?;
+        record.warnings.extend(trigger_warnings);
+
+        let sliding_csv = out_dir.join(format!(
+            "spill_{}_{}_sliding_tune.csv",
+            spill_index, snapshot.target_ms
+        ));
+        write_spill_sliding_csv(
+            &sliding_csv,
+            snapshot
+                .h_analysis
+                .as_ref()
+                .map(|analysis| analysis.sliding.as_slice())
+                .unwrap_or(&[]),
+            snapshot
+                .v_analysis
+                .as_ref()
+                .map(|analysis| analysis.sliding.as_slice())
+                .unwrap_or(&[]),
+        )?;
+
+        results.push(BatchSpillResult { record, snapshot });
+    }
+
+    println!(
+        "[{}] synthesizing batch outputs for {} captured spills",
+        context_label,
+        results.len()
+    );
+
+    write_batch_records(out_dir, &results, options.record_format)?;
+    write_batch_summary_plots(out_dir, config, &results, &options, false)?;
+    write_composite_waterfall_plots(out_dir, config, &results)?;
+
+    let aggregate = summarize_batch(&results, &counters);
+    print_batch_console_summary(&aggregate);
+    write_batch_summary_markdown(out_dir, &aggregate, &options, false)?;
 
     Ok(())
 }
@@ -4439,6 +4525,7 @@ fn run_analyze_spill_historical(
     let mut attempted = 0usize;
     let mut skipped = 0usize;
     let mut successful = 0usize;
+    let mut captured = Vec::<(usize, SpillSnapshot)>::new();
     let max_successes = free_run_count.unwrap_or(usize::MAX);
     if let Some(limit) = free_run_count {
         println!(
@@ -4488,6 +4575,7 @@ fn run_analyze_spill_historical(
                     );
                 }
                 successful += 1;
+                captured.push((attempted, snapshot));
             }
             Err(err) => {
                 skipped += 1;
@@ -4508,6 +4596,24 @@ fn run_analyze_spill_historical(
     println!("  candidates attempted: {}", attempted);
     println!("  candidates skipped unresolved: {}", skipped);
     println!("  successful analyses: {}", successful);
+
+    if free_run_count.is_some() && !captured.is_empty() {
+        let counters = BatchRunCounters {
+            unresolved_wakes: skipped,
+            duplicate_wakes: 0,
+            stale_depth_scanned: Some(stale_depth),
+            historical_candidates_discovered: candidates.len(),
+            historical_candidates_attempted: attempted,
+            historical_candidates_skipped: skipped,
+        };
+        synthesize_batch_outputs_from_captured_spills(
+            out_dir,
+            &config,
+            captured,
+            counters,
+            "analyze-spill no-beam free-run",
+        )?;
+    }
 
     if let Some(limit) = free_run_count {
         if successful < limit {
@@ -4747,15 +4853,27 @@ fn run_analyze_spill_free_run(
     let mut last_written_target_ms: Option<u64> = None;
     let dedupe_tolerance_ms = target_bucket_tolerance_ms(&config);
     let mut successful = 0usize;
+    let mut attempt_index = 0usize;
+    let mut counters = BatchRunCounters {
+        unresolved_wakes: 0,
+        duplicate_wakes: 0,
+        stale_depth_scanned: None,
+        historical_candidates_discovered: 0,
+        historical_candidates_attempted: 0,
+        historical_candidates_skipped: 0,
+    };
+    let mut captured = Vec::<(usize, SpillSnapshot)>::new();
     loop {
         let signal = match rx.recv() {
             Ok(signal) => signal,
             Err(err) => bail!("free-run event channel closed: {err}"),
         };
+        attempt_index += 1;
 
         let snapshot = match analyze_spill_snapshot_with_retries(&config) {
             Ok(snapshot) => snapshot,
             Err(err) => {
+                counters.unresolved_wakes += 1;
                 eprintln!(
                     "[free-run] snapshot after {} {} failed: {}",
                     signal.bpm_ip, signal.event.id, err
@@ -4768,6 +4886,7 @@ fn run_analyze_spill_free_run(
             .map(|last| abs_diff_u64(last, snapshot.target_ms) <= dedupe_tolerance_ms)
             .unwrap_or(false)
         {
+            counters.duplicate_wakes += 1;
             continue;
         }
 
@@ -4794,9 +4913,17 @@ fn run_analyze_spill_free_run(
                 }
                 last_written_target_ms = Some(snapshot.target_ms);
                 successful += 1;
+                captured.push((attempt_index, snapshot));
                 if let Some(limit) = free_run_count {
                     println!("[free-run] successful analyses: {}/{}", successful, limit);
                     if successful >= limit {
+                        synthesize_batch_outputs_from_captured_spills(
+                            out_dir,
+                            &config,
+                            captured,
+                            counters,
+                            "analyze-spill free-run",
+                        )?;
                         println!("[free-run] reached requested count ({}), exiting", limit);
                         return Ok(());
                     }
@@ -5065,13 +5192,14 @@ fn write_spill_outputs(
     config: &MonitorConfig,
     snapshot: &SpillSnapshot,
 ) -> Result<SpillOutputPaths> {
-    let (h_name, v_name, hg_name, vg_name, t_name, s_name) = match stem {
+    let (h_name, v_name, hg_name, vg_name, t_name, tv_name, s_name) = match stem {
         Some(stem) => (
             format!("{stem}_spectrum_h.png"),
             format!("{stem}_spectrum_v.png"),
             format!("{stem}_spectrogram_h.png"),
             format!("{stem}_spectrogram_v.png"),
             format!("{stem}_tune_vs_time.png"),
+            format!("{stem}_tune_validation.png"),
             format!("{stem}_sliding_tune.csv"),
         ),
         None => (
@@ -5080,6 +5208,7 @@ fn write_spill_outputs(
             "spectrogram_h.png".to_string(),
             "spectrogram_v.png".to_string(),
             "tune_vs_time.png".to_string(),
+            "tune_validation.png".to_string(),
             "sliding_tune.csv".to_string(),
         ),
     };
@@ -5090,6 +5219,7 @@ fn write_spill_outputs(
         spectrogram_h: out_dir.join(hg_name),
         spectrogram_v: out_dir.join(vg_name),
         tune_vs_time: out_dir.join(t_name),
+        tune_validation: out_dir.join(tv_name),
         sliding_tune_csv: out_dir.join(s_name),
     };
 
@@ -5154,6 +5284,8 @@ fn write_spill_outputs(
         config.tune_plot_y_min,
         config.tune_plot_y_max,
     )?;
+
+    write_tune_validation_png(&paths.tune_validation, snapshot, config)?;
 
     write_spill_sliding_csv(
         &paths.sliding_tune_csv,
@@ -6477,6 +6609,782 @@ fn write_tune_trace_png(
     write_png_rgb(path, &image)
 }
 
+#[derive(Debug, Clone, Copy)]
+struct PanelRect {
+    x0: usize,
+    y0: usize,
+    x1: usize,
+    y1: usize,
+}
+
+impl PanelRect {
+    fn width(self) -> usize {
+        self.x1.saturating_sub(self.x0)
+    }
+
+    fn height(self) -> usize {
+        self.y1.saturating_sub(self.y0)
+    }
+}
+
+fn panel_plot_bounds(
+    image: &RgbImage,
+    rect: PanelRect,
+    pad_left: usize,
+    pad_right: usize,
+    pad_top: usize,
+    pad_bottom: usize,
+) -> PlotBounds {
+    let left = rect.x0.saturating_add(pad_left);
+    let right_edge = rect.x1.saturating_sub(pad_right).max(left + 1);
+    let top = rect.y0.saturating_add(pad_top);
+    let bottom_edge = rect.y1.saturating_sub(pad_bottom).max(top + 1);
+    PlotBounds {
+        left,
+        right: image.width.saturating_sub(right_edge),
+        top,
+        bottom: image.height.saturating_sub(bottom_edge),
+    }
+}
+
+fn draw_panel_border(image: &mut RgbImage, rect: PanelRect, color: [u8; 3]) {
+    if rect.width() < 2 || rect.height() < 2 {
+        return;
+    }
+    let x0 = rect.x0 as i32;
+    let y0 = rect.y0 as i32;
+    let x1 = rect.x1.saturating_sub(1) as i32;
+    let y1 = rect.y1.saturating_sub(1) as i32;
+    image.draw_line(x0, y0, x1, y0, color);
+    image.draw_line(x0, y1, x1, y1, color);
+    image.draw_line(x0, y0, x0, y1, color);
+    image.draw_line(x1, y0, x1, y1, color);
+}
+
+fn draw_vertical_dashed_marker(
+    image: &mut RgbImage,
+    bounds: PlotBounds,
+    x_norm: f64,
+    color: [u8; 3],
+    dash_len: i32,
+    gap_len: i32,
+) {
+    let x = x_from_norm(image, bounds, x_norm);
+    let y0 = bounds.top as i32;
+    let y1 = (image.height - bounds.bottom) as i32;
+    let dash_len = dash_len.max(1);
+    let gap_len = gap_len.max(1);
+    let mut y = y0;
+    while y <= y1 {
+        let y_end = (y + dash_len - 1).min(y1);
+        image.draw_line(x, y, x, y_end, color);
+        y += dash_len + gap_len;
+    }
+}
+
+fn draw_cross_marker(image: &mut RgbImage, x: i32, y: i32, color: [u8; 3], size: i32) {
+    let s = size.max(1);
+    image.draw_line(x - s, y - s, x + s, y + s, color);
+    image.draw_line(x - s, y + s, x + s, y - s, color);
+}
+
+fn draw_circle_marker(image: &mut RgbImage, x: i32, y: i32, color: [u8; 3], radius: i32) {
+    let r = radius.max(1);
+    for dx in -r..=r {
+        for dy in -r..=r {
+            let d2 = dx * dx + dy * dy;
+            let inner = (r - 1).max(0);
+            if d2 <= r * r && d2 >= inner * inner {
+                image.set_pixel(x + dx, y + dy, color);
+            }
+        }
+    }
+}
+
+fn collect_tune_segments<F>(
+    sliding: &[SlidingPoint],
+    turn_period_us: f64,
+    mut selector: F,
+) -> Vec<Vec<(f64, f64)>>
+where
+    F: FnMut(&SlidingPoint) -> Option<f64>,
+{
+    let mut segments = Vec::<Vec<(f64, f64)>>::new();
+    let mut current = Vec::<(f64, f64)>::new();
+
+    for point in sliding {
+        let time_ms = point.center_turn as f64 * turn_period_us / 1000.0;
+        let Some(tune) = selector(point) else {
+            if current.len() >= 2 {
+                segments.push(current.clone());
+            }
+            current.clear();
+            continue;
+        };
+        if !time_ms.is_finite() || !tune.is_finite() {
+            if current.len() >= 2 {
+                segments.push(current.clone());
+            }
+            current.clear();
+            continue;
+        }
+        current.push((time_ms, tune));
+    }
+
+    if current.len() >= 2 {
+        segments.push(current);
+    }
+    segments
+}
+
+fn draw_polyline_xy_top_down(
+    image: &mut RgbImage,
+    bounds: PlotBounds,
+    points: &[(f64, f64)],
+    x_min: f64,
+    x_max: f64,
+    y_min: f64,
+    y_max: f64,
+    color: [u8; 3],
+) {
+    if points.len() < 2 {
+        return;
+    }
+    let x_span = (x_max - x_min).abs().max(1e-12);
+    let y_span = (y_max - y_min).abs().max(1e-12);
+    let normalized = points
+        .iter()
+        .map(|(x, y)| {
+            let nx = ((*x - x_min) / x_span).clamp(0.0, 1.0);
+            let ny = 1.0 - ((*y - y_min) / y_span).clamp(0.0, 1.0);
+            (nx, ny)
+        })
+        .collect::<Vec<_>>();
+    draw_polyline_normalized(image, bounds, &normalized, color);
+}
+
+fn draw_polyline_xy_top_down_thick(
+    image: &mut RgbImage,
+    bounds: PlotBounds,
+    points: &[(f64, f64)],
+    x_min: f64,
+    x_max: f64,
+    y_min: f64,
+    y_max: f64,
+    color: [u8; 3],
+    thickness: i32,
+) {
+    if points.len() < 2 {
+        return;
+    }
+    let radius = (thickness.max(1) - 1) / 2;
+    let x_span = (x_max - x_min).abs().max(1e-12);
+    let y_span = (y_max - y_min).abs().max(1e-12);
+    let pixel_points = points
+        .iter()
+        .map(|(x, y)| {
+            let nx = ((*x - x_min) / x_span).clamp(0.0, 1.0);
+            let ny = 1.0 - ((*y - y_min) / y_span).clamp(0.0, 1.0);
+            map_point(image, bounds, (nx, ny))
+        })
+        .collect::<Vec<_>>();
+
+    for segment in pixel_points.windows(2) {
+        let a = segment[0];
+        let b = segment[1];
+        for dx in -radius..=radius {
+            for dy in -radius..=radius {
+                if dx.abs() + dy.abs() > radius.max(1) {
+                    continue;
+                }
+                image.draw_line(a.0 + dx, a.1 + dy, b.0 + dx, b.1 + dy, color);
+            }
+        }
+    }
+}
+
+fn draw_validation_spectrogram_panel(
+    image: &mut RgbImage,
+    rect: PanelRect,
+    plane: Plane,
+    analysis: Option<&PlaneAnalysis>,
+    config: &MonitorConfig,
+    expected_tune: Option<f64>,
+) {
+    draw_panel_border(image, rect, [0, 0, 0]);
+    let title = match plane {
+        Plane::Horizontal => "H TUNE VALIDATION",
+        Plane::Vertical => "V TUNE VALIDATION",
+    };
+    draw_text_small(
+        image,
+        rect.x0 as i32 + 8,
+        rect.y0 as i32 + 8,
+        title,
+        [0, 0, 0],
+        2,
+    );
+
+    let bounds = panel_plot_bounds(image, rect, 76, 18, 32, 58);
+    draw_axes(image, bounds, [0, 0, 0]);
+    let x0 = bounds.left;
+    let x1 = image.width.saturating_sub(bounds.right);
+    let y0 = bounds.top;
+    let y1 = image.height.saturating_sub(bounds.bottom);
+    let plot_w = x1.saturating_sub(x0).max(1);
+    let plot_h = y1.saturating_sub(y0).max(1);
+
+    let x_label = "TUNE";
+    let x_label_w = text_width_px(x_label, 2);
+    draw_text_small(
+        image,
+        (x0 + plot_w / 2) as i32 - x_label_w / 2,
+        y1 as i32 + 28,
+        x_label,
+        [0, 0, 0],
+        2,
+    );
+    draw_text_small(
+        image,
+        rect.x0 as i32 + 8,
+        rect.y0 as i32 + 24,
+        "TIME AFTER INJECTION [MS]",
+        [0, 0, 0],
+        2,
+    );
+
+    let Some(analysis) = analysis else {
+        draw_text_small(
+            image,
+            (x0 + 10) as i32,
+            (y0 + plot_h / 2) as i32,
+            "NO USABLE PLANE DATA",
+            [120, 120, 120],
+            2,
+        );
+        return;
+    };
+
+    let rows = analysis.sliding_spectra.len().min(analysis.sliding.len());
+    if rows == 0 {
+        draw_text_small(
+            image,
+            (x0 + 10) as i32,
+            (y0 + plot_h / 2) as i32,
+            "NO SLIDING WINDOWS",
+            [120, 120, 120],
+            2,
+        );
+        return;
+    }
+
+    let n_bins = analysis
+        .sliding_spectra
+        .iter()
+        .take(rows)
+        .map(|row| row.len())
+        .min()
+        .unwrap_or(0);
+    if n_bins == 0 {
+        draw_text_small(
+            image,
+            (x0 + 10) as i32,
+            (y0 + plot_h / 2) as i32,
+            "EMPTY SPECTRUM BINS",
+            [120, 120, 120],
+            2,
+        );
+        return;
+    }
+
+    let tune_min = config.tune_plot_y_min.clamp(0.0, 1.0);
+    let tune_max = config.tune_plot_y_max.clamp(tune_min + 1e-6, 1.0);
+    let bin_start = ((tune_min * n_bins as f64).floor() as usize).min(n_bins - 1);
+    let mut bin_end = ((tune_max * n_bins as f64).ceil() as usize).max(bin_start + 1);
+    bin_end = bin_end.min(n_bins);
+
+    let mut log_values = Vec::<f64>::new();
+    for row in analysis.sliding_spectra.iter().take(rows) {
+        for power in &row[bin_start..bin_end] {
+            if power.is_finite() {
+                log_values.push((power.max(1e-12)).log10());
+            }
+        }
+    }
+    if log_values.is_empty() {
+        draw_text_small(
+            image,
+            (x0 + 10) as i32,
+            (y0 + plot_h / 2) as i32,
+            "NO FINITE POWER VALUES",
+            [120, 120, 120],
+            2,
+        );
+        return;
+    }
+    log_values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+    let lo_idx = ((log_values.len() - 1) as f64 * 0.05).round() as usize;
+    let hi_idx = ((log_values.len() - 1) as f64 * 0.995).round() as usize;
+    let log_lo = log_values[lo_idx.min(log_values.len() - 1)];
+    let log_hi = log_values[hi_idx.min(log_values.len() - 1)].max(log_lo + 1e-9);
+    let log_span = (log_hi - log_lo).max(1e-9);
+
+    let mut bins_by_x = Vec::<usize>::with_capacity(plot_w);
+    for px in x0..x1 {
+        let x_norm = ((px - x0) as f64 / plot_w as f64).clamp(0.0, 1.0);
+        let tune = tune_min + (tune_max - tune_min) * x_norm;
+        let mut bin = (tune * n_bins as f64).floor() as usize;
+        bin = bin.clamp(bin_start, bin_end.saturating_sub(1));
+        bins_by_x.push(bin);
+    }
+
+    for row_idx in 0..rows {
+        let row = &analysis.sliding_spectra[row_idx];
+        let row_y0 = y0 + (row_idx * plot_h) / rows;
+        let mut row_y1 = y0 + ((row_idx + 1) * plot_h) / rows;
+        if row_y1 <= row_y0 {
+            row_y1 = row_y0 + 1;
+        }
+        for (x_offset, px) in (x0..x1).enumerate() {
+            let bin = bins_by_x[x_offset];
+            let power = row.get(bin).copied().unwrap_or(0.0).max(1e-12);
+            let log_power = power.log10();
+            let norm = ((log_power - log_lo) / log_span).clamp(0.0, 1.0);
+            let color = heatmap_color(norm);
+            for py in row_y0..row_y1.min(y1) {
+                image.set_pixel(px as i32, py as i32, color);
+            }
+        }
+    }
+
+    for row_idx in 0..rows {
+        let row_y0 = y0 + (row_idx * plot_h) / rows;
+        let mut row_y1 = y0 + ((row_idx + 1) * plot_h) / rows;
+        if row_y1 <= row_y0 {
+            row_y1 = row_y0 + 1;
+        }
+        let y_mid = ((row_y0 + row_y1.min(y1)) / 2) as i32;
+        image.draw_line(x0 as i32 - 3, y_mid, x0 as i32, y_mid, [120, 120, 120]);
+        if rows <= 120 {
+            image.draw_line(x0 as i32 + 1, y_mid, x1 as i32, y_mid, [245, 245, 245]);
+        }
+    }
+
+    image.draw_line(x0 as i32, y0 as i32, x1 as i32, y0 as i32, [0, 0, 0]);
+    image.draw_line(x0 as i32, y1 as i32, x1 as i32, y1 as i32, [0, 0, 0]);
+    image.draw_line(x0 as i32, y0 as i32, x0 as i32, y1 as i32, [0, 0, 0]);
+    image.draw_line(x1 as i32, y0 as i32, x1 as i32, y1 as i32, [0, 0, 0]);
+
+    for i in 0..=6 {
+        let x_norm = i as f64 / 6.0;
+        let x = (x0 as f64 + x_norm * plot_w as f64).round() as i32;
+        image.draw_line(x, y1 as i32, x, y1 as i32 + 5, [80, 80, 80]);
+        let value = tune_min + (tune_max - tune_min) * x_norm;
+        let label = format!("{value:.3}");
+        let w = text_width_px(&label, 2);
+        draw_text_small(image, x - w / 2, y1 as i32 + 8, &label, [0, 0, 0], 2);
+    }
+
+    let first_time_ms = analysis
+        .sliding
+        .first()
+        .map(|point| point.center_turn as f64 * config.turn_period_us / 1000.0)
+        .unwrap_or(0.0);
+    let last_time_ms = analysis
+        .sliding
+        .get(rows.saturating_sub(1))
+        .map(|point| point.center_turn as f64 * config.turn_period_us / 1000.0)
+        .unwrap_or(first_time_ms);
+    let time_span_ms = (last_time_ms - first_time_ms).max(0.0);
+    for i in 0..=6 {
+        let y_norm = i as f64 / 6.0;
+        let y = (y0 as f64 + y_norm * plot_h as f64).round() as i32;
+        image.draw_line(x0 as i32 - 5, y, x0 as i32, y, [80, 80, 80]);
+        let value = first_time_ms + time_span_ms * y_norm;
+        let label = format!("{value:.2}");
+        let w = text_width_px(&label, 2);
+        draw_text_small(image, x0 as i32 - 10 - w, y - 4, &label, [0, 0, 0], 2);
+    }
+
+    if let Some(injection_tune) = analysis.injection_peak.as_ref().map(|peak| peak.tune) {
+        if injection_tune.is_finite() && injection_tune >= tune_min && injection_tune <= tune_max {
+            let x_norm = (injection_tune - tune_min) / (tune_max - tune_min).max(1e-12);
+            draw_vertical_dashed_marker(image, bounds, x_norm, [255, 255, 255], 6, 4);
+        }
+    }
+    if let Some(reference_tune) = expected_tune {
+        if reference_tune.is_finite() && reference_tune >= tune_min && reference_tune <= tune_max {
+            let x_norm = (reference_tune - tune_min) / (tune_max - tune_min).max(1e-12);
+            draw_vertical_dashed_marker(image, bounds, x_norm, [180, 180, 180], 6, 4);
+        }
+    }
+
+    let raw_segments = collect_tune_segments(&analysis.sliding, config.turn_period_us, |point| {
+        point.raw_global_tune
+    });
+    for segment in raw_segments {
+        draw_polyline_xy_top_down(
+            image,
+            bounds,
+            &segment,
+            tune_min,
+            tune_max,
+            first_time_ms,
+            last_time_ms,
+            [180, 180, 180],
+        );
+    }
+
+    let selected_segments =
+        collect_tune_segments(&analysis.sliding, config.turn_period_us, |point| {
+            point.selected_tune
+        });
+    for segment in selected_segments {
+        draw_polyline_xy_top_down_thick(
+            image,
+            bounds,
+            &segment,
+            tune_min,
+            tune_max,
+            first_time_ms,
+            last_time_ms,
+            [0, 0, 0],
+            3,
+        );
+        draw_polyline_xy_top_down_thick(
+            image,
+            bounds,
+            &segment,
+            tune_min,
+            tune_max,
+            first_time_ms,
+            last_time_ms,
+            [255, 255, 255],
+            1,
+        );
+    }
+
+    let legend_x = x1 as i32 - 250;
+    draw_text_small(
+        image,
+        legend_x,
+        y0 as i32 + 4,
+        "TRACKED",
+        [255, 255, 255],
+        2,
+    );
+    image.draw_line(
+        legend_x - 40,
+        y0 as i32 + 10,
+        legend_x - 10,
+        y0 as i32 + 10,
+        [255, 255, 255],
+    );
+    draw_text_small(image, legend_x, y0 as i32 + 22, "RAW", [180, 180, 180], 2);
+    image.draw_line(
+        legend_x - 40,
+        y0 as i32 + 28,
+        legend_x - 10,
+        y0 as i32 + 28,
+        [180, 180, 180],
+    );
+}
+
+fn draw_validation_tune_panel(
+    image: &mut RgbImage,
+    rect: PanelRect,
+    plane: Plane,
+    analysis: Option<&PlaneAnalysis>,
+    config: &MonitorConfig,
+) {
+    draw_panel_border(image, rect, [0, 0, 0]);
+    let title = match plane {
+        Plane::Horizontal => "H TUNE VS TIME",
+        Plane::Vertical => "V TUNE VS TIME",
+    };
+    draw_text_small(
+        image,
+        rect.x0 as i32 + 8,
+        rect.y0 as i32 + 8,
+        title,
+        [0, 0, 0],
+        2,
+    );
+
+    let bounds = panel_plot_bounds(image, rect, 76, 18, 32, 58);
+    draw_axes(image, bounds, [0, 0, 0]);
+    let x0 = bounds.left;
+    let x1 = image.width.saturating_sub(bounds.right);
+    let y0 = bounds.top;
+    let y1 = image.height.saturating_sub(bounds.bottom);
+    let plot_w = x1.saturating_sub(x0).max(1);
+
+    let x_label = "TIME AFTER INJECTION [MS]";
+    let x_label_w = text_width_px(x_label, 2);
+    draw_text_small(
+        image,
+        (x0 + plot_w / 2) as i32 - x_label_w / 2,
+        y1 as i32 + 28,
+        x_label,
+        [0, 0, 0],
+        2,
+    );
+    draw_text_small(
+        image,
+        rect.x0 as i32 + 8,
+        rect.y0 as i32 + 24,
+        "TUNE",
+        [0, 0, 0],
+        2,
+    );
+
+    let Some(analysis) = analysis else {
+        draw_text_small(
+            image,
+            (x0 + 10) as i32,
+            (y0 + (y1 - y0) / 2) as i32,
+            "NO USABLE PLANE DATA",
+            [120, 120, 120],
+            2,
+        );
+        return;
+    };
+    if analysis.sliding.is_empty() {
+        draw_text_small(
+            image,
+            (x0 + 10) as i32,
+            (y0 + (y1 - y0) / 2) as i32,
+            "NO SLIDING WINDOWS",
+            [120, 120, 120],
+            2,
+        );
+        return;
+    }
+
+    let time_min = analysis
+        .sliding
+        .first()
+        .map(|point| point.center_turn as f64 * config.turn_period_us / 1000.0)
+        .unwrap_or(0.0);
+    let mut time_max = analysis
+        .sliding
+        .last()
+        .map(|point| point.center_turn as f64 * config.turn_period_us / 1000.0)
+        .unwrap_or(time_min + 1.0);
+    if (time_max - time_min).abs() < 1e-12 {
+        time_max = time_min + 1.0;
+    }
+
+    let mut observed = analysis
+        .sliding
+        .iter()
+        .flat_map(|point| [point.raw_global_tune, point.selected_tune])
+        .flatten()
+        .filter(|tune| tune.is_finite())
+        .collect::<Vec<_>>();
+    observed.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+    let (mut y_min, mut y_max) =
+        if let (Some(first), Some(last)) = (observed.first(), observed.last()) {
+            (*first, *last)
+        } else {
+            (config.tune_plot_y_min, config.tune_plot_y_max)
+        };
+    let span = (y_max - y_min).abs().max(0.002);
+    let pad = (span * 0.15).max(0.001);
+    y_min = (y_min - pad).max(0.0);
+    y_max = (y_max + pad).min(1.0);
+    if y_max <= y_min {
+        y_max = (y_min + 0.01).min(1.0);
+    }
+
+    draw_xy_ticks(image, bounds, time_min, time_max, y_min, y_max);
+
+    let (tracked_color, raw_color) = match plane {
+        Plane::Horizontal => ([0, 70, 220], [160, 190, 240]),
+        Plane::Vertical => ([220, 0, 0], [240, 170, 170]),
+    };
+
+    let raw_segments = collect_tune_segments(&analysis.sliding, config.turn_period_us, |point| {
+        point.raw_global_tune
+    });
+    for segment in raw_segments {
+        draw_polyline_xy(
+            image, bounds, &segment, time_min, time_max, y_min, y_max, raw_color,
+        );
+    }
+
+    let selected_segments =
+        collect_tune_segments(&analysis.sliding, config.turn_period_us, |point| {
+            point.selected_tune
+        });
+    for segment in selected_segments {
+        draw_polyline_xy(
+            image,
+            bounds,
+            &segment,
+            time_min,
+            time_max,
+            y_min,
+            y_max,
+            tracked_color,
+        );
+    }
+
+    for point in &analysis.sliding {
+        if !point.suspicious_step && !point.used_global_fallback {
+            continue;
+        }
+        let time_ms = point.center_turn as f64 * config.turn_period_us / 1000.0;
+        let tune = point.selected_tune.or(point.raw_global_tune);
+        let Some(tune) = tune else {
+            continue;
+        };
+        if !time_ms.is_finite() || !tune.is_finite() {
+            continue;
+        }
+        let x_norm = ((time_ms - time_min) / (time_max - time_min).max(1e-12)).clamp(0.0, 1.0);
+        let y_norm = ((tune - y_min) / (y_max - y_min).max(1e-12)).clamp(0.0, 1.0);
+        let x_px = x_from_norm(image, bounds, x_norm);
+        let y_px = y_from_norm(image, bounds, y_norm);
+        if point.suspicious_step {
+            draw_cross_marker(image, x_px, y_px, [220, 0, 0], 3);
+        }
+        if point.used_global_fallback {
+            draw_circle_marker(image, x_px, y_px, [255, 140, 0], 3);
+        }
+    }
+
+    let legend_x = x1 as i32 - 255;
+    let legend_y = y0 as i32 + 8;
+    image.draw_line(
+        legend_x,
+        legend_y + 6,
+        legend_x + 28,
+        legend_y + 6,
+        tracked_color,
+    );
+    draw_text_small(
+        image,
+        legend_x + 36,
+        legend_y + 2,
+        "TRACKED",
+        tracked_color,
+        2,
+    );
+    image.draw_line(
+        legend_x,
+        legend_y + 24,
+        legend_x + 28,
+        legend_y + 24,
+        raw_color,
+    );
+    draw_text_small(image, legend_x + 36, legend_y + 20, "RAW", raw_color, 2);
+    draw_cross_marker(image, legend_x + 14, legend_y + 46, [220, 0, 0], 3);
+    draw_text_small(
+        image,
+        legend_x + 36,
+        legend_y + 42,
+        "SUSPICIOUS STEP",
+        [220, 0, 0],
+        2,
+    );
+    draw_circle_marker(image, legend_x + 14, legend_y + 64, [255, 140, 0], 3);
+    draw_text_small(
+        image,
+        legend_x + 36,
+        legend_y + 60,
+        "FALLBACK",
+        [255, 140, 0],
+        2,
+    );
+}
+
+fn write_tune_validation_png(
+    path: &Path,
+    snapshot: &SpillSnapshot,
+    config: &MonitorConfig,
+) -> Result<()> {
+    let mut image = RgbImage::new(1680, 1180);
+    image.fill([255, 255, 255]);
+
+    let margin_left = 28usize;
+    let margin_right = 24usize;
+    let margin_top = 30usize;
+    let margin_bottom = 24usize;
+    let col_gap = 28usize;
+    let row_gap = 28usize;
+
+    let panel_w = (image.width - margin_left - margin_right - col_gap) / 2;
+    let panel_h = (image.height - margin_top - margin_bottom - row_gap) / 2;
+    let left_x0 = margin_left;
+    let right_x0 = margin_left + panel_w + col_gap;
+    let top_y0 = margin_top;
+    let bottom_y0 = margin_top + panel_h + row_gap;
+
+    let panel_tl = PanelRect {
+        x0: left_x0,
+        y0: top_y0,
+        x1: left_x0 + panel_w,
+        y1: top_y0 + panel_h,
+    };
+    let panel_tr = PanelRect {
+        x0: right_x0,
+        y0: top_y0,
+        x1: right_x0 + panel_w,
+        y1: top_y0 + panel_h,
+    };
+    let panel_bl = PanelRect {
+        x0: left_x0,
+        y0: bottom_y0,
+        x1: left_x0 + panel_w,
+        y1: bottom_y0 + panel_h,
+    };
+    let panel_br = PanelRect {
+        x0: right_x0,
+        y0: bottom_y0,
+        x1: right_x0 + panel_w,
+        y1: bottom_y0 + panel_h,
+    };
+
+    let header = format!("SPILL {} TUNE VALIDATION", snapshot.target_ms);
+    let w = text_width_px(&header, 2);
+    let header_x = (image.width as i32 / 2) - (w / 2);
+    draw_text_small(&mut image, header_x, 8, &header, [0, 0, 0], 2);
+
+    draw_validation_spectrogram_panel(
+        &mut image,
+        panel_tl,
+        Plane::Horizontal,
+        snapshot.h_analysis.as_ref(),
+        config,
+        None,
+    );
+    draw_validation_spectrogram_panel(
+        &mut image,
+        panel_tr,
+        Plane::Vertical,
+        snapshot.v_analysis.as_ref(),
+        config,
+        None,
+    );
+    draw_validation_tune_panel(
+        &mut image,
+        panel_bl,
+        Plane::Horizontal,
+        snapshot.h_analysis.as_ref(),
+        config,
+    );
+    draw_validation_tune_panel(
+        &mut image,
+        panel_br,
+        Plane::Vertical,
+        snapshot.v_analysis.as_ref(),
+        config,
+    );
+
+    write_png_rgb(path, &image)
+}
+
 fn write_spectrogram_png(
     path: &Path,
     plane: Plane,
@@ -6853,6 +7761,7 @@ fn compose_spill_summary_lines(
     lines.push(format!("  {}", paths.spectrogram_h.display()));
     lines.push(format!("  {}", paths.spectrogram_v.display()));
     lines.push(format!("  {}", paths.tune_vs_time.display()));
+    lines.push(format!("  {}", paths.tune_validation.display()));
     lines.push(format!("  {}", paths.sliding_tune_csv.display()));
 
     if snapshot.warnings.is_empty() {
@@ -8015,6 +8924,64 @@ mod tests {
             let meta = fs::metadata(file).expect("metadata");
             assert!(meta.len() > 0, "expected non-empty png {}", file.display());
         }
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn writes_tune_validation_png_with_missing_planes() {
+        let dir = std::env::temp_dir().join(format!(
+            "tbt-monitor-tui-tune-validation-test-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).expect("create temp dir");
+
+        let config = MonitorConfig {
+            xread_block_ms: 1000,
+            reconnect_initial_ms: 2000,
+            reconnect_max_ms: 30000,
+            min_stream_values: 1,
+            injection_start_turn: 0,
+            injection_window_turns: 1024,
+            sliding_window_turns: 2048,
+            sliding_stride_turns: 256,
+            turn_period_us: 1.6,
+            tune_plot_y_min: 0.58,
+            tune_plot_y_max: 0.74,
+            qx_band_min: 0.58,
+            qx_band_max: 0.74,
+            qy_band_min: 0.58,
+            qy_band_max: 0.74,
+            min_peak_confidence: 2.0,
+            enable_peak_tracking: true,
+            qx_track_half_width: 0.005,
+            qy_track_half_width: 0.005,
+            max_tune_step_per_window: 0.005,
+            align_tolerance_ms: 1,
+            min_aligned_fraction: 0.70,
+            devices: Vec::new(),
+        };
+
+        let snapshot = SpillSnapshot {
+            target_ms: 1772830005123,
+            observations: Vec::new(),
+            h_analysis: None,
+            v_analysis: None,
+            warnings: Vec::new(),
+        };
+
+        let path = dir.join("tune_validation.png");
+        write_tune_validation_png(&path, &snapshot, &config).expect("write tune validation");
+
+        let meta = fs::metadata(&path).expect("metadata");
+        assert!(
+            meta.len() > 0,
+            "expected non-empty tune validation png {}",
+            path.display()
+        );
 
         let _ = fs::remove_dir_all(&dir);
     }

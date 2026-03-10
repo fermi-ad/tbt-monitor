@@ -132,8 +132,8 @@ enum Command {
         no_beam: bool,
 
         /// Number of recent entries to scan per stream in no-beam mode.
-        #[arg(long, default_value_t = 100)]
-        stale_depth: usize,
+        #[arg(long)]
+        stale_depth: Option<usize>,
     },
 
     /// Run robustness studies and method comparison artifacts for a single synchronized spill.
@@ -193,8 +193,8 @@ enum Command {
         no_beam: bool,
 
         /// Number of recent entries to scan per stream in no-beam mode.
-        #[arg(long, default_value_t = 100)]
-        stale_depth: usize,
+        #[arg(long)]
+        stale_depth: Option<usize>,
     },
 
     /// Run batch tune analysis across multiple synchronized spills.
@@ -274,8 +274,8 @@ enum Command {
         no_beam: bool,
 
         /// Number of recent entries to scan per stream in no-beam mode.
-        #[arg(long, default_value_t = 100)]
-        stale_depth: usize,
+        #[arg(long)]
+        stale_depth: Option<usize>,
     },
 }
 
@@ -365,6 +365,9 @@ fn main() -> Result<()> {
             if matches!(count, Some(0)) {
                 bail!("--count must be >= 1 for analyze-spill");
             }
+            if !no_beam && stale_depth.is_some() {
+                eprintln!("[warn] analyze-spill: --stale-depth is ignored unless --no-beam is set");
+            }
 
             let mut monitor_config = load_monitor_config(&config)
                 .with_context(|| format!("failed to load {}", config.display()))?;
@@ -406,7 +409,7 @@ fn main() -> Result<()> {
             monitor_config.validate()?;
             let source_mode = if no_beam {
                 SpillSourceMode::Historical {
-                    stale_depth: stale_depth.max(1),
+                    stale_depth: stale_depth.unwrap_or(100).max(1),
                 }
             } else {
                 SpillSourceMode::LiveLatest
@@ -439,6 +442,9 @@ fn main() -> Result<()> {
             if matches!(count, Some(0)) {
                 bail!("--count must be >= 1 for analyze-phase");
             }
+            if !no_beam && stale_depth.is_some() {
+                eprintln!("[warn] analyze-phase: --stale-depth is ignored unless --no-beam is set");
+            }
 
             let mut monitor_config = load_monitor_config(&config)
                 .with_context(|| format!("failed to load {}", config.display()))?;
@@ -463,7 +469,7 @@ fn main() -> Result<()> {
 
             let source_mode = if no_beam {
                 SpillSourceMode::Historical {
-                    stale_depth: stale_depth.max(1),
+                    stale_depth: stale_depth.unwrap_or(100).max(1),
                 }
             } else {
                 SpillSourceMode::LiveLatest
@@ -505,6 +511,11 @@ fn main() -> Result<()> {
             no_beam,
             stale_depth,
         } => {
+            if !no_beam && stale_depth.is_some() {
+                eprintln!(
+                    "[warn] analyze-spills: --stale-depth is ignored unless --no-beam is set"
+                );
+            }
             let mut monitor_config = load_monitor_config(&config)
                 .with_context(|| format!("failed to load {}", config.display()))?;
 
@@ -559,7 +570,7 @@ fn main() -> Result<()> {
 
             let source_mode = if no_beam {
                 SpillSourceMode::Historical {
-                    stale_depth: stale_depth.max(1),
+                    stale_depth: stale_depth.unwrap_or(100).max(1),
                 }
             } else {
                 SpillSourceMode::LiveLatest
