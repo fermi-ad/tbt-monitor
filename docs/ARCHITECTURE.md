@@ -52,6 +52,9 @@ The program reads Redis stream data from many BPM devices and converts it into s
 3. Pull near-target entries per stream and decode payloads.
 4. Split by plane, enforce consensus window/length validity.
 5. Perform injection-window and sliding-window spectral analysis.
+   - Optional flash mode (`--flashes N|max`) samples evenly spaced fixed centers and
+     overrides stride-based sliding-window placement.
+   - In flash mode, injection tune estimation uses `sliding_window_turns`.
 6. Emit plots/CSV and a text summary with quality + timeliness diagnostics.
 7. In `--free-run`, repeat until Ctrl-C or optional `--count` successful analyses.
 8. In `--free-run --count`, synthesize batch summary/composite outputs for the
@@ -105,29 +108,37 @@ Main artifact families:
 - per-spill sliding samples (`csv`)
 - per-spill summaries (`txt`)
 - batch records (`csv`/`jsonl`)
-- batch plots (including composite H/V waterfall) and markdown summary
+- batch plots (including composite H/V waterfall, and optional per-flash
+  `tune_vs_spill_flash_XX`) and markdown summary
 
 Tune-valued plot scaling policy:
 - Tune Y-axis bounds are config-driven via `tune_plot_y_min` and `tune_plot_y_max`.
 - This keeps spill/batch/study tune visuals comparable across runs.
-- `tune_vs_time` additionally renders horizontal grid lines at `0.1` tune spacing
-  within the configured range for quick manual readout.
+- `tune_vs_time` additionally renders horizontal grid lines at
+  `tune_plot_y_tick_step` spacing within the configured range for quick manual
+  readout.
 - Composite waterfall plots use spill order as sequence axis and sliding-window
-  center-turn as projected Z-axis depth.
-- Per-spill spectrogram heatmaps use tune on X, time on Y (`turn_period_us`
-  conversion), and normalized log spectral power for color intensity.
+  center-turn as projected Z-axis depth (or microseconds when
+  `plot_time_axes_in_us=true`).
+- Per-spill spectrogram heatmaps use tune on X, and turns (default) or
+  microseconds (`plot_time_axes_in_us=true`) on Y, with normalized log spectral
+  power for color intensity.
 - Spectrogram row semantics are discrete: one row per sliding-window FFT step
   in spill order.
 
 Windowing policy:
 - `injection_window_turns` serves only the single representative injection tune
-  estimate path.
+  estimate path in non-flash mode.
 - Default operations keep `injection_window_turns == sliding_window_turns`;
   divergence is reserved for intentional study runs.
+- Flash sampling mode (`--flashes N|max`) places evenly spaced sliding-window
+  centers across spill length and overrides stride-based placement.
+- Flash count is runtime-bounded per plane/spill by available turn depth:
+  `effective_flashes <= floor(consensus_turns / sliding_window_turns)`.
 
 When changing artifact fields or meaning, update:
 - `README.md`
-- `PLAN.md` (if plan alignment changes)
+- `docs/PLAN.md` (if plan alignment changes)
 - any downstream analysis scripts expecting stable columns
 
 ## Extension Points

@@ -32,6 +32,7 @@ const FREE_RUN_SETTLE_DELAY_MS: u64 = 40;
 const ADJACENT_BUCKET_TOLERANCE_MS: u64 = 1;
 const DEFAULT_METHOD_WEAK_CONFIDENCE: f64 = 1.5;
 const MIN_PEAK_SEARCH_BIN: usize = 3;
+pub const FLASH_COUNT_MAX: usize = usize::MAX;
 const BATCH_SUMMARY_LIMITATIONS: &str = "Current method is spill-by-spill FFT peak-pick (pre-SVD). Tune depends on selected window/band. \
 Sliding-window tune variation may reflect algorithm sensitivity, low SNR, or real machine behavior. \
 No reference monitor cross-check is applied unless reference data is provided.";
@@ -240,6 +241,7 @@ pub struct BatchOptions {
     pub reference_file: Option<PathBuf>,
     pub reference_key: ReferenceKey,
     pub reference_match_tolerance_ms: u64,
+    pub flash_count: Option<usize>,
 }
 
 #[derive(Debug, Clone)]
@@ -325,6 +327,7 @@ struct SpillRecord {
     injection_window_turns: usize,
     sliding_window_turns: usize,
     sliding_stride_turns: usize,
+    flash_count: Option<usize>,
     qx_band_min: f64,
     qx_band_max: f64,
     qy_band_min: f64,
@@ -454,10 +457,14 @@ pub fn run_analyze_spill(
     free_run: bool,
     free_run_count: Option<usize>,
     source_mode: SpillSourceMode,
+    flash_count: Option<usize>,
 ) -> Result<()> {
     config.validate()?;
     if !free_run && free_run_count.is_some() {
         bail!("analyze-spill: --count is only supported with --free-run");
+    }
+    if matches!(flash_count, Some(0)) {
+        bail!("analyze-spill: --flashes must be >= 1 when provided");
     }
     fs::create_dir_all(out_dir)
         .with_context(|| format!("failed to create output directory {}", out_dir.display()))?;
@@ -469,14 +476,15 @@ pub fn run_analyze_spill(
             free_run,
             free_run_count,
             stale_depth.max(1),
+            flash_count,
         );
     }
 
     if free_run {
-        return run_analyze_spill_free_run(config, out_dir, free_run_count);
+        return run_analyze_spill_free_run(config, out_dir, free_run_count, flash_count);
     }
 
-    run_analyze_spill_once(config, out_dir)
+    run_analyze_spill_once(config, out_dir, flash_count)
 }
 
 #[derive(Debug, Clone)]
@@ -519,7 +527,7 @@ pub fn run_analyze_study(
         return run_analyze_study_free_run(config, out_dir, options, free_run_count);
     }
 
-    let snapshot = analyze_spill_snapshot(&config)?;
+    let snapshot = analyze_spill_snapshot(&config, None)?;
     let _ = run_analyze_study_for_snapshot(
         &config,
         out_dir,
@@ -593,7 +601,7 @@ pub fn run_analyze_spills(
         };
         attempt_index += 1;
 
-        let snapshot = match analyze_spill_snapshot(&config) {
+        let snapshot = match analyze_spill_snapshot(&config, options.flash_count) {
             Ok(snapshot) => snapshot,
             Err(err) => {
                 counters.unresolved_wakes += 1;
@@ -679,7 +687,13 @@ pub fn run_analyze_spills(
     write_batch_records(out_dir, &results, options.record_format)?;
     write_batch_summary_plots(out_dir, &config, &results, &options, has_reference_match)?;
     write_composite_waterfall_plots(out_dir, &config, &results)?;
-    write_batch_detailed_artifacts(out_dir, &config, &results, options.detailed_artifacts)?;
+    write_batch_detailed_artifacts(
+        out_dir,
+        &config,
+        &results,
+        options.detailed_artifacts,
+        options.flash_count,
+    )?;
 
     let aggregate = summarize_batch(&results, &counters);
     print_batch_console_summary(&aggregate);
@@ -734,7 +748,11 @@ fn run_analyze_spills_historical(
         }
         seen_target_ms.insert(candidate.target_ms);
 
-        let snapshot = match analyze_spill_snapshot_at_target(&config, candidate.target_ms) {
+        let snapshot = match analyze_spill_snapshot_at_target(
+            &config,
+            candidate.target_ms,
+            options.flash_count,
+        ) {
             Ok(snapshot) => snapshot,
             Err(err) => {
                 counters.unresolved_wakes += 1;
@@ -834,7 +852,13 @@ fn run_analyze_spills_historical(
     write_batch_records(out_dir, &results, options.record_format)?;
     write_batch_summary_plots(out_dir, &config, &results, &options, has_reference_match)?;
     write_composite_waterfall_plots(out_dir, &config, &results)?;
-    write_batch_detailed_artifacts(out_dir, &config, &results, options.detailed_artifacts)?;
+    write_batch_detailed_artifacts(
+        out_dir,
+        &config,
+        &results,
+        options.detailed_artifacts,
+        options.flash_count,
+    )?;
 
     let aggregate = summarize_batch(&results, &counters);
     print_batch_console_summary(&aggregate);
@@ -843,7 +867,7 @@ fn run_analyze_spills_historical(
     Ok(())
 }
 
-fn default_free_run_batch_options(count: usize) -> BatchOptions {
+fn default_free_run_batch_options(count: usize, flash_count: Option<usize>) -> BatchOptions {
     BatchOptions {
         count: count.max(1),
         min_confidence: 1.5,
@@ -855,6 +879,7 @@ fn default_free_run_batch_options(count: usize) -> BatchOptions {
         reference_file: None,
         reference_key: ReferenceKey::TargetMs,
         reference_match_tolerance_ms: 1,
+        flash_count,
     }
 }
 
@@ -864,12 +889,13 @@ fn synthesize_batch_outputs_from_captured_spills(
     captured: Vec<(usize, SpillSnapshot)>,
     counters: BatchRunCounters,
     context_label: &str,
+    flash_count: Option<usize>,
 ) -> Result<()> {
     if captured.is_empty() {
         return Ok(());
     }
 
-    let options = default_free_run_batch_options(captured.len());
+    let options = default_free_run_batch_options(captured.len(), flash_count);
     let mut results = Vec::<BatchSpillResult>::with_capacity(captured.len());
 
     for (spill_idx, (attempt_index, snapshot)) in captured.into_iter().enumerate() {
@@ -1214,7 +1240,7 @@ fn run_analyze_study_free_run(
             Err(err) => bail!("free-run event channel closed: {err}"),
         };
 
-        let snapshot = match analyze_spill_snapshot_with_retries(&config) {
+        let snapshot = match analyze_spill_snapshot_with_retries(&config, None) {
             Ok(snapshot) => snapshot,
             Err(err) => {
                 eprintln!(
@@ -1383,7 +1409,57 @@ fn validate_batch_options(options: &BatchOptions) -> Result<()> {
     if !options.peak_edge_margin.is_finite() || options.peak_edge_margin < 0.0 {
         bail!("peak_edge_margin must be finite and >= 0");
     }
+    if matches!(options.flash_count, Some(0)) {
+        bail!("flash_count must be >= 1 when provided");
+    }
     Ok(())
+}
+
+fn is_flash_max_request(value: usize) -> bool {
+    value == FLASH_COUNT_MAX
+}
+
+fn resolved_flash_count(requested: usize, total_turns: usize, window_turns: usize) -> usize {
+    if window_turns == 0 {
+        return 0;
+    }
+    let max_flashes = total_turns / window_turns;
+    if is_flash_max_request(requested) {
+        return max_flashes.max(1);
+    }
+    requested.max(1).min(max_flashes.max(1))
+}
+
+fn effective_injection_window_turns(config: &MonitorConfig, flash_count: Option<usize>) -> usize {
+    if flash_count.is_some() {
+        config.sliding_window_turns
+    } else {
+        config.injection_window_turns
+    }
+}
+
+fn time_axis_value_from_turn(center_turn: usize, config: &MonitorConfig) -> f64 {
+    if config.plot_time_axes_in_us {
+        center_turn as f64 * config.turn_period_us
+    } else {
+        center_turn as f64
+    }
+}
+
+fn time_axis_label(config: &MonitorConfig) -> &'static str {
+    if config.plot_time_axes_in_us {
+        "TIME AFTER INJECTION [US]"
+    } else {
+        "CENTER TURN"
+    }
+}
+
+fn time_axis_z_label(config: &MonitorConfig) -> &'static str {
+    if config.plot_time_axes_in_us {
+        "TIME [US] (Z)"
+    } else {
+        "TURN (Z)"
+    }
 }
 
 fn now_utc_label() -> String {
@@ -1528,6 +1604,13 @@ fn build_spill_record(
 
     let h = snapshot.h_analysis.as_ref();
     let v = snapshot.v_analysis.as_ref();
+    let injection_window_turns = effective_injection_window_turns(config, options.flash_count);
+    let effective_flash_count = options.flash_count.and_then(|_| {
+        [h.map(|a| a.sliding.len()), v.map(|a| a.sliding.len())]
+            .into_iter()
+            .flatten()
+            .max()
+    });
 
     let used_streams_h = h.map(|a| a.traces_used).unwrap_or(0);
     let used_streams_v = v.map(|a| a.traces_used).unwrap_or(0);
@@ -1690,9 +1773,10 @@ fn build_spill_record(
         consensus_turns_v,
         consensus_turns_global,
         injection_start_turn: config.injection_start_turn,
-        injection_window_turns: config.injection_window_turns,
+        injection_window_turns,
         sliding_window_turns: config.sliding_window_turns,
         sliding_stride_turns: config.sliding_stride_turns,
+        flash_count: effective_flash_count,
         qx_band_min: config.qx_band_min,
         qx_band_max: config.qx_band_max,
         qy_band_min: config.qy_band_min,
@@ -1866,7 +1950,7 @@ fn write_batch_records_csv(path: &Path, results: &[BatchSpillResult]) -> Result<
         "spill_index,attempt_index,spill_uid,captured_at_utc,target_ms,trigger_ms,trigger_source,\
 aligned_fraction,aligned_streams,requested_streams,used_streams_total,used_streams_h,used_streams_v,\
 consensus_turns_h,consensus_turns_v,consensus_turns_global,injection_start_turn,injection_window_turns,\
-sliding_window_turns,sliding_stride_turns,qx_band_min,qx_band_max,qy_band_min,qy_band_max,\
+sliding_window_turns,sliding_stride_turns,flash_count,qx_band_min,qx_band_max,qy_band_min,qy_band_max,\
 qx_injection,qy_injection,confidence_h,confidence_v,median_qx,median_qy,std_qx,std_qy,min_qx,max_qx,min_qy,max_qy,\
 median_qx_raw,std_qx_raw,min_qx_raw,max_qx_raw,median_qy_raw,std_qy_raw,min_qy_raw,max_qy_raw,\
 median_qx_tracked,std_qx_tracked,min_qx_tracked,max_qx_tracked,median_qy_tracked,std_qy_tracked,min_qy_tracked,max_qy_tracked,\
@@ -1899,6 +1983,7 @@ best_bpm_stream_h,best_bpm_stream_v,ref_qx,ref_qy,residual_qx,residual_qy"
             r.injection_window_turns.to_string(),
             r.sliding_window_turns.to_string(),
             r.sliding_stride_turns.to_string(),
+            opt_usize(r.flash_count),
             format!("{:.6}", r.qx_band_min),
             format!("{:.6}", r.qx_band_max),
             format!("{:.6}", r.qy_band_min),
@@ -1962,7 +2047,7 @@ fn write_batch_records_jsonl(path: &Path, results: &[BatchSpillResult]) -> Resul
     for result in results {
         let r = &result.record;
         lines.push(format!(
-            "{{\"spill_index\":{},\"attempt_index\":{},\"spill_uid\":{},\"captured_at_utc\":{},\"target_ms\":{},\"trigger_ms\":{},\"trigger_source\":{},\"aligned_fraction\":{:.6},\"aligned_streams\":{},\"requested_streams\":{},\"used_streams_total\":{},\"used_streams_h\":{},\"used_streams_v\":{},\"consensus_turns_h\":{},\"consensus_turns_v\":{},\"consensus_turns_global\":{},\"injection_start_turn\":{},\"injection_window_turns\":{},\"sliding_window_turns\":{},\"sliding_stride_turns\":{},\"qx_band_min\":{:.6},\"qx_band_max\":{:.6},\"qy_band_min\":{:.6},\"qy_band_max\":{:.6},\"qx_injection\":{},\"qy_injection\":{},\"confidence_h\":{},\"confidence_v\":{},\"median_qx\":{},\"median_qy\":{},\"std_qx\":{},\"std_qy\":{},\"min_qx\":{},\"max_qx\":{},\"min_qy\":{},\"max_qy\":{},\"median_qx_raw\":{},\"std_qx_raw\":{},\"min_qx_raw\":{},\"max_qx_raw\":{},\"median_qy_raw\":{},\"std_qy_raw\":{},\"min_qy_raw\":{},\"max_qy_raw\":{},\"median_qx_tracked\":{},\"std_qx_tracked\":{},\"min_qx_tracked\":{},\"max_qx_tracked\":{},\"median_qy_tracked\":{},\"std_qy_tracked\":{},\"min_qy_tracked\":{},\"max_qy_tracked\":{},\"sliding_fallback_count_h\":{},\"sliding_fallback_count_v\":{},\"sliding_suspicious_count_h\":{},\"sliding_suspicious_count_v\":{},\"max_rms_bpm_h\":{},\"max_rms_bpm_v\":{},\"quality_label\":{},\"status\":{},\"quality_flags\":{},\"warnings\":{},\"participating_bpms_h\":{},\"participating_bpms_v\":{},\"best_bpm_stream_h\":{},\"best_bpm_stream_v\":{},\"ref_qx\":{},\"ref_qy\":{},\"residual_qx\":{},\"residual_qy\":{}}}",
+            "{{\"spill_index\":{},\"attempt_index\":{},\"spill_uid\":{},\"captured_at_utc\":{},\"target_ms\":{},\"trigger_ms\":{},\"trigger_source\":{},\"aligned_fraction\":{:.6},\"aligned_streams\":{},\"requested_streams\":{},\"used_streams_total\":{},\"used_streams_h\":{},\"used_streams_v\":{},\"consensus_turns_h\":{},\"consensus_turns_v\":{},\"consensus_turns_global\":{},\"injection_start_turn\":{},\"injection_window_turns\":{},\"sliding_window_turns\":{},\"sliding_stride_turns\":{},\"flash_count\":{},\"qx_band_min\":{:.6},\"qx_band_max\":{:.6},\"qy_band_min\":{:.6},\"qy_band_max\":{:.6},\"qx_injection\":{},\"qy_injection\":{},\"confidence_h\":{},\"confidence_v\":{},\"median_qx\":{},\"median_qy\":{},\"std_qx\":{},\"std_qy\":{},\"min_qx\":{},\"max_qx\":{},\"min_qy\":{},\"max_qy\":{},\"median_qx_raw\":{},\"std_qx_raw\":{},\"min_qx_raw\":{},\"max_qx_raw\":{},\"median_qy_raw\":{},\"std_qy_raw\":{},\"min_qy_raw\":{},\"max_qy_raw\":{},\"median_qx_tracked\":{},\"std_qx_tracked\":{},\"min_qx_tracked\":{},\"max_qx_tracked\":{},\"median_qy_tracked\":{},\"std_qy_tracked\":{},\"min_qy_tracked\":{},\"max_qy_tracked\":{},\"sliding_fallback_count_h\":{},\"sliding_fallback_count_v\":{},\"sliding_suspicious_count_h\":{},\"sliding_suspicious_count_v\":{},\"max_rms_bpm_h\":{},\"max_rms_bpm_v\":{},\"quality_label\":{},\"status\":{},\"quality_flags\":{},\"warnings\":{},\"participating_bpms_h\":{},\"participating_bpms_v\":{},\"best_bpm_stream_h\":{},\"best_bpm_stream_v\":{},\"ref_qx\":{},\"ref_qy\":{},\"residual_qx\":{},\"residual_qy\":{}}}",
             r.spill_index,
             r.attempt_index,
             r.spill_uid,
@@ -1983,6 +2068,7 @@ fn write_batch_records_jsonl(path: &Path, results: &[BatchSpillResult]) -> Resul
             r.injection_window_turns,
             r.sliding_window_turns,
             r.sliding_stride_turns,
+            json_opt_usize(r.flash_count),
             r.qx_band_min,
             r.qx_band_max,
             r.qy_band_min,
@@ -2323,6 +2409,7 @@ fn write_batch_detailed_artifacts(
     config: &MonitorConfig,
     results: &[BatchSpillResult],
     mode: DetailedArtifactsMode,
+    flash_count: Option<usize>,
 ) -> Result<()> {
     let selected = select_detailed_spill_indices(results, mode);
     for idx in selected {
@@ -2331,7 +2418,8 @@ fn write_batch_detailed_artifacts(
             "spill_{}_{}",
             entry.record.spill_index, entry.record.target_ms
         );
-        let paths = write_spill_outputs(out_dir, Some(&stem), config, &entry.snapshot)?;
+        let paths =
+            write_spill_outputs(out_dir, Some(&stem), config, &entry.snapshot, flash_count)?;
         let lines = compose_spill_summary_lines(
             config,
             &entry.snapshot,
@@ -2473,6 +2561,15 @@ fn write_batch_summary_plots(
         config.tune_plot_y_min,
         config.tune_plot_y_max,
     )?;
+    if let Some(flash_count) = options.flash_count {
+        write_tune_vs_spill_flash_plots(
+            out_dir,
+            results,
+            config.tune_plot_y_min,
+            config.tune_plot_y_max,
+            flash_count,
+        )?;
+    }
     write_confidence_vs_spill_png(
         &out_dir.join("confidence_vs_spill.png"),
         results,
@@ -2573,12 +2670,12 @@ fn write_composite_waterfall_png(
         &mut image,
         p001.0 + 8,
         p001.1 - 10,
-        "TIME (Z)",
+        time_axis_z_label(config),
         [0, 0, 0],
         2,
     );
 
-    let z_max_turn = results
+    let z_max_axis = results
         .iter()
         .filter_map(|result| match plane {
             Plane::Horizontal => result.snapshot.h_analysis.as_ref(),
@@ -2588,7 +2685,7 @@ fn write_composite_waterfall_png(
             analysis
                 .sliding
                 .iter()
-                .map(|point| point.center_turn as f64)
+                .map(|point| time_axis_value_from_turn(point.center_turn, config))
         })
         .fold(1.0f64, f64::max);
 
@@ -2607,13 +2704,13 @@ fn write_composite_waterfall_png(
         y_tick += 0.02;
     }
 
-    // Z-axis time ticks (turn number).
+    // Z-axis ticks.
     for i in 0..=5 {
         let zn = i as f64 / 5.0;
         let p = project(0.0, 0.0, zn);
         let q = project(1.0, 0.0, zn);
         image.draw_line(p.0, p.1, q.0, q.1, [240, 240, 240]);
-        let label = format!("{:.0}", z_max_turn * zn);
+        let label = format_number_label(z_max_axis * zn);
         draw_text_small(&mut image, p.0 - 12, p.1 + 12, &label, [0, 0, 0], 2);
     }
 
@@ -2652,7 +2749,7 @@ fn write_composite_waterfall_png(
             .filter_map(|point| {
                 point
                     .selected_tune
-                    .map(|tune| (point.center_turn as f64, tune))
+                    .map(|tune| (time_axis_value_from_turn(point.center_turn, config), tune))
             })
             .filter(|(_, tune)| tune.is_finite())
             .collect::<Vec<_>>();
@@ -2676,7 +2773,7 @@ fn write_composite_waterfall_png(
             if idx % step != 0 {
                 continue;
             }
-            let z_norm = (turn / z_max_turn).clamp(0.0, 1.0);
+            let z_norm = (turn / z_max_axis).clamp(0.0, 1.0);
             let y_norm = ((tune - y_min) / y_span).clamp(0.0, 1.0);
             let floor = project(spill_norm, 0.0, z_norm);
             let top = project(spill_norm, y_norm, z_norm);
@@ -2687,8 +2784,8 @@ fn write_composite_waterfall_png(
         for window in points.windows(2) {
             let (t0, q0) = window[0];
             let (t1, q1) = window[1];
-            let z0 = (t0 / z_max_turn).clamp(0.0, 1.0);
-            let z1 = (t1 / z_max_turn).clamp(0.0, 1.0);
+            let z0 = (t0 / z_max_axis).clamp(0.0, 1.0);
+            let z1 = (t1 / z_max_axis).clamp(0.0, 1.0);
             let y0 = ((q0 - y_min) / y_span).clamp(0.0, 1.0);
             let y1 = ((q1 - y_min) / y_span).clamp(0.0, 1.0);
             let p0 = project(spill_norm, y0, z0);
@@ -2807,10 +2904,205 @@ fn write_tune_vs_spill_png(
         &mut image,
         bounds.left as i32 + 4,
         8,
-        "TUNE VS SPILL",
+        "TUNE VS SPILL (INJECTION)",
         [0, 0, 0],
         2,
     );
+
+    write_png_rgb(path, &image)
+}
+
+fn write_tune_vs_spill_flash_plots(
+    out_dir: &Path,
+    results: &[BatchSpillResult],
+    tune_y_min: f64,
+    tune_y_max: f64,
+    requested_flash_count: usize,
+) -> Result<()> {
+    if requested_flash_count == 0 {
+        return Ok(());
+    }
+
+    let available_max = results
+        .iter()
+        .flat_map(|result| {
+            [
+                result
+                    .snapshot
+                    .h_analysis
+                    .as_ref()
+                    .map(|analysis| analysis.sliding.len())
+                    .unwrap_or(0),
+                result
+                    .snapshot
+                    .v_analysis
+                    .as_ref()
+                    .map(|analysis| analysis.sliding.len())
+                    .unwrap_or(0),
+            ]
+        })
+        .max()
+        .unwrap_or(0);
+    let flash_count = requested_flash_count.min(available_max);
+    for flash_idx in 0..flash_count {
+        let path = out_dir.join(format!("tune_vs_spill_flash_{:02}.png", flash_idx + 1));
+        write_tune_vs_spill_flash_png(path.as_path(), results, tune_y_min, tune_y_max, flash_idx)?;
+    }
+    Ok(())
+}
+
+fn write_tune_vs_spill_flash_png(
+    path: &Path,
+    results: &[BatchSpillResult],
+    tune_y_min: f64,
+    tune_y_max: f64,
+    flash_index: usize,
+) -> Result<()> {
+    let mut image = RgbImage::new(1280, 720);
+    image.fill([255, 255, 255]);
+    let bounds = PlotBounds {
+        left: 80,
+        right: 20,
+        top: 30,
+        bottom: 70,
+    };
+    draw_axes(&mut image, bounds, [0, 0, 0]);
+
+    let x_max = results.len().max(1) as f64;
+    draw_xy_ticks(&mut image, bounds, 1.0, x_max, tune_y_min, tune_y_max);
+
+    let mut qx_points = Vec::<(f64, f64)>::new();
+    let mut qy_points = Vec::<(f64, f64)>::new();
+    let mut center_turns = Vec::<usize>::new();
+
+    for result in results {
+        if let Some(point) = result
+            .snapshot
+            .h_analysis
+            .as_ref()
+            .and_then(|analysis| analysis.sliding.get(flash_index))
+        {
+            if let Some(tune) = point.selected_tune {
+                qx_points.push((result.record.spill_index as f64, tune));
+            }
+            center_turns.push(point.center_turn);
+        }
+        if let Some(point) = result
+            .snapshot
+            .v_analysis
+            .as_ref()
+            .and_then(|analysis| analysis.sliding.get(flash_index))
+        {
+            if let Some(tune) = point.selected_tune {
+                qy_points.push((result.record.spill_index as f64, tune));
+            }
+            center_turns.push(point.center_turn);
+        }
+    }
+
+    draw_polyline_xy(
+        &mut image,
+        bounds,
+        &qx_points,
+        1.0,
+        x_max,
+        tune_y_min,
+        tune_y_max,
+        [0, 70, 220],
+    );
+    draw_polyline_xy(
+        &mut image,
+        bounds,
+        &qy_points,
+        1.0,
+        x_max,
+        tune_y_min,
+        tune_y_max,
+        [220, 0, 0],
+    );
+
+    for result in results {
+        if let Some(qx) = result
+            .snapshot
+            .h_analysis
+            .as_ref()
+            .and_then(|analysis| analysis.sliding.get(flash_index))
+            .and_then(|point| point.selected_tune)
+        {
+            draw_point_xy(
+                &mut image,
+                bounds,
+                result.record.spill_index as f64,
+                qx,
+                1.0,
+                x_max,
+                tune_y_min,
+                tune_y_max,
+                quality_color(result.record.quality_label),
+            );
+        }
+        if let Some(qy) = result
+            .snapshot
+            .v_analysis
+            .as_ref()
+            .and_then(|analysis| analysis.sliding.get(flash_index))
+            .and_then(|point| point.selected_tune)
+        {
+            draw_point_xy(
+                &mut image,
+                bounds,
+                result.record.spill_index as f64,
+                qy,
+                1.0,
+                x_max,
+                tune_y_min,
+                tune_y_max,
+                quality_color(result.record.quality_label),
+            );
+        }
+    }
+
+    let legend_x = image.width as i32 - bounds.right as i32 - 230;
+    draw_line_legend(
+        &mut image,
+        (legend_x, bounds.top as i32 + 8),
+        &[
+            ([0, 70, 220], "Qx"),
+            ([220, 0, 0], "Qy"),
+            ([0, 140, 0], "Quality Marker"),
+        ],
+    );
+
+    let center_turn = if center_turns.is_empty() {
+        "NA".to_string()
+    } else {
+        let avg = center_turns.iter().sum::<usize>() / center_turns.len();
+        avg.to_string()
+    };
+    draw_text_small(
+        &mut image,
+        bounds.left as i32 + 4,
+        8,
+        &format!(
+            "TUNE VS SPILL FLASH {:02} (CENTER TURN ~{})",
+            flash_index + 1,
+            center_turn
+        ),
+        [0, 0, 0],
+        2,
+    );
+
+    if qx_points.is_empty() && qy_points.is_empty() {
+        let no_data_y = (image.height as i32 - bounds.bottom as i32) - 24;
+        draw_text_small(
+            &mut image,
+            bounds.left as i32 + 4,
+            no_data_y,
+            "NO FLASH TUNE DATA",
+            [140, 0, 0],
+            2,
+        );
+    }
 
     write_png_rgb(path, &image)
 }
@@ -4456,6 +4748,7 @@ fn run_analyze_spill_historical(
     free_run: bool,
     free_run_count: Option<usize>,
     stale_depth: usize,
+    flash_count: Option<usize>,
 ) -> Result<()> {
     let candidates = discover_historical_candidates(&config, stale_depth)?;
     if candidates.is_empty() {
@@ -4476,22 +4769,23 @@ fn run_analyze_spill_historical(
         let mut skipped = 0usize;
         for candidate in &candidates {
             attempted += 1;
-            let snapshot = match analyze_spill_snapshot_at_target(&config, candidate.target_ms) {
-                Ok(snapshot) => snapshot,
-                Err(err) => {
-                    skipped += 1;
-                    eprintln!(
-                        "[no-beam analyze-spill] skipped {} (coverage={} obs={}): {}",
-                        candidate.target_ms,
-                        candidate.stream_coverage,
-                        candidate.observation_count,
-                        err
-                    );
-                    continue;
-                }
-            };
+            let snapshot =
+                match analyze_spill_snapshot_at_target(&config, candidate.target_ms, flash_count) {
+                    Ok(snapshot) => snapshot,
+                    Err(err) => {
+                        skipped += 1;
+                        eprintln!(
+                            "[no-beam analyze-spill] skipped {} (coverage={} obs={}): {}",
+                            candidate.target_ms,
+                            candidate.stream_coverage,
+                            candidate.observation_count,
+                            err
+                        );
+                        continue;
+                    }
+                };
 
-            let paths = write_spill_outputs(out_dir, None, &config, &snapshot)?;
+            let paths = write_spill_outputs(out_dir, None, &config, &snapshot, flash_count)?;
             let _ = print_summary(
                 &config,
                 &snapshot,
@@ -4538,23 +4832,24 @@ fn run_analyze_spill_historical(
             break;
         }
         attempted += 1;
-        let snapshot = match analyze_spill_snapshot_at_target(&config, candidate.target_ms) {
-            Ok(snapshot) => snapshot,
-            Err(err) => {
-                skipped += 1;
-                eprintln!(
-                    "[no-beam free-run] skipped {} (coverage={} obs={}): {}",
-                    candidate.target_ms,
-                    candidate.stream_coverage,
-                    candidate.observation_count,
-                    err
-                );
-                continue;
-            }
-        };
+        let snapshot =
+            match analyze_spill_snapshot_at_target(&config, candidate.target_ms, flash_count) {
+                Ok(snapshot) => snapshot,
+                Err(err) => {
+                    skipped += 1;
+                    eprintln!(
+                        "[no-beam free-run] skipped {} (coverage={} obs={}): {}",
+                        candidate.target_ms,
+                        candidate.stream_coverage,
+                        candidate.observation_count,
+                        err
+                    );
+                    continue;
+                }
+            };
 
         let stem = format!("spill_{}", snapshot.target_ms);
-        match write_spill_outputs(out_dir, Some(&stem), &config, &snapshot) {
+        match write_spill_outputs(out_dir, Some(&stem), &config, &snapshot, flash_count) {
             Ok(paths) => {
                 let lines = print_summary(
                     &config,
@@ -4612,6 +4907,7 @@ fn run_analyze_spill_historical(
             captured,
             counters,
             "analyze-spill no-beam free-run",
+            flash_count,
         )?;
     }
 
@@ -4665,20 +4961,21 @@ fn run_analyze_study_historical(
         let mut skipped = 0usize;
         for candidate in &candidates {
             attempted += 1;
-            let snapshot = match analyze_spill_snapshot_at_target(&config, candidate.target_ms) {
-                Ok(snapshot) => snapshot,
-                Err(err) => {
-                    skipped += 1;
-                    eprintln!(
-                        "[no-beam analyze-phase] skipped {} (coverage={} obs={}): {}",
-                        candidate.target_ms,
-                        candidate.stream_coverage,
-                        candidate.observation_count,
-                        err
-                    );
-                    continue;
-                }
-            };
+            let snapshot =
+                match analyze_spill_snapshot_at_target(&config, candidate.target_ms, None) {
+                    Ok(snapshot) => snapshot,
+                    Err(err) => {
+                        skipped += 1;
+                        eprintln!(
+                            "[no-beam analyze-phase] skipped {} (coverage={} obs={}): {}",
+                            candidate.target_ms,
+                            candidate.stream_coverage,
+                            candidate.observation_count,
+                            err
+                        );
+                        continue;
+                    }
+                };
 
             let _ = run_analyze_study_for_snapshot(
                 &config,
@@ -4723,7 +5020,7 @@ fn run_analyze_study_historical(
             break;
         }
         attempted += 1;
-        let snapshot = match analyze_spill_snapshot_at_target(&config, candidate.target_ms) {
+        let snapshot = match analyze_spill_snapshot_at_target(&config, candidate.target_ms, None) {
             Ok(snapshot) => snapshot,
             Err(err) => {
                 skipped += 1;
@@ -4805,9 +5102,13 @@ fn run_analyze_study_historical(
     Ok(())
 }
 
-fn run_analyze_spill_once(config: MonitorConfig, out_dir: &Path) -> Result<()> {
-    let snapshot = analyze_spill_snapshot(&config)?;
-    let paths = write_spill_outputs(out_dir, None, &config, &snapshot)?;
+fn run_analyze_spill_once(
+    config: MonitorConfig,
+    out_dir: &Path,
+    flash_count: Option<usize>,
+) -> Result<()> {
+    let snapshot = analyze_spill_snapshot(&config, flash_count)?;
+    let paths = write_spill_outputs(out_dir, None, &config, &snapshot, flash_count)?;
 
     let _ = print_summary(&config, &snapshot, &paths, "analyze-spill summary", true);
 
@@ -4818,6 +5119,7 @@ fn run_analyze_spill_free_run(
     config: MonitorConfig,
     out_dir: &Path,
     free_run_count: Option<usize>,
+    flash_count: Option<usize>,
 ) -> Result<()> {
     if config.devices.is_empty() {
         bail!("config has no devices for free-run analyze-spill");
@@ -4870,7 +5172,7 @@ fn run_analyze_spill_free_run(
         };
         attempt_index += 1;
 
-        let snapshot = match analyze_spill_snapshot_with_retries(&config) {
+        let snapshot = match analyze_spill_snapshot_with_retries(&config, flash_count) {
             Ok(snapshot) => snapshot,
             Err(err) => {
                 counters.unresolved_wakes += 1;
@@ -4891,7 +5193,7 @@ fn run_analyze_spill_free_run(
         }
 
         let stem = format!("spill_{}", snapshot.target_ms);
-        match write_spill_outputs(out_dir, Some(&stem), &config, &snapshot) {
+        match write_spill_outputs(out_dir, Some(&stem), &config, &snapshot, flash_count) {
             Ok(paths) => {
                 let lines = print_summary(
                     &config,
@@ -4923,6 +5225,7 @@ fn run_analyze_spill_free_run(
                             captured,
                             counters,
                             "analyze-spill free-run",
+                            flash_count,
                         )?;
                         println!("[free-run] reached requested count ({}), exiting", limit);
                         return Ok(());
@@ -5007,10 +5310,13 @@ fn run_free_run_watch_worker(
     }
 }
 
-fn analyze_spill_snapshot_with_retries(config: &MonitorConfig) -> Result<SpillSnapshot> {
+fn analyze_spill_snapshot_with_retries(
+    config: &MonitorConfig,
+    flash_count: Option<usize>,
+) -> Result<SpillSnapshot> {
     let mut last_error: Option<anyhow::Error> = None;
     for attempt in 0..=FREE_RUN_SETTLE_RETRIES {
-        match analyze_spill_snapshot(config) {
+        match analyze_spill_snapshot(config, flash_count) {
             Ok(snapshot) => return Ok(snapshot),
             Err(err) => {
                 last_error = Some(err);
@@ -5025,7 +5331,10 @@ fn analyze_spill_snapshot_with_retries(config: &MonitorConfig) -> Result<SpillSn
     Err(last_error.unwrap_or_else(|| anyhow!("spill analysis failed without explicit error")))
 }
 
-fn analyze_spill_snapshot(config: &MonitorConfig) -> Result<SpillSnapshot> {
+fn analyze_spill_snapshot(
+    config: &MonitorConfig,
+    flash_count: Option<usize>,
+) -> Result<SpillSnapshot> {
     let mut warnings = Vec::<String>::new();
     let requested_streams = count_requested_tbt_streams(config);
 
@@ -5089,8 +5398,20 @@ fn analyze_spill_snapshot(config: &MonitorConfig) -> Result<SpillSnapshot> {
         .cloned()
         .collect::<Vec<_>>();
 
-    let h_analysis = analyze_plane(Plane::Horizontal, horizontal, config, &mut warnings)?;
-    let v_analysis = analyze_plane(Plane::Vertical, vertical, config, &mut warnings)?;
+    let h_analysis = analyze_plane(
+        Plane::Horizontal,
+        horizontal,
+        config,
+        flash_count,
+        &mut warnings,
+    )?;
+    let v_analysis = analyze_plane(
+        Plane::Vertical,
+        vertical,
+        config,
+        flash_count,
+        &mut warnings,
+    )?;
 
     if h_analysis.is_none() && v_analysis.is_none() {
         bail!("both H and V planes were unusable after filtering and window checks");
@@ -5108,6 +5429,7 @@ fn analyze_spill_snapshot(config: &MonitorConfig) -> Result<SpillSnapshot> {
 fn analyze_spill_snapshot_at_target(
     config: &MonitorConfig,
     target_ms: u64,
+    flash_count: Option<usize>,
 ) -> Result<SpillSnapshot> {
     let mut warnings = Vec::<String>::new();
     let requested_streams = count_requested_tbt_streams(config);
@@ -5170,8 +5492,20 @@ fn analyze_spill_snapshot_at_target(
         .cloned()
         .collect::<Vec<_>>();
 
-    let h_analysis = analyze_plane(Plane::Horizontal, horizontal, config, &mut warnings)?;
-    let v_analysis = analyze_plane(Plane::Vertical, vertical, config, &mut warnings)?;
+    let h_analysis = analyze_plane(
+        Plane::Horizontal,
+        horizontal,
+        config,
+        flash_count,
+        &mut warnings,
+    )?;
+    let v_analysis = analyze_plane(
+        Plane::Vertical,
+        vertical,
+        config,
+        flash_count,
+        &mut warnings,
+    )?;
 
     if h_analysis.is_none() && v_analysis.is_none() {
         bail!("both H and V planes were unusable after filtering and window checks");
@@ -5191,6 +5525,7 @@ fn write_spill_outputs(
     stem: Option<&str>,
     config: &MonitorConfig,
     snapshot: &SpillSnapshot,
+    flash_count: Option<usize>,
 ) -> Result<SpillOutputPaths> {
     let (h_name, v_name, hg_name, vg_name, t_name, tv_name, s_name) = match stem {
         Some(stem) => (
@@ -5283,6 +5618,18 @@ fn write_spill_outputs(
             .unwrap_or(&[]),
         config.tune_plot_y_min,
         config.tune_plot_y_max,
+        config.tune_plot_y_tick_step,
+        config.plot_time_axes_in_us,
+        config.turn_period_us,
+        snapshot
+            .h_analysis
+            .as_ref()
+            .and_then(|a| a.injection_peak.as_ref().map(|peak| peak.tune)),
+        snapshot
+            .v_analysis
+            .as_ref()
+            .and_then(|a| a.injection_peak.as_ref().map(|peak| peak.tune)),
+        flash_count.is_some(),
     )?;
 
     write_tune_validation_png(&paths.tune_validation, snapshot, config)?;
@@ -5732,6 +6079,7 @@ fn analyze_plane(
     plane: Plane,
     traces: Vec<StreamTrace>,
     config: &MonitorConfig,
+    flash_count: Option<usize>,
     warnings: &mut Vec<String>,
 ) -> Result<Option<PlaneAnalysis>> {
     if traces.is_empty() {
@@ -5748,9 +6096,11 @@ fn analyze_plane(
         .filter(|trace| trace.samples.len() == consensus_turns)
         .collect::<Vec<_>>();
 
+    let injection_window_turns = effective_injection_window_turns(config, flash_count);
+
     let required_turns = config
         .injection_start_turn
-        .saturating_add(config.injection_window_turns)
+        .saturating_add(injection_window_turns)
         .max(config.sliding_window_turns);
 
     if consensus_turns < required_turns {
@@ -5787,18 +6137,14 @@ fn analyze_plane(
     let mut best_bpm_conf = f64::NEG_INFINITY;
 
     for trace in &filtered {
-        if let Some(rms) = trace_window_rms(
-            trace,
-            config.injection_start_turn,
-            config.injection_window_turns,
-        ) {
+        if let Some(rms) =
+            trace_window_rms(trace, config.injection_start_turn, injection_window_turns)
+        {
             max_rms_bpm = Some(max_rms_bpm.map_or(rms, |v| v.max(rms)));
         }
-        if let Some(spectrum) = compute_trace_spectrum(
-            trace,
-            config.injection_start_turn,
-            config.injection_window_turns,
-        ) {
+        if let Some(spectrum) =
+            compute_trace_spectrum(trace, config.injection_start_turn, injection_window_turns)
+        {
             if let Some(peak) = pick_peak_in_band(
                 &spectrum,
                 plane.tune_band(config),
@@ -5815,7 +6161,7 @@ fn analyze_plane(
     let injection_spectrum = average_spectrum(
         &filtered,
         config.injection_start_turn,
-        config.injection_window_turns,
+        injection_window_turns,
     )
     .with_context(|| format!("failed injection spectrum for plane {}", plane.label()))?;
 
@@ -5836,6 +6182,7 @@ fn analyze_plane(
         consensus_turns,
         config.sliding_window_turns,
         config.sliding_stride_turns,
+        flash_count,
         plane.tune_band(config),
         injection_peak.as_ref().map(|peak| peak.tune),
         config.enable_peak_tracking,
@@ -5843,6 +6190,26 @@ fn analyze_plane(
         config.max_tune_step_per_window,
         config.min_peak_confidence,
     )?;
+
+    if let Some(requested) = flash_count {
+        let expected =
+            resolved_flash_count(requested, consensus_turns, config.sliding_window_turns);
+        if diagnostics.total_windows < expected {
+            let requested_label = if is_flash_max_request(requested) {
+                "max".to_string()
+            } else {
+                requested.to_string()
+            };
+            warnings.push(format!(
+                "plane {} flash sampling reduced from requested {} to {} windows (consensus_turns={}, sliding_window_turns={})",
+                plane.label(),
+                requested_label,
+                diagnostics.total_windows,
+                consensus_turns,
+                config.sliding_window_turns
+            ));
+        }
+    }
 
     if diagnostics.fallback_count > 0 {
         warnings.push(format!(
@@ -5892,6 +6259,7 @@ fn compute_sliding_tunes(
     total_turns: usize,
     window_turns: usize,
     stride_turns: usize,
+    flash_count: Option<usize>,
     band: (f64, f64),
     seed_tune: Option<f64>,
     enable_tracking: bool,
@@ -5914,13 +6282,25 @@ fn compute_sliding_tunes(
 
     let mut points = Vec::new();
     let mut spectra = Vec::<Vec<f64>>::new();
-    let last_start = total_turns - window_turns;
+    let starts = sliding_window_starts(total_turns, window_turns, stride_turns, flash_count);
+    if starts.is_empty() {
+        return Ok((
+            Vec::new(),
+            Vec::new(),
+            SlidingDiagnostics {
+                fallback_count: 0,
+                suspicious_count: 0,
+                missing_seed_count: 0,
+                total_windows: 0,
+            },
+        ));
+    }
     let mut previous_trusted_tune = seed_tune;
     let mut fallback_count = 0usize;
     let mut suspicious_count = 0usize;
     let mut missing_seed_count = 0usize;
 
-    for start in (0..=last_start).step_by(stride_turns.max(1)) {
+    for start in starts {
         let spectrum = average_spectrum(traces, start, window_turns)?;
         let raw_peak = pick_peak_in_band(&spectrum, band, min_peak_confidence);
 
@@ -5977,6 +6357,7 @@ fn compute_sliding_tunes(
         spectra.push(spectrum);
     }
 
+    let total_windows = points.len();
     Ok((
         points,
         spectra,
@@ -5984,9 +6365,58 @@ fn compute_sliding_tunes(
             fallback_count,
             suspicious_count,
             missing_seed_count,
-            total_windows: (last_start / stride_turns.max(1)) + 1,
+            total_windows,
         },
     ))
+}
+
+fn sliding_window_starts(
+    total_turns: usize,
+    window_turns: usize,
+    stride_turns: usize,
+    flash_count: Option<usize>,
+) -> Vec<usize> {
+    if window_turns == 0 || window_turns > total_turns {
+        return Vec::new();
+    }
+
+    let last_start = total_turns - window_turns;
+    if let Some(requested) = flash_count {
+        let effective = resolved_flash_count(requested, total_turns, window_turns);
+        return flash_window_starts(total_turns, window_turns, last_start, effective);
+    }
+
+    (0..=last_start)
+        .step_by(stride_turns.max(1))
+        .collect::<Vec<_>>()
+}
+
+fn flash_window_starts(
+    total_turns: usize,
+    window_turns: usize,
+    last_start: usize,
+    flash_count: usize,
+) -> Vec<usize> {
+    let half_window = window_turns / 2;
+    let min_center = half_window;
+    let max_center = last_start + half_window;
+    let mut starts = Vec::<usize>::new();
+
+    for idx in 0..flash_count {
+        let numerator = (2usize.saturating_mul(idx)).saturating_add(1);
+        let denom = 2usize.saturating_mul(flash_count).max(1);
+        let center = numerator.saturating_mul(total_turns) / denom;
+        let clamped_center = center.clamp(min_center, max_center);
+        let start = clamped_center.saturating_sub(half_window).min(last_start);
+        if starts.last().copied() != Some(start) {
+            starts.push(start);
+        }
+    }
+
+    if starts.is_empty() {
+        starts.push(0);
+    }
+    starts
 }
 
 fn local_tracking_band(
@@ -6544,6 +6974,12 @@ fn write_tune_trace_png(
     vertical: &[SlidingPoint],
     tune_y_min: f64,
     tune_y_max: f64,
+    tune_y_tick_step: f64,
+    plot_time_axes_in_us: bool,
+    turn_period_us: f64,
+    h_injection: Option<f64>,
+    v_injection: Option<f64>,
+    show_flash_markers: bool,
 ) -> Result<()> {
     let mut image = RgbImage::new(1280, 720);
     image.fill([255, 255, 255]);
@@ -6560,16 +6996,59 @@ fn write_tune_trace_png(
     let x_max = horizontal
         .iter()
         .chain(vertical.iter())
-        .map(|point| point.center_turn as f64)
+        .map(|point| {
+            if plot_time_axes_in_us {
+                point.center_turn as f64 * turn_period_us
+            } else {
+                point.center_turn as f64
+            }
+        })
         .fold(1.0f64, f64::max);
 
-    draw_trace_ticks(&mut image, bounds, x_max, tune_y_min, tune_y_max, 0.1);
+    draw_trace_ticks(
+        &mut image,
+        bounds,
+        x_max,
+        tune_y_min,
+        tune_y_max,
+        tune_y_tick_step,
+    );
+
+    if let Some(qx_inj) = h_injection.filter(|q| q.is_finite()) {
+        draw_horizontal_xy(
+            &mut image,
+            bounds,
+            qx_inj,
+            0.0,
+            x_max,
+            tune_y_min,
+            tune_y_max,
+            [170, 210, 255],
+        );
+    }
+    if let Some(qy_inj) = v_injection.filter(|q| q.is_finite()) {
+        draw_horizontal_xy(
+            &mut image,
+            bounds,
+            qy_inj,
+            0.0,
+            x_max,
+            tune_y_min,
+            tune_y_max,
+            [255, 180, 180],
+        );
+    }
 
     for segment in finite_segments(horizontal) {
         let normalized = segment
             .iter()
             .map(|(x_turn, y_tune)| {
-                let x = (x_turn / x_max).clamp(0.0, 1.0);
+                let x_value = if plot_time_axes_in_us {
+                    x_turn * turn_period_us
+                } else {
+                    *x_turn
+                };
+                let x = (x_value / x_max).clamp(0.0, 1.0);
                 let y =
                     ((y_tune - tune_y_min) / (tune_y_max - tune_y_min).max(1e-12)).clamp(0.0, 1.0);
                 (x, y)
@@ -6586,7 +7065,12 @@ fn write_tune_trace_png(
         let normalized = segment
             .iter()
             .map(|(x_turn, y_tune)| {
-                let x = (x_turn / x_max).clamp(0.0, 1.0);
+                let x_value = if plot_time_axes_in_us {
+                    x_turn * turn_period_us
+                } else {
+                    *x_turn
+                };
+                let x = (x_value / x_max).clamp(0.0, 1.0);
                 let y =
                     ((y_tune - tune_y_min) / (tune_y_max - tune_y_min).max(1e-12)).clamp(0.0, 1.0);
                 (x, y)
@@ -6599,12 +7083,100 @@ fn write_tune_trace_png(
         }
     }
 
+    if show_flash_markers {
+        for point in horizontal {
+            let Some(tune) = point.selected_tune else {
+                continue;
+            };
+            draw_point_xy(
+                &mut image,
+                bounds,
+                if plot_time_axes_in_us {
+                    point.center_turn as f64 * turn_period_us
+                } else {
+                    point.center_turn as f64
+                },
+                tune,
+                0.0,
+                x_max,
+                tune_y_min,
+                tune_y_max,
+                [0, 70, 220],
+            );
+            let x_value = if plot_time_axes_in_us {
+                point.center_turn as f64 * turn_period_us
+            } else {
+                point.center_turn as f64
+            };
+            let x = (x_value / x_max).clamp(0.0, 1.0);
+            let y = ((tune - tune_y_min) / (tune_y_max - tune_y_min).max(1e-12)).clamp(0.0, 1.0);
+            let (x_px, y_px) = map_point(&image, bounds, (x, y));
+            let label = if plot_time_axes_in_us {
+                format_number_label(x_value)
+            } else {
+                point.center_turn.to_string()
+            };
+            draw_text_small(&mut image, x_px + 4, y_px - 18, &label, [0, 70, 220], 1);
+        }
+        for point in vertical {
+            let Some(tune) = point.selected_tune else {
+                continue;
+            };
+            draw_point_xy(
+                &mut image,
+                bounds,
+                if plot_time_axes_in_us {
+                    point.center_turn as f64 * turn_period_us
+                } else {
+                    point.center_turn as f64
+                },
+                tune,
+                0.0,
+                x_max,
+                tune_y_min,
+                tune_y_max,
+                [220, 0, 0],
+            );
+            let x_value = if plot_time_axes_in_us {
+                point.center_turn as f64 * turn_period_us
+            } else {
+                point.center_turn as f64
+            };
+            let x = (x_value / x_max).clamp(0.0, 1.0);
+            let y = ((tune - tune_y_min) / (tune_y_max - tune_y_min).max(1e-12)).clamp(0.0, 1.0);
+            let (x_px, y_px) = map_point(&image, bounds, (x, y));
+            let label = if plot_time_axes_in_us {
+                format_number_label(x_value)
+            } else {
+                point.center_turn.to_string()
+            };
+            draw_text_small(&mut image, x_px + 4, y_px + 6, &label, [220, 0, 0], 1);
+        }
+    }
+
+    let x_label = if plot_time_axes_in_us {
+        "TIME AFTER INJECTION [US]"
+    } else {
+        "CENTER TURN"
+    };
+    let x_label_w = text_width_px(x_label, 2);
+    let x_label_x =
+        (bounds.left + ((image.width - bounds.left - bounds.right) / 2)) as i32 - x_label_w / 2;
+    let x_label_y = (image.height - 24) as i32;
+    draw_text_small(&mut image, x_label_x, x_label_y, x_label, [0, 0, 0], 2);
+
     let legend_x = image.width as i32 - bounds.right as i32 - 160;
-    draw_line_legend(
-        &mut image,
-        (legend_x, bounds.top as i32 + 8),
-        &[([0, 70, 220], "H"), ([220, 0, 0], "V")],
-    );
+    let mut legend = vec![([0, 70, 220], "H"), ([220, 0, 0], "V")];
+    if h_injection.is_some() {
+        legend.push(([170, 210, 255], "H inj"));
+    }
+    if v_injection.is_some() {
+        legend.push(([255, 180, 180], "V inj"));
+    }
+    if show_flash_markers {
+        legend.push(([90, 90, 90], "Flash turns"));
+    }
+    draw_line_legend(&mut image, (legend_x, bounds.top as i32 + 8), &legend);
 
     write_png_rgb(path, &image)
 }
@@ -6703,7 +7275,7 @@ fn draw_circle_marker(image: &mut RgbImage, x: i32, y: i32, color: [u8; 3], radi
 
 fn collect_tune_segments<F>(
     sliding: &[SlidingPoint],
-    turn_period_us: f64,
+    config: &MonitorConfig,
     mut selector: F,
 ) -> Vec<Vec<(f64, f64)>>
 where
@@ -6713,7 +7285,7 @@ where
     let mut current = Vec::<(f64, f64)>::new();
 
     for point in sliding {
-        let time_ms = point.center_turn as f64 * turn_period_us / 1000.0;
+        let time_axis = time_axis_value_from_turn(point.center_turn, config);
         let Some(tune) = selector(point) else {
             if current.len() >= 2 {
                 segments.push(current.clone());
@@ -6721,14 +7293,14 @@ where
             current.clear();
             continue;
         };
-        if !time_ms.is_finite() || !tune.is_finite() {
+        if !time_axis.is_finite() || !tune.is_finite() {
             if current.len() >= 2 {
                 segments.push(current.clone());
             }
             current.clear();
             continue;
         }
-        current.push((time_ms, tune));
+        current.push((time_axis, tune));
     }
 
     if current.len() >= 2 {
@@ -6848,7 +7420,7 @@ fn draw_validation_spectrogram_panel(
         image,
         rect.x0 as i32 + 8,
         rect.y0 as i32 + 24,
-        "TIME AFTER INJECTION [MS]",
+        time_axis_label(config),
         [0, 0, 0],
         2,
     );
@@ -6985,23 +7557,23 @@ fn draw_validation_spectrogram_panel(
         draw_text_small(image, x - w / 2, y1 as i32 + 8, &label, [0, 0, 0], 2);
     }
 
-    let first_time_ms = analysis
+    let first_time_axis = analysis
         .sliding
         .first()
-        .map(|point| point.center_turn as f64 * config.turn_period_us / 1000.0)
+        .map(|point| time_axis_value_from_turn(point.center_turn, config))
         .unwrap_or(0.0);
-    let last_time_ms = analysis
+    let last_time_axis = analysis
         .sliding
         .get(rows.saturating_sub(1))
-        .map(|point| point.center_turn as f64 * config.turn_period_us / 1000.0)
-        .unwrap_or(first_time_ms);
-    let time_span_ms = (last_time_ms - first_time_ms).max(0.0);
+        .map(|point| time_axis_value_from_turn(point.center_turn, config))
+        .unwrap_or(first_time_axis);
+    let time_span = (last_time_axis - first_time_axis).max(0.0);
     for i in 0..=6 {
         let y_norm = i as f64 / 6.0;
         let y = (y0 as f64 + y_norm * plot_h as f64).round() as i32;
         image.draw_line(x0 as i32 - 5, y, x0 as i32, y, [80, 80, 80]);
-        let value = first_time_ms + time_span_ms * y_norm;
-        let label = format!("{value:.2}");
+        let value = first_time_axis + time_span * y_norm;
+        let label = format_number_label(value);
         let w = text_width_px(&label, 2);
         draw_text_small(image, x0 as i32 - 10 - w, y - 4, &label, [0, 0, 0], 2);
     }
@@ -7019,9 +7591,8 @@ fn draw_validation_spectrogram_panel(
         }
     }
 
-    let raw_segments = collect_tune_segments(&analysis.sliding, config.turn_period_us, |point| {
-        point.raw_global_tune
-    });
+    let raw_segments =
+        collect_tune_segments(&analysis.sliding, config, |point| point.raw_global_tune);
     for segment in raw_segments {
         draw_polyline_xy_top_down(
             image,
@@ -7029,16 +7600,14 @@ fn draw_validation_spectrogram_panel(
             &segment,
             tune_min,
             tune_max,
-            first_time_ms,
-            last_time_ms,
+            first_time_axis,
+            last_time_axis,
             [180, 180, 180],
         );
     }
 
     let selected_segments =
-        collect_tune_segments(&analysis.sliding, config.turn_period_us, |point| {
-            point.selected_tune
-        });
+        collect_tune_segments(&analysis.sliding, config, |point| point.selected_tune);
     for segment in selected_segments {
         draw_polyline_xy_top_down_thick(
             image,
@@ -7046,8 +7615,8 @@ fn draw_validation_spectrogram_panel(
             &segment,
             tune_min,
             tune_max,
-            first_time_ms,
-            last_time_ms,
+            first_time_axis,
+            last_time_axis,
             [0, 0, 0],
             3,
         );
@@ -7057,8 +7626,8 @@ fn draw_validation_spectrogram_panel(
             &segment,
             tune_min,
             tune_max,
-            first_time_ms,
-            last_time_ms,
+            first_time_axis,
+            last_time_axis,
             [255, 255, 255],
             1,
         );
@@ -7119,7 +7688,7 @@ fn draw_validation_tune_panel(
     let y1 = image.height.saturating_sub(bounds.bottom);
     let plot_w = x1.saturating_sub(x0).max(1);
 
-    let x_label = "TIME AFTER INJECTION [MS]";
+    let x_label = time_axis_label(config);
     let x_label_w = text_width_px(x_label, 2);
     draw_text_small(
         image,
@@ -7164,12 +7733,12 @@ fn draw_validation_tune_panel(
     let time_min = analysis
         .sliding
         .first()
-        .map(|point| point.center_turn as f64 * config.turn_period_us / 1000.0)
+        .map(|point| time_axis_value_from_turn(point.center_turn, config))
         .unwrap_or(0.0);
     let mut time_max = analysis
         .sliding
         .last()
-        .map(|point| point.center_turn as f64 * config.turn_period_us / 1000.0)
+        .map(|point| time_axis_value_from_turn(point.center_turn, config))
         .unwrap_or(time_min + 1.0);
     if (time_max - time_min).abs() < 1e-12 {
         time_max = time_min + 1.0;
@@ -7204,9 +7773,8 @@ fn draw_validation_tune_panel(
         Plane::Vertical => ([220, 0, 0], [240, 170, 170]),
     };
 
-    let raw_segments = collect_tune_segments(&analysis.sliding, config.turn_period_us, |point| {
-        point.raw_global_tune
-    });
+    let raw_segments =
+        collect_tune_segments(&analysis.sliding, config, |point| point.raw_global_tune);
     for segment in raw_segments {
         draw_polyline_xy(
             image, bounds, &segment, time_min, time_max, y_min, y_max, raw_color,
@@ -7214,9 +7782,7 @@ fn draw_validation_tune_panel(
     }
 
     let selected_segments =
-        collect_tune_segments(&analysis.sliding, config.turn_period_us, |point| {
-            point.selected_tune
-        });
+        collect_tune_segments(&analysis.sliding, config, |point| point.selected_tune);
     for segment in selected_segments {
         draw_polyline_xy(
             image,
@@ -7234,15 +7800,15 @@ fn draw_validation_tune_panel(
         if !point.suspicious_step && !point.used_global_fallback {
             continue;
         }
-        let time_ms = point.center_turn as f64 * config.turn_period_us / 1000.0;
+        let time_axis = time_axis_value_from_turn(point.center_turn, config);
         let tune = point.selected_tune.or(point.raw_global_tune);
         let Some(tune) = tune else {
             continue;
         };
-        if !time_ms.is_finite() || !tune.is_finite() {
+        if !time_axis.is_finite() || !tune.is_finite() {
             continue;
         }
-        let x_norm = ((time_ms - time_min) / (time_max - time_min).max(1e-12)).clamp(0.0, 1.0);
+        let x_norm = ((time_axis - time_min) / (time_max - time_min).max(1e-12)).clamp(0.0, 1.0);
         let y_norm = ((tune - y_min) / (y_max - y_min).max(1e-12)).clamp(0.0, 1.0);
         let x_px = x_from_norm(image, bounds, x_norm);
         let y_px = y_from_norm(image, bounds, y_norm);
@@ -7499,28 +8065,26 @@ fn write_spectrogram_png(
         draw_text_small(&mut image, x - w / 2, y1 as i32 + 10, &label, [0, 0, 0], 2);
     }
 
-    // Y-axis ticks: time in ms from first to last sliding-window center turn (top-down).
-    let first_turn = sliding
+    // Y-axis ticks: first-to-last sliding-window center in configured axis domain.
+    let first_time_axis = sliding
         .iter()
         .take(rows)
-        .map(|point| point.center_turn as f64)
+        .map(|point| time_axis_value_from_turn(point.center_turn, config))
         .next()
         .unwrap_or(0.0);
-    let last_turn = sliding
+    let last_time_axis = sliding
         .iter()
         .take(rows)
-        .map(|point| point.center_turn as f64)
+        .map(|point| time_axis_value_from_turn(point.center_turn, config))
         .last()
-        .unwrap_or(first_turn);
-    let first_time_ms = first_turn * config.turn_period_us / 1000.0;
-    let last_time_ms = last_turn * config.turn_period_us / 1000.0;
-    let time_span_ms = (last_time_ms - first_time_ms).max(0.0);
+        .unwrap_or(first_time_axis);
+    let time_span_axis = (last_time_axis - first_time_axis).max(0.0);
     for i in 0..=6 {
         let y_norm = i as f64 / 6.0;
         let y = (y0 as f64 + y_norm * plot_h as f64).round() as i32;
         image.draw_line(x0 as i32 - 6, y, x0 as i32, y, [80, 80, 80]);
-        let value = first_time_ms + time_span_ms * y_norm;
-        let label = format!("{value:.2}");
+        let value = first_time_axis + time_span_axis * y_norm;
+        let label = format_number_label(value);
         let w = text_width_px(&label, 2);
         draw_text_small(&mut image, x0 as i32 - 12 - w, y - 4, &label, [0, 0, 0], 2);
     }
@@ -7577,7 +8141,7 @@ fn write_spectrogram_png(
         &mut image,
         8,
         (y0 + plot_h / 2) as i32,
-        "TIME AFTER INJECTION [MS]",
+        time_axis_label(config),
         [0, 0, 0],
         2,
     );
@@ -8547,6 +9111,7 @@ mod tests {
             n,
             512,
             128,
+            None,
             (0.55, 0.75),
             Some(0.60),
             true,
@@ -8575,6 +9140,25 @@ mod tests {
     }
 
     #[test]
+    fn flash_sampling_uses_evenly_spaced_centers() {
+        let starts = sliding_window_starts(15_000, 2_048, 256, Some(5));
+        let centers = starts
+            .iter()
+            .map(|start| start + 2_048 / 2)
+            .collect::<Vec<_>>();
+        assert_eq!(centers, vec![1500, 4500, 7500, 10_500, 13_500]);
+    }
+
+    #[test]
+    fn flash_sampling_is_bounded_by_window_capacity() {
+        let starts = sliding_window_starts(15_000, 2_048, 256, Some(50));
+        // Enforce per-spill capacity bound: flashes * window_turns <= sample_count.
+        assert_eq!(starts.len(), 15_000 / 2_048);
+        let unique = starts.iter().copied().collect::<HashSet<_>>();
+        assert_eq!(unique.len(), starts.len());
+    }
+
+    #[test]
     fn local_miss_sets_global_fallback_flag() {
         let window = 512usize;
         let trace = make_piecewise_trace(Plane::Horizontal, &[0.62, 0.62, 0.62], window);
@@ -8583,6 +9167,7 @@ mod tests {
             window * 3,
             window,
             window,
+            None,
             (0.55, 0.75),
             Some(0.90),
             true,
@@ -8607,6 +9192,7 @@ mod tests {
             window * 3,
             window,
             window,
+            None,
             (0.55, 0.75),
             Some(0.90),
             true,
@@ -8634,6 +9220,7 @@ mod tests {
             2048,
             512,
             256,
+            None,
             (0.55, 0.75),
             Some(0.63),
             false,
@@ -8660,6 +9247,7 @@ mod tests {
             2048,
             512,
             256,
+            None,
             (0.55, 0.75),
             None,
             true,
@@ -8787,6 +9375,12 @@ mod tests {
             &[sample_point(256, 0.63), sample_point(384, 0.635)],
             0.58,
             0.74,
+            0.01,
+            false,
+            1.6,
+            Some(0.61),
+            Some(0.63),
+            true,
         )
         .expect("trace plot");
 
@@ -8819,8 +9413,10 @@ mod tests {
             sliding_window_turns: 2048,
             sliding_stride_turns: 256,
             turn_period_us: 1.6,
+            plot_time_axes_in_us: false,
             tune_plot_y_min: 0.58,
             tune_plot_y_max: 0.74,
+            tune_plot_y_tick_step: 0.01,
             qx_band_min: 0.58,
             qx_band_max: 0.74,
             qy_band_min: 0.58,
@@ -8872,8 +9468,10 @@ mod tests {
             sliding_window_turns: 2048,
             sliding_stride_turns: 256,
             turn_period_us: 1.6,
+            plot_time_axes_in_us: false,
             tune_plot_y_min: 0.58,
             tune_plot_y_max: 0.74,
+            tune_plot_y_tick_step: 0.01,
             qx_band_min: 0.58,
             qx_band_max: 0.74,
             qy_band_min: 0.58,
@@ -8949,8 +9547,10 @@ mod tests {
             sliding_window_turns: 2048,
             sliding_stride_turns: 256,
             turn_period_us: 1.6,
+            plot_time_axes_in_us: false,
             tune_plot_y_min: 0.58,
             tune_plot_y_max: 0.74,
+            tune_plot_y_tick_step: 0.01,
             qx_band_min: 0.58,
             qx_band_max: 0.74,
             qy_band_min: 0.58,

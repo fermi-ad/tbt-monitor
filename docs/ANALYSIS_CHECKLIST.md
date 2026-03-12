@@ -1,17 +1,21 @@
-# ANALYSIS_CHECKLIST.md
+# ANALYSIS_CHECKLIST
 Remaining Implementation Checklist for Physics Validation
 
 This checklist has been trimmed to avoid re-tracking features that already
-exist in the repository (`README.md`, `PLAN.md`, `docs/ARCHITECTURE.md`).
+exist in the repository (`README.md`, `docs/PLAN.md`, `docs/ARCHITECTURE.md`).
 
 ## 1. Already Implemented (Removed from TODO)
 
 The following are already available and should be treated as baseline:
 
 - per-spill artifacts: `spectrum_h/v`, `tune_vs_time`, `sliding_tune.csv`
+- per-spill tune-validation composite: `tune_validation.png`
 - per-spill spectrograms: `spectrogram_h/v` (top-down tune heatmap vs time with normalized log-power color scale)
+- optional flashpoint sampling mode (`--flashes N|max`) for fixed-count evenly
+  spaced sliding windows (bounded by available turn depth)
 - batch artifacts:
   - `tune_vs_spill.png` (contains both `Qx` and `Qy`)
+  - optional `tune_vs_spill_flash_XX.png` series (flash-index trend across spills)
   - `confidence_vs_spill.png`
   - `alignment_vs_spill.png` (coverage/alignment trend)
   - `tune_scatter_qx_qy.png`

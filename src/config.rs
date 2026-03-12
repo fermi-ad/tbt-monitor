@@ -26,8 +26,10 @@ pub struct MonitorConfig {
     pub sliding_window_turns: usize,
     pub sliding_stride_turns: usize,
     pub turn_period_us: f64,
+    pub plot_time_axes_in_us: bool,
     pub tune_plot_y_min: f64,
     pub tune_plot_y_max: f64,
+    pub tune_plot_y_tick_step: f64,
     pub qx_band_min: f64,
     pub qx_band_max: f64,
     pub qy_band_min: f64,
@@ -113,6 +115,7 @@ impl MonitorConfig {
             bail!("turn_period_us must be finite and > 0");
         }
         validate_tune_plot_range(self.tune_plot_y_min, self.tune_plot_y_max)?;
+        validate_tune_plot_tick_step(self.tune_plot_y_tick_step)?;
 
         validate_band("qx", self.qx_band_min, self.qx_band_max)?;
         validate_band("qy", self.qy_band_min, self.qy_band_max)?;
@@ -155,8 +158,10 @@ pub fn load_monitor_config(path: &Path) -> Result<MonitorConfig> {
     let mut sliding_window_turns = 2_048usize;
     let mut sliding_stride_turns = 256usize;
     let mut turn_period_us = 1.6f64;
+    let mut plot_time_axes_in_us = false;
     let mut tune_plot_y_min = 0.58f64;
     let mut tune_plot_y_max = 0.74f64;
+    let mut tune_plot_y_tick_step = 0.01f64;
     let mut qx_band_min = 0.58f64;
     let mut qx_band_max = 0.74f64;
     let mut qy_band_min = 0.58f64;
@@ -291,6 +296,10 @@ pub fn load_monitor_config(path: &Path) -> Result<MonitorConfig> {
                         format!("invalid turn_period_us on line {}", line_no + 1)
                     })?
                 }
+                "plot_time_axes_in_us" => {
+                    plot_time_axes_in_us = parse_bool(value)
+                        .with_context(|| format!("invalid {key} on line {}", line_no + 1))?
+                }
                 "tune_plot_y_min" => {
                     tune_plot_y_min = value.parse::<f64>().with_context(|| {
                         format!("invalid tune_plot_y_min on line {}", line_no + 1)
@@ -299,6 +308,11 @@ pub fn load_monitor_config(path: &Path) -> Result<MonitorConfig> {
                 "tune_plot_y_max" => {
                     tune_plot_y_max = value.parse::<f64>().with_context(|| {
                         format!("invalid tune_plot_y_max on line {}", line_no + 1)
+                    })?
+                }
+                "tune_plot_y_tick_step" => {
+                    tune_plot_y_tick_step = value.parse::<f64>().with_context(|| {
+                        format!("invalid tune_plot_y_tick_step on line {}", line_no + 1)
                     })?
                 }
                 "qx_band_min" => {
@@ -377,8 +391,10 @@ pub fn load_monitor_config(path: &Path) -> Result<MonitorConfig> {
         sliding_window_turns,
         sliding_stride_turns,
         turn_period_us,
+        plot_time_axes_in_us,
         tune_plot_y_min,
         tune_plot_y_max,
+        tune_plot_y_tick_step,
         qx_band_min,
         qx_band_max,
         qy_band_min,
@@ -427,8 +443,16 @@ pub fn save_monitor_config(path: &Path, config: &MonitorConfig) -> Result<()> {
         config.sliding_stride_turns
     ));
     out.push_str(&format!("turn_period_us={}\n", config.turn_period_us));
+    out.push_str(&format!(
+        "plot_time_axes_in_us={}\n",
+        config.plot_time_axes_in_us
+    ));
     out.push_str(&format!("tune_plot_y_min={}\n", config.tune_plot_y_min));
     out.push_str(&format!("tune_plot_y_max={}\n", config.tune_plot_y_max));
+    out.push_str(&format!(
+        "tune_plot_y_tick_step={}\n",
+        config.tune_plot_y_tick_step
+    ));
     out.push_str(&format!("qx_band_min={}\n", config.qx_band_min));
     out.push_str(&format!("qx_band_max={}\n", config.qx_band_max));
     out.push_str(&format!("qy_band_min={}\n", config.qy_band_min));
@@ -524,6 +548,16 @@ fn validate_tune_plot_range(min: f64, max: f64) -> Result<()> {
     Ok(())
 }
 
+fn validate_tune_plot_tick_step(value: f64) -> Result<()> {
+    if !value.is_finite() || value <= 0.0 {
+        bail!("tune_plot_y_tick_step must be finite and > 0");
+    }
+    if value > 1.0 {
+        bail!("tune_plot_y_tick_step must be <= 1");
+    }
+    Ok(())
+}
+
 fn validate_peak_confidence(value: f64) -> Result<()> {
     if !value.is_finite() || value <= 0.0 {
         bail!("min_peak_confidence must be finite and > 0");
@@ -577,8 +611,10 @@ stream_key={MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_SCALED
         assert_eq!(config.sliding_window_turns, 2048);
         assert_eq!(config.sliding_stride_turns, 256);
         assert!((config.turn_period_us - 1.6).abs() < 1e-12);
+        assert!(!config.plot_time_axes_in_us);
         assert!((config.tune_plot_y_min - 0.58).abs() < 1e-12);
         assert!((config.tune_plot_y_max - 0.74).abs() < 1e-12);
+        assert!((config.tune_plot_y_tick_step - 0.01).abs() < 1e-12);
         assert!((config.qx_track_half_width - 0.005).abs() < 1e-12);
         assert!((config.qy_track_half_width - 0.005).abs() < 1e-12);
         assert!((config.max_tune_step_per_window - 0.005).abs() < 1e-12);
@@ -593,8 +629,10 @@ stream_key={MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_SCALED
         text.push_str("max_tune_step_per_window=0.03\n");
         text.push_str("min_peak_confidence=1.1\n");
         text.push_str("turn_period_us=1.7\n");
+        text.push_str("plot_time_axes_in_us=true\n");
         text.push_str("tune_plot_y_min=0.61\n");
         text.push_str("tune_plot_y_max=0.74\n");
+        text.push_str("tune_plot_y_tick_step=0.02\n");
         text.push_str(&base_config_text());
         let path = write_temp_config(&text);
         let config = load_monitor_config(&path).expect("load config");
@@ -606,8 +644,10 @@ stream_key={MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_SCALED
         assert!((config.qy_track_half_width - 0.02).abs() < 1e-12);
         assert!((config.max_tune_step_per_window - 0.03).abs() < 1e-12);
         assert!((config.turn_period_us - 1.7).abs() < 1e-12);
+        assert!(config.plot_time_axes_in_us);
         assert!((config.tune_plot_y_min - 0.61).abs() < 1e-12);
         assert!((config.tune_plot_y_max - 0.74).abs() < 1e-12);
+        assert!((config.tune_plot_y_tick_step - 0.02).abs() < 1e-12);
     }
 
     #[test]
@@ -634,6 +674,10 @@ stream_key={MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_SCALED
 
         config.tune_plot_y_min = 0.58;
         config.tune_plot_y_max = 0.74;
+        config.tune_plot_y_tick_step = 0.0;
+        assert!(config.validate().is_err());
+
+        config.tune_plot_y_tick_step = 0.01;
         config.turn_period_us = 0.0;
         assert!(config.validate().is_err());
     }

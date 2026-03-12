@@ -22,8 +22,8 @@ use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 
 use analyze::{
-    BatchOptions, BatchRecordFormat, DetailedArtifactsMode, ReferenceKey, SpillSourceMode,
-    StudyOptions, run_analyze_spill, run_analyze_spills, run_analyze_study,
+    BatchOptions, BatchRecordFormat, DetailedArtifactsMode, FLASH_COUNT_MAX, ReferenceKey,
+    SpillSourceMode, StudyOptions, run_analyze_spill, run_analyze_spills, run_analyze_study,
 };
 use config::{load_monitor_config, save_monitor_config};
 use importer::import_xml_config;
@@ -104,6 +104,10 @@ enum Command {
         #[arg(long)]
         sliding_stride_turns: Option<usize>,
 
+        /// Number of evenly-spaced flash sampling windows across a spill, or 'max'.
+        #[arg(long, short = 'f', value_name = "N|max", value_parser = parse_flashes_arg)]
+        flashes: Option<usize>,
+
         #[arg(long)]
         qx_band_min: Option<f64>,
 
@@ -118,6 +122,10 @@ enum Command {
 
         #[arg(long)]
         min_peak_confidence: Option<f64>,
+
+        /// Plot time-domain axes in microseconds instead of turns.
+        #[arg(long, default_value_t = false)]
+        plot_time_axes_in_us: bool,
 
         /// Keep running continuously and save timestamped artifacts per global spill.
         #[arg(long, default_value_t = false)]
@@ -177,6 +185,10 @@ enum Command {
         #[arg(long)]
         min_peak_confidence: Option<f64>,
 
+        /// Plot time-domain axes in microseconds instead of turns.
+        #[arg(long, default_value_t = false)]
+        plot_time_axes_in_us: bool,
+
         #[arg(long, default_value = "findings_summary.md")]
         summary_file: String,
 
@@ -227,6 +239,10 @@ enum Command {
         #[arg(long)]
         sliding_stride_turns: Option<usize>,
 
+        /// Number of evenly-spaced flash sampling windows across a spill, or 'max'.
+        #[arg(long, short = 'f', value_name = "N|max", value_parser = parse_flashes_arg)]
+        flashes: Option<usize>,
+
         #[arg(long)]
         qx_band_min: Option<f64>,
 
@@ -241,6 +257,10 @@ enum Command {
 
         #[arg(long)]
         min_peak_confidence: Option<f64>,
+
+        /// Plot time-domain axes in microseconds instead of turns.
+        #[arg(long, default_value_t = false)]
+        plot_time_axes_in_us: bool,
 
         #[arg(long, default_value_t = 1.5)]
         min_confidence: f64,
@@ -349,11 +369,13 @@ fn main() -> Result<()> {
             injection_window_turns,
             sliding_window_turns,
             sliding_stride_turns,
+            flashes,
             qx_band_min,
             qx_band_max,
             qy_band_min,
             qy_band_max,
             min_peak_confidence,
+            plot_time_axes_in_us,
             free_run,
             count,
             no_beam,
@@ -367,6 +389,16 @@ fn main() -> Result<()> {
             }
             if !no_beam && stale_depth.is_some() {
                 eprintln!("[warn] analyze-spill: --stale-depth is ignored unless --no-beam is set");
+            }
+            if flashes.is_some() && sliding_stride_turns.is_some() {
+                eprintln!(
+                    "[warn] analyze-spill: --sliding-stride-turns is ignored when --flashes is set"
+                );
+            }
+            if flashes.is_some() {
+                eprintln!(
+                    "[warn] analyze-spill: injection_window_turns is ignored when --flashes is set; using sliding_window_turns"
+                );
             }
 
             let mut monitor_config = load_monitor_config(&config)
@@ -405,6 +437,9 @@ fn main() -> Result<()> {
             if let Some(v) = min_peak_confidence {
                 monitor_config.min_peak_confidence = v;
             }
+            if plot_time_axes_in_us {
+                monitor_config.plot_time_axes_in_us = true;
+            }
 
             monitor_config.validate()?;
             let source_mode = if no_beam {
@@ -414,7 +449,14 @@ fn main() -> Result<()> {
             } else {
                 SpillSourceMode::LiveLatest
             };
-            run_analyze_spill(monitor_config, &out_dir, free_run, count, source_mode)?;
+            run_analyze_spill(
+                monitor_config,
+                &out_dir,
+                free_run,
+                count,
+                source_mode,
+                flashes,
+            )?;
         }
         Command::AnalyzePhase {
             config,
@@ -430,6 +472,7 @@ fn main() -> Result<()> {
             svd_modes,
             svd_normalize_bpm,
             min_peak_confidence,
+            plot_time_axes_in_us,
             summary_file,
             free_run,
             count,
@@ -450,6 +493,9 @@ fn main() -> Result<()> {
                 .with_context(|| format!("failed to load {}", config.display()))?;
             if let Some(v) = min_peak_confidence {
                 monitor_config.min_peak_confidence = v;
+            }
+            if plot_time_axes_in_us {
+                monitor_config.plot_time_axes_in_us = true;
             }
             monitor_config.validate()?;
 
@@ -494,11 +540,13 @@ fn main() -> Result<()> {
             injection_window_turns,
             sliding_window_turns,
             sliding_stride_turns,
+            flashes,
             qx_band_min,
             qx_band_max,
             qy_band_min,
             qy_band_max,
             min_peak_confidence,
+            plot_time_axes_in_us,
             min_confidence,
             min_aligned_bpm_count,
             min_per_plane_bpm,
@@ -514,6 +562,16 @@ fn main() -> Result<()> {
             if !no_beam && stale_depth.is_some() {
                 eprintln!(
                     "[warn] analyze-spills: --stale-depth is ignored unless --no-beam is set"
+                );
+            }
+            if flashes.is_some() && sliding_stride_turns.is_some() {
+                eprintln!(
+                    "[warn] analyze-spills: --sliding-stride-turns is ignored when --flashes is set"
+                );
+            }
+            if flashes.is_some() {
+                eprintln!(
+                    "[warn] analyze-spills: injection_window_turns is ignored when --flashes is set; using sliding_window_turns"
                 );
             }
             let mut monitor_config = load_monitor_config(&config)
@@ -552,6 +610,9 @@ fn main() -> Result<()> {
             if let Some(v) = min_peak_confidence {
                 monitor_config.min_peak_confidence = v;
             }
+            if plot_time_axes_in_us {
+                monitor_config.plot_time_axes_in_us = true;
+            }
 
             monitor_config.validate()?;
 
@@ -566,6 +627,7 @@ fn main() -> Result<()> {
                 reference_file,
                 reference_key: ReferenceKey::parse(&reference_key)?,
                 reference_match_tolerance_ms,
+                flash_count: flashes,
             };
 
             let source_mode = if no_beam {
@@ -585,4 +647,17 @@ fn main() -> Result<()> {
 
 fn normalize_block_ms(v: u64) -> u64 {
     if v == 0 { 0 } else { v.max(50) }
+}
+
+fn parse_flashes_arg(raw: &str) -> std::result::Result<usize, String> {
+    if raw.eq_ignore_ascii_case("max") {
+        return Ok(FLASH_COUNT_MAX);
+    }
+    let value = raw.parse::<usize>().map_err(|_| {
+        format!("invalid --flashes value '{raw}', expected positive integer or 'max'")
+    })?;
+    if value == 0 {
+        return Err("--flashes must be >= 1".to_string());
+    }
+    Ok(value)
 }

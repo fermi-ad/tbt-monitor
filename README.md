@@ -24,12 +24,13 @@ credible and operationally useful for Delivery Ring studies.
 - Implementation architecture: `docs/ARCHITECTURE.md`
 - Design rationale and tradeoffs: `docs/DESIGN_DECISIONS.md`
 - Configuration semantics: `docs/CONFIG_REFERENCE.md`
-- Physics/engineering roadmap mapped from the methodology PDF: `PLAN.md`
-- Physics-validation guide and acceptance framing: `PHYSICS.md`
-- Remaining implementation work for physics review artifacts: `ANALYSIS_CHECKLIST.md`
+- Physics/engineering roadmap mapped from the methodology PDF: `docs/PLAN.md`
+- Physics-validation guide and acceptance framing: `docs/PHYSICS.md`
+- Remaining implementation work for physics review artifacts: `docs/ANALYSIS_CHECKLIST.md`
+- Engineering backlog and implementation tracking: `docs/ENGINEERING_BACKLOG.md`
 - Coding-assistant orientation for this repository: `AGENTS.md`
 
-`PLAN.md` includes an explicit "plan vs implementation" divergence matrix.
+`docs/PLAN.md` includes an explicit "plan vs implementation" divergence matrix.
 
 ## Repository Layout
 
@@ -131,6 +132,7 @@ cargo run --offline -- analyze-spill \
   --injection-window-turns 2048 \
   --sliding-window-turns 2048 \
   --sliding-stride-turns 256 \
+  --flashes 5 \
   --min-peak-confidence 1.5 \
   --qx-band-min 0.58 \
   --qx-band-max 0.74 \
@@ -158,21 +160,34 @@ No-beam historical candidate discovery also merges adjacent timestamp buckets
 (`±1 ms`) before ranking candidates, so split coverage patterns (for example
 `96/24` across neighboring milliseconds) are analyzed as one physical spill target.
 
-Sliding-window tracking knobs are config-driven (not CLI flags in this phase):
+Flashpoint sampling mode:
+
+- `--flashes N` samples `N` evenly spaced sliding-window centers across each spill.
+- `--flashes max` automatically uses the maximum flash count allowed by available turns and `sliding_window_turns`.
+- This overrides `sliding_stride_turns` for tune extraction windows.
+- Runtime bounds are enforced per plane/spill: `effective_flashes <= floor(consensus_turns / sliding_window_turns)`.
+  If reduced, a warning is emitted in spill summaries.
+- In flash mode, injection tune estimation uses `sliding_window_turns` (so `injection_window_turns` is ignored).
+
+Sliding-window tracking knobs are mostly config-driven:
 
 - `enable_peak_tracking=true`
 - `qx_track_half_width=0.005`
 - `qy_track_half_width=0.005`
 - `max_tune_step_per_window=0.005`
 - `turn_period_us=1.6`
+- `plot_time_axes_in_us=false`
 - `tune_plot_y_min=0.58`
 - `tune_plot_y_max=0.74`
+- `tune_plot_y_tick_step=0.01`
 
 When tracking is enabled, `tune_vs_time.png` uses the tracked `selected_tune` curve, and raw global-band peaks are still computed for diagnostics/fallback.
+With `--flashes`, `tune_vs_time.png` also marks sampled flash points and overlays injection-tune guides.
 Tune-valued Y axes are fixed to `tune_plot_y_min/max` (including batch/study tune trend plots) for cross-run visual comparability.
-`tune_vs_time.png` also draws horizontal Y-grid lines at `0.1` tune intervals within the configured range.
-`spectrogram_h/v.png` are top-down heatmaps with tune on X and time (from `turn_period_us`) on Y; each row corresponds to one sliding-window FFT step, and heat intensity uses normalized log spectral power.
-`injection_window_turns` is used only for the single representative injection tune estimate; default practice is to keep it equal to `sliding_window_turns` and only diverge during deliberate studies.
+`tune_vs_time.png` draws horizontal Y-grid lines at `tune_plot_y_tick_step` intervals within the configured range.
+Time-domain plot axes default to turn index. Set `plot_time_axes_in_us=true` (or pass `--plot-time-axes-in-us` on analysis commands) to render time axes in microseconds.
+`spectrogram_h/v.png` are top-down heatmaps with tune on X and turn/time on Y; each row corresponds to one sliding-window FFT step, and heat intensity uses normalized log spectral power.
+`injection_window_turns` is used only for the single representative injection tune estimate in non-flash mode; in flash mode, `sliding_window_turns` is used for both injection and sliding paths.
 Fallback-picked windows and suspicious large-step windows are kept in outputs but never reseed the tracker state.
 All tune peak picks use a configurable confidence gate (`min_peak_confidence`, default `2.0`), so weak windows are reported as missing tune.
 Use `--min-peak-confidence` on analysis commands for per-run overrides.
@@ -186,6 +201,8 @@ When `--count` is set, `analyze-spill` also synthesizes batch-level outputs at e
 `spills_summary.csv/jsonl`, `tune_vs_spill.png`, `confidence_vs_spill.png`,
 `alignment_vs_spill.png`, `tune_scatter_qx_qy.png`, `tune_histogram.png`,
 `composite_waterfall_h.png`, `composite_waterfall_v.png`, and `batch_summary.md`.
+If `--flashes` is set, synthesized batch outputs also include
+`tune_vs_spill_flash_XX.png` (one per flash index).
 
 The process starts stream-watch workers (one per device) only to detect new arrivals. Each arrival wakes a full global snapshot over all configured streams, then writes one timestamped artifact set.
 
@@ -436,6 +453,7 @@ Main options:
 - `--min-per-plane-bpm 1`
 - `--peak-edge-margin 0.005`
 - `--min-peak-confidence <f64>`
+- `--flashes <N|max>`
 - `--record-format both|csv|jsonl`
 - `--detailed-artifacts all|representative|none`
 - `--reference-file <path>`
@@ -459,7 +477,8 @@ Batch outputs:
 
 - `spills_summary.csv`
 - `spills_summary.jsonl` (unless CSV-only mode)
-- `tune_vs_spill.png`
+- `tune_vs_spill.png` (injection tune trend)
+- `tune_vs_spill_flash_XX.png` (one per flash index when `--flashes` is set)
 - `confidence_vs_spill.png`
 - `alignment_vs_spill.png`
 - `tune_scatter_qx_qy.png`
@@ -483,5 +502,5 @@ For implementation-level details and design rationale, use:
 - `docs/ARCHITECTURE.md` for module boundaries and runtime data flow.
 - `docs/DESIGN_DECISIONS.md` for explicit tradeoffs and justification.
 - `docs/CONFIG_REFERENCE.md` for key-by-key config behavior.
-- `PLAN.md` for roadmap alignment with the tune-methodology plan PDF.
+- `docs/PLAN.md` for roadmap alignment with the tune-methodology plan PDF.
 - `AGENTS.md` for assistant-oriented repository guidance and invariants.

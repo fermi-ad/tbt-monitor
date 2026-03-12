@@ -112,7 +112,8 @@ Tradeoffs:
 Decision:
 - Use config-defined fixed tune Y-axis bounds (`tune_plot_y_min/max`) for
   tune-valued trend/comparison plots instead of per-plot autoscaling.
-- Render `tune_vs_time` with horizontal `0.1`-spacing Y-grid lines.
+- Render `tune_vs_time` with configurable horizontal Y-grid spacing via
+  `tune_plot_y_tick_step` (default `0.01`).
 
 Why:
 - Visual comparisons across spills/runs are unreliable when each plot autoscales.
@@ -141,8 +142,9 @@ Tradeoffs:
 
 Decision:
 - Emit per-spill `spectrogram_h.png` and `spectrogram_v.png` heatmaps.
-- Use tune on X, time on Y (from `turn_period_us`), and normalized log spectral
-  power for color intensity.
+- Use tune on X, and turns by default on Y; optionally use microseconds when
+  `plot_time_axes_in_us=true` (converted via `turn_period_us`).
+- Use normalized log spectral power for color intensity.
 - Map rows discretely to sliding-window FFT steps (one row per step).
 
 Why:
@@ -196,10 +198,37 @@ Tradeoffs:
 - Additional per-spill artifact generation cost and output file volume.
 - Composite readability depends on balanced panel scaling and label layout.
 
+## DD-014: Optional flashpoint sampling mode for sliding tune extraction
+
+Decision:
+- Add `--flashes N|max` to `analyze-spill` and `analyze-spills`.
+- When set, sliding-window placement switches from fixed stride to `N`
+  evenly spaced centers across spill depth (window size still governed by
+  `sliding_window_turns`).
+- `--flashes max` automatically resolves to the per-spill maximum supported
+  by available turns and `sliding_window_turns`.
+- In flash mode, injection tune estimation also uses `sliding_window_turns`
+  (ignoring `injection_window_turns`).
+- Batch outputs add one plot per flash index:
+  `tune_vs_spill_flash_XX.png`.
+
+Why:
+- Physics review often needs spill-to-spill comparison at consistent in-spill
+  phases (early/mid/late) without over-emphasizing dense sliding trajectories.
+- Fixed-count flash sampling provides predictable per-spill sampling while
+  preserving existing injection and tracked-sliding analysis logic.
+
+Tradeoffs:
+- High requested flash counts can exceed available turn depth for short spills;
+  implementation applies per-spill runtime bounds and emits warnings when
+  reduced.
+- Flash-index plots are indexed by sampling order; center turn can vary slightly
+  when spill turn depth varies between captures.
+
 ## Decision Update Rule
 
 When changing one of these decisions, update:
 1. this file,
 2. `docs/ARCHITECTURE.md`,
-3. `PLAN.md` (if plan alignment changes), and
+3. `docs/PLAN.md` (if plan alignment changes), and
 4. `README.md` for user-visible behavior changes.

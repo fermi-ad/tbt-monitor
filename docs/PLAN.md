@@ -89,8 +89,14 @@ Status: `Implemented`
 
 What exists:
 - Configurable sliding windows/stride.
+- Optional flashpoint sampling mode (`--flashes N|max`) for evenly spaced
+  fixed-count windows across spill depth, bounded by available turn count.
+- In flash mode, injection tune uses `sliding_window_turns` (not
+  `injection_window_turns`).
 - Tracked local peak logic with fallback and suspicious-step diagnostics.
 - Per-spill tune-vs-time plot and sliding CSV output.
+- Batch flash-index trend plots (`tune_vs_spill_flash_XX.png`) when flash
+  sampling is enabled.
 
 ### 7) Validation against Schottky
 

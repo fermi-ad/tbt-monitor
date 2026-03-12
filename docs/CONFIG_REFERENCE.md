@@ -29,12 +29,20 @@ This reference describes `config/monitor.cfg` keys used by runtime and analysis 
   - Step size between sliding windows.
 - `turn_period_us`
   - Conversion from turn index to physical time (`1 turn = turn_period_us` microseconds).
-  - Used for spectrogram time axis labeling.
+  - Used for time-axis rendering when time-domain plotting is enabled.
   - Default: `1.6`.
+- `plot_time_axes_in_us`
+  - `false` (default): use turn index on time-like axes.
+  - `true`: render time-like axes in microseconds using `turn_period_us`.
+  - Affects per-spill `tune_vs_time`, per-spill spectrograms, tune-validation
+    panels, and composite waterfall Z-axis labels/ticks.
 - `tune_plot_y_min`, `tune_plot_y_max`
   - Fixed Y-axis range for tune-valued plots (`tune_vs_time`, batch tune trend,
     tune-by-BPM, study tune panels, and composite waterfall tune axis).
   - Defaults are `0.58` to `0.74`.
+- `tune_plot_y_tick_step`
+  - Horizontal Y-grid spacing for `tune_vs_time`.
+  - Default: `0.01`.
 
 ## Tune-Band and Confidence Keys
 
@@ -77,5 +85,7 @@ Each `[[device]]` defines:
 - Keep `tune_plot_y_min/max` fixed across runs when comparing tune trends
   between datasets; this avoids visual auto-scaling bias.
 - Keep `turn_period_us` aligned with machine timing assumptions so spectrogram
-  time labels remain physically meaningful.
+  time labels remain physically meaningful when `plot_time_axes_in_us=true`.
+- Keep `plot_time_axes_in_us=false` unless physical time readout is needed;
+  turns are the default review domain.
 - Prefer explicit trigger fallback keys to preserve trigger timestamp robustness.

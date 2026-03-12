@@ -1,4 +1,4 @@
-# PHYSICS.md
+# PHYSICS
 Beam Physics Validation Guide for BPM-Derived Tune Monitor
 
 This document tracks the physics-validation work needed to establish that the
@@ -13,10 +13,13 @@ The software pipeline already provides:
 - tracked sliding peaks with fallback/suspicious-step diagnostics
 - per-spill artifacts:
   - `spectrum_h.png`, `spectrum_v.png`, `spectrogram_h.png`, `spectrogram_v.png`,
-    `tune_vs_time.png`, `sliding_tune.csv`
+    `tune_vs_time.png`, `tune_validation.png`, `sliding_tune.csv`
+- optional flashpoint sampling mode (`--flashes N|max`) for fixed-count evenly
+  spaced in-spill tune checkpoints (bounded by available turns and window size)
 - batch artifacts:
   - `tune_vs_spill.png`, `confidence_vs_spill.png`, `alignment_vs_spill.png`,
     `tune_scatter_qx_qy.png`, `tune_histogram.png`,
+    optional `tune_vs_spill_flash_XX.png` (one per flash index),
     `composite_waterfall_h.png`, `composite_waterfall_v.png`, `batch_summary.md`
 - quality semantics and labels (`GOOD`, `MARGINAL`, `BAD`) with explicit flags
   (for example `INCOMPLETE_TBT_POLL`, `LOW_ALIGNMENT_FRACTION`, low-confidence

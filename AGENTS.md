@@ -10,7 +10,7 @@ This file helps coding assistants make safe, coherent changes in this repository
 - Live monitor runtime: `src/monitor.rs`
 - Analysis/study/batch logic: `src/analyze.rs`
 - User docs: `README.md`
-- Architecture and rationale docs: `docs/ARCHITECTURE.md`, `docs/DESIGN_DECISIONS.md`, `PLAN.md`
+- Architecture and rationale docs: `docs/ARCHITECTURE.md`, `docs/DESIGN_DECISIONS.md`, `docs/PLAN.md`
 
 ## Core Invariants
 
@@ -26,7 +26,7 @@ When behavior changes, update all of:
 - implementation (`src/*.rs`)
 - user docs (`README.md`)
 - architecture/rationale docs (`docs/*.md`)
-- plan alignment (`PLAN.md`) if roadmap fit changes
+- plan alignment (`docs/PLAN.md`) if roadmap fit changes
 
 ## Definition of Done (Doc Sync Gate)
 
@@ -35,13 +35,13 @@ same change.
 
 Required completion checks:
 
-1. Backlog item status is moved to `done` in `ENGINEERING_BACKLOG.md`.
+1. Backlog item status is moved to `done` in `docs/ENGINEERING_BACKLOG.md`.
 2. Affected docs listed in the backlog item's `Docs:` line are updated.
 3. `README.md` is updated for user-visible behavior/CLI/artifact changes.
 4. `docs/ARCHITECTURE.md` and `docs/DESIGN_DECISIONS.md` are updated when
    module boundaries, data flow, or rationale/tradeoffs change.
-5. `PLAN.md` is updated when plan alignment/divergence changes.
-6. `PHYSICS.md` and/or `ANALYSIS_CHECKLIST.md` are updated when physics
+5. `docs/PLAN.md` is updated when plan alignment/divergence changes.
+6. `docs/PHYSICS.md` and/or `docs/ANALYSIS_CHECKLIST.md` are updated when physics
    validation scope, acceptance criteria, or remaining analysis tasks change.
 7. Tests are added or updated for behavior changes.
 
