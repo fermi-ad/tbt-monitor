@@ -209,8 +209,8 @@ Decision:
   by available turns and `sliding_window_turns`.
 - In flash mode, injection tune estimation also uses `sliding_window_turns`
   (ignoring `injection_window_turns`).
-- Batch outputs add one plot per flash index:
-  `tune_vs_spill_flash_XX.png`.
+- Batch outputs add one tune-trend plot and one histogram per flash index:
+  `tune_vs_spill_flash_XX.png` and `tune_histogram_flash_XX.png`.
 
 Why:
 - Physics review often needs spill-to-spill comparison at consistent in-spill

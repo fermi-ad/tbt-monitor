@@ -37,6 +37,17 @@ None.
 
 ## Done
 
+### [ENG-004] Per-flash histogram batch artifacts
+- Status: done
+- Owner: codex
+- Type: qol
+- Why: flash-sampled runs need distribution views at each flash index, not only trend lines.
+- Scope: add `tune_histogram_flash_XX.png` generation for flash-enabled batch outputs (including `analyze-spill --free-run --count` synthesis path) using existing sliding tune points.
+- Acceptance: when `--flashes` is set and batch outputs are emitted, one `tune_histogram_flash_XX.png` is produced per available flash index alongside `tune_vs_spill_flash_XX.png`.
+- Docs: README.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+- Validation: cargo fmt --all; cargo test -- --nocapture
+- Notes: completed on 2026-03-11.
+
 ### [ENG-003] Plot-axis domain toggle and tune-grid spacing config
 - Status: done
 - Owner: codex

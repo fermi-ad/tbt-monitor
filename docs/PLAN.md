@@ -95,7 +95,8 @@ What exists:
   `injection_window_turns`).
 - Tracked local peak logic with fallback and suspicious-step diagnostics.
 - Per-spill tune-vs-time plot and sliding CSV output.
-- Batch flash-index trend plots (`tune_vs_spill_flash_XX.png`) when flash
+- Batch flash-index trend and histogram plots
+  (`tune_vs_spill_flash_XX.png`, `tune_histogram_flash_XX.png`) when flash
   sampling is enabled.
 
 ### 7) Validation against Schottky

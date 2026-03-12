@@ -109,7 +109,7 @@ Main artifact families:
 - per-spill summaries (`txt`)
 - batch records (`csv`/`jsonl`)
 - batch plots (including composite H/V waterfall, and optional per-flash
-  `tune_vs_spill_flash_XX`) and markdown summary
+  `tune_vs_spill_flash_XX` and `tune_histogram_flash_XX`) and markdown summary
 
 Tune-valued plot scaling policy:
 - Tune Y-axis bounds are config-driven via `tune_plot_y_min` and `tune_plot_y_max`.

@@ -16,6 +16,7 @@ The following are already available and should be treated as baseline:
 - batch artifacts:
   - `tune_vs_spill.png` (contains both `Qx` and `Qy`)
   - optional `tune_vs_spill_flash_XX.png` series (flash-index trend across spills)
+  - optional `tune_histogram_flash_XX.png` series (flash-index histograms across spills)
   - `confidence_vs_spill.png`
   - `alignment_vs_spill.png` (coverage/alignment trend)
   - `tune_scatter_qx_qy.png`

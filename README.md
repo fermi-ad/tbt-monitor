@@ -202,7 +202,7 @@ When `--count` is set, `analyze-spill` also synthesizes batch-level outputs at e
 `alignment_vs_spill.png`, `tune_scatter_qx_qy.png`, `tune_histogram.png`,
 `composite_waterfall_h.png`, `composite_waterfall_v.png`, and `batch_summary.md`.
 If `--flashes` is set, synthesized batch outputs also include
-`tune_vs_spill_flash_XX.png` (one per flash index).
+`tune_vs_spill_flash_XX.png` and `tune_histogram_flash_XX.png` (one per flash index).
 
 The process starts stream-watch workers (one per device) only to detect new arrivals. Each arrival wakes a full global snapshot over all configured streams, then writes one timestamped artifact set.
 
@@ -479,6 +479,7 @@ Batch outputs:
 - `spills_summary.jsonl` (unless CSV-only mode)
 - `tune_vs_spill.png` (injection tune trend)
 - `tune_vs_spill_flash_XX.png` (one per flash index when `--flashes` is set)
+- `tune_histogram_flash_XX.png` (one per flash index when `--flashes` is set)
 - `confidence_vs_spill.png`
 - `alignment_vs_spill.png`
 - `tune_scatter_qx_qy.png`

@@ -2569,6 +2569,7 @@ fn write_batch_summary_plots(
             config.tune_plot_y_max,
             flash_count,
         )?;
+        write_tune_histogram_flash_plots(out_dir, results, flash_count)?;
     }
     write_confidence_vs_spill_png(
         &out_dir.join("confidence_vs_spill.png"),
@@ -2912,17 +2913,7 @@ fn write_tune_vs_spill_png(
     write_png_rgb(path, &image)
 }
 
-fn write_tune_vs_spill_flash_plots(
-    out_dir: &Path,
-    results: &[BatchSpillResult],
-    tune_y_min: f64,
-    tune_y_max: f64,
-    requested_flash_count: usize,
-) -> Result<()> {
-    if requested_flash_count == 0 {
-        return Ok(());
-    }
-
+fn resolved_flash_plot_count(results: &[BatchSpillResult], requested_flash_count: usize) -> usize {
     let available_max = results
         .iter()
         .flat_map(|result| {
@@ -2943,10 +2934,39 @@ fn write_tune_vs_spill_flash_plots(
         })
         .max()
         .unwrap_or(0);
-    let flash_count = requested_flash_count.min(available_max);
+    requested_flash_count.min(available_max)
+}
+
+fn write_tune_vs_spill_flash_plots(
+    out_dir: &Path,
+    results: &[BatchSpillResult],
+    tune_y_min: f64,
+    tune_y_max: f64,
+    requested_flash_count: usize,
+) -> Result<()> {
+    if requested_flash_count == 0 {
+        return Ok(());
+    }
+    let flash_count = resolved_flash_plot_count(results, requested_flash_count);
     for flash_idx in 0..flash_count {
         let path = out_dir.join(format!("tune_vs_spill_flash_{:02}.png", flash_idx + 1));
         write_tune_vs_spill_flash_png(path.as_path(), results, tune_y_min, tune_y_max, flash_idx)?;
+    }
+    Ok(())
+}
+
+fn write_tune_histogram_flash_plots(
+    out_dir: &Path,
+    results: &[BatchSpillResult],
+    requested_flash_count: usize,
+) -> Result<()> {
+    if requested_flash_count == 0 {
+        return Ok(());
+    }
+    let flash_count = resolved_flash_plot_count(results, requested_flash_count);
+    for flash_idx in 0..flash_count {
+        let path = out_dir.join(format!("tune_histogram_flash_{:02}.png", flash_idx + 1));
+        write_tune_histogram_flash_png(path.as_path(), results, flash_idx)?;
     }
     Ok(())
 }
@@ -3424,6 +3444,88 @@ fn write_tune_histogram_png(path: &Path, results: &[BatchSpillResult]) -> Result
         top_bounds.left as i32 + 4,
         10,
         "TUNE HISTOGRAM",
+        [0, 0, 0],
+        2,
+    );
+
+    write_png_rgb(path, &image)
+}
+
+fn write_tune_histogram_flash_png(
+    path: &Path,
+    results: &[BatchSpillResult],
+    flash_index: usize,
+) -> Result<()> {
+    let good = results
+        .iter()
+        .filter(|r| r.record.quality_label == SpillQuality::Good);
+    let mut qx = Vec::<f64>::new();
+    let mut qy = Vec::<f64>::new();
+    let mut center_turns = Vec::<usize>::new();
+
+    for result in good {
+        if let Some(point) = result
+            .snapshot
+            .h_analysis
+            .as_ref()
+            .and_then(|analysis| analysis.sliding.get(flash_index))
+        {
+            if let Some(tune) = point.selected_tune.filter(|value| value.is_finite()) {
+                qx.push(tune);
+            }
+            center_turns.push(point.center_turn);
+        }
+        if let Some(point) = result
+            .snapshot
+            .v_analysis
+            .as_ref()
+            .and_then(|analysis| analysis.sliding.get(flash_index))
+        {
+            if let Some(tune) = point.selected_tune.filter(|value| value.is_finite()) {
+                qy.push(tune);
+            }
+            center_turns.push(point.center_turn);
+        }
+    }
+
+    let mut image = RgbImage::new(1280, 900);
+    image.fill([255, 255, 255]);
+    let top_bounds = PlotBounds {
+        left: 80,
+        right: 20,
+        top: 40,
+        bottom: 490,
+    };
+    let bottom_bounds = PlotBounds {
+        left: 80,
+        right: 20,
+        top: 520,
+        bottom: 70,
+    };
+    draw_axes(&mut image, top_bounds, [0, 0, 0]);
+    draw_axes(&mut image, bottom_bounds, [0, 0, 0]);
+
+    let title_qx = format!("QX HIST FLASH {:02} (GOOD)", flash_index + 1);
+    let title_qy = format!("QY HIST FLASH {:02} (GOOD)", flash_index + 1);
+    draw_histogram_panel(&mut image, top_bounds, &qx, [0, 70, 220], &title_qx);
+    draw_histogram_panel(&mut image, bottom_bounds, &qy, [220, 0, 0], &title_qy);
+
+    let center_turn = if center_turns.is_empty() {
+        "NA".to_string()
+    } else {
+        let avg = center_turns.iter().sum::<usize>() / center_turns.len();
+        avg.to_string()
+    };
+    let title = format!(
+        "TUNE HISTOGRAM FLASH {:02} (CENTER TURN ~{})",
+        flash_index + 1,
+        center_turn
+    );
+    draw_text_small(
+        &mut image,
+        top_bounds.left as i32 + 4,
+        10,
+        &title,
         [0, 0, 0],
         2,
     );
@@ -8999,6 +9101,34 @@ mod tests {
         }
     }
 
+    fn sample_peak(tune: f64, confidence: f64) -> PeakResult {
+        PeakResult {
+            tune,
+            confidence,
+            peak_power: 10.0,
+            median_power: 1.0,
+            prominence: 9.0,
+        }
+    }
+
+    fn sample_plane_analysis(plane: Plane, tune: f64, center_turn: usize) -> PlaneAnalysis {
+        PlaneAnalysis {
+            plane,
+            traces_total: 1,
+            traces_used: 1,
+            consensus_turns: 4096,
+            participating_bpms: vec!["test".to_string()],
+            best_bpm_stream: Some("test_stream".to_string()),
+            max_rms_bpm: Some(1.0),
+            injection_spectrum: vec![0.0; 32],
+            injection_peak: Some(sample_peak(tune, 3.0)),
+            sliding: vec![sample_point(center_turn, tune)],
+            sliding_spectra: vec![vec![1.0; 32]],
+            sliding_fallback_count: 0,
+            sliding_suspicious_count: 0,
+        }
+    }
+
     #[test]
     fn parse_stream_id_and_ms() {
         assert_eq!(
@@ -9581,6 +9711,98 @@ mod tests {
             meta.len() > 0,
             "expected non-empty tune validation png {}",
             path.display()
+        );
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn writes_flash_tune_histogram_png_when_flash_data_exists() {
+        let dir = std::env::temp_dir().join(format!(
+            "tbt-monitor-tui-flash-hist-test-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).expect("create temp dir");
+
+        let config = MonitorConfig {
+            xread_block_ms: 1000,
+            reconnect_initial_ms: 2000,
+            reconnect_max_ms: 30000,
+            min_stream_values: 1,
+            injection_start_turn: 0,
+            injection_window_turns: 1024,
+            sliding_window_turns: 2048,
+            sliding_stride_turns: 256,
+            turn_period_us: 1.6,
+            plot_time_axes_in_us: false,
+            tune_plot_y_min: 0.58,
+            tune_plot_y_max: 0.74,
+            tune_plot_y_tick_step: 0.01,
+            qx_band_min: 0.58,
+            qx_band_max: 0.74,
+            qy_band_min: 0.58,
+            qy_band_max: 0.74,
+            min_peak_confidence: 2.0,
+            enable_peak_tracking: true,
+            qx_track_half_width: 0.005,
+            qy_track_half_width: 0.005,
+            max_tune_step_per_window: 0.005,
+            align_tolerance_ms: 1,
+            min_aligned_fraction: 0.70,
+            devices: vec![DeviceConfig {
+                label: "test".to_string(),
+                bpm_ip: "10.0.0.1".to_string(),
+                redis: RedisConfig {
+                    host: "127.0.0.1".to_string(),
+                    port: 6379,
+                    db: 0,
+                    username: None,
+                    password: None,
+                },
+                trigger_key: "{MUON:BPM:10.0.0.1}:LAST_TRIGGER_TIME".to_string(),
+                trigger_fallback_keys: Vec::new(),
+                stream_keys: vec!["{MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_SCALED".to_string()],
+            }],
+        };
+
+        let snapshot = SpillSnapshot {
+            target_ms: 1772830005123,
+            observations: vec![TbtObservation {
+                bpm_ip: "10.0.0.1".to_string(),
+                stream_key: "{MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_SCALED".to_string(),
+                id: "1772830005123-0".to_string(),
+                ms: 1772830005123,
+                aligned: true,
+            }],
+            h_analysis: Some(sample_plane_analysis(Plane::Horizontal, 0.61, 1500)),
+            v_analysis: Some(sample_plane_analysis(Plane::Vertical, 0.63, 1500)),
+            warnings: Vec::new(),
+        };
+
+        let options = default_free_run_batch_options(1, Some(3));
+        let record = build_spill_record(
+            &config,
+            &options,
+            &snapshot,
+            1,
+            1,
+            snapshot.target_ms,
+            "unit-test".to_string(),
+        )
+        .expect("build record");
+
+        let results = vec![BatchSpillResult { record, snapshot }];
+        write_tune_histogram_flash_plots(&dir, &results, 3).expect("write flash histograms");
+
+        let flash01 = dir.join("tune_histogram_flash_01.png");
+        let meta = fs::metadata(&flash01).expect("flash histogram metadata");
+        assert!(meta.len() > 0, "expected non-empty flash histogram png");
+        assert!(
+            !dir.join("tune_histogram_flash_02.png").exists(),
+            "only one flash histogram should be emitted for one sliding point"
         );
 
         let _ = fs::remove_dir_all(&dir);

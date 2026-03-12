@@ -19,7 +19,8 @@ The software pipeline already provides:
 - batch artifacts:
   - `tune_vs_spill.png`, `confidence_vs_spill.png`, `alignment_vs_spill.png`,
     `tune_scatter_qx_qy.png`, `tune_histogram.png`,
-    optional `tune_vs_spill_flash_XX.png` (one per flash index),
+    optional `tune_vs_spill_flash_XX.png` and `tune_histogram_flash_XX.png`
+    (one per flash index),
     `composite_waterfall_h.png`, `composite_waterfall_v.png`, `batch_summary.md`
 - quality semantics and labels (`GOOD`, `MARGINAL`, `BAD`) with explicit flags
   (for example `INCOMPLETE_TBT_POLL`, `LOW_ALIGNMENT_FRACTION`, low-confidence
