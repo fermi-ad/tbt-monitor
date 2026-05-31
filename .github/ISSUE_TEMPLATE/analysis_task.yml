@@ -1,0 +1,45 @@
+name: Analysis / Physics Task
+description: Track a physics-validation or analysis-quality task
+title: "[Analysis] "
+labels:
+  - type:analysis
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Physics / Analysis Question
+      description: What are we trying to validate or falsify?
+    validations:
+      required: true
+
+  - type: textarea
+    id: dataset
+    attributes:
+      label: Dataset / Run Context
+      description: Which spills, conditions, and command line were used?
+    validations:
+      required: true
+
+  - type: textarea
+    id: metrics
+    attributes:
+      label: Metrics / Artifacts to Review
+      placeholder: tune_validation, sliding_tune.csv, batch_summary.md, waterfalls, flash histograms
+    validations:
+      required: true
+
+  - type: textarea
+    id: success
+    attributes:
+      label: Success Criteria
+      description: What result would count as acceptable for this task?
+    validations:
+      required: true
+
+  - type: textarea
+    id: followups
+    attributes:
+      label: Candidate Follow-up Changes
+      description: Potential config/algorithm/UX changes if criteria fail
+    validations:
+      required: false

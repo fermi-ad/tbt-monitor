@@ -37,6 +37,17 @@ None.
 
 ## Done
 
+### [ENG-005] GitHub issue and PR workflow bootstrap
+- Status: done
+- Owner: codex
+- Type: docs
+- Why: project planning needs issue-first tracking, PR templates, and a durable map for the acquisition/offline-analysis split.
+- Scope: add GitHub issue templates, a PR template, workflow guidance, and an acquisition/analysis issue map with PR-sized slices.
+- Acceptance: templates exist under `.github/`, workflow docs define labels/branch/PR expectations, and the acquisition/analysis split is mapped into GitHub-ready issues.
+- Docs: README.md, docs/GITHUB_WORKFLOW.md, docs/ISSUE_MAP_DAQ_SPLIT.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+- Validation: cargo fmt --all --check; cargo test -- --nocapture
+- Notes: completed on 2026-05-31; tracked by GitHub issue #1 and seeded split issues #2-#9.
+
 ### [ENG-004] Per-flash histogram batch artifacts
 - Status: done
 - Owner: codex
