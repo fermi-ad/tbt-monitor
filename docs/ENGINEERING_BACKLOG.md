@@ -37,6 +37,17 @@ None.
 
 ## Done
 
+### [ENG-008] Offline captured-spill batch analysis
+- Status: done
+- Owner: codex
+- Type: feature
+- Why: captured raw spill bundles need batch-style analysis without Redis connectivity so acquisition-first runs can be reviewed and reprocessed offline.
+- Scope: add captured-bundle discovery, duplicate-target suppression, offline snapshot reconstruction for multiple bundles, `analyze-captured-spills`, existing batch writer reuse, and focused offline batch artifact tests.
+- Acceptance: a directory of captured-spill bundles can produce the current batch artifacts without Redis access; a single bundle directory or manifest path is also accepted; malformed bundles are skipped with explicit diagnostics when other usable bundles remain; batch records identify offline provenance with `trigger_source=captured-spill`.
+- Docs: README.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/ISSUE_MAP_DAQ_SPLIT.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+- Validation: cargo fmt --all; cargo test -- --nocapture
+- Notes: implements GitHub issue #7. Minimal online/offline parity issue #5 remains open.
+
 ### [ENG-007] Offline captured-spill single analysis
 - Status: done
 - Owner: codex

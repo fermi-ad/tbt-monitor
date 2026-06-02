@@ -436,6 +436,13 @@ struct CapturedManifest {
     warnings: Vec<String>,
 }
 
+#[derive(Debug, Clone)]
+struct CapturedBundleCandidate {
+    bundle_dir: PathBuf,
+    manifest_path: PathBuf,
+    target_ms: u64,
+}
+
 #[derive(Debug, Clone, Copy)]
 struct TimelinessStats {
     min_delta_ms: i64,
@@ -535,6 +542,172 @@ pub fn run_analyze_captured_spill(
         "analyze-captured-spill summary",
         true,
     );
+
+    Ok(())
+}
+
+pub fn run_analyze_captured_spills(
+    config: MonitorConfig,
+    bundles_dir: &Path,
+    out_dir: &Path,
+    options: BatchOptions,
+) -> Result<()> {
+    validate_batch_options(&options)?;
+    config.validate()?;
+    fs::create_dir_all(out_dir)
+        .with_context(|| format!("failed to create output directory {}", out_dir.display()))?;
+
+    let references = if let Some(path) = options.reference_file.as_ref() {
+        load_reference_file(path)?
+    } else {
+        Vec::new()
+    };
+
+    let (candidates, skipped_discovery) = discover_captured_bundle_candidates(bundles_dir)?;
+    if candidates.is_empty() {
+        bail!(
+            "no captured-spill bundles were discovered under {}",
+            bundles_dir.display()
+        );
+    }
+
+    println!(
+        "analyze-captured-spills: target_count={} discovered_bundles={} source={}",
+        options.count,
+        candidates.len(),
+        bundles_dir.display()
+    );
+
+    let mut counters = BatchRunCounters {
+        unresolved_wakes: skipped_discovery,
+        duplicate_wakes: 0,
+        stale_depth_scanned: None,
+        historical_candidates_discovered: 0,
+        historical_candidates_attempted: 0,
+        historical_candidates_skipped: 0,
+    };
+    let mut seen_target_ms = HashSet::<u64>::new();
+    let mut results = Vec::<BatchSpillResult>::new();
+    let dedupe_tolerance_ms = target_bucket_tolerance_ms(&config);
+
+    for (attempt_idx, candidate) in candidates.iter().enumerate() {
+        if results.len() >= options.count {
+            break;
+        }
+
+        let attempt_index = attempt_idx + 1;
+        if target_seen_within_tolerance(&seen_target_ms, candidate.target_ms, dedupe_tolerance_ms) {
+            counters.duplicate_wakes += 1;
+            continue;
+        }
+
+        let snapshot = match analyze_captured_spill_snapshot(
+            &config,
+            &candidate.bundle_dir,
+            options.flash_count,
+        ) {
+            Ok(snapshot) => snapshot,
+            Err(err) => {
+                counters.unresolved_wakes += 1;
+                eprintln!(
+                    "[analyze-captured-spills] skipped {}: {}",
+                    candidate.manifest_path.display(),
+                    err
+                );
+                continue;
+            }
+        };
+        seen_target_ms.insert(snapshot.target_ms);
+
+        let spill_index = results.len() + 1;
+        let mut record = build_spill_record(
+            &config,
+            &options,
+            &snapshot,
+            spill_index,
+            attempt_index,
+            snapshot.target_ms,
+            "captured-spill".to_string(),
+        )?;
+        apply_reference_match(
+            &mut record,
+            &references,
+            options.reference_key,
+            options.reference_match_tolerance_ms,
+        );
+
+        let sliding_csv = out_dir.join(format!(
+            "spill_{}_{}_sliding_tune.csv",
+            spill_index, snapshot.target_ms
+        ));
+        write_spill_sliding_csv(
+            &sliding_csv,
+            snapshot
+                .h_analysis
+                .as_ref()
+                .map(|analysis| analysis.sliding.as_slice())
+                .unwrap_or(&[]),
+            snapshot
+                .v_analysis
+                .as_ref()
+                .map(|analysis| analysis.sliding.as_slice())
+                .unwrap_or(&[]),
+        )?;
+
+        let timeliness = timeliness_stats(&snapshot.observations, snapshot.target_ms);
+        println!(
+            "[analyze-captured-spills] spill {}/{} target={} quality={} qx={} qy={} conf_h={} conf_v={} timeliness_med_abs_ms={} timeliness_max_abs_ms={}",
+            spill_index,
+            options.count,
+            record.target_ms,
+            record.quality_label.label(),
+            opt_fmt(record.qx_injection),
+            opt_fmt(record.qy_injection),
+            opt_fmt(record.confidence_h),
+            opt_fmt(record.confidence_v),
+            opt_fmt(timeliness.map(|stats| stats.median_abs_delta_ms)),
+            timeliness
+                .map(|stats| stats.max_abs_delta_ms.to_string())
+                .unwrap_or_else(|| "NA".to_string()),
+        );
+
+        results.push(BatchSpillResult { record, snapshot });
+    }
+
+    if results.is_empty() {
+        bail!(
+            "no captured-spill bundles produced usable batch analyses under {}",
+            bundles_dir.display()
+        );
+    }
+
+    if results.len() < options.count {
+        println!(
+            "analyze-captured-spills: exhausted captured bundles with {}/{} successful analyses",
+            results.len(),
+            options.count
+        );
+    }
+
+    let has_reference_file = !references.is_empty();
+    let has_reference_match = results
+        .iter()
+        .any(|r| r.record.residual_qx.is_some() || r.record.residual_qy.is_some());
+
+    write_batch_records(out_dir, &results, options.record_format)?;
+    write_batch_summary_plots(out_dir, &config, &results, &options, has_reference_match)?;
+    write_composite_waterfall_plots(out_dir, &config, &results)?;
+    write_batch_detailed_artifacts(
+        out_dir,
+        &config,
+        &results,
+        options.detailed_artifacts,
+        options.flash_count,
+    )?;
+
+    let aggregate = summarize_batch(&results, &counters);
+    print_batch_console_summary(&aggregate);
+    write_batch_summary_markdown(out_dir, &aggregate, &options, has_reference_file)?;
 
     Ok(())
 }
@@ -5897,6 +6070,82 @@ fn resolve_captured_bundle_paths(bundle_path: &Path) -> Result<(PathBuf, PathBuf
     Ok((bundle_path.to_path_buf(), bundle_path.join("manifest.json")))
 }
 
+fn discover_captured_bundle_candidates(
+    root: &Path,
+) -> Result<(Vec<CapturedBundleCandidate>, usize)> {
+    if is_manifest_path(root) || root.join("manifest.json").is_file() {
+        return Ok((vec![captured_bundle_candidate(root)?], 0));
+    }
+
+    if !root.is_dir() {
+        bail!(
+            "{} is neither a captured-spill bundle directory nor a directory of bundles",
+            root.display()
+        );
+    }
+
+    let mut candidates = Vec::<CapturedBundleCandidate>::new();
+    let mut skipped = 0usize;
+    let entries =
+        fs::read_dir(root).with_context(|| format!("failed to read {}", root.display()))?;
+
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(err) => {
+                skipped += 1;
+                eprintln!(
+                    "[analyze-captured-spills] skipped unreadable directory entry under {}: {}",
+                    root.display(),
+                    err
+                );
+                continue;
+            }
+        };
+
+        let path = entry.path();
+        if !path.is_dir() || !path.join("manifest.json").is_file() {
+            continue;
+        }
+
+        match captured_bundle_candidate(&path) {
+            Ok(candidate) => candidates.push(candidate),
+            Err(err) => {
+                skipped += 1;
+                eprintln!(
+                    "[analyze-captured-spills] skipped {}: {}",
+                    path.display(),
+                    err
+                );
+            }
+        }
+    }
+
+    candidates.sort_by(|a, b| {
+        a.target_ms
+            .cmp(&b.target_ms)
+            .then_with(|| a.manifest_path.cmp(&b.manifest_path))
+    });
+    Ok((candidates, skipped))
+}
+
+fn captured_bundle_candidate(path: &Path) -> Result<CapturedBundleCandidate> {
+    let (bundle_dir, manifest_path) = resolve_captured_bundle_paths(path)?;
+    let manifest = load_captured_manifest(&manifest_path)?;
+    validate_captured_manifest(&manifest, &manifest_path)?;
+    Ok(CapturedBundleCandidate {
+        bundle_dir,
+        manifest_path,
+        target_ms: manifest.target_ms,
+    })
+}
+
+fn is_manifest_path(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name == "manifest.json")
+}
+
 fn load_captured_manifest(path: &Path) -> Result<CapturedManifest> {
     let raw = fs::read_to_string(path)
         .with_context(|| format!("failed to read captured manifest {}", path.display()))?;
@@ -9781,6 +10030,75 @@ mod tests {
             });
             assert!(meta.len() > 0, "expected non-empty artifact {name}");
         }
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn analyze_captured_spills_writes_batch_outputs_without_redis() {
+        let dir = std::env::temp_dir().join(format!(
+            "tbt-monitor-captured-spills-test-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        let out_dir = dir.join("out");
+        fs::create_dir_all(&dir).expect("create temp dir");
+
+        let h_key = "{MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_SCALED".to_string();
+        let v_key = "{MUON:BPM:10.0.0.1}:VP101:TBT_POSITION_SCALED".to_string();
+        let config = test_config_with_streams(vec![h_key.clone(), v_key.clone()]);
+        write_test_captured_bundle(
+            &dir,
+            1772830005123,
+            &[(&h_key, "H", 0.25), (&v_key, "V", 0.30)],
+        );
+        write_test_captured_bundle(
+            &dir,
+            1772830006123,
+            &[(&h_key, "H", 0.26), (&v_key, "V", 0.31)],
+        );
+
+        let options = BatchOptions {
+            count: 2,
+            min_confidence: 1.1,
+            min_aligned_bpm_count: 1,
+            min_per_plane_bpm: 1,
+            peak_edge_margin: 0.005,
+            record_format: BatchRecordFormat::Both,
+            detailed_artifacts: DetailedArtifactsMode::None,
+            reference_file: None,
+            reference_key: ReferenceKey::TargetMs,
+            reference_match_tolerance_ms: 1,
+            flash_count: None,
+        };
+
+        run_analyze_captured_spills(config, &dir, &out_dir, options)
+            .expect("offline captured spill batch should analyze");
+
+        for name in [
+            "spills_summary.csv",
+            "spills_summary.jsonl",
+            "tune_vs_spill.png",
+            "confidence_vs_spill.png",
+            "composite_waterfall_h.png",
+            "composite_waterfall_v.png",
+            "batch_summary.md",
+            "spill_1_1772830005123_sliding_tune.csv",
+            "spill_2_1772830006123_sliding_tune.csv",
+        ] {
+            let path = out_dir.join(name);
+            let meta = fs::metadata(&path)
+                .unwrap_or_else(|_| panic!("expected offline batch artifact {}", path.display()));
+            assert!(meta.len() > 0, "expected non-empty artifact {name}");
+        }
+
+        let csv = fs::read_to_string(out_dir.join("spills_summary.csv")).expect("summary csv");
+        assert!(
+            csv.contains("captured-spill"),
+            "offline batch records should not claim live Redis trigger source"
+        );
 
         let _ = fs::remove_dir_all(dir);
     }

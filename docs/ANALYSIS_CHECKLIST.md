@@ -172,5 +172,6 @@ Current split status:
   plus `capture_index.csv`.
 - `analyze-captured-spill` consumes one captured-spill bundle and emits the
   current one-spill analysis artifact set without Redis connectivity.
-- Offline multi-bundle analysis and minimal parity guardrails remain follow-up
-  work.
+- `analyze-captured-spills` consumes captured-spill bundles and emits the
+  current batch artifact set without Redis connectivity.
+- Minimal online/offline parity guardrails remain follow-up work.

@@ -11,6 +11,7 @@ stream monitoring. Current scope includes:
 - synchronized global spill capture with adjacent-ms target clustering
 - raw captured-spill bundles for acquisition-first/offline-analysis workflows
 - offline one-spill reanalysis from captured-spill bundles
+- offline multi-spill batch analysis from captured-spill bundles
 - injection-window and sliding-window tune extraction (`Qx/Qy`) with confidence gating
 - tracked sliding tune diagnostics (fallback/suspicious-step visibility)
 - robustness studies (`analyze-phase`) for window sensitivity and BPM/method comparison
@@ -174,6 +175,32 @@ Outputs match the current one-spill analysis artifact set:
 - `tune_vs_time.png`
 - `tune_validation.png`
 - `sliding_tune.csv`
+
+## Analyze Captured Spill Bundles Offline
+
+Use `analyze-captured-spills` to run the existing batch-analysis path across
+captured-spill bundles without Redis connectivity:
+
+```bash
+cargo run --offline -- analyze-captured-spills \
+  --config /Users/derekste/Dev/codex/tbt-monitor/config/monitor.cfg \
+  --bundles-dir /Users/derekste/Dev/codex/tbt-monitor/out \
+  --out-dir /Users/derekste/Dev/codex/tbt-monitor/out/offline_batch \
+  --count 25
+```
+
+`--bundles-dir` may point at a directory containing `spill_<target_ms>/`
+bundle directories, one bundle directory, or one `manifest.json`. Directory
+discovery scans immediate child bundle directories and orders them by
+`target_ms`. Duplicate physical spills are suppressed using the same adjacent
+target tolerance policy as live batch analysis. Batch records use
+`trigger_source=captured-spill` because no Redis trigger read is performed.
+
+The command supports the same batch analysis knobs as `analyze-spills`,
+including `--flashes`, `--record-format`, `--detailed-artifacts`,
+`--reference-file`, and reference matching options. Outputs match the current
+batch artifact set: `spills_summary.csv/jsonl`, batch plots, composite
+waterfalls, `batch_summary.md`, and per-spill sliding CSV files.
 
 ## Run One-Shot Tune Analysis
 
@@ -528,6 +555,16 @@ docker run -it \
   -v "$PWD/out:/out" \
   <your-registry>/tbt-monitor:amd64 \
   analyze-spills --config /app/config/monitor.cfg --out-dir /out --count 50
+```
+
+Offline captured-bundle equivalent:
+
+```bash
+docker run -it \
+  --name tbt-offline-batch \
+  -v "$PWD/out:/out" \
+  <your-registry>/tbt-monitor:amd64 \
+  analyze-captured-spills --config /app/config/monitor.cfg --bundles-dir /out --out-dir /out/offline_batch --count 50
 ```
 
 Main options:
