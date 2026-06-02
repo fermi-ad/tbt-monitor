@@ -9931,6 +9931,226 @@ mod tests {
         bundle
     }
 
+    fn online_style_snapshot_from_fixture(
+        config: &MonitorConfig,
+        target_ms: u64,
+        stream_defs: &[(&str, &str, f64)],
+        flash_count: Option<usize>,
+    ) -> SpillSnapshot {
+        let mut observations = Vec::<TbtObservation>::new();
+        let mut traces = Vec::<StreamTrace>::new();
+
+        for (stream_key, plane_label, tune) in stream_defs {
+            let plane = match *plane_label {
+                "H" => Plane::Horizontal,
+                "V" => Plane::Vertical,
+                other => panic!("unsupported test plane {other}"),
+            };
+            let payload = f32_sine_payload(*tune, 512);
+            let samples = decode_f32_payload(&[(b"_".to_vec(), payload)])
+                .expect("fixture payload should decode");
+
+            observations.push(TbtObservation {
+                bpm_ip: "10.0.0.1".to_string(),
+                stream_key: (*stream_key).to_string(),
+                id: format!("{target_ms}-0"),
+                ms: target_ms,
+                aligned: true,
+            });
+            traces.push(StreamTrace {
+                plane,
+                bpm_ip: "10.0.0.1".to_string(),
+                stream_key: (*stream_key).to_string(),
+                samples,
+            });
+        }
+
+        let mut warnings = Vec::<String>::new();
+        let horizontal = traces
+            .iter()
+            .filter(|trace| trace.plane == Plane::Horizontal)
+            .cloned()
+            .collect::<Vec<_>>();
+        let vertical = traces
+            .iter()
+            .filter(|trace| trace.plane == Plane::Vertical)
+            .cloned()
+            .collect::<Vec<_>>();
+
+        let h_analysis = analyze_plane(
+            Plane::Horizontal,
+            horizontal,
+            config,
+            flash_count,
+            &mut warnings,
+        )
+        .expect("H online-style analysis");
+        let v_analysis = analyze_plane(
+            Plane::Vertical,
+            vertical,
+            config,
+            flash_count,
+            &mut warnings,
+        )
+        .expect("V online-style analysis");
+
+        SpillSnapshot {
+            target_ms,
+            observations,
+            h_analysis,
+            v_analysis,
+            warnings,
+        }
+    }
+
+    fn parity_batch_options(flash_count: Option<usize>) -> BatchOptions {
+        BatchOptions {
+            count: 1,
+            min_confidence: 1.1,
+            min_aligned_bpm_count: 1,
+            min_per_plane_bpm: 1,
+            peak_edge_margin: 0.005,
+            record_format: BatchRecordFormat::Both,
+            detailed_artifacts: DetailedArtifactsMode::None,
+            reference_file: None,
+            reference_key: ReferenceKey::TargetMs,
+            reference_match_tolerance_ms: 1,
+            flash_count,
+        }
+    }
+
+    fn parity_record_from_snapshot(
+        config: &MonitorConfig,
+        snapshot: &SpillSnapshot,
+        flash_count: Option<usize>,
+    ) -> SpillRecord {
+        build_spill_record(
+            config,
+            &parity_batch_options(flash_count),
+            snapshot,
+            1,
+            1,
+            snapshot.target_ms,
+            "parity-test".to_string(),
+        )
+        .expect("parity spill record")
+    }
+
+    fn assert_opt_f64_close(
+        label: &str,
+        expected: Option<f64>,
+        actual: Option<f64>,
+        tolerance: f64,
+    ) {
+        match (expected, actual) {
+            (Some(a), Some(b)) => assert!(
+                (a - b).abs() <= tolerance,
+                "{label} mismatch: expected {a:.12}, actual {b:.12}, tolerance {tolerance:.3e}"
+            ),
+            (None, None) => {}
+            _ => panic!("{label} presence mismatch: expected {expected:?}, actual {actual:?}"),
+        }
+    }
+
+    fn assert_string_vec_eq(label: &str, expected: &[String], actual: &[String]) {
+        assert_eq!(
+            expected, actual,
+            "{label} mismatch:\nexpected: {expected:#?}\nactual: {actual:#?}"
+        );
+    }
+
+    fn assert_parity_record_matches(expected: &SpillRecord, actual: &SpillRecord) {
+        assert_eq!(
+            expected.target_ms, actual.target_ms,
+            "target_ms mismatch: expected {}, actual {}",
+            expected.target_ms, actual.target_ms
+        );
+        assert_eq!(
+            expected.aligned_streams, actual.aligned_streams,
+            "aligned_streams mismatch"
+        );
+        assert_eq!(
+            expected.used_streams_total, actual.used_streams_total,
+            "used_streams_total mismatch"
+        );
+        assert_eq!(
+            expected.used_streams_h, actual.used_streams_h,
+            "used_streams_h mismatch"
+        );
+        assert_eq!(
+            expected.used_streams_v, actual.used_streams_v,
+            "used_streams_v mismatch"
+        );
+        assert_eq!(
+            expected.consensus_turns_h, actual.consensus_turns_h,
+            "consensus_turns_h mismatch"
+        );
+        assert_eq!(
+            expected.consensus_turns_v, actual.consensus_turns_v,
+            "consensus_turns_v mismatch"
+        );
+        assert_eq!(
+            expected.flash_count, actual.flash_count,
+            "flash_count mismatch"
+        );
+        assert_eq!(
+            expected.quality_label, actual.quality_label,
+            "quality_label mismatch"
+        );
+        assert_eq!(expected.status, actual.status, "status mismatch");
+
+        assert_opt_f64_close(
+            "aligned_fraction",
+            Some(expected.aligned_fraction),
+            Some(actual.aligned_fraction),
+            1e-12,
+        );
+        assert_opt_f64_close(
+            "qx_injection",
+            expected.qx_injection,
+            actual.qx_injection,
+            1e-12,
+        );
+        assert_opt_f64_close(
+            "qy_injection",
+            expected.qy_injection,
+            actual.qy_injection,
+            1e-12,
+        );
+        assert_opt_f64_close("median_qx", expected.median_qx, actual.median_qx, 1e-12);
+        assert_opt_f64_close("median_qy", expected.median_qy, actual.median_qy, 1e-12);
+        assert_opt_f64_close(
+            "median_qx_raw",
+            expected.median_qx_raw,
+            actual.median_qx_raw,
+            1e-12,
+        );
+        assert_opt_f64_close(
+            "median_qy_raw",
+            expected.median_qy_raw,
+            actual.median_qy_raw,
+            1e-12,
+        );
+        assert_opt_f64_close(
+            "median_qx_tracked",
+            expected.median_qx_tracked,
+            actual.median_qx_tracked,
+            1e-12,
+        );
+        assert_opt_f64_close(
+            "median_qy_tracked",
+            expected.median_qy_tracked,
+            actual.median_qy_tracked,
+            1e-12,
+        );
+        assert_string_vec_eq(
+            "quality_flags",
+            &expected.quality_flags,
+            &actual.quality_flags,
+        );
+        assert_string_vec_eq("warnings", &expected.warnings, &actual.warnings);
+    }
+
     fn sample_point(center_turn: usize, tune: f64) -> SlidingPoint {
         SlidingPoint {
             center_turn,
@@ -10099,6 +10319,47 @@ mod tests {
             csv.contains("captured-spill"),
             "offline batch records should not claim live Redis trigger source"
         );
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn captured_bundle_matches_online_style_snapshot_for_same_raw_spill() {
+        let dir = std::env::temp_dir().join(format!(
+            "tbt-monitor-captured-parity-test-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).expect("create temp dir");
+
+        let target_ms = 1772830005123;
+        let h_key = "{MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_SCALED".to_string();
+        let v_key = "{MUON:BPM:10.0.0.1}:VP101:TBT_POSITION_SCALED".to_string();
+        let config = test_config_with_streams(vec![h_key.clone(), v_key.clone()]);
+        let stream_defs = [(&h_key[..], "H", 0.25), (&v_key[..], "V", 0.30)];
+        let flash_count = Some(3);
+
+        let bundle = write_test_captured_bundle(&dir, target_ms, &stream_defs);
+        let online_snapshot =
+            online_style_snapshot_from_fixture(&config, target_ms, &stream_defs, flash_count);
+        let offline_snapshot = analyze_captured_spill_snapshot(&config, &bundle, flash_count)
+            .expect("captured bundle should reconstruct offline snapshot");
+
+        assert_eq!(
+            online_snapshot.target_ms, offline_snapshot.target_ms,
+            "snapshot target_ms mismatch"
+        );
+        assert_string_vec_eq(
+            "snapshot warnings",
+            &online_snapshot.warnings,
+            &offline_snapshot.warnings,
+        );
+
+        let online_record = parity_record_from_snapshot(&config, &online_snapshot, flash_count);
+        let offline_record = parity_record_from_snapshot(&config, &offline_snapshot, flash_count);
+        assert_parity_record_matches(&online_record, &offline_record);
 
         let _ = fs::remove_dir_all(dir);
     }

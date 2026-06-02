@@ -246,6 +246,9 @@ Decision:
 - Record offline batch trigger provenance as `trigger_source=captured-spill`
   with `trigger_ms=target_ms`, because Redis trigger keys are not available or
   needed for offline bundle analysis.
+- Keep a deterministic online/offline parity guardrail in normal `cargo test`
+  that compares proof-of-concept tune outputs, sliding medians, warnings, and
+  quality flags for the same raw spill data.
 
 Why:
 - Complete spill bundles make analysis reproducible without requiring live Redis
