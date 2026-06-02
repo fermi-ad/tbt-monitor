@@ -153,3 +153,14 @@ Optional but useful:
 - `spectrum_compare_h.png`
 - `spectrum_compare_v.png`
 - `*_freq.png` spectra with revolution-line annotations
+
+## 6. Related Acquisition/Analysis Split
+
+Separating live data acquisition from offline tune analysis is tracked in
+`docs/ISSUE_MAP_DAQ_SPLIT.md`. That work should preserve the existing analysis
+artifact contract while adding captured-spill bundles that can be reanalyzed
+without Redis connectivity.
+
+This split is intentionally ahead of deeper analysis refinement. Treat the
+current pipeline as a proof of concept to preserve through the split, then use
+offline captured bundles to iterate on stronger physics-quality checks.

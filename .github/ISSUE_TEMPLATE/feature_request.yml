@@ -1,0 +1,73 @@
+name: Feature Request
+description: Propose a new feature or enhancement
+title: "[Feature] "
+labels:
+  - type:feature
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / Goal
+      description: What problem are we solving, and why now?
+      placeholder: Describe the operational or analysis pain point.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Solution
+      description: Describe the intended behavior and UX/CLI changes.
+      placeholder: Include command examples and expected artifacts.
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope (In / Out)
+      description: Explicitly state what is included and excluded.
+      placeholder: "In: ...\nOut: ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Concrete, testable completion criteria.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation Plan
+      description: Tests and checks required before merge.
+      value: |
+        - cargo fmt --all
+        - cargo test -- --nocapture
+    validations:
+      required: true
+
+  - type: textarea
+    id: docs
+    attributes:
+      label: Required Doc Updates
+      description: List docs that must be updated per AGENTS.md doc-sync gate.
+      placeholder: README.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+    validations:
+      required: true
+
+  - type: input
+    id: risk
+    attributes:
+      label: Primary Risk
+      description: Biggest implementation/physics/operations risk
+      placeholder: e.g., false tune lock under low SNR windows
+    validations:
+      required: false

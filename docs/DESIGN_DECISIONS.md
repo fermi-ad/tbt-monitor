@@ -225,6 +225,34 @@ Tradeoffs:
 - Flash-index plots are indexed by sampling order; center turn can vary slightly
   when spill turn depth varies between captures.
 
+## DD-015: Planned captured-spill artifact boundary
+
+Decision:
+- Separate future data acquisition from tune analysis by writing complete,
+  versioned captured-spill bundles before offline analysis.
+- Keep Redis stream synchronization, target-ms selection, and raw payload
+  capture in the acquisition path.
+- Keep FFT/tune extraction, quality classification, and artifact rendering in a
+  shared analysis path that can consume either Redis snapshots or captured
+  bundles.
+
+Why:
+- Complete spill bundles make analysis reproducible without requiring live Redis
+  access or repeated beam-time capture.
+- Offline reanalysis supports algorithm and physics-validation iteration on the
+  same raw data.
+- A manifest boundary makes schema/version changes explicit.
+- The split can land before the proof-of-concept tune analysis is physics-final;
+  parity checks should guard against accidental behavior drift, not certify the
+  current algorithm as final.
+
+Tradeoffs:
+- Adds a durable artifact schema that must be versioned and tested.
+- Increases disk usage because raw payloads are preserved in addition to plots
+  and summaries.
+- Requires focused parity tests so online and offline analysis paths do not
+  diverge during the split.
+
 ## Decision Update Rule
 
 When changing one of these decisions, update:

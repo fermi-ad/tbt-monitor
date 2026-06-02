@@ -28,6 +28,8 @@ credible and operationally useful for Delivery Ring studies.
 - Physics-validation guide and acceptance framing: `docs/PHYSICS.md`
 - Remaining implementation work for physics review artifacts: `docs/ANALYSIS_CHECKLIST.md`
 - Engineering backlog and implementation tracking: `docs/ENGINEERING_BACKLOG.md`
+- GitHub issue/PR workflow: `docs/GITHUB_WORKFLOW.md`
+- Acquisition/analysis split issue map: `docs/ISSUE_MAP_DAQ_SPLIT.md`
 - Coding-assistant orientation for this repository: `AGENTS.md`
 
 `docs/PLAN.md` includes an explicit "plan vs implementation" divergence matrix.
@@ -504,4 +506,6 @@ For implementation-level details and design rationale, use:
 - `docs/DESIGN_DECISIONS.md` for explicit tradeoffs and justification.
 - `docs/CONFIG_REFERENCE.md` for key-by-key config behavior.
 - `docs/PLAN.md` for roadmap alignment with the tune-methodology plan PDF.
+- `docs/GITHUB_WORKFLOW.md` for issue labels, templates, and PR expectations.
+- `docs/ISSUE_MAP_DAQ_SPLIT.md` for the planned acquisition/offline-analysis split.
 - `AGENTS.md` for assistant-oriented repository guidance and invariants.

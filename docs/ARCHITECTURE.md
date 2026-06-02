@@ -143,6 +143,16 @@ When changing artifact fields or meaning, update:
 
 ## Extension Points
 
+### Split acquisition from offline analysis
+
+The planned split keeps Redis synchronization and target selection in the
+acquisition path, then serializes a complete captured-spill bundle for later
+analysis. The offline loader should reconstruct the same in-memory inputs that
+the current `analyze-spill` path builds from Redis so tune extraction, quality
+flags, plots, and batch summaries can stay shared.
+
+Implementation slices are tracked in `docs/ISSUE_MAP_DAQ_SPLIT.md`.
+
 ### Add a new analysis metric
 
 1. Compute metric in `src/analyze.rs` snapshot/plane paths.
