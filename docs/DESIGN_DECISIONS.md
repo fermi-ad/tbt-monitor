@@ -225,16 +225,18 @@ Tradeoffs:
 - Flash-index plots are indexed by sampling order; center turn can vary slightly
   when spill turn depth varies between captures.
 
-## DD-015: Planned captured-spill artifact boundary
+## DD-015: Captured-spill artifact boundary
 
 Decision:
-- Separate future data acquisition from tune analysis by writing complete,
-  versioned captured-spill bundles before offline analysis.
+- Separate data acquisition from tune analysis by writing complete, versioned
+  captured-spill bundles before offline analysis.
 - Keep Redis stream synchronization, target-ms selection, and raw payload
   capture in the acquisition path.
-- Keep FFT/tune extraction, quality classification, and artifact rendering in a
-  shared analysis path that can consume either Redis snapshots or captured
-  bundles.
+- Keep FFT/tune extraction, quality classification, and artifact rendering out
+  of `capture-spill` / `capture-spills`.
+- Store Redis stream `_` payload bytes exactly as captured, with a
+  `schema_version=1` manifest, stream inventory, stream IDs, sample counts,
+  byte counts, and `fnv1a64` checksums.
 
 Why:
 - Complete spill bundles make analysis reproducible without requiring live Redis
@@ -252,6 +254,9 @@ Tradeoffs:
   and summaries.
 - Requires focused parity tests so online and offline analysis paths do not
   diverge during the split.
+- The current implementation duplicates some synchronization helpers from
+  `src/analyze.rs`; the offline-loader work should consolidate shared
+  acquisition primitives once both sides of the boundary are present.
 
 ## Decision Update Rule
 

@@ -37,6 +37,17 @@ None.
 
 ## Done
 
+### [ENG-006] Raw captured-spill acquisition commands
+- Status: done
+- Owner: codex
+- Type: feature
+- Why: acquisition must be separable from tune analysis so complete BPM spill data can be captured once and reanalyzed offline later.
+- Scope: add `src/capture.rs`, `capture-spill`, `capture-spills --free-run [--count N]`, `schema_version=1` manifest writing, raw payload files, capture summaries, run-level `capture_index.csv`, and focused capture tests.
+- Acceptance: one-shot capture writes a complete bundle without tune analysis; free-run capture writes one bundle per unique target and maintains a batch index; manifests include target/alignment metadata, full stream inventory, payload file paths, sizes, sample counts, and checksums; incomplete states emit warnings.
+- Docs: README.md, AGENTS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/ISSUE_MAP_DAQ_SPLIT.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+- Validation: cargo fmt --all; cargo test -- --nocapture
+- Notes: implements GitHub issues #2, #6, and #8. Offline loader/analysis issues #3, #4, #7, and parity issue #5 remain open.
+
 ### [ENG-005] GitHub issue and PR workflow bootstrap
 - Status: done
 - Owner: codex
