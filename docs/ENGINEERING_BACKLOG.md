@@ -37,6 +37,17 @@ None.
 
 ## Done
 
+### [ENG-007] Offline captured-spill single analysis
+- Status: done
+- Owner: codex
+- Type: feature
+- Why: captured raw spill bundles need to be analyzable without Redis connectivity so acquisition and analysis are actually separated.
+- Scope: add captured-spill manifest loading, safe payload resolution, checksum/size/sample validation, raw little-endian `f32` payload decoding, snapshot reconstruction, `analyze-captured-spill`, and focused offline artifact tests.
+- Acceptance: a captured-spill bundle directory or manifest path can produce the current one-spill analysis artifacts without Redis access; unsupported schema/artifact types fail explicitly; incomplete/malformed captured streams emit warnings or errors instead of silent fallback.
+- Docs: README.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/ISSUE_MAP_DAQ_SPLIT.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+- Validation: cargo fmt --all; cargo test -- --nocapture
+- Notes: implements GitHub issues #4 and #3. Offline multi-bundle issue #7 and parity issue #5 remain open.
+
 ### [ENG-006] Raw captured-spill acquisition commands
 - Status: done
 - Owner: codex

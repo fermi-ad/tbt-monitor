@@ -23,6 +23,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use anyhow::{Context, Result, anyhow, bail};
 use redis::streams::{StreamReadOptions, StreamReadReply};
 use redis::{Commands, Connection};
+use serde_json::{Map, Value};
 
 use crate::config::{DeviceConfig, MonitorConfig, RedisConfig};
 
@@ -411,6 +412,30 @@ struct HistoricalCandidate {
     observation_count: usize,
 }
 
+#[derive(Debug, Clone)]
+struct CapturedManifestStream {
+    bpm_ip: String,
+    stream_key: String,
+    stream_id: String,
+    stream_ms: u64,
+    payload_file: Option<String>,
+    payload_bytes: Option<usize>,
+    sample_count: Option<usize>,
+    checksum_fnv1a64: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct CapturedManifest {
+    schema_version: u64,
+    artifact_type: String,
+    target_ms: u64,
+    redis_timestamp_ms: Option<u64>,
+    align_tolerance_ms: Option<u64>,
+    requested_streams: Option<usize>,
+    streams: Vec<CapturedManifestStream>,
+    warnings: Vec<String>,
+}
+
 #[derive(Debug, Clone, Copy)]
 struct TimelinessStats {
     min_delta_ms: i64,
@@ -485,6 +510,33 @@ pub fn run_analyze_spill(
     }
 
     run_analyze_spill_once(config, out_dir, flash_count)
+}
+
+pub fn run_analyze_captured_spill(
+    config: MonitorConfig,
+    bundle_path: &Path,
+    out_dir: &Path,
+    flash_count: Option<usize>,
+) -> Result<()> {
+    config.validate()?;
+    if matches!(flash_count, Some(0)) {
+        bail!("analyze-captured-spill: --flashes must be >= 1 when provided");
+    }
+    fs::create_dir_all(out_dir)
+        .with_context(|| format!("failed to create output directory {}", out_dir.display()))?;
+
+    let snapshot = analyze_captured_spill_snapshot(&config, bundle_path, flash_count)?;
+    let paths = write_spill_outputs(out_dir, None, &config, &snapshot, flash_count)?;
+
+    let _ = print_summary(
+        &config,
+        &snapshot,
+        &paths,
+        "analyze-captured-spill summary",
+        true,
+    );
+
+    Ok(())
 }
 
 #[derive(Debug, Clone)]
@@ -2546,6 +2598,86 @@ fn json_opt_usize(value: Option<usize>) -> String {
 fn json_string_array(values: &[String]) -> String {
     let parts = values.iter().map(|v| json_string(v)).collect::<Vec<_>>();
     format!("[{}]", parts.join(","))
+}
+
+fn required_value<'a>(obj: &'a Map<String, Value>, key: &str, context: &str) -> Result<&'a Value> {
+    obj.get(key)
+        .ok_or_else(|| anyhow!("{context} is missing required field '{key}'"))
+}
+
+fn required_string(obj: &Map<String, Value>, key: &str, context: &str) -> Result<String> {
+    required_value(obj, key, context)?
+        .as_str()
+        .map(|value| value.to_string())
+        .ok_or_else(|| anyhow!("{context}.{key} must be a string"))
+}
+
+fn optional_string(obj: &Map<String, Value>, key: &str, context: &str) -> Result<Option<String>> {
+    match obj.get(key) {
+        Some(Value::Null) | None => Ok(None),
+        Some(value) => value
+            .as_str()
+            .map(|value| Some(value.to_string()))
+            .ok_or_else(|| anyhow!("{context}.{key} must be a string or null")),
+    }
+}
+
+fn required_u64(obj: &Map<String, Value>, key: &str, context: &str) -> Result<u64> {
+    required_value(obj, key, context)?
+        .as_u64()
+        .ok_or_else(|| anyhow!("{context}.{key} must be an unsigned integer"))
+}
+
+fn optional_u64(obj: &Map<String, Value>, key: &str, context: &str) -> Result<Option<u64>> {
+    match obj.get(key) {
+        Some(Value::Null) | None => Ok(None),
+        Some(value) => value
+            .as_u64()
+            .map(Some)
+            .ok_or_else(|| anyhow!("{context}.{key} must be an unsigned integer or null")),
+    }
+}
+
+fn optional_usize(obj: &Map<String, Value>, key: &str, context: &str) -> Result<Option<usize>> {
+    match optional_u64(obj, key, context)? {
+        Some(value) if value > usize::MAX as u64 => {
+            bail!("{context}.{key} value {value} exceeds usize::MAX")
+        }
+        Some(value) => Ok(Some(value as usize)),
+        None => Ok(None),
+    }
+}
+
+fn required_array<'a>(
+    obj: &'a Map<String, Value>,
+    key: &str,
+    context: &str,
+) -> Result<&'a [Value]> {
+    required_value(obj, key, context)?
+        .as_array()
+        .map(|values| values.as_slice())
+        .ok_or_else(|| anyhow!("{context}.{key} must be an array"))
+}
+
+fn optional_string_array(
+    obj: &Map<String, Value>,
+    key: &str,
+    context: &str,
+) -> Result<Vec<String>> {
+    match obj.get(key) {
+        Some(Value::Null) | None => Ok(Vec::new()),
+        Some(Value::Array(values)) => values
+            .iter()
+            .enumerate()
+            .map(|(idx, value)| {
+                value
+                    .as_str()
+                    .map(|value| value.to_string())
+                    .ok_or_else(|| anyhow!("{context}.{key}[{idx}] must be a string"))
+            })
+            .collect::<Result<Vec<_>>>(),
+        Some(_) => bail!("{context}.{key} must be an array or null"),
+    }
 }
 
 fn write_batch_summary_plots(
@@ -5622,6 +5754,365 @@ fn analyze_spill_snapshot_at_target(
     })
 }
 
+fn analyze_captured_spill_snapshot(
+    config: &MonitorConfig,
+    bundle_path: &Path,
+    flash_count: Option<usize>,
+) -> Result<SpillSnapshot> {
+    let (bundle_dir, manifest_path) = resolve_captured_bundle_paths(bundle_path)?;
+    let manifest = load_captured_manifest(&manifest_path)?;
+    validate_captured_manifest(&manifest, &manifest_path)?;
+
+    let mut warnings = manifest
+        .warnings
+        .iter()
+        .map(|warning| format!("capture manifest: {warning}"))
+        .collect::<Vec<_>>();
+
+    if let Some(redis_timestamp_ms) = manifest.redis_timestamp_ms {
+        if redis_timestamp_ms != manifest.target_ms {
+            warnings.push(format!(
+                "manifest redis_timestamp_ms {} differs from target_ms {}",
+                redis_timestamp_ms, manifest.target_ms
+            ));
+        }
+    } else {
+        warnings.push("manifest does not include redis_timestamp_ms".to_string());
+    }
+
+    if let Some(capture_tolerance) = manifest.align_tolerance_ms {
+        if capture_tolerance != config.align_tolerance_ms {
+            warnings.push(format!(
+                "capture align_tolerance_ms {} differs from analysis config {}",
+                capture_tolerance, config.align_tolerance_ms
+            ));
+        }
+    }
+
+    let requested_streams = manifest
+        .requested_streams
+        .unwrap_or_else(|| count_requested_tbt_streams(config));
+    let config_requested_streams = count_requested_tbt_streams(config);
+    if config_requested_streams != 0 && config_requested_streams != requested_streams {
+        warnings.push(format!(
+            "config TBT stream count {} differs from captured manifest requested_streams {}",
+            config_requested_streams, requested_streams
+        ));
+    }
+
+    let (traces, observations) =
+        load_captured_stream_traces(&bundle_dir, &manifest, config, &mut warnings)?;
+    if traces.is_empty() {
+        bail!(
+            "captured spill bundle {} produced no usable TBT traces",
+            bundle_path.display()
+        );
+    }
+
+    if observations.is_empty() {
+        warnings.push(format!(
+            "no parseable captured stream IDs were present for target {}",
+            manifest.target_ms
+        ));
+    } else {
+        if observations.len() < requested_streams {
+            warnings.push(format!(
+                "incomplete captured manifest: observed {} of {} requested streams",
+                observations.len(),
+                requested_streams
+            ));
+        }
+        let aligned = observations.iter().filter(|obs| obs.aligned).count();
+        let aligned_fraction = aligned as f64 / observations.len() as f64;
+        if aligned_fraction < config.min_aligned_fraction {
+            warnings.push(format!(
+                "TBT stream alignment fraction {:.1}% is below configured minimum {:.1}%",
+                aligned_fraction * 100.0,
+                config.min_aligned_fraction * 100.0
+            ));
+        }
+    }
+    if traces.len() < requested_streams {
+        warnings.push(format!(
+            "incomplete captured payload set: usable traces {} of {} requested streams",
+            traces.len(),
+            requested_streams
+        ));
+    }
+
+    let horizontal = traces
+        .iter()
+        .filter(|trace| trace.plane == Plane::Horizontal)
+        .cloned()
+        .collect::<Vec<_>>();
+    let vertical = traces
+        .iter()
+        .filter(|trace| trace.plane == Plane::Vertical)
+        .cloned()
+        .collect::<Vec<_>>();
+
+    let h_analysis = analyze_plane(
+        Plane::Horizontal,
+        horizontal,
+        config,
+        flash_count,
+        &mut warnings,
+    )?;
+    let v_analysis = analyze_plane(
+        Plane::Vertical,
+        vertical,
+        config,
+        flash_count,
+        &mut warnings,
+    )?;
+
+    if h_analysis.is_none() && v_analysis.is_none() {
+        bail!(
+            "both H and V planes were unusable after captured-bundle filtering and window checks"
+        );
+    }
+
+    Ok(SpillSnapshot {
+        target_ms: manifest.target_ms,
+        observations,
+        h_analysis,
+        v_analysis,
+        warnings,
+    })
+}
+
+fn resolve_captured_bundle_paths(bundle_path: &Path) -> Result<(PathBuf, PathBuf)> {
+    if bundle_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name == "manifest.json")
+    {
+        let bundle_dir = bundle_path
+            .parent()
+            .ok_or_else(|| anyhow!("manifest path {} has no parent", bundle_path.display()))?
+            .to_path_buf();
+        return Ok((bundle_dir, bundle_path.to_path_buf()));
+    }
+
+    Ok((bundle_path.to_path_buf(), bundle_path.join("manifest.json")))
+}
+
+fn load_captured_manifest(path: &Path) -> Result<CapturedManifest> {
+    let raw = fs::read_to_string(path)
+        .with_context(|| format!("failed to read captured manifest {}", path.display()))?;
+    let value: Value = serde_json::from_str(&raw)
+        .with_context(|| format!("failed to parse captured manifest {}", path.display()))?;
+    parse_captured_manifest(&value).with_context(|| format!("invalid manifest {}", path.display()))
+}
+
+fn parse_captured_manifest(value: &Value) -> Result<CapturedManifest> {
+    let obj = value
+        .as_object()
+        .ok_or_else(|| anyhow!("manifest root must be a JSON object"))?;
+
+    let streams = required_array(obj, "streams", "manifest")?
+        .iter()
+        .enumerate()
+        .map(|(idx, value)| parse_captured_manifest_stream(value, idx))
+        .collect::<Result<Vec<_>>>()?;
+
+    Ok(CapturedManifest {
+        schema_version: required_u64(obj, "schema_version", "manifest")?,
+        artifact_type: required_string(obj, "artifact_type", "manifest")?,
+        target_ms: required_u64(obj, "target_ms", "manifest")?,
+        redis_timestamp_ms: optional_u64(obj, "redis_timestamp_ms", "manifest")?,
+        align_tolerance_ms: optional_u64(obj, "align_tolerance_ms", "manifest")?,
+        requested_streams: optional_usize(obj, "requested_streams", "manifest")?,
+        streams,
+        warnings: optional_string_array(obj, "warnings", "manifest")?,
+    })
+}
+
+fn parse_captured_manifest_stream(value: &Value, idx: usize) -> Result<CapturedManifestStream> {
+    let context = format!("streams[{idx}]");
+    let obj = value
+        .as_object()
+        .ok_or_else(|| anyhow!("{context} must be a JSON object"))?;
+
+    Ok(CapturedManifestStream {
+        bpm_ip: required_string(obj, "bpm_ip", &context)?,
+        stream_key: required_string(obj, "stream_key", &context)?,
+        stream_id: required_string(obj, "stream_id", &context)?,
+        stream_ms: required_u64(obj, "stream_ms", &context)?,
+        payload_file: optional_string(obj, "payload_file", &context)?,
+        payload_bytes: optional_usize(obj, "payload_bytes", &context)?,
+        sample_count: optional_usize(obj, "sample_count", &context)?,
+        checksum_fnv1a64: optional_string(obj, "checksum_fnv1a64", &context)?,
+    })
+}
+
+fn validate_captured_manifest(manifest: &CapturedManifest, manifest_path: &Path) -> Result<()> {
+    if manifest.schema_version != 1 {
+        bail!(
+            "{} has unsupported captured-spill schema_version {}",
+            manifest_path.display(),
+            manifest.schema_version
+        );
+    }
+    if manifest.artifact_type != "tbt-monitor.captured-spill" {
+        bail!(
+            "{} has unsupported artifact_type '{}'",
+            manifest_path.display(),
+            manifest.artifact_type
+        );
+    }
+    if manifest.streams.is_empty() {
+        bail!("{} has no captured stream entries", manifest_path.display());
+    }
+    Ok(())
+}
+
+fn load_captured_stream_traces(
+    bundle_dir: &Path,
+    manifest: &CapturedManifest,
+    config: &MonitorConfig,
+    warnings: &mut Vec<String>,
+) -> Result<(Vec<StreamTrace>, Vec<TbtObservation>)> {
+    let mut traces = Vec::<StreamTrace>::new();
+    let mut observations = Vec::<TbtObservation>::new();
+
+    for stream in &manifest.streams {
+        let Some(plane) = classify_plane(&stream.stream_key) else {
+            warnings.push(format!(
+                "{}: captured stream key {} is not a known TBT plane",
+                stream.bpm_ip, stream.stream_key
+            ));
+            continue;
+        };
+
+        let parsed_ms = match parse_stream_id(&stream.stream_id) {
+            Some((ms, _)) => {
+                if ms != stream.stream_ms {
+                    warnings.push(format!(
+                        "{}: stream_id {} millisecond {} differs from manifest stream_ms {}",
+                        stream.bpm_ip, stream.stream_id, ms, stream.stream_ms
+                    ));
+                }
+                ms
+            }
+            None => {
+                warnings.push(format!(
+                    "{}: captured stream id {} for {} is not parseable",
+                    stream.bpm_ip, stream.stream_id, stream.stream_key
+                ));
+                stream.stream_ms
+            }
+        };
+
+        observations.push(TbtObservation {
+            bpm_ip: stream.bpm_ip.clone(),
+            stream_key: stream.stream_key.clone(),
+            id: stream.stream_id.clone(),
+            ms: parsed_ms,
+            aligned: abs_diff_u64(parsed_ms, manifest.target_ms) <= config.align_tolerance_ms,
+        });
+
+        let Some(payload_file) = stream.payload_file.as_deref() else {
+            warnings.push(format!(
+                "{}: captured {} ({}) has no payload_file",
+                stream.bpm_ip, stream.stream_key, stream.stream_id
+            ));
+            continue;
+        };
+        let Some(payload_path) = safe_payload_path(bundle_dir, payload_file) else {
+            warnings.push(format!(
+                "{}: captured {} payload path {} is not a safe relative path",
+                stream.bpm_ip, stream.stream_key, payload_file
+            ));
+            continue;
+        };
+        let payload = match fs::read(&payload_path) {
+            Ok(payload) => payload,
+            Err(err) => {
+                warnings.push(format!(
+                    "{}: failed reading captured payload {}: {}",
+                    stream.bpm_ip,
+                    payload_path.display(),
+                    err
+                ));
+                continue;
+            }
+        };
+
+        if let Some(expected_bytes) = stream.payload_bytes {
+            if payload.len() != expected_bytes {
+                warnings.push(format!(
+                    "{}: captured {} payload byte count {} differs from manifest {}",
+                    stream.bpm_ip,
+                    stream.stream_key,
+                    payload.len(),
+                    expected_bytes
+                ));
+                continue;
+            }
+        }
+        if let Some(expected_checksum) = stream.checksum_fnv1a64.as_deref() {
+            let actual_checksum = fnv1a64_hex(&payload);
+            if actual_checksum != expected_checksum {
+                warnings.push(format!(
+                    "{}: captured {} checksum {} differs from manifest {}",
+                    stream.bpm_ip, stream.stream_key, actual_checksum, expected_checksum
+                ));
+                continue;
+            }
+        }
+
+        let samples = match decode_f32_payload_bytes(&payload) {
+            Ok(samples) => samples,
+            Err(err) => {
+                warnings.push(format!(
+                    "{}: malformed captured payload in {} ({}): {}",
+                    stream.bpm_ip, stream.stream_key, stream.stream_id, err
+                ));
+                continue;
+            }
+        };
+
+        if let Some(expected_samples) = stream.sample_count {
+            if samples.len() != expected_samples {
+                warnings.push(format!(
+                    "{}: captured {} sample count {} differs from manifest {}",
+                    stream.bpm_ip,
+                    stream.stream_key,
+                    samples.len(),
+                    expected_samples
+                ));
+                continue;
+            }
+        }
+
+        traces.push(StreamTrace {
+            plane,
+            bpm_ip: stream.bpm_ip.clone(),
+            stream_key: stream.stream_key.clone(),
+            samples,
+        });
+    }
+
+    Ok((traces, observations))
+}
+
+fn safe_payload_path(bundle_dir: &Path, payload_file: &str) -> Option<PathBuf> {
+    let relative = Path::new(payload_file);
+    if relative.is_absolute() {
+        return None;
+    }
+    if relative.components().any(|component| {
+        matches!(
+            component,
+            std::path::Component::ParentDir | std::path::Component::RootDir
+        )
+    }) {
+        return None;
+    }
+    Some(bundle_dir.join(relative))
+}
+
 fn write_spill_outputs(
     out_dir: &Path,
     stem: Option<&str>,
@@ -6760,6 +7251,10 @@ fn decode_f32_payload(fields: &[(Vec<u8>, Vec<u8>)]) -> Result<Vec<f64>> {
         .map(|(_, v)| v.as_slice())
         .ok_or_else(|| anyhow!("missing '_' payload field"))?;
 
+    decode_f32_payload_bytes(payload)
+}
+
+fn decode_f32_payload_bytes(payload: &[u8]) -> Result<Vec<f64>> {
     if payload.is_empty() {
         bail!("payload is empty");
     }
@@ -6774,6 +7269,15 @@ fn decode_f32_payload(fields: &[(Vec<u8>, Vec<u8>)]) -> Result<Vec<f64>> {
     }
 
     Ok(out)
+}
+
+fn fnv1a64_hex(bytes: &[u8]) -> String {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in bytes {
+        hash ^= *byte as u64;
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("{hash:016x}")
 }
 
 fn classify_plane(key: &str) -> Option<Plane> {
@@ -9087,6 +9591,97 @@ mod tests {
         }
     }
 
+    fn test_config_with_streams(stream_keys: Vec<String>) -> MonitorConfig {
+        MonitorConfig {
+            xread_block_ms: 1000,
+            reconnect_initial_ms: 2000,
+            reconnect_max_ms: 30000,
+            min_stream_values: 1,
+            injection_start_turn: 0,
+            injection_window_turns: 128,
+            sliding_window_turns: 128,
+            sliding_stride_turns: 64,
+            turn_period_us: 1.6,
+            plot_time_axes_in_us: false,
+            tune_plot_y_min: 0.20,
+            tune_plot_y_max: 0.40,
+            tune_plot_y_tick_step: 0.02,
+            qx_band_min: 0.20,
+            qx_band_max: 0.40,
+            qy_band_min: 0.20,
+            qy_band_max: 0.40,
+            min_peak_confidence: 1.1,
+            enable_peak_tracking: true,
+            qx_track_half_width: 0.02,
+            qy_track_half_width: 0.02,
+            max_tune_step_per_window: 0.02,
+            align_tolerance_ms: 1,
+            min_aligned_fraction: 0.70,
+            devices: vec![DeviceConfig {
+                label: "offline-test".to_string(),
+                bpm_ip: "10.0.0.1".to_string(),
+                redis: RedisConfig {
+                    host: "192.0.2.1".to_string(),
+                    port: 6379,
+                    db: 0,
+                    username: None,
+                    password: None,
+                },
+                trigger_key: "{MUON:BPM:10.0.0.1}:LAST_TRIGGER_TIME".to_string(),
+                trigger_fallback_keys: Vec::new(),
+                stream_keys,
+            }],
+        }
+    }
+
+    fn f32_sine_payload(tune: f64, turns: usize) -> Vec<u8> {
+        let mut payload = Vec::with_capacity(turns * 4);
+        for turn in 0..turns {
+            let angle = 2.0 * std::f64::consts::PI * tune * turn as f64;
+            payload.extend_from_slice(&(angle.sin() as f32).to_le_bytes());
+        }
+        payload
+    }
+
+    fn write_test_captured_bundle(
+        root: &Path,
+        target_ms: u64,
+        stream_defs: &[(&str, &str, f64)],
+    ) -> PathBuf {
+        let bundle = root.join(format!("spill_{target_ms}"));
+        let payload_dir = bundle.join("payloads");
+        fs::create_dir_all(&payload_dir).expect("payload dir");
+
+        let mut stream_json = Vec::<String>::new();
+        for (idx, (stream_key, plane, tune)) in stream_defs.iter().enumerate() {
+            let payload = f32_sine_payload(*tune, 512);
+            let file_name = format!("stream_{idx:03}_{plane}_{target_ms}_{idx}.bin");
+            fs::write(payload_dir.join(&file_name), &payload).expect("payload write");
+            stream_json.push(format!(
+                "{{\"device_label\":\"offline-test\",\"bpm_ip\":\"10.0.0.1\",\"stream_key\":\"{}\",\"plane\":\"{}\",\"stream_id\":\"{}-0\",\"stream_ms\":{},\"aligned\":true,\"field_count\":1,\"payload_file\":\"payloads/{}\",\"payload_bytes\":{},\"sample_count\":{},\"checksum_fnv1a64\":\"{}\"}}",
+                json_escape(stream_key),
+                plane,
+                target_ms,
+                target_ms,
+                file_name,
+                payload.len(),
+                payload.len() / 4,
+                fnv1a64_hex(&payload)
+            ));
+        }
+
+        let manifest = format!(
+            "{{\n  \"schema_version\": 1,\n  \"artifact_type\": \"tbt-monitor.captured-spill\",\n  \"redis_timestamp_ms\": {target_ms},\n  \"target_ms\": {target_ms},\n  \"align_tolerance_ms\": 1,\n  \"min_aligned_fraction\": 0.700000,\n  \"requested_streams\": {},\n  \"latest_observation_count\": {},\n  \"aligned_latest_streams\": {},\n  \"captured_streams\": {},\n  \"payload_checksum_algorithm\": \"fnv1a64\",\n  \"raw_payload_format\": \"redis_stream_field_underscore_little_endian_f32_bytes\",\n  \"stream_inventory\": [],\n  \"latest_observations\": [],\n  \"streams\": [{}],\n  \"warnings\": []\n}}\n",
+            stream_defs.len(),
+            stream_defs.len(),
+            stream_defs.len(),
+            stream_defs.len(),
+            stream_json.join(",")
+        );
+        fs::write(bundle.join("manifest.json"), manifest).expect("manifest write");
+        bundle
+    }
+
     fn sample_point(center_turn: usize, tune: f64) -> SlidingPoint {
         SlidingPoint {
             center_turn,
@@ -9145,6 +9740,49 @@ mod tests {
         assert_eq!(decoded.len(), 2);
         assert!((decoded[0] - 1.0).abs() < 1e-9);
         assert!((decoded[1] - 2.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn analyze_captured_spill_writes_outputs_without_redis() {
+        let dir = std::env::temp_dir().join(format!(
+            "tbt-monitor-captured-spill-test-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        let out_dir = dir.join("out");
+        fs::create_dir_all(&dir).expect("create temp dir");
+
+        let h_key = "{MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_SCALED".to_string();
+        let v_key = "{MUON:BPM:10.0.0.1}:VP101:TBT_POSITION_SCALED".to_string();
+        let config = test_config_with_streams(vec![h_key.clone(), v_key.clone()]);
+        let bundle = write_test_captured_bundle(
+            &dir,
+            1772830005123,
+            &[(&h_key, "H", 0.25), (&v_key, "V", 0.30)],
+        );
+
+        run_analyze_captured_spill(config, &bundle, &out_dir, None)
+            .expect("offline captured spill should analyze");
+
+        for name in [
+            "spectrum_h.png",
+            "spectrum_v.png",
+            "spectrogram_h.png",
+            "spectrogram_v.png",
+            "tune_vs_time.png",
+            "tune_validation.png",
+            "sliding_tune.csv",
+        ] {
+            let path = out_dir.join(name);
+            let meta = fs::metadata(&path).unwrap_or_else(|_| {
+                panic!("expected offline analysis artifact {}", path.display())
+            });
+            assert!(meta.len() > 0, "expected non-empty artifact {name}");
+        }
+
+        let _ = fs::remove_dir_all(dir);
     }
 
     #[test]
