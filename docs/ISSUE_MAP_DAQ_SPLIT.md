@@ -77,6 +77,7 @@ GitHub issue numbers should be recorded beside each slice once seeded.
 
 ### B3. Add `analyze-captured-spills` command
 - GitHub: #7
+- Status: implemented
 - Type: feature
 - Area: analysis
 - Labels: `type:feature`, `area:analysis`, `priority:P1`, `state:ready`
@@ -113,7 +114,7 @@ GitHub issue numbers should be recorded beside each slice once seeded.
 2. PR-2: `capture-spill` one-shot (`A2`) - implemented.
 3. PR-3: `capture-spills` free-run/count (`A3`) - implemented.
 4. PR-4: Offline loader + `analyze-captured-spill` (`B1`,`B2`) - implemented.
-5. PR-5: Offline batch command (`B3`).
+5. PR-5: Offline batch command (`B3`) - implemented.
 6. PR-6: Minimal online/offline parity guardrail (`C1`).
 
 Post-split refinement:

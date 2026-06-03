@@ -33,7 +33,7 @@ The program reads Redis stream data from many BPM devices and converts it into s
   - Emits manifest, raw payload files, summaries, and multi-spill indexes.
 - `src/analyze.rs`
   - Spill snapshot construction.
-  - Captured-spill manifest/payload loading for offline single-spill analysis.
+  - Captured-spill manifest/payload loading for offline analysis.
   - FFT-based tune extraction and sliding analysis.
   - Study and batch workflows.
   - Artifact and summary generation.
@@ -99,6 +99,20 @@ The program reads Redis stream data from many BPM devices and converts it into s
    `target_ms`.
 7. Reuse the existing one-spill analysis/output path. No Redis connection is
    opened.
+
+### Analyze Captured Spills (`analyze-captured-spills`)
+
+1. Discover captured-spill bundles from a bundle directory, explicit
+   `manifest.json`, or an immediate-child bundle directory scan.
+2. Validate each manifest with the same schema and payload safety checks used
+   by `analyze-captured-spill`.
+3. Sort candidates by `target_ms` and suppress duplicate physical spills using
+   the configured adjacent-target tolerance.
+4. Reconstruct one analysis snapshot per usable bundle without opening Redis.
+5. Reuse existing batch record, quality, reference matching, plot, composite
+   waterfall, detailed-artifact, and markdown summary writers.
+6. Record `trigger_source=captured-spill`; the batch path does not read Redis
+   trigger keys.
 
 ### Analyze Phase (`analyze-phase`)
 
@@ -182,6 +196,16 @@ Offline single-spill analysis policy:
 - Manifest/schema errors fail explicitly; incomplete captured data is preserved
   as warnings when enough payloads remain to analyze at least one plane.
 
+Offline batch analysis policy:
+- `analyze-captured-spills` consumes captured-spill bundles and emits the same
+  batch artifact families as `analyze-spills`.
+- Bundle discovery is immediate-child only for directory roots so unrelated
+  files are ignored and nested historical outputs are not swept accidentally.
+- Duplicate suppression uses the same `target_ms` tolerance as live/historical
+  batch analysis.
+- Redis trigger lookup is intentionally skipped; records use
+  `trigger_ms=target_ms` and `trigger_source=captured-spill`.
+
 Tune-valued plot scaling policy:
 - Tune Y-axis bounds are config-driven via `tune_plot_y_min` and `tune_plot_y_max`.
 - This keeps spill/batch/study tune visuals comparable across runs.
@@ -218,9 +242,9 @@ When changing artifact fields or meaning, update:
 
 The acquisition side of the split now keeps Redis synchronization and target
 selection in `src/capture.rs`, then serializes complete captured-spill bundles
-for later analysis. The remaining offline loader should reconstruct the same
-in-memory inputs that the current `analyze-spill` path builds from Redis so tune
-extraction, quality flags, plots, and batch summaries can stay shared.
+for later analysis. Offline single-spill and batch commands reconstruct the same
+in-memory inputs that the current Redis paths build so tune extraction, quality
+flags, plots, and batch summaries stay shared.
 
 Implementation slices are tracked in `docs/ISSUE_MAP_DAQ_SPLIT.md`.
 
