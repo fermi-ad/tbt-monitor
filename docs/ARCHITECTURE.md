@@ -206,6 +206,15 @@ Offline batch analysis policy:
 - Redis trigger lookup is intentionally skipped; records use
   `trigger_ms=target_ms` and `trigger_source=captured-spill`.
 
+Split parity guardrail:
+- Normal unit tests include a deterministic same-spill comparison between an
+  online-style snapshot built from decoded raw payload bytes and the
+  captured-bundle loader path.
+- The comparison covers `Qx/Qy`, sliding tune medians, selected stream/quality
+  fields, warnings, and quality flags.
+- This is a regression guard for the acquisition/analysis split, not a physics
+  validation gate for the current tune algorithm.
+
 Tune-valued plot scaling policy:
 - Tune Y-axis bounds are config-driven via `tune_plot_y_min` and `tune_plot_y_max`.
 - This keeps spill/batch/study tune visuals comparable across runs.
