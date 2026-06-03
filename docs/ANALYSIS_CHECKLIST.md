@@ -164,3 +164,11 @@ without Redis connectivity.
 This split is intentionally ahead of deeper analysis refinement. Treat the
 current pipeline as a proof of concept to preserve through the split, then use
 offline captured bundles to iterate on stronger physics-quality checks.
+
+Current capture-side status:
+
+- `capture-spill` writes one raw captured-spill bundle without tune analysis.
+- `capture-spills --free-run [--count N]` writes one bundle per unique target
+  plus `capture_index.csv`.
+- Offline loader and captured-bundle analysis commands remain separate follow-up
+  work.

@@ -11,6 +11,7 @@
 //! behavior in dedicated modules so changes remain local and testable.
 
 mod analyze;
+mod capture;
 mod config;
 mod importer;
 mod monitor;
@@ -25,6 +26,7 @@ use analyze::{
     BatchOptions, BatchRecordFormat, DetailedArtifactsMode, FLASH_COUNT_MAX, ReferenceKey,
     SpillSourceMode, StudyOptions, run_analyze_spill, run_analyze_spills, run_analyze_study,
 };
+use capture::{run_capture_spill, run_capture_spills};
 use config::{load_monitor_config, save_monitor_config};
 use importer::import_xml_config;
 use tui::run_dashboard;
@@ -76,6 +78,48 @@ enum Command {
 
         #[arg(long)]
         min_stream_values: Option<usize>,
+    },
+
+    /// Capture one synchronized raw spill bundle without running tune analysis.
+    CaptureSpill {
+        #[arg(long, default_value = "config/monitor.cfg")]
+        config: PathBuf,
+
+        #[arg(long, default_value = "/out")]
+        out_dir: PathBuf,
+
+        /// Override the allowed stream-ID millisecond delta for aligned capture.
+        #[arg(long)]
+        align_tolerance_ms: Option<u64>,
+
+        /// Override the minimum aligned stream fraction before warnings are emitted.
+        #[arg(long)]
+        min_aligned_fraction: Option<f64>,
+    },
+
+    /// Capture synchronized raw spill bundles continuously with --free-run.
+    CaptureSpills {
+        #[arg(long, default_value = "config/monitor.cfg")]
+        config: PathBuf,
+
+        #[arg(long, default_value = "/out")]
+        out_dir: PathBuf,
+
+        /// Keep running continuously and save one raw bundle per unique global spill.
+        #[arg(long, default_value_t = false)]
+        free_run: bool,
+
+        /// In free-run mode, stop after this many successful captures.
+        #[arg(long)]
+        count: Option<usize>,
+
+        /// Override the allowed stream-ID millisecond delta for aligned capture.
+        #[arg(long)]
+        align_tolerance_ms: Option<u64>,
+
+        /// Override the minimum aligned stream fraction before warnings are emitted.
+        #[arg(long)]
+        min_aligned_fraction: Option<f64>,
     },
 
     /// Run tune analysis for one spill, or continuously with --free-run.
@@ -359,6 +403,50 @@ fn main() -> Result<()> {
             }
 
             run_dashboard(monitor_config)?;
+        }
+        Command::CaptureSpill {
+            config,
+            out_dir,
+            align_tolerance_ms,
+            min_aligned_fraction,
+        } => {
+            let mut monitor_config = load_monitor_config(&config)
+                .with_context(|| format!("failed to load {}", config.display()))?;
+
+            if let Some(v) = align_tolerance_ms {
+                monitor_config.align_tolerance_ms = v;
+            }
+            if let Some(v) = min_aligned_fraction {
+                monitor_config.min_aligned_fraction = v;
+            }
+
+            monitor_config.validate()?;
+            run_capture_spill(monitor_config, &out_dir)?;
+        }
+        Command::CaptureSpills {
+            config,
+            out_dir,
+            free_run,
+            count,
+            align_tolerance_ms,
+            min_aligned_fraction,
+        } => {
+            if matches!(count, Some(0)) {
+                bail!("--count must be >= 1 for capture-spills");
+            }
+
+            let mut monitor_config = load_monitor_config(&config)
+                .with_context(|| format!("failed to load {}", config.display()))?;
+
+            if let Some(v) = align_tolerance_ms {
+                monitor_config.align_tolerance_ms = v;
+            }
+            if let Some(v) = min_aligned_fraction {
+                monitor_config.min_aligned_fraction = v;
+            }
+
+            monitor_config.validate()?;
+            run_capture_spills(monitor_config, &out_dir, free_run, count)?;
         }
         Command::AnalyzeSpill {
             config,

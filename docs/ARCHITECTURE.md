@@ -2,9 +2,10 @@
 
 ## Scope
 
-`tbt-monitor-tui` is a single Rust binary with five functional areas:
+`tbt-monitor-tui` is a single Rust binary with six functional areas:
 - config import and validation
 - live stream monitoring (TUI)
+- raw spill capture
 - one-spill tune analysis
 - robustness studies
 - multi-spill batch analysis
@@ -26,6 +27,10 @@ The program reads Redis stream data from many BPM devices and converts it into s
 - `src/monitor.rs`
   - Device worker runtime for live monitoring.
   - Uses stream-native `XREAD BLOCK` and reconnection backoff.
+- `src/capture.rs`
+  - Raw synchronized spill capture.
+  - Writes captured-spill bundles without running tune analysis.
+  - Emits manifest, raw payload files, summaries, and multi-spill indexes.
 - `src/analyze.rs`
   - Spill snapshot construction.
   - FFT-based tune extraction and sliding analysis.
@@ -59,6 +64,24 @@ The program reads Redis stream data from many BPM devices and converts it into s
 7. In `--free-run`, repeat until Ctrl-C or optional `--count` successful analyses.
 8. In `--free-run --count`, synthesize batch summary/composite outputs for the
    collected spills at exit.
+
+### Capture Spill (`capture-spill`)
+
+1. Collect latest TbT observations across configured streams.
+2. Select `target_ms` using the same adjacent-bucket clustering policy as
+   analysis.
+3. Pull near-target Redis stream entries from every configured TbT stream.
+4. Persist raw `_` payload bytes without decoding them for tune analysis.
+5. Emit a captured-spill bundle with `manifest.json`, `capture_summary.txt`,
+   and `payloads/*.bin`.
+
+### Capture Spills (`capture-spills --free-run`)
+
+1. Spawn stream-watch workers to detect new arrivals.
+2. Each wake triggers one global all-stream capture snapshot.
+3. Suppress duplicate physical spills using adjacent-target tolerance.
+4. Write one captured-spill bundle per unique target.
+5. Maintain `capture_index.csv` with bundle paths and capture diagnostics.
 
 ### Analyze Phase (`analyze-phase`)
 
@@ -102,6 +125,8 @@ Rationale:
 ## Artifact Contract
 
 Main artifact families:
+- captured-spill bundles (`manifest.json`, `capture_summary.txt`, raw
+  `payloads/*.bin`)
 - per-spill spectra and tune traces (`png`)
 - per-spill top-down spectrogram heatmaps (`png`)
 - per-spill 2x2 tune-validation composite (`png`)
@@ -110,6 +135,27 @@ Main artifact families:
 - batch records (`csv`/`jsonl`)
 - batch plots (including composite H/V waterfall, and optional per-flash
   `tune_vs_spill_flash_XX` and `tune_histogram_flash_XX`) and markdown summary
+
+Captured-spill bundle schema:
+- `schema_version=1`
+- artifact type `tbt-monitor.captured-spill`
+- `redis_timestamp_ms`, the selected Redis stream-ID millisecond used as the
+  artifact timestamp (`target_ms` has the same value in schema v1)
+- target/alignment metadata: `target_ms`, `align_tolerance_ms`,
+  `min_aligned_fraction`, latest-observation counts, captured stream counts
+- stream inventory for all configured `TBT_POSITION_SCALED` streams
+- captured stream entries with BPM/device identity, plane, stream ID,
+  stream-ID millisecond, payload file path, byte count, sample count, and
+  `fnv1a64` checksum
+- warnings for incomplete target selection, incomplete near-target capture,
+  low alignment, missing payload fields, or non-`f32`-sized payloads
+
+Raw payload policy:
+- Payload files store Redis stream `_` field bytes exactly as captured.
+- Current TbT payload interpretation is little-endian `f32`; capture does not
+  run FFT/tune analysis or otherwise transform samples.
+- `capture-spills` writes `capture_index.csv` as the run-level bundle index,
+  keyed by `redis_timestamp_ms` / `target_ms`.
 
 Tune-valued plot scaling policy:
 - Tune Y-axis bounds are config-driven via `tune_plot_y_min` and `tune_plot_y_max`.
@@ -145,11 +191,11 @@ When changing artifact fields or meaning, update:
 
 ### Split acquisition from offline analysis
 
-The planned split keeps Redis synchronization and target selection in the
-acquisition path, then serializes a complete captured-spill bundle for later
-analysis. The offline loader should reconstruct the same in-memory inputs that
-the current `analyze-spill` path builds from Redis so tune extraction, quality
-flags, plots, and batch summaries can stay shared.
+The acquisition side of the split now keeps Redis synchronization and target
+selection in `src/capture.rs`, then serializes complete captured-spill bundles
+for later analysis. The remaining offline loader should reconstruct the same
+in-memory inputs that the current `analyze-spill` path builds from Redis so tune
+extraction, quality flags, plots, and batch summaries can stay shared.
 
 Implementation slices are tracked in `docs/ISSUE_MAP_DAQ_SPLIT.md`.
 

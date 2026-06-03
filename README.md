@@ -9,6 +9,7 @@ stream monitoring. Current scope includes:
 - ACNET XML import into validated monitor/analyzer config
 - live stream health monitoring via Redis Streams (`XREAD BLOCK`)
 - synchronized global spill capture with adjacent-ms target clustering
+- raw captured-spill bundles for acquisition-first/offline-analysis workflows
 - injection-window and sliding-window tune extraction (`Qx/Qy`) with confidence gating
 - tracked sliding tune diagnostics (fallback/suspicious-step visibility)
 - robustness studies (`analyze-phase`) for window sensitivity and BPM/method comparison
@@ -40,6 +41,7 @@ credible and operationally useful for Delivery Ring studies.
 - `src/config.rs`: config schema, parser, validation, serializer.
 - `src/importer.rs`: ACNET XML import into monitor config.
 - `src/monitor.rs`: stream-driven live monitor runtime for the TUI.
+- `src/capture.rs`: raw synchronized spill capture and bundle writing.
 - `src/analyze.rs`: synchronized spill analysis, studies, and batch processing.
 - `config/monitor.cfg`: generated/example config with device and stream definitions.
 
@@ -92,6 +94,56 @@ Controls:
 
 - `q` quit
 - `up/down` or `j/k` change selected device
+
+## Capture Raw Spill Bundles
+
+Use `capture-spill` to collect one synchronized spill from all configured BPM
+`TBT_POSITION_SCALED` streams without running tune analysis:
+
+```bash
+cargo run --offline -- capture-spill \
+  --config /Users/derekste/Dev/codex/tbt-monitor/config/monitor.cfg \
+  --out-dir /Users/derekste/Dev/codex/tbt-monitor/out
+```
+
+The command uses the same stream-ID millisecond target selection as
+`analyze-spill`, including adjacent-bucket clustering (`±1 ms`, bounded by
+`align_tolerance_ms`). It writes:
+
+- `out/spill_<target_ms>/manifest.json`
+- `out/spill_<target_ms>/capture_summary.txt`
+- `out/spill_<target_ms>/payloads/*.bin`
+
+The raw payload files contain the Redis stream `_` field bytes exactly as
+captured. For current BPM TbT streams this is little-endian `f32` sample data.
+The manifest records:
+
+- `schema_version=1` and artifact type `tbt-monitor.captured-spill`
+- `redis_timestamp_ms` (the selected Redis stream-ID millisecond, equal to
+  `target_ms` for schema v1)
+- target/alignment metadata and timeliness observations
+- full configured stream inventory
+- captured stream IDs and stream milliseconds
+- payload file paths, byte counts, sample counts, and `fnv1a64` checksums
+- warnings for incomplete polls, low alignment, missing payloads, or malformed
+  payload lengths
+
+Use `capture-spills --free-run` to keep capturing one bundle per unique spill
+target. Add `--count N` for a bounded run:
+
+```bash
+cargo run --offline -- capture-spills \
+  --config /Users/derekste/Dev/codex/tbt-monitor/config/monitor.cfg \
+  --out-dir /Users/derekste/Dev/codex/tbt-monitor/out \
+  --free-run \
+  --count 25
+```
+
+`capture-spills` starts stream-watch workers only to detect new arrivals. Each
+wake triggers a full global snapshot over all configured streams. Duplicate
+physical spills are suppressed using the same adjacent-target tolerance policy.
+The command writes `capture_index.csv` alongside the per-spill bundle
+directories, keyed by the same `redis_timestamp_ms` / `target_ms` value.
 
 ## Run One-Shot Tune Analysis
 

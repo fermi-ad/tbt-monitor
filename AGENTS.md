@@ -8,6 +8,7 @@ This file helps coding assistants make safe, coherent changes in this repository
 - Config schema/parser: `src/config.rs`
 - XML import path: `src/importer.rs`
 - Live monitor runtime: `src/monitor.rs`
+- Raw spill capture path: `src/capture.rs`
 - Analysis/study/batch logic: `src/analyze.rs`
 - User docs: `README.md`
 - Architecture and rationale docs: `docs/ARCHITECTURE.md`, `docs/DESIGN_DECISIONS.md`, `docs/PLAN.md`
