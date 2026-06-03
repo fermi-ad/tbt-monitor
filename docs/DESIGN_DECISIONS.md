@@ -237,6 +237,9 @@ Decision:
 - Store Redis stream `_` payload bytes exactly as captured, with a
   `schema_version=1` manifest, stream inventory, stream IDs, sample counts,
   byte counts, and `fnv1a64` checksums.
+- Let `analyze-captured-spill` reconstruct the same one-spill analysis snapshot
+  from a captured bundle and then reuse the current analysis/output path without
+  Redis connectivity.
 
 Why:
 - Complete spill bundles make analysis reproducible without requiring live Redis
@@ -255,8 +258,10 @@ Tradeoffs:
 - Requires focused parity tests so online and offline analysis paths do not
   diverge during the split.
 - The current implementation duplicates some synchronization helpers from
-  `src/analyze.rs`; the offline-loader work should consolidate shared
+  `src/analyze.rs`; later batch/offline parity work should consolidate shared
   acquisition primitives once both sides of the boundary are present.
+- Offline analysis depends on the manifest schema remaining explicit and
+  versioned; schema changes must include loader/test/docs updates.
 
 ## Decision Update Rule
 

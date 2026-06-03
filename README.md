@@ -10,6 +10,7 @@ stream monitoring. Current scope includes:
 - live stream health monitoring via Redis Streams (`XREAD BLOCK`)
 - synchronized global spill capture with adjacent-ms target clustering
 - raw captured-spill bundles for acquisition-first/offline-analysis workflows
+- offline one-spill reanalysis from captured-spill bundles
 - injection-window and sliding-window tune extraction (`Qx/Qy`) with confidence gating
 - tracked sliding tune diagnostics (fallback/suspicious-step visibility)
 - robustness studies (`analyze-phase`) for window sensitivity and BPM/method comparison
@@ -144,6 +145,35 @@ wake triggers a full global snapshot over all configured streams. Duplicate
 physical spills are suppressed using the same adjacent-target tolerance policy.
 The command writes `capture_index.csv` alongside the per-spill bundle
 directories, keyed by the same `redis_timestamp_ms` / `target_ms` value.
+
+## Analyze A Captured Spill Offline
+
+Use `analyze-captured-spill` to run the existing one-spill tune-analysis path
+from a captured-spill bundle without Redis connectivity:
+
+```bash
+cargo run --offline -- analyze-captured-spill \
+  --config /Users/derekste/Dev/codex/tbt-monitor/config/monitor.cfg \
+  --bundle /Users/derekste/Dev/codex/tbt-monitor/out/spill_<target_ms> \
+  --out-dir /Users/derekste/Dev/codex/tbt-monitor/out/offline_<target_ms>
+```
+
+`--bundle` may point at either the bundle directory or its `manifest.json`. The
+command loads config for analysis parameters and stream-count expectations, then
+reconstructs the analysis snapshot from `manifest.json` plus `payloads/*.bin`.
+It does not connect to Redis. Malformed manifests, unsupported schema versions,
+unsafe payload paths, checksum mismatches, missing payloads, or malformed
+little-endian `f32` payloads are reported as explicit errors or warnings.
+
+Outputs match the current one-spill analysis artifact set:
+
+- `spectrum_h.png`
+- `spectrum_v.png`
+- `spectrogram_h.png`
+- `spectrogram_v.png`
+- `tune_vs_time.png`
+- `tune_validation.png`
+- `sliding_tune.csv`
 
 ## Run One-Shot Tune Analysis
 

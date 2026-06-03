@@ -33,6 +33,7 @@ The program reads Redis stream data from many BPM devices and converts it into s
   - Emits manifest, raw payload files, summaries, and multi-spill indexes.
 - `src/analyze.rs`
   - Spill snapshot construction.
+  - Captured-spill manifest/payload loading for offline single-spill analysis.
   - FFT-based tune extraction and sliding analysis.
   - Study and batch workflows.
   - Artifact and summary generation.
@@ -82,6 +83,22 @@ The program reads Redis stream data from many BPM devices and converts it into s
 3. Suppress duplicate physical spills using adjacent-target tolerance.
 4. Write one captured-spill bundle per unique target.
 5. Maintain `capture_index.csv` with bundle paths and capture diagnostics.
+
+### Analyze Captured Spill (`analyze-captured-spill`)
+
+1. Load `manifest.json` from a captured-spill bundle directory or explicit
+   manifest path.
+2. Validate `schema_version=1` and artifact type
+   `tbt-monitor.captured-spill`.
+3. Resolve payload paths relative to the bundle directory and reject unsafe
+   absolute/parent-relative paths.
+4. Verify byte counts and `fnv1a64` checksums when present.
+5. Decode raw little-endian `f32` payload files into the same `StreamTrace`
+   inputs used by live analysis.
+6. Reconstruct `TbtObservation` entries from captured stream IDs and
+   `target_ms`.
+7. Reuse the existing one-spill analysis/output path. No Redis connection is
+   opened.
 
 ### Analyze Phase (`analyze-phase`)
 
@@ -156,6 +173,14 @@ Raw payload policy:
   run FFT/tune analysis or otherwise transform samples.
 - `capture-spills` writes `capture_index.csv` as the run-level bundle index,
   keyed by `redis_timestamp_ms` / `target_ms`.
+
+Offline single-spill analysis policy:
+- `analyze-captured-spill` consumes the captured-spill manifest/payload contract
+  and emits the same per-spill analysis artifact set as `analyze-spill`.
+- The command uses config for analysis parameters and stream-count expectations,
+  but does not connect to Redis.
+- Manifest/schema errors fail explicitly; incomplete captured data is preserved
+  as warnings when enough payloads remain to analyze at least one plane.
 
 Tune-valued plot scaling policy:
 - Tune Y-axis bounds are config-driven via `tune_plot_y_min` and `tune_plot_y_max`.

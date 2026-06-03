@@ -144,8 +144,8 @@ Divergence:
 
 ## Next Milestones
 
-1. Add offline analysis commands that consume captured bundles and reproduce the
-   current per-spill and batch artifacts without Redis connectivity.
+1. Add offline batch analysis over captured bundles and reproduce the current
+   batch artifacts without Redis connectivity.
 2. Add only the parity guardrails needed to confirm the split preserves today's
    proof-of-concept behavior.
 
@@ -164,6 +164,8 @@ Completed split work:
   stream inventory, raw payload files, byte counts, sample counts, and checksums.
 - Live `capture-spill` one-shot command.
 - Live `capture-spills --free-run [--count N]` command with `capture_index.csv`.
+- Offline `analyze-captured-spill` command that consumes one captured bundle and
+  emits the current one-spill analysis artifacts without Redis connectivity.
 
 ## Open Physics Questions (still external)
 

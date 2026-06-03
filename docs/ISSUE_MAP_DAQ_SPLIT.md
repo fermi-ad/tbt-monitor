@@ -57,6 +57,7 @@ GitHub issue numbers should be recorded beside each slice once seeded.
 
 ### B1. Add offline loader for captured spill bundle
 - GitHub: #4
+- Status: implemented
 - Type: feature
 - Area: analysis
 - Labels: `type:feature`, `area:analysis`, `priority:P1`, `state:ready`
@@ -66,6 +67,7 @@ GitHub issue numbers should be recorded beside each slice once seeded.
 
 ### B2. Add `analyze-captured-spill` command
 - GitHub: #3
+- Status: implemented
 - Type: feature
 - Area: analysis
 - Labels: `type:feature`, `area:analysis`, `priority:P1`, `state:ready`
@@ -110,7 +112,7 @@ GitHub issue numbers should be recorded beside each slice once seeded.
 1. PR-1: Schema + manifest + docs (`A1`) - implemented with capture commands.
 2. PR-2: `capture-spill` one-shot (`A2`) - implemented.
 3. PR-3: `capture-spills` free-run/count (`A3`) - implemented.
-4. PR-4: Offline loader + `analyze-captured-spill` (`B1`,`B2`).
+4. PR-4: Offline loader + `analyze-captured-spill` (`B1`,`B2`) - implemented.
 5. PR-5: Offline batch command (`B3`).
 6. PR-6: Minimal online/offline parity guardrail (`C1`).
 
