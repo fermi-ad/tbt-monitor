@@ -37,6 +37,28 @@ None.
 
 ## Done
 
+### [ENG-009] Online/offline split parity guardrail
+- Status: done
+- Owner: codex
+- Type: reliability
+- Why: the captured-bundle split needs a deterministic regression check that offline analysis preserves today's proof-of-concept behavior for the same raw spill data.
+- Scope: add a no-Redis parity test that builds an online-style snapshot from decoded raw payload bytes, loads the same captured-spill bundle offline, and compares tune estimates, sliding medians, selected stream/quality fields, warnings, and quality flags with field-named failure messages.
+- Acceptance: parity runs in normal `cargo test`; differences in key proof-of-concept outputs produce actionable field-specific failures; docs state this is a split regression guard, not physics certification of the current algorithm.
+- Docs: docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/ISSUE_MAP_DAQ_SPLIT.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+- Validation: cargo fmt --all; cargo test -- --nocapture
+- Notes: implements GitHub issue #5. Post-split analysis refinement issue #9 remains open.
+
+### [ENG-008] Offline captured-spill batch analysis
+- Status: done
+- Owner: codex
+- Type: feature
+- Why: captured raw spill bundles need batch-style analysis without Redis connectivity so acquisition-first runs can be reviewed and reprocessed offline.
+- Scope: add captured-bundle discovery, duplicate-target suppression, offline snapshot reconstruction for multiple bundles, `analyze-captured-spills`, existing batch writer reuse, and focused offline batch artifact tests.
+- Acceptance: a directory of captured-spill bundles can produce the current batch artifacts without Redis access; a single bundle directory or manifest path is also accepted; malformed bundles are skipped with explicit diagnostics when other usable bundles remain; batch records identify offline provenance with `trigger_source=captured-spill`.
+- Docs: README.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/ISSUE_MAP_DAQ_SPLIT.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+- Validation: cargo fmt --all; cargo test -- --nocapture
+- Notes: implements GitHub issue #7. Minimal online/offline parity issue #5 remains open.
+
 ### [ENG-007] Offline captured-spill single analysis
 - Status: done
 - Owner: codex

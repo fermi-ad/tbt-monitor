@@ -24,8 +24,8 @@ use clap::{Parser, Subcommand};
 
 use analyze::{
     BatchOptions, BatchRecordFormat, DetailedArtifactsMode, FLASH_COUNT_MAX, ReferenceKey,
-    SpillSourceMode, StudyOptions, run_analyze_captured_spill, run_analyze_spill,
-    run_analyze_spills, run_analyze_study,
+    SpillSourceMode, StudyOptions, run_analyze_captured_spill, run_analyze_captured_spills,
+    run_analyze_spill, run_analyze_spills, run_analyze_study,
 };
 use capture::{run_capture_spill, run_capture_spills};
 use config::{load_monitor_config, save_monitor_config};
@@ -241,6 +241,91 @@ enum Command {
         /// Plot time-domain axes in microseconds instead of turns.
         #[arg(long, default_value_t = false)]
         plot_time_axes_in_us: bool,
+    },
+
+    /// Run batch tune analysis from captured-spill bundles without Redis connectivity.
+    AnalyzeCapturedSpills {
+        #[arg(long, default_value = "config/monitor.cfg")]
+        config: PathBuf,
+
+        /// Directory containing captured-spill bundle directories, or one bundle/manifest path.
+        #[arg(long)]
+        bundles_dir: PathBuf,
+
+        #[arg(long, default_value = "/out")]
+        out_dir: PathBuf,
+
+        /// Number of successful unique captured spills to analyze.
+        #[arg(long)]
+        count: usize,
+
+        #[arg(long)]
+        align_tolerance_ms: Option<u64>,
+
+        #[arg(long)]
+        min_aligned_fraction: Option<f64>,
+
+        #[arg(long)]
+        injection_start_turn: Option<usize>,
+
+        #[arg(long)]
+        injection_window_turns: Option<usize>,
+
+        #[arg(long)]
+        sliding_window_turns: Option<usize>,
+
+        #[arg(long)]
+        sliding_stride_turns: Option<usize>,
+
+        /// Number of evenly-spaced flash sampling windows across a spill, or 'max'.
+        #[arg(long, short = 'f', value_name = "N|max", value_parser = parse_flashes_arg)]
+        flashes: Option<usize>,
+
+        #[arg(long)]
+        qx_band_min: Option<f64>,
+
+        #[arg(long)]
+        qx_band_max: Option<f64>,
+
+        #[arg(long)]
+        qy_band_min: Option<f64>,
+
+        #[arg(long)]
+        qy_band_max: Option<f64>,
+
+        #[arg(long)]
+        min_peak_confidence: Option<f64>,
+
+        /// Plot time-domain axes in microseconds instead of turns.
+        #[arg(long, default_value_t = false)]
+        plot_time_axes_in_us: bool,
+
+        #[arg(long, default_value_t = 1.5)]
+        min_confidence: f64,
+
+        #[arg(long, default_value_t = 4)]
+        min_aligned_bpm_count: usize,
+
+        #[arg(long, default_value_t = 1)]
+        min_per_plane_bpm: usize,
+
+        #[arg(long, default_value_t = 0.005)]
+        peak_edge_margin: f64,
+
+        #[arg(long, default_value = "both")]
+        record_format: String,
+
+        #[arg(long, default_value = "all")]
+        detailed_artifacts: String,
+
+        #[arg(long)]
+        reference_file: Option<PathBuf>,
+
+        #[arg(long, default_value = "target_ms")]
+        reference_key: String,
+
+        #[arg(long, default_value_t = 1)]
+        reference_match_tolerance_ms: u64,
     },
 
     /// Run robustness studies and method comparison artifacts for a single synchronized spill.
@@ -672,6 +757,102 @@ fn main() -> Result<()> {
 
             monitor_config.validate()?;
             run_analyze_captured_spill(monitor_config, &bundle, &out_dir, flashes)?;
+        }
+        Command::AnalyzeCapturedSpills {
+            config,
+            bundles_dir,
+            out_dir,
+            count,
+            align_tolerance_ms,
+            min_aligned_fraction,
+            injection_start_turn,
+            injection_window_turns,
+            sliding_window_turns,
+            sliding_stride_turns,
+            flashes,
+            qx_band_min,
+            qx_band_max,
+            qy_band_min,
+            qy_band_max,
+            min_peak_confidence,
+            plot_time_axes_in_us,
+            min_confidence,
+            min_aligned_bpm_count,
+            min_per_plane_bpm,
+            peak_edge_margin,
+            record_format,
+            detailed_artifacts,
+            reference_file,
+            reference_key,
+            reference_match_tolerance_ms,
+        } => {
+            if flashes.is_some() && sliding_stride_turns.is_some() {
+                eprintln!(
+                    "[warn] analyze-captured-spills: --sliding-stride-turns is ignored when --flashes is set"
+                );
+            }
+            if flashes.is_some() {
+                eprintln!(
+                    "[warn] analyze-captured-spills: injection_window_turns is ignored when --flashes is set; using sliding_window_turns"
+                );
+            }
+            let mut monitor_config = load_monitor_config(&config)
+                .with_context(|| format!("failed to load {}", config.display()))?;
+
+            if let Some(v) = align_tolerance_ms {
+                monitor_config.align_tolerance_ms = v;
+            }
+            if let Some(v) = min_aligned_fraction {
+                monitor_config.min_aligned_fraction = v;
+            }
+            if let Some(v) = injection_start_turn {
+                monitor_config.injection_start_turn = v;
+            }
+            if let Some(v) = injection_window_turns {
+                monitor_config.injection_window_turns = v.max(1);
+            }
+            if let Some(v) = sliding_window_turns {
+                monitor_config.sliding_window_turns = v.max(1);
+            }
+            if let Some(v) = sliding_stride_turns {
+                monitor_config.sliding_stride_turns = v.max(1);
+            }
+            if let Some(v) = qx_band_min {
+                monitor_config.qx_band_min = v;
+            }
+            if let Some(v) = qx_band_max {
+                monitor_config.qx_band_max = v;
+            }
+            if let Some(v) = qy_band_min {
+                monitor_config.qy_band_min = v;
+            }
+            if let Some(v) = qy_band_max {
+                monitor_config.qy_band_max = v;
+            }
+            if let Some(v) = min_peak_confidence {
+                monitor_config.min_peak_confidence = v;
+            }
+            if plot_time_axes_in_us {
+                monitor_config.plot_time_axes_in_us = true;
+            }
+
+            monitor_config.validate()?;
+
+            let options = BatchOptions {
+                count: count.max(1),
+                min_confidence,
+                min_aligned_bpm_count: min_aligned_bpm_count.max(1),
+                min_per_plane_bpm: min_per_plane_bpm.max(1),
+                peak_edge_margin,
+                record_format: BatchRecordFormat::parse(&record_format)?,
+                detailed_artifacts: DetailedArtifactsMode::parse(&detailed_artifacts)?,
+                reference_file,
+                reference_key: ReferenceKey::parse(&reference_key)?,
+                reference_match_tolerance_ms,
+                flash_count: flashes,
+            };
+
+            run_analyze_captured_spills(monitor_config, &bundles_dir, &out_dir, options)?;
         }
         Command::AnalyzePhase {
             config,

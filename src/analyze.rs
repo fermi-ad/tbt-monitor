@@ -436,6 +436,13 @@ struct CapturedManifest {
     warnings: Vec<String>,
 }
 
+#[derive(Debug, Clone)]
+struct CapturedBundleCandidate {
+    bundle_dir: PathBuf,
+    manifest_path: PathBuf,
+    target_ms: u64,
+}
+
 #[derive(Debug, Clone, Copy)]
 struct TimelinessStats {
     min_delta_ms: i64,
@@ -535,6 +542,172 @@ pub fn run_analyze_captured_spill(
         "analyze-captured-spill summary",
         true,
     );
+
+    Ok(())
+}
+
+pub fn run_analyze_captured_spills(
+    config: MonitorConfig,
+    bundles_dir: &Path,
+    out_dir: &Path,
+    options: BatchOptions,
+) -> Result<()> {
+    validate_batch_options(&options)?;
+    config.validate()?;
+    fs::create_dir_all(out_dir)
+        .with_context(|| format!("failed to create output directory {}", out_dir.display()))?;
+
+    let references = if let Some(path) = options.reference_file.as_ref() {
+        load_reference_file(path)?
+    } else {
+        Vec::new()
+    };
+
+    let (candidates, skipped_discovery) = discover_captured_bundle_candidates(bundles_dir)?;
+    if candidates.is_empty() {
+        bail!(
+            "no captured-spill bundles were discovered under {}",
+            bundles_dir.display()
+        );
+    }
+
+    println!(
+        "analyze-captured-spills: target_count={} discovered_bundles={} source={}",
+        options.count,
+        candidates.len(),
+        bundles_dir.display()
+    );
+
+    let mut counters = BatchRunCounters {
+        unresolved_wakes: skipped_discovery,
+        duplicate_wakes: 0,
+        stale_depth_scanned: None,
+        historical_candidates_discovered: 0,
+        historical_candidates_attempted: 0,
+        historical_candidates_skipped: 0,
+    };
+    let mut seen_target_ms = HashSet::<u64>::new();
+    let mut results = Vec::<BatchSpillResult>::new();
+    let dedupe_tolerance_ms = target_bucket_tolerance_ms(&config);
+
+    for (attempt_idx, candidate) in candidates.iter().enumerate() {
+        if results.len() >= options.count {
+            break;
+        }
+
+        let attempt_index = attempt_idx + 1;
+        if target_seen_within_tolerance(&seen_target_ms, candidate.target_ms, dedupe_tolerance_ms) {
+            counters.duplicate_wakes += 1;
+            continue;
+        }
+
+        let snapshot = match analyze_captured_spill_snapshot(
+            &config,
+            &candidate.bundle_dir,
+            options.flash_count,
+        ) {
+            Ok(snapshot) => snapshot,
+            Err(err) => {
+                counters.unresolved_wakes += 1;
+                eprintln!(
+                    "[analyze-captured-spills] skipped {}: {}",
+                    candidate.manifest_path.display(),
+                    err
+                );
+                continue;
+            }
+        };
+        seen_target_ms.insert(snapshot.target_ms);
+
+        let spill_index = results.len() + 1;
+        let mut record = build_spill_record(
+            &config,
+            &options,
+            &snapshot,
+            spill_index,
+            attempt_index,
+            snapshot.target_ms,
+            "captured-spill".to_string(),
+        )?;
+        apply_reference_match(
+            &mut record,
+            &references,
+            options.reference_key,
+            options.reference_match_tolerance_ms,
+        );
+
+        let sliding_csv = out_dir.join(format!(
+            "spill_{}_{}_sliding_tune.csv",
+            spill_index, snapshot.target_ms
+        ));
+        write_spill_sliding_csv(
+            &sliding_csv,
+            snapshot
+                .h_analysis
+                .as_ref()
+                .map(|analysis| analysis.sliding.as_slice())
+                .unwrap_or(&[]),
+            snapshot
+                .v_analysis
+                .as_ref()
+                .map(|analysis| analysis.sliding.as_slice())
+                .unwrap_or(&[]),
+        )?;
+
+        let timeliness = timeliness_stats(&snapshot.observations, snapshot.target_ms);
+        println!(
+            "[analyze-captured-spills] spill {}/{} target={} quality={} qx={} qy={} conf_h={} conf_v={} timeliness_med_abs_ms={} timeliness_max_abs_ms={}",
+            spill_index,
+            options.count,
+            record.target_ms,
+            record.quality_label.label(),
+            opt_fmt(record.qx_injection),
+            opt_fmt(record.qy_injection),
+            opt_fmt(record.confidence_h),
+            opt_fmt(record.confidence_v),
+            opt_fmt(timeliness.map(|stats| stats.median_abs_delta_ms)),
+            timeliness
+                .map(|stats| stats.max_abs_delta_ms.to_string())
+                .unwrap_or_else(|| "NA".to_string()),
+        );
+
+        results.push(BatchSpillResult { record, snapshot });
+    }
+
+    if results.is_empty() {
+        bail!(
+            "no captured-spill bundles produced usable batch analyses under {}",
+            bundles_dir.display()
+        );
+    }
+
+    if results.len() < options.count {
+        println!(
+            "analyze-captured-spills: exhausted captured bundles with {}/{} successful analyses",
+            results.len(),
+            options.count
+        );
+    }
+
+    let has_reference_file = !references.is_empty();
+    let has_reference_match = results
+        .iter()
+        .any(|r| r.record.residual_qx.is_some() || r.record.residual_qy.is_some());
+
+    write_batch_records(out_dir, &results, options.record_format)?;
+    write_batch_summary_plots(out_dir, &config, &results, &options, has_reference_match)?;
+    write_composite_waterfall_plots(out_dir, &config, &results)?;
+    write_batch_detailed_artifacts(
+        out_dir,
+        &config,
+        &results,
+        options.detailed_artifacts,
+        options.flash_count,
+    )?;
+
+    let aggregate = summarize_batch(&results, &counters);
+    print_batch_console_summary(&aggregate);
+    write_batch_summary_markdown(out_dir, &aggregate, &options, has_reference_file)?;
 
     Ok(())
 }
@@ -5897,6 +6070,82 @@ fn resolve_captured_bundle_paths(bundle_path: &Path) -> Result<(PathBuf, PathBuf
     Ok((bundle_path.to_path_buf(), bundle_path.join("manifest.json")))
 }
 
+fn discover_captured_bundle_candidates(
+    root: &Path,
+) -> Result<(Vec<CapturedBundleCandidate>, usize)> {
+    if is_manifest_path(root) || root.join("manifest.json").is_file() {
+        return Ok((vec![captured_bundle_candidate(root)?], 0));
+    }
+
+    if !root.is_dir() {
+        bail!(
+            "{} is neither a captured-spill bundle directory nor a directory of bundles",
+            root.display()
+        );
+    }
+
+    let mut candidates = Vec::<CapturedBundleCandidate>::new();
+    let mut skipped = 0usize;
+    let entries =
+        fs::read_dir(root).with_context(|| format!("failed to read {}", root.display()))?;
+
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(err) => {
+                skipped += 1;
+                eprintln!(
+                    "[analyze-captured-spills] skipped unreadable directory entry under {}: {}",
+                    root.display(),
+                    err
+                );
+                continue;
+            }
+        };
+
+        let path = entry.path();
+        if !path.is_dir() || !path.join("manifest.json").is_file() {
+            continue;
+        }
+
+        match captured_bundle_candidate(&path) {
+            Ok(candidate) => candidates.push(candidate),
+            Err(err) => {
+                skipped += 1;
+                eprintln!(
+                    "[analyze-captured-spills] skipped {}: {}",
+                    path.display(),
+                    err
+                );
+            }
+        }
+    }
+
+    candidates.sort_by(|a, b| {
+        a.target_ms
+            .cmp(&b.target_ms)
+            .then_with(|| a.manifest_path.cmp(&b.manifest_path))
+    });
+    Ok((candidates, skipped))
+}
+
+fn captured_bundle_candidate(path: &Path) -> Result<CapturedBundleCandidate> {
+    let (bundle_dir, manifest_path) = resolve_captured_bundle_paths(path)?;
+    let manifest = load_captured_manifest(&manifest_path)?;
+    validate_captured_manifest(&manifest, &manifest_path)?;
+    Ok(CapturedBundleCandidate {
+        bundle_dir,
+        manifest_path,
+        target_ms: manifest.target_ms,
+    })
+}
+
+fn is_manifest_path(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name == "manifest.json")
+}
+
 fn load_captured_manifest(path: &Path) -> Result<CapturedManifest> {
     let raw = fs::read_to_string(path)
         .with_context(|| format!("failed to read captured manifest {}", path.display()))?;
@@ -9682,6 +9931,226 @@ mod tests {
         bundle
     }
 
+    fn online_style_snapshot_from_fixture(
+        config: &MonitorConfig,
+        target_ms: u64,
+        stream_defs: &[(&str, &str, f64)],
+        flash_count: Option<usize>,
+    ) -> SpillSnapshot {
+        let mut observations = Vec::<TbtObservation>::new();
+        let mut traces = Vec::<StreamTrace>::new();
+
+        for (stream_key, plane_label, tune) in stream_defs {
+            let plane = match *plane_label {
+                "H" => Plane::Horizontal,
+                "V" => Plane::Vertical,
+                other => panic!("unsupported test plane {other}"),
+            };
+            let payload = f32_sine_payload(*tune, 512);
+            let samples = decode_f32_payload(&[(b"_".to_vec(), payload)])
+                .expect("fixture payload should decode");
+
+            observations.push(TbtObservation {
+                bpm_ip: "10.0.0.1".to_string(),
+                stream_key: (*stream_key).to_string(),
+                id: format!("{target_ms}-0"),
+                ms: target_ms,
+                aligned: true,
+            });
+            traces.push(StreamTrace {
+                plane,
+                bpm_ip: "10.0.0.1".to_string(),
+                stream_key: (*stream_key).to_string(),
+                samples,
+            });
+        }
+
+        let mut warnings = Vec::<String>::new();
+        let horizontal = traces
+            .iter()
+            .filter(|trace| trace.plane == Plane::Horizontal)
+            .cloned()
+            .collect::<Vec<_>>();
+        let vertical = traces
+            .iter()
+            .filter(|trace| trace.plane == Plane::Vertical)
+            .cloned()
+            .collect::<Vec<_>>();
+
+        let h_analysis = analyze_plane(
+            Plane::Horizontal,
+            horizontal,
+            config,
+            flash_count,
+            &mut warnings,
+        )
+        .expect("H online-style analysis");
+        let v_analysis = analyze_plane(
+            Plane::Vertical,
+            vertical,
+            config,
+            flash_count,
+            &mut warnings,
+        )
+        .expect("V online-style analysis");
+
+        SpillSnapshot {
+            target_ms,
+            observations,
+            h_analysis,
+            v_analysis,
+            warnings,
+        }
+    }
+
+    fn parity_batch_options(flash_count: Option<usize>) -> BatchOptions {
+        BatchOptions {
+            count: 1,
+            min_confidence: 1.1,
+            min_aligned_bpm_count: 1,
+            min_per_plane_bpm: 1,
+            peak_edge_margin: 0.005,
+            record_format: BatchRecordFormat::Both,
+            detailed_artifacts: DetailedArtifactsMode::None,
+            reference_file: None,
+            reference_key: ReferenceKey::TargetMs,
+            reference_match_tolerance_ms: 1,
+            flash_count,
+        }
+    }
+
+    fn parity_record_from_snapshot(
+        config: &MonitorConfig,
+        snapshot: &SpillSnapshot,
+        flash_count: Option<usize>,
+    ) -> SpillRecord {
+        build_spill_record(
+            config,
+            &parity_batch_options(flash_count),
+            snapshot,
+            1,
+            1,
+            snapshot.target_ms,
+            "parity-test".to_string(),
+        )
+        .expect("parity spill record")
+    }
+
+    fn assert_opt_f64_close(
+        label: &str,
+        expected: Option<f64>,
+        actual: Option<f64>,
+        tolerance: f64,
+    ) {
+        match (expected, actual) {
+            (Some(a), Some(b)) => assert!(
+                (a - b).abs() <= tolerance,
+                "{label} mismatch: expected {a:.12}, actual {b:.12}, tolerance {tolerance:.3e}"
+            ),
+            (None, None) => {}
+            _ => panic!("{label} presence mismatch: expected {expected:?}, actual {actual:?}"),
+        }
+    }
+
+    fn assert_string_vec_eq(label: &str, expected: &[String], actual: &[String]) {
+        assert_eq!(
+            expected, actual,
+            "{label} mismatch:\nexpected: {expected:#?}\nactual: {actual:#?}"
+        );
+    }
+
+    fn assert_parity_record_matches(expected: &SpillRecord, actual: &SpillRecord) {
+        assert_eq!(
+            expected.target_ms, actual.target_ms,
+            "target_ms mismatch: expected {}, actual {}",
+            expected.target_ms, actual.target_ms
+        );
+        assert_eq!(
+            expected.aligned_streams, actual.aligned_streams,
+            "aligned_streams mismatch"
+        );
+        assert_eq!(
+            expected.used_streams_total, actual.used_streams_total,
+            "used_streams_total mismatch"
+        );
+        assert_eq!(
+            expected.used_streams_h, actual.used_streams_h,
+            "used_streams_h mismatch"
+        );
+        assert_eq!(
+            expected.used_streams_v, actual.used_streams_v,
+            "used_streams_v mismatch"
+        );
+        assert_eq!(
+            expected.consensus_turns_h, actual.consensus_turns_h,
+            "consensus_turns_h mismatch"
+        );
+        assert_eq!(
+            expected.consensus_turns_v, actual.consensus_turns_v,
+            "consensus_turns_v mismatch"
+        );
+        assert_eq!(
+            expected.flash_count, actual.flash_count,
+            "flash_count mismatch"
+        );
+        assert_eq!(
+            expected.quality_label, actual.quality_label,
+            "quality_label mismatch"
+        );
+        assert_eq!(expected.status, actual.status, "status mismatch");
+
+        assert_opt_f64_close(
+            "aligned_fraction",
+            Some(expected.aligned_fraction),
+            Some(actual.aligned_fraction),
+            1e-12,
+        );
+        assert_opt_f64_close(
+            "qx_injection",
+            expected.qx_injection,
+            actual.qx_injection,
+            1e-12,
+        );
+        assert_opt_f64_close(
+            "qy_injection",
+            expected.qy_injection,
+            actual.qy_injection,
+            1e-12,
+        );
+        assert_opt_f64_close("median_qx", expected.median_qx, actual.median_qx, 1e-12);
+        assert_opt_f64_close("median_qy", expected.median_qy, actual.median_qy, 1e-12);
+        assert_opt_f64_close(
+            "median_qx_raw",
+            expected.median_qx_raw,
+            actual.median_qx_raw,
+            1e-12,
+        );
+        assert_opt_f64_close(
+            "median_qy_raw",
+            expected.median_qy_raw,
+            actual.median_qy_raw,
+            1e-12,
+        );
+        assert_opt_f64_close(
+            "median_qx_tracked",
+            expected.median_qx_tracked,
+            actual.median_qx_tracked,
+            1e-12,
+        );
+        assert_opt_f64_close(
+            "median_qy_tracked",
+            expected.median_qy_tracked,
+            actual.median_qy_tracked,
+            1e-12,
+        );
+        assert_string_vec_eq(
+            "quality_flags",
+            &expected.quality_flags,
+            &actual.quality_flags,
+        );
+        assert_string_vec_eq("warnings", &expected.warnings, &actual.warnings);
+    }
+
     fn sample_point(center_turn: usize, tune: f64) -> SlidingPoint {
         SlidingPoint {
             center_turn,
@@ -9781,6 +10250,116 @@ mod tests {
             });
             assert!(meta.len() > 0, "expected non-empty artifact {name}");
         }
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn analyze_captured_spills_writes_batch_outputs_without_redis() {
+        let dir = std::env::temp_dir().join(format!(
+            "tbt-monitor-captured-spills-test-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        let out_dir = dir.join("out");
+        fs::create_dir_all(&dir).expect("create temp dir");
+
+        let h_key = "{MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_SCALED".to_string();
+        let v_key = "{MUON:BPM:10.0.0.1}:VP101:TBT_POSITION_SCALED".to_string();
+        let config = test_config_with_streams(vec![h_key.clone(), v_key.clone()]);
+        write_test_captured_bundle(
+            &dir,
+            1772830005123,
+            &[(&h_key, "H", 0.25), (&v_key, "V", 0.30)],
+        );
+        write_test_captured_bundle(
+            &dir,
+            1772830006123,
+            &[(&h_key, "H", 0.26), (&v_key, "V", 0.31)],
+        );
+
+        let options = BatchOptions {
+            count: 2,
+            min_confidence: 1.1,
+            min_aligned_bpm_count: 1,
+            min_per_plane_bpm: 1,
+            peak_edge_margin: 0.005,
+            record_format: BatchRecordFormat::Both,
+            detailed_artifacts: DetailedArtifactsMode::None,
+            reference_file: None,
+            reference_key: ReferenceKey::TargetMs,
+            reference_match_tolerance_ms: 1,
+            flash_count: None,
+        };
+
+        run_analyze_captured_spills(config, &dir, &out_dir, options)
+            .expect("offline captured spill batch should analyze");
+
+        for name in [
+            "spills_summary.csv",
+            "spills_summary.jsonl",
+            "tune_vs_spill.png",
+            "confidence_vs_spill.png",
+            "composite_waterfall_h.png",
+            "composite_waterfall_v.png",
+            "batch_summary.md",
+            "spill_1_1772830005123_sliding_tune.csv",
+            "spill_2_1772830006123_sliding_tune.csv",
+        ] {
+            let path = out_dir.join(name);
+            let meta = fs::metadata(&path)
+                .unwrap_or_else(|_| panic!("expected offline batch artifact {}", path.display()));
+            assert!(meta.len() > 0, "expected non-empty artifact {name}");
+        }
+
+        let csv = fs::read_to_string(out_dir.join("spills_summary.csv")).expect("summary csv");
+        assert!(
+            csv.contains("captured-spill"),
+            "offline batch records should not claim live Redis trigger source"
+        );
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn captured_bundle_matches_online_style_snapshot_for_same_raw_spill() {
+        let dir = std::env::temp_dir().join(format!(
+            "tbt-monitor-captured-parity-test-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).expect("create temp dir");
+
+        let target_ms = 1772830005123;
+        let h_key = "{MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_SCALED".to_string();
+        let v_key = "{MUON:BPM:10.0.0.1}:VP101:TBT_POSITION_SCALED".to_string();
+        let config = test_config_with_streams(vec![h_key.clone(), v_key.clone()]);
+        let stream_defs = [(&h_key[..], "H", 0.25), (&v_key[..], "V", 0.30)];
+        let flash_count = Some(3);
+
+        let bundle = write_test_captured_bundle(&dir, target_ms, &stream_defs);
+        let online_snapshot =
+            online_style_snapshot_from_fixture(&config, target_ms, &stream_defs, flash_count);
+        let offline_snapshot = analyze_captured_spill_snapshot(&config, &bundle, flash_count)
+            .expect("captured bundle should reconstruct offline snapshot");
+
+        assert_eq!(
+            online_snapshot.target_ms, offline_snapshot.target_ms,
+            "snapshot target_ms mismatch"
+        );
+        assert_string_vec_eq(
+            "snapshot warnings",
+            &online_snapshot.warnings,
+            &offline_snapshot.warnings,
+        );
+
+        let online_record = parity_record_from_snapshot(&config, &online_snapshot, flash_count);
+        let offline_record = parity_record_from_snapshot(&config, &offline_snapshot, flash_count);
+        assert_parity_record_matches(&online_record, &offline_record);
 
         let _ = fs::remove_dir_all(dir);
     }

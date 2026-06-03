@@ -172,5 +172,11 @@ Current split status:
   plus `capture_index.csv`.
 - `analyze-captured-spill` consumes one captured-spill bundle and emits the
   current one-spill analysis artifact set without Redis connectivity.
-- Offline multi-bundle analysis and minimal parity guardrails remain follow-up
-  work.
+- `analyze-captured-spills` consumes captured-spill bundles and emits the
+  current batch artifact set without Redis connectivity.
+- A minimal online/offline parity guardrail compares proof-of-concept outputs
+  for the same raw spill data in normal `cargo test`.
+
+The split guardrail is not a physics-quality acceptance criterion. It only
+checks that the captured-bundle path preserves today's analysis behavior so
+offline refinement can happen on stable raw artifacts.

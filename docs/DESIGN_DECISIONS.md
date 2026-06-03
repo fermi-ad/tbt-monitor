@@ -240,6 +240,15 @@ Decision:
 - Let `analyze-captured-spill` reconstruct the same one-spill analysis snapshot
   from a captured bundle and then reuse the current analysis/output path without
   Redis connectivity.
+- Let `analyze-captured-spills` reconstruct snapshots from captured bundle
+  directories and reuse the current batch records, quality labels, reference
+  matching, plots, waterfall, and markdown summary writers.
+- Record offline batch trigger provenance as `trigger_source=captured-spill`
+  with `trigger_ms=target_ms`, because Redis trigger keys are not available or
+  needed for offline bundle analysis.
+- Keep a deterministic online/offline parity guardrail in normal `cargo test`
+  that compares proof-of-concept tune outputs, sliding medians, warnings, and
+  quality flags for the same raw spill data.
 
 Why:
 - Complete spill bundles make analysis reproducible without requiring live Redis
@@ -258,8 +267,9 @@ Tradeoffs:
 - Requires focused parity tests so online and offline analysis paths do not
   diverge during the split.
 - The current implementation duplicates some synchronization helpers from
-  `src/analyze.rs`; later batch/offline parity work should consolidate shared
-  acquisition primitives once both sides of the boundary are present.
+  `src/analyze.rs`; later parity/refactor work should consolidate shared
+  acquisition primitives where it reduces drift without blurring the acquisition
+  boundary.
 - Offline analysis depends on the manifest schema remaining explicit and
   versioned; schema changes must include loader/test/docs updates.
 

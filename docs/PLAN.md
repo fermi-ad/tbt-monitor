@@ -144,17 +144,12 @@ Divergence:
 
 ## Next Milestones
 
-1. Add offline batch analysis over captured bundles and reproduce the current
-   batch artifacts without Redis connectivity.
-2. Add only the parity guardrails needed to confirm the split preserves today's
-   proof-of-concept behavior.
-
 Post-split analysis refinement:
 
-3. Add explicit spectral-coherence and clipping diagnostics.
-4. Export peak-width and uncertainty-oriented metrics in summaries/CSV.
-5. Add optional SVD/PCA-based tune extraction path for side-by-side comparison.
-6. Add a first-party Schottky reference ingestion path (or converter contract) to reduce manual matching.
+1. Add explicit spectral-coherence and clipping diagnostics.
+2. Export peak-width and uncertainty-oriented metrics in summaries/CSV.
+3. Add optional SVD/PCA-based tune extraction path for side-by-side comparison.
+4. Add a first-party Schottky reference ingestion path (or converter contract) to reduce manual matching.
 
 The acquisition/offline-analysis split is tracked in
 `docs/ISSUE_MAP_DAQ_SPLIT.md`.
@@ -166,6 +161,10 @@ Completed split work:
 - Live `capture-spills --free-run [--count N]` command with `capture_index.csv`.
 - Offline `analyze-captured-spill` command that consumes one captured bundle and
   emits the current one-spill analysis artifacts without Redis connectivity.
+- Offline `analyze-captured-spills` command that consumes captured bundles and
+  emits current batch artifacts without Redis connectivity.
+- Minimal online/offline parity guardrail for the same raw spill data. This is
+  a split regression check, not physics certification of the current algorithm.
 
 ## Open Physics Questions (still external)
 
