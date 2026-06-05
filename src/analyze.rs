@@ -431,6 +431,7 @@ struct CapturedManifest {
     target_ms: u64,
     redis_timestamp_ms: Option<u64>,
     align_tolerance_ms: Option<u64>,
+    same_spill_tolerance_ms: Option<u64>,
     requested_streams: Option<usize>,
     streams: Vec<CapturedManifestStream>,
     warnings: Vec<String>,
@@ -5961,6 +5962,14 @@ fn analyze_captured_spill_snapshot(
             ));
         }
     }
+    if let Some(capture_tolerance) = manifest.same_spill_tolerance_ms {
+        if capture_tolerance != config.same_spill_tolerance_ms {
+            warnings.push(format!(
+                "capture same_spill_tolerance_ms {} differs from analysis config {}",
+                capture_tolerance, config.same_spill_tolerance_ms
+            ));
+        }
+    }
 
     let requested_streams = manifest
         .requested_streams
@@ -6171,6 +6180,7 @@ fn parse_captured_manifest(value: &Value) -> Result<CapturedManifest> {
         target_ms: required_u64(obj, "target_ms", "manifest")?,
         redis_timestamp_ms: optional_u64(obj, "redis_timestamp_ms", "manifest")?,
         align_tolerance_ms: optional_u64(obj, "align_tolerance_ms", "manifest")?,
+        same_spill_tolerance_ms: optional_u64(obj, "same_spill_tolerance_ms", "manifest")?,
         requested_streams: optional_usize(obj, "requested_streams", "manifest")?,
         streams,
         warnings: optional_string_array(obj, "warnings", "manifest")?,
@@ -6224,6 +6234,10 @@ fn load_captured_stream_traces(
 ) -> Result<(Vec<StreamTrace>, Vec<TbtObservation>)> {
     let mut traces = Vec::<StreamTrace>::new();
     let mut observations = Vec::<TbtObservation>::new();
+    let same_spill_tolerance_ms = manifest
+        .same_spill_tolerance_ms
+        .or(manifest.align_tolerance_ms)
+        .unwrap_or(config.same_spill_tolerance_ms);
 
     for stream in &manifest.streams {
         let Some(plane) = classify_plane(&stream.stream_key) else {
@@ -6258,7 +6272,7 @@ fn load_captured_stream_traces(
             stream_key: stream.stream_key.clone(),
             id: stream.stream_id.clone(),
             ms: parsed_ms,
-            aligned: abs_diff_u64(parsed_ms, manifest.target_ms) <= config.align_tolerance_ms,
+            aligned: abs_diff_u64(parsed_ms, manifest.target_ms) <= same_spill_tolerance_ms,
         });
 
         let Some(payload_file) = stream.payload_file.as_deref() else {
@@ -9865,6 +9879,7 @@ mod tests {
             qy_track_half_width: 0.02,
             max_tune_step_per_window: 0.02,
             align_tolerance_ms: 1,
+            same_spill_tolerance_ms: 25,
             min_aligned_fraction: 0.70,
             devices: vec![DeviceConfig {
                 label: "offline-test".to_string(),
@@ -10774,6 +10789,7 @@ mod tests {
             qy_track_half_width: 0.005,
             max_tune_step_per_window: 0.005,
             align_tolerance_ms: 1,
+            same_spill_tolerance_ms: 25,
             min_aligned_fraction: 0.70,
             devices: Vec::new(),
         };
@@ -10829,6 +10845,7 @@ mod tests {
             qy_track_half_width: 0.005,
             max_tune_step_per_window: 0.005,
             align_tolerance_ms: 1,
+            same_spill_tolerance_ms: 25,
             min_aligned_fraction: 0.70,
             devices: Vec::new(),
         };
@@ -10908,6 +10925,7 @@ mod tests {
             qy_track_half_width: 0.005,
             max_tune_step_per_window: 0.005,
             align_tolerance_ms: 1,
+            same_spill_tolerance_ms: 25,
             min_aligned_fraction: 0.70,
             devices: Vec::new(),
         };
@@ -10968,6 +10986,7 @@ mod tests {
             qy_track_half_width: 0.005,
             max_tune_step_per_window: 0.005,
             align_tolerance_ms: 1,
+            same_spill_tolerance_ms: 25,
             min_aligned_fraction: 0.70,
             devices: vec![DeviceConfig {
                 label: "test".to_string(),

@@ -69,20 +69,35 @@ The program reads Redis stream data from many BPM devices and converts it into s
 ### Capture Spill (`capture-spill`)
 
 1. Collect latest TbT observations across configured streams.
-2. Select `target_ms` using the same adjacent-bucket clustering policy as
-   analysis.
+2. Select `target_ms` using same-spill clustering (`same_spill_tolerance_ms`,
+   default `25 ms`).
 3. Pull near-target Redis stream entries from every configured TbT stream.
 4. Persist raw `_` payload bytes without decoding them for tune analysis.
 5. Emit a captured-spill bundle with `manifest.json`, `capture_summary.txt`,
-   and `payloads/*.bin`.
+   `payloads/*.bin`, and per-spill capture diagnostics.
 
 ### Capture Spills (`capture-spills --free-run`)
 
 1. Spawn stream-watch workers to detect new arrivals.
 2. Each wake triggers one global all-stream capture snapshot.
-3. Suppress duplicate physical spills using adjacent-target tolerance.
+3. Suppress duplicate physical spills using same-spill tolerance.
 4. Write one captured-spill bundle per unique target.
-5. Maintain `capture_index.csv` with bundle paths and capture diagnostics.
+5. Maintain `capture_index.csv` plus stream, digitizer, JSON, and markdown
+   quality diagnostics.
+
+### Assess (`assess`)
+
+1. Collect an initial latest-ID snapshot across configured TbT streams.
+2. Watch for the requested number of new machine events, defaulting to one.
+3. Re-read latest IDs after each event without fetching raw payload data.
+4. Emit stream/digitizer CSV, JSON, and markdown preflight diagnostics.
+
+### Diagnose Captures (`diagnose-captures`)
+
+1. Discover existing captured-spill manifests from one manifest, one bundle, or
+   a directory of bundles.
+2. Recompute capture timing diagnostics without Redis or payload reads.
+3. Emit the same run-level capture diagnostic files used by live capture.
 
 ### Analyze Captured Spill (`analyze-captured-spill`)
 
@@ -173,11 +188,14 @@ Captured-spill bundle schema:
 - `redis_timestamp_ms`, the selected Redis stream-ID millisecond used as the
   artifact timestamp (`target_ms` has the same value in schema v1)
 - target/alignment metadata: `target_ms`, `align_tolerance_ms`,
-  `min_aligned_fraction`, latest-observation counts, captured stream counts
+  `same_spill_tolerance_ms`, `min_aligned_fraction`, latest-observation counts,
+  captured stream counts
 - stream inventory for all configured `TBT_POSITION_SCALED` streams
 - captured stream entries with BPM/device identity, plane, stream ID,
   stream-ID millisecond, payload file path, byte count, sample count, and
   `fnv1a64` checksum
+- `capture_diagnostics` with per-stream reason codes, per-digitizer summaries,
+  exact timestamp deltas, and complete/partial status
 - warnings for incomplete target selection, incomplete near-target capture,
   low alignment, missing payload fields, or non-`f32`-sized payloads
 
@@ -186,7 +204,10 @@ Raw payload policy:
 - Current TbT payload interpretation is little-endian `f32`; capture does not
   run FFT/tune analysis or otherwise transform samples.
 - `capture-spills` writes `capture_index.csv` as the run-level bundle index,
-  keyed by `redis_timestamp_ms` / `target_ms`.
+  keyed by `redis_timestamp_ms` / `target_ms`, and also writes
+  `capture_spill_diagnostics.csv`, `capture_stream_diagnostics.csv`,
+  `capture_digitizer_diagnostics.csv`, `capture_quality_summary.json`, and
+  `capture_quality_report.md`.
 
 Offline single-spill analysis policy:
 - `analyze-captured-spill` consumes the captured-spill manifest/payload contract

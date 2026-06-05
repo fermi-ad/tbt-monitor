@@ -8,8 +8,9 @@ stream monitoring. Current scope includes:
 
 - ACNET XML import into validated monitor/analyzer config
 - live stream health monitoring via Redis Streams (`XREAD BLOCK`)
-- synchronized global spill capture with adjacent-ms target clustering
+- synchronized global spill capture with same-spill timestamp tolerance
 - raw captured-spill bundles for acquisition-first/offline-analysis workflows
+- capture timing diagnostics and non-capturing stream preflight assessment
 - offline one-spill reanalysis from captured-spill bundles
 - offline multi-spill batch analysis from captured-spill bundles
 - injection-window and sliding-window tune extraction (`Qx/Qy`) with confidence gating
@@ -108,9 +109,11 @@ cargo run --offline -- capture-spill \
   --out-dir /Users/derekste/Dev/codex/tbt-monitor/out
 ```
 
-The command uses the same stream-ID millisecond target selection as
-`analyze-spill`, including adjacent-bucket clustering (`±1 ms`, bounded by
-`align_tolerance_ms`). It writes:
+The command selects a stream-ID millisecond target and captures every configured
+stream within the configured same-spill window (`same_spill_tolerance_ms`,
+default `25 ms`). Exact timestamp offsets are measured and reported; a few
+milliseconds of spread is normal DAQ timing information, not an automatic
+failure. It writes:
 
 - `out/spill_<target_ms>/manifest.json`
 - `out/spill_<target_ms>/capture_summary.txt`
@@ -123,7 +126,7 @@ The manifest records:
 - `schema_version=1` and artifact type `tbt-monitor.captured-spill`
 - `redis_timestamp_ms` (the selected Redis stream-ID millisecond, equal to
   `target_ms` for schema v1)
-- target/alignment metadata and timeliness observations
+- target, same-spill tolerance, capture diagnostics, and timeliness observations
 - full configured stream inventory
 - captured stream IDs and stream milliseconds
 - payload file paths, byte counts, sample counts, and `fnv1a64` checksums
@@ -143,9 +146,44 @@ cargo run --offline -- capture-spills \
 
 `capture-spills` starts stream-watch workers only to detect new arrivals. Each
 wake triggers a full global snapshot over all configured streams. Duplicate
-physical spills are suppressed using the same adjacent-target tolerance policy.
-The command writes `capture_index.csv` alongside the per-spill bundle
-directories, keyed by the same `redis_timestamp_ms` / `target_ms` value.
+physical spills are suppressed using the same-spill tolerance. The command
+writes run-level diagnostics alongside the per-spill bundle directories:
+
+- `capture_index.csv`
+- `capture_spill_diagnostics.csv`
+- `capture_stream_diagnostics.csv`
+- `capture_digitizer_diagnostics.csv`
+- `capture_quality_summary.json`
+- `capture_quality_report.md`
+
+Capture quality and latest-poll timing are intentionally separate. A bundle is
+`Complete` when every configured stream has a same-spill payload within
+`±same_spill_tolerance_ms`. If the latest-ID polling pass saw stale values but
+the near-target capture still found complete payloads, the stream is annotated
+as `LATEST_STALE_BUT_CAPTURED_OK` rather than bad captured data.
+
+Regenerate diagnostics for an existing capture directory without Redis:
+
+```bash
+cargo run --offline -- diagnose-captures \
+  --bundles-dir /Users/derekste/Dev/codex/tbt-monitor/out \
+  --out-dir /Users/derekste/Dev/codex/tbt-monitor/out \
+  --same-spill-tolerance-ms 25
+```
+
+Assess stream timing before collecting payload artifacts:
+
+```bash
+cargo run --offline -- assess \
+  --config /Users/derekste/Dev/codex/tbt-monitor/config/monitor.cfg \
+  --out-dir /Users/derekste/Dev/codex/tbt-monitor/out/assess \
+  --events 1 \
+  --same-spill-tolerance-ms 25
+```
+
+`assess` reads current latest stream IDs, watches one new event by default, and
+writes `assess_streams.csv`, `assess_digitizers.csv`, `assess_summary.json`,
+and `assess_report.md`. It does not collect raw payload bundles.
 
 ## Analyze A Captured Spill Offline
 

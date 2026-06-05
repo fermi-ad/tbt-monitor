@@ -159,6 +159,10 @@ Completed split work:
   stream inventory, raw payload files, byte counts, sample counts, and checksums.
 - Live `capture-spill` one-shot command.
 - Live `capture-spills --free-run [--count N]` command with `capture_index.csv`.
+- Same-spill DAQ diagnostics for capture completeness, timestamp distributions,
+  stream/digitizer reason codes, and regenerateable run reports.
+- Non-capturing `assess` preflight for latest-ID stream/digitizer timing checks
+  before raw payload acquisition.
 - Offline `analyze-captured-spill` command that consumes one captured bundle and
   emits the current one-spill analysis artifacts without Redis connectivity.
 - Offline `analyze-captured-spills` command that consumes captured bundles and

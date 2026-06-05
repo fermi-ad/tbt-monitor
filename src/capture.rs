@@ -16,6 +16,7 @@ use std::time::Duration;
 use anyhow::{Context, Result, anyhow, bail};
 use redis::streams::{StreamReadOptions, StreamReadReply};
 use redis::{Commands, Connection};
+use serde_json::Value;
 
 use crate::config::{DeviceConfig, MonitorConfig, RedisConfig};
 
@@ -26,7 +27,7 @@ const PAYLOAD_CHECKSUM_ALGORITHM: &str = "fnv1a64";
 const DEFAULT_XRANGE_COUNT: usize = 128;
 const FREE_RUN_SETTLE_RETRIES: usize = 3;
 const FREE_RUN_SETTLE_DELAY_MS: u64 = 40;
-const ADJACENT_BUCKET_TOLERANCE_MS: u64 = 1;
+const DEFAULT_ASSESS_EVENTS: usize = 1;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Plane {
@@ -78,13 +79,22 @@ struct CapturedStreamEntry {
 }
 
 #[derive(Debug, Clone)]
+struct CaptureWake {
+    bpm_ip: String,
+    stream_id: String,
+    ms: u64,
+}
+
+#[derive(Debug, Clone)]
 struct CapturedSpill {
     schema_version: u32,
     artifact_type: &'static str,
     redis_timestamp_ms: u64,
     target_ms: u64,
     align_tolerance_ms: u64,
+    same_spill_tolerance_ms: u64,
     min_aligned_fraction: f64,
+    wake: Option<CaptureWake>,
     requested_streams: usize,
     stream_inventory: Vec<CaptureStreamInventoryEntry>,
     latest_observations: Vec<CaptureObservation>,
@@ -104,6 +114,7 @@ pub struct CaptureWriteResult {
     pub aligned_latest_streams: usize,
     pub captured_streams: usize,
     pub warning_count: usize,
+    diagnostics: CaptureDiagnostics,
 }
 
 #[derive(Debug, Clone)]
@@ -118,10 +129,124 @@ struct FreeRunSignal {
     event: DeviceEvent,
 }
 
+#[derive(Debug, Clone)]
+struct TimingSummary {
+    count: usize,
+    min_delta_ms: Option<i64>,
+    max_delta_ms: Option<i64>,
+    median_abs_delta_ms: Option<f64>,
+    max_abs_delta_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone)]
+struct StreamDiagnosticRow {
+    device_label: String,
+    bpm_ip: String,
+    plane: String,
+    stream_key: String,
+    captured_status: String,
+    latest_poll_status: String,
+    primary_reason: String,
+    captured_stream_id: Option<String>,
+    captured_ms: Option<u64>,
+    captured_delta_ms: Option<i64>,
+    latest_id: Option<String>,
+    latest_ms: Option<u64>,
+    latest_delta_ms: Option<i64>,
+    payload_bytes: Option<usize>,
+    sample_count: Option<usize>,
+}
+
+#[derive(Debug, Clone)]
+struct DigitizerDiagnosticRow {
+    device_label: String,
+    bpm_ip: String,
+    status: String,
+    configured_streams: usize,
+    complete_streams: usize,
+    same_spill_streams: usize,
+    missing_capture_streams: usize,
+    stale_capture_streams: usize,
+    ahead_capture_streams: usize,
+    payload_issue_streams: usize,
+    latest_stale_streams: usize,
+    latest_missing_streams: usize,
+    latest_ahead_streams: usize,
+    suspect: bool,
+    latest_poll_suspect: bool,
+}
+
+#[derive(Debug, Clone)]
+struct CaptureDiagnostics {
+    same_spill_tolerance_ms: u64,
+    status: String,
+    requested_streams: usize,
+    captured_streams: usize,
+    complete_streams: usize,
+    same_spill_streams: usize,
+    missing_streams: usize,
+    stale_capture_streams: usize,
+    ahead_capture_streams: usize,
+    payload_issue_streams: usize,
+    latest_stale_streams: usize,
+    latest_missing_streams: usize,
+    latest_ahead_streams: usize,
+    suspect_digitizers: usize,
+    latest_poll_suspect_digitizers: usize,
+    wake_delta_ms: Option<i64>,
+    captured_timing: TimingSummary,
+    latest_timing: TimingSummary,
+    streams: Vec<StreamDiagnosticRow>,
+    digitizers: Vec<DigitizerDiagnosticRow>,
+}
+
+#[derive(Debug, Clone)]
+struct AssessStreamRow {
+    assessment_index: usize,
+    assessment_kind: String,
+    target_ms: Option<u64>,
+    device_label: String,
+    bpm_ip: String,
+    plane: String,
+    stream_key: String,
+    latest_status: String,
+    latest_id: Option<String>,
+    latest_ms: Option<u64>,
+    latest_delta_ms: Option<i64>,
+}
+
+#[derive(Debug, Clone)]
+struct AssessDigitizerRow {
+    assessment_index: usize,
+    assessment_kind: String,
+    target_ms: Option<u64>,
+    device_label: String,
+    bpm_ip: String,
+    status: String,
+    configured_streams: usize,
+    same_spill_streams: usize,
+    latest_stale_streams: usize,
+    latest_missing_streams: usize,
+    latest_ahead_streams: usize,
+    suspect: bool,
+}
+
+#[derive(Debug, Clone)]
+struct AssessSnapshot {
+    assessment_index: usize,
+    assessment_kind: String,
+    target_ms: Option<u64>,
+    stream_rows: Vec<AssessStreamRow>,
+    digitizer_rows: Vec<AssessDigitizerRow>,
+    warnings: Vec<String>,
+}
+
 pub fn run_capture_spill(config: MonitorConfig, out_dir: &Path) -> Result<()> {
     let spill = capture_latest_spill_with_retries(&config)?;
     let result = write_capture_bundle(out_dir, &spill)?;
     print_capture_summary(&result, &spill, "capture-spill summary");
+    write_capture_index(out_dir, std::slice::from_ref(&result), 0, 0)?;
+    write_capture_diagnostics_outputs(out_dir, std::slice::from_ref(&result))?;
     Ok(())
 }
 
@@ -138,6 +263,451 @@ pub fn run_capture_spills(
         bail!("--count must be >= 1 for capture-spills");
     }
     run_capture_spills_free_run(config, out_dir, count)
+}
+
+pub fn run_diagnose_captures(
+    bundles_dir: &Path,
+    out_dir: &Path,
+    same_spill_tolerance_ms: Option<u64>,
+) -> Result<()> {
+    fs::create_dir_all(out_dir)
+        .with_context(|| format!("failed to create output directory {}", out_dir.display()))?;
+    let manifests = discover_capture_manifests(bundles_dir)?;
+    if manifests.is_empty() {
+        bail!(
+            "no captured-spill manifests found under {}",
+            bundles_dir.display()
+        );
+    }
+
+    let mut results = Vec::<CaptureWriteResult>::new();
+    for manifest_path in manifests {
+        let bundle_dir = manifest_path
+            .parent()
+            .ok_or_else(|| anyhow!("manifest path {} has no parent", manifest_path.display()))?
+            .to_path_buf();
+        let spill =
+            load_spill_from_manifest_for_diagnostics(&manifest_path, same_spill_tolerance_ms)?;
+        let diagnostics = build_capture_diagnostics(&spill, &spill.streams);
+        results.push(CaptureWriteResult {
+            target_ms: spill.target_ms,
+            redis_timestamp_ms: spill.redis_timestamp_ms,
+            bundle_dir,
+            manifest_path: manifest_path.clone(),
+            summary_path: manifest_path
+                .parent()
+                .unwrap_or_else(|| Path::new(""))
+                .join("capture_summary.txt"),
+            requested_streams: spill.requested_streams,
+            latest_observations: spill.latest_observations.len(),
+            aligned_latest_streams: spill
+                .latest_observations
+                .iter()
+                .filter(|obs| obs.aligned)
+                .count(),
+            captured_streams: spill.streams.len(),
+            warning_count: spill.warnings.len(),
+            diagnostics,
+        });
+    }
+
+    results.sort_by_key(|result| result.target_ms);
+    write_capture_index(out_dir, &results, 0, 0)?;
+    write_capture_diagnostics_outputs(out_dir, &results)?;
+    println!(
+        "diagnose-captures: wrote diagnostics for {} manifests to {}",
+        results.len(),
+        out_dir.display()
+    );
+    Ok(())
+}
+
+pub fn run_assess(config: MonitorConfig, out_dir: &Path, events: Option<usize>) -> Result<()> {
+    let event_count = events.unwrap_or(DEFAULT_ASSESS_EVENTS);
+    fs::create_dir_all(out_dir)
+        .with_context(|| format!("failed to create output directory {}", out_dir.display()))?;
+
+    let mut snapshots = Vec::<AssessSnapshot>::new();
+    snapshots.push(collect_assess_snapshot(&config, 0, "initial_snapshot")?);
+
+    if event_count > 0 {
+        let (tx, rx) = mpsc::channel::<FreeRunSignal>();
+        for device in config.devices.clone() {
+            let tx_worker = tx.clone();
+            let reconnect_initial_ms = config.reconnect_initial_ms;
+            let reconnect_max_ms = config.reconnect_max_ms;
+            thread::spawn(move || {
+                if let Err(err) = run_free_run_watch_worker(
+                    device,
+                    reconnect_initial_ms,
+                    reconnect_max_ms,
+                    tx_worker,
+                ) {
+                    eprintln!("assess watch worker exited: {err}");
+                }
+            });
+        }
+        drop(tx);
+
+        let mut seen_targets = HashSet::<u64>::new();
+        for snapshot in &snapshots {
+            if let Some(target_ms) = snapshot.target_ms {
+                seen_targets.insert(target_ms);
+            }
+        }
+        while snapshots.len() < event_count + 1 {
+            let signal = rx
+                .recv()
+                .with_context(|| "assess event channel closed before requested events")?;
+            let snapshot = collect_assess_snapshot(
+                &config,
+                snapshots.len(),
+                &format!("event_after_{}_{}", signal.bpm_ip, signal.event.id),
+            )?;
+            if let Some(target_ms) = snapshot.target_ms {
+                if target_seen_within_tolerance(
+                    &seen_targets,
+                    target_ms,
+                    config.same_spill_tolerance_ms,
+                ) {
+                    continue;
+                }
+                seen_targets.insert(target_ms);
+            }
+            snapshots.push(snapshot);
+        }
+    }
+
+    write_assess_outputs(out_dir, &snapshots)?;
+    println!(
+        "assess: wrote {} snapshots to {}",
+        snapshots.len(),
+        out_dir.display()
+    );
+    Ok(())
+}
+
+fn collect_assess_snapshot(
+    config: &MonitorConfig,
+    assessment_index: usize,
+    assessment_kind: &str,
+) -> Result<AssessSnapshot> {
+    let mut warnings = Vec::<String>::new();
+    let mut observations = collect_latest_tbt_observations(config, &mut warnings)?;
+    let target_ms = choose_target_millisecond(
+        &observations.iter().map(|obs| obs.ms).collect::<Vec<_>>(),
+        target_bucket_tolerance_ms(config),
+    );
+    if let Some(target_ms) = target_ms {
+        for obs in &mut observations {
+            obs.aligned = abs_diff_u64(obs.ms, target_ms) <= config.same_spill_tolerance_ms;
+        }
+    } else {
+        warnings.push("no latest TBT observations were available".to_string());
+    }
+    Ok(build_assess_snapshot(
+        config,
+        assessment_index,
+        assessment_kind,
+        target_ms,
+        observations,
+        warnings,
+    ))
+}
+
+fn build_assess_snapshot(
+    config: &MonitorConfig,
+    assessment_index: usize,
+    assessment_kind: &str,
+    target_ms: Option<u64>,
+    observations: Vec<CaptureObservation>,
+    warnings: Vec<String>,
+) -> AssessSnapshot {
+    let inventory = collect_stream_inventory(config);
+    let latest_by_key = observations
+        .iter()
+        .map(|obs| (stream_key_tuple(&obs.bpm_ip, &obs.stream_key), obs))
+        .collect::<HashMap<_, _>>();
+    let mut stream_rows = Vec::<AssessStreamRow>::new();
+    for entry in &inventory {
+        let key = stream_key_tuple(&entry.bpm_ip, &entry.stream_key);
+        let obs = latest_by_key.get(&key).copied();
+        let (latest_status, latest_delta_ms) = match (obs, target_ms) {
+            (Some(obs), Some(target_ms)) => {
+                latest_status(Some(obs), target_ms, config.same_spill_tolerance_ms, false)
+            }
+            (Some(_), None) => ("COMPLETE".to_string(), None),
+            (None, _) => ("LATEST_MISSING".to_string(), None),
+        };
+        stream_rows.push(AssessStreamRow {
+            assessment_index,
+            assessment_kind: assessment_kind.to_string(),
+            target_ms,
+            device_label: entry.device_label.clone(),
+            bpm_ip: entry.bpm_ip.clone(),
+            plane: entry.plane.label().to_string(),
+            stream_key: entry.stream_key.clone(),
+            latest_status,
+            latest_id: obs.map(|obs| obs.id.clone()),
+            latest_ms: obs.map(|obs| obs.ms),
+            latest_delta_ms,
+        });
+    }
+
+    let mut digitizer_map = HashMap::<String, AssessDigitizerRow>::new();
+    for row in &stream_rows {
+        let entry = digitizer_map
+            .entry(row.bpm_ip.clone())
+            .or_insert_with(|| AssessDigitizerRow {
+                assessment_index,
+                assessment_kind: assessment_kind.to_string(),
+                target_ms,
+                device_label: row.device_label.clone(),
+                bpm_ip: row.bpm_ip.clone(),
+                status: "Complete".to_string(),
+                configured_streams: 0,
+                same_spill_streams: 0,
+                latest_stale_streams: 0,
+                latest_missing_streams: 0,
+                latest_ahead_streams: 0,
+                suspect: false,
+            });
+        entry.configured_streams += 1;
+        match row.latest_status.as_str() {
+            "COMPLETE" => entry.same_spill_streams += 1,
+            "LATEST_STALE" | "LATEST_STALE_BUT_CAPTURED_OK" => entry.latest_stale_streams += 1,
+            "LATEST_MISSING" => entry.latest_missing_streams += 1,
+            "LATEST_AHEAD" => entry.latest_ahead_streams += 1,
+            _ => {}
+        }
+    }
+    let mut digitizer_rows = digitizer_map.into_values().collect::<Vec<_>>();
+    digitizer_rows.sort_by(|a, b| a.bpm_ip.cmp(&b.bpm_ip));
+    for row in &mut digitizer_rows {
+        row.suspect = row.latest_stale_streams > 0
+            || row.latest_missing_streams > 0
+            || row.latest_ahead_streams > 0;
+        row.status = if row.suspect {
+            "Partial".to_string()
+        } else {
+            "Complete".to_string()
+        };
+    }
+
+    AssessSnapshot {
+        assessment_index,
+        assessment_kind: assessment_kind.to_string(),
+        target_ms,
+        stream_rows,
+        digitizer_rows,
+        warnings,
+    }
+}
+
+fn discover_capture_manifests(root: &Path) -> Result<Vec<PathBuf>> {
+    if root.is_file() {
+        return Ok(
+            if root.file_name().is_some_and(|name| name == "manifest.json") {
+                vec![root.to_path_buf()]
+            } else {
+                Vec::new()
+            },
+        );
+    }
+    if root.join("manifest.json").is_file() {
+        return Ok(vec![root.join("manifest.json")]);
+    }
+    let mut manifests = Vec::<PathBuf>::new();
+    for entry in fs::read_dir(root)
+        .with_context(|| format!("failed to read directory {}", root.display()))?
+    {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() && path.join("manifest.json").is_file() {
+            manifests.push(path.join("manifest.json"));
+        }
+    }
+    manifests.sort();
+    Ok(manifests)
+}
+
+fn load_spill_from_manifest_for_diagnostics(
+    manifest_path: &Path,
+    same_spill_tolerance_override: Option<u64>,
+) -> Result<CapturedSpill> {
+    let raw = fs::read_to_string(manifest_path)
+        .with_context(|| format!("failed to read manifest {}", manifest_path.display()))?;
+    let value: Value = serde_json::from_str(&raw)
+        .with_context(|| format!("failed to parse manifest {}", manifest_path.display()))?;
+    let obj = value
+        .as_object()
+        .ok_or_else(|| anyhow!("manifest {} is not a JSON object", manifest_path.display()))?;
+
+    let target_ms = value_u64(obj.get("target_ms")).ok_or_else(|| {
+        anyhow!(
+            "manifest {} does not include numeric target_ms",
+            manifest_path.display()
+        )
+    })?;
+    let align_tolerance_ms = value_u64(obj.get("align_tolerance_ms")).unwrap_or(1);
+    let same_spill_tolerance_ms = same_spill_tolerance_override
+        .or_else(|| value_u64(obj.get("same_spill_tolerance_ms")))
+        .unwrap_or(25);
+    let inventory = value_array(obj.get("stream_inventory"))
+        .iter()
+        .filter_map(|entry| parse_inventory_value(entry))
+        .collect::<Vec<_>>();
+    let latest_observations = value_array(obj.get("latest_observations"))
+        .iter()
+        .filter_map(|entry| {
+            parse_latest_observation_value(entry, target_ms, same_spill_tolerance_ms)
+        })
+        .collect::<Vec<_>>();
+    let streams = value_array(obj.get("streams"))
+        .iter()
+        .filter_map(|entry| parse_captured_stream_value(entry, target_ms, same_spill_tolerance_ms))
+        .collect::<Vec<_>>();
+
+    let requested_streams = value_usize(obj.get("requested_streams")).unwrap_or(inventory.len());
+    Ok(CapturedSpill {
+        schema_version: value_u64(obj.get("schema_version")).unwrap_or(1) as u32,
+        artifact_type: CAPTURE_ARTIFACT_TYPE,
+        redis_timestamp_ms: value_u64(obj.get("redis_timestamp_ms")).unwrap_or(target_ms),
+        target_ms,
+        align_tolerance_ms,
+        same_spill_tolerance_ms,
+        min_aligned_fraction: value_f64(obj.get("min_aligned_fraction")).unwrap_or(0.70),
+        wake: parse_wake_value(obj.get("wake")),
+        requested_streams,
+        stream_inventory: inventory,
+        latest_observations,
+        streams,
+        warnings: value_array(obj.get("warnings"))
+            .iter()
+            .filter_map(|value| value.as_str().map(|s| s.to_string()))
+            .collect(),
+    })
+}
+
+fn parse_inventory_value(value: &Value) -> Option<CaptureStreamInventoryEntry> {
+    let obj = value.as_object()?;
+    let stream_key = obj.get("stream_key")?.as_str()?.to_string();
+    let plane = obj
+        .get("plane")
+        .and_then(|value| value.as_str())
+        .and_then(parse_plane_label)
+        .or_else(|| classify_plane(&stream_key))?;
+    Some(CaptureStreamInventoryEntry {
+        device_label: obj
+            .get("device_label")
+            .and_then(|value| value.as_str())
+            .unwrap_or("")
+            .to_string(),
+        bpm_ip: obj.get("bpm_ip")?.as_str()?.to_string(),
+        stream_key,
+        plane,
+    })
+}
+
+fn parse_latest_observation_value(
+    value: &Value,
+    target_ms: u64,
+    tolerance_ms: u64,
+) -> Option<CaptureObservation> {
+    let obj = value.as_object()?;
+    let ms = value_u64(obj.get("ms"))?;
+    Some(CaptureObservation {
+        bpm_ip: obj.get("bpm_ip")?.as_str()?.to_string(),
+        stream_key: obj.get("stream_key")?.as_str()?.to_string(),
+        id: obj.get("id")?.as_str()?.to_string(),
+        ms,
+        aligned: abs_diff_u64(ms, target_ms) <= tolerance_ms,
+    })
+}
+
+fn parse_captured_stream_value(
+    value: &Value,
+    target_ms: u64,
+    tolerance_ms: u64,
+) -> Option<CapturedStreamEntry> {
+    let obj = value.as_object()?;
+    let stream_key = obj.get("stream_key")?.as_str()?.to_string();
+    let plane = obj
+        .get("plane")
+        .and_then(|value| value.as_str())
+        .and_then(parse_plane_label)
+        .or_else(|| classify_plane(&stream_key))?;
+    let stream_ms = value_u64(obj.get("stream_ms"))?;
+    Some(CapturedStreamEntry {
+        device_label: obj
+            .get("device_label")
+            .and_then(|value| value.as_str())
+            .unwrap_or("")
+            .to_string(),
+        bpm_ip: obj.get("bpm_ip")?.as_str()?.to_string(),
+        stream_key,
+        plane,
+        stream_id: obj.get("stream_id")?.as_str()?.to_string(),
+        stream_ms,
+        aligned: abs_diff_u64(stream_ms, target_ms) <= tolerance_ms,
+        field_count: value_usize(obj.get("field_count")).unwrap_or(0),
+        payload: None,
+        payload_file: obj
+            .get("payload_file")
+            .and_then(|value| value.as_str())
+            .map(|s| s.to_string()),
+        payload_bytes: value_usize(obj.get("payload_bytes")).unwrap_or(0),
+        sample_count: value_usize(obj.get("sample_count")),
+        checksum_fnv1a64: obj
+            .get("checksum_fnv1a64")
+            .and_then(|value| value.as_str())
+            .map(|s| s.to_string()),
+    })
+}
+
+fn parse_wake_value(value: Option<&Value>) -> Option<CaptureWake> {
+    let obj = value?.as_object()?;
+    let ms = value_u64(obj.get("ms"))?;
+    Some(CaptureWake {
+        bpm_ip: obj
+            .get("bpm_ip")
+            .and_then(|value| value.as_str())
+            .unwrap_or("")
+            .to_string(),
+        stream_id: obj
+            .get("stream_id")
+            .and_then(|value| value.as_str())
+            .unwrap_or("")
+            .to_string(),
+        ms,
+    })
+}
+
+fn parse_plane_label(value: &str) -> Option<Plane> {
+    match value {
+        "H" => Some(Plane::Horizontal),
+        "V" => Some(Plane::Vertical),
+        _ => None,
+    }
+}
+
+fn value_array(value: Option<&Value>) -> Vec<Value> {
+    value
+        .and_then(|value| value.as_array())
+        .cloned()
+        .unwrap_or_default()
+}
+
+fn value_u64(value: Option<&Value>) -> Option<u64> {
+    value.and_then(|value| value.as_u64())
+}
+
+fn value_usize(value: Option<&Value>) -> Option<usize> {
+    value_u64(value).and_then(|value| usize::try_from(value).ok())
+}
+
+fn value_f64(value: Option<&Value>) -> Option<f64> {
+    value.and_then(|value| value.as_f64())
 }
 
 fn run_capture_spills_free_run(
@@ -191,7 +761,7 @@ fn run_capture_spills_free_run(
             Err(err) => bail!("capture-spills event channel closed: {err}"),
         };
 
-        let spill = match capture_latest_spill_with_retries(&config) {
+        let mut spill = match capture_latest_spill_with_retries(&config) {
             Ok(spill) => spill,
             Err(err) => {
                 unresolved_wakes += 1;
@@ -202,6 +772,11 @@ fn run_capture_spills_free_run(
                 continue;
             }
         };
+        spill.wake = Some(CaptureWake {
+            bpm_ip: signal.bpm_ip.clone(),
+            stream_id: signal.event.id.clone(),
+            ms: signal.event.ms,
+        });
 
         if target_seen_within_tolerance(&seen_target_ms, spill.target_ms, dedupe_tolerance_ms) {
             duplicate_wakes += 1;
@@ -222,6 +797,7 @@ fn run_capture_spills_free_run(
                 results.push(result);
                 successful += 1;
                 write_capture_index(out_dir, &results, unresolved_wakes, duplicate_wakes)?;
+                write_capture_diagnostics_outputs(out_dir, &results)?;
 
                 if let Some(limit) = count {
                     println!("[capture-spills] successful captures: {successful}/{limit}");
@@ -282,7 +858,7 @@ fn capture_latest_spill(config: &MonitorConfig) -> Result<CapturedSpill> {
     .ok_or_else(|| anyhow!("failed to choose target TBT millisecond"))?;
 
     for obs in &mut latest_observations {
-        obs.aligned = abs_diff_u64(obs.ms, target_ms) <= config.align_tolerance_ms;
+        obs.aligned = abs_diff_u64(obs.ms, target_ms) <= config.same_spill_tolerance_ms;
     }
     push_alignment_warning(
         &latest_observations,
@@ -290,12 +866,16 @@ fn capture_latest_spill(config: &MonitorConfig) -> Result<CapturedSpill> {
         &mut warnings,
     );
 
-    let streams =
-        collect_stream_entries(config, target_ms, config.align_tolerance_ms, &mut warnings)?;
+    let streams = collect_stream_entries(
+        config,
+        target_ms,
+        config.same_spill_tolerance_ms,
+        &mut warnings,
+    )?;
     if streams.is_empty() {
         bail!(
             "no TBT stream entries were found within ±{} ms of target {}",
-            config.align_tolerance_ms,
+            config.same_spill_tolerance_ms,
             target_ms
         );
     }
@@ -313,7 +893,9 @@ fn capture_latest_spill(config: &MonitorConfig) -> Result<CapturedSpill> {
         redis_timestamp_ms: target_ms,
         target_ms,
         align_tolerance_ms: config.align_tolerance_ms,
+        same_spill_tolerance_ms: config.same_spill_tolerance_ms,
         min_aligned_fraction: config.min_aligned_fraction,
+        wake: None,
         requested_streams,
         stream_inventory,
         latest_observations,
@@ -506,14 +1088,18 @@ fn write_capture_bundle(out_dir: &Path, spill: &CapturedSpill) -> Result<Capture
         stream.payload_file = Some(format!("payloads/{file_name}"));
     }
 
+    let diagnostics = build_capture_diagnostics(spill, &manifest_streams);
     let manifest_path = bundle_dir.join("manifest.json");
-    fs::write(&manifest_path, manifest_json(spill, &manifest_streams))
-        .with_context(|| format!("failed to write manifest {}", manifest_path.display()))?;
+    fs::write(
+        &manifest_path,
+        manifest_json(spill, &manifest_streams, &diagnostics),
+    )
+    .with_context(|| format!("failed to write manifest {}", manifest_path.display()))?;
 
     let summary_path = bundle_dir.join("capture_summary.txt");
     fs::write(
         &summary_path,
-        capture_summary_lines(spill, &manifest_streams).join("\n") + "\n",
+        capture_summary_lines(spill, &manifest_streams, &diagnostics).join("\n") + "\n",
     )
     .with_context(|| format!("failed to write summary {}", summary_path.display()))?;
 
@@ -532,6 +1118,7 @@ fn write_capture_bundle(out_dir: &Path, spill: &CapturedSpill) -> Result<Capture
             .count(),
         captured_streams: spill.streams.len(),
         warning_count: spill.warnings.len(),
+        diagnostics,
     })
 }
 
@@ -543,13 +1130,13 @@ fn write_capture_index(
 ) -> Result<()> {
     let mut rows = Vec::<String>::new();
     rows.push(
-        "capture_index,target_ms,redis_timestamp_ms,bundle_dir,manifest_path,requested_streams,latest_observations,aligned_latest_streams,captured_streams,warning_count,unresolved_wakes,duplicate_wakes"
+        "capture_index,target_ms,redis_timestamp_ms,bundle_dir,manifest_path,requested_streams,latest_observations,aligned_latest_streams,captured_streams,warning_count,unresolved_wakes,duplicate_wakes,status,complete_streams,same_spill_streams,missing_streams,stale_capture_streams,ahead_capture_streams,payload_issue_streams,suspect_digitizers,latest_poll_suspect_digitizers,captured_delta_min_ms,captured_delta_max_ms,captured_delta_median_abs_ms,latest_delta_min_ms,latest_delta_max_ms,latest_delta_median_abs_ms"
             .to_string(),
     );
 
     for (idx, result) in results.iter().enumerate() {
         rows.push(format!(
-            "{},{},{},{},{},{},{},{},{},{},{},{}",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
             idx,
             result.target_ms,
             result.redis_timestamp_ms,
@@ -561,13 +1148,487 @@ fn write_capture_index(
             result.captured_streams,
             result.warning_count,
             unresolved_wakes,
-            duplicate_wakes
+            duplicate_wakes,
+            csv_escape(&result.diagnostics.status),
+            result.diagnostics.complete_streams,
+            result.diagnostics.same_spill_streams,
+            result.diagnostics.missing_streams,
+            result.diagnostics.stale_capture_streams,
+            result.diagnostics.ahead_capture_streams,
+            result.diagnostics.payload_issue_streams,
+            result.diagnostics.suspect_digitizers,
+            result.diagnostics.latest_poll_suspect_digitizers,
+            csv_opt_i64(result.diagnostics.captured_timing.min_delta_ms),
+            csv_opt_i64(result.diagnostics.captured_timing.max_delta_ms),
+            csv_opt_f64(result.diagnostics.captured_timing.median_abs_delta_ms),
+            csv_opt_i64(result.diagnostics.latest_timing.min_delta_ms),
+            csv_opt_i64(result.diagnostics.latest_timing.max_delta_ms),
+            csv_opt_f64(result.diagnostics.latest_timing.median_abs_delta_ms)
         ));
     }
 
     let path = out_dir.join("capture_index.csv");
     fs::write(&path, rows.join("\n") + "\n")
         .with_context(|| format!("failed to write capture index {}", path.display()))
+}
+
+fn write_capture_diagnostics_outputs(out_dir: &Path, results: &[CaptureWriteResult]) -> Result<()> {
+    write_capture_spill_diagnostics_csv(out_dir, results)?;
+    write_capture_stream_diagnostics_csv(out_dir, results)?;
+    write_capture_digitizer_diagnostics_csv(out_dir, results)?;
+    write_capture_quality_summary_json(out_dir, results)?;
+    write_capture_quality_report_md(out_dir, results)?;
+    Ok(())
+}
+
+fn write_capture_spill_diagnostics_csv(
+    out_dir: &Path,
+    results: &[CaptureWriteResult],
+) -> Result<()> {
+    let mut rows = vec![
+        "capture_index,target_ms,status,requested_streams,captured_streams,complete_streams,same_spill_streams,missing_streams,stale_capture_streams,ahead_capture_streams,payload_issue_streams,latest_stale_streams,latest_missing_streams,latest_ahead_streams,suspect_digitizers,latest_poll_suspect_digitizers,wake_delta_ms,captured_delta_min_ms,captured_delta_max_ms,captured_delta_median_abs_ms,captured_delta_max_abs_ms,latest_delta_min_ms,latest_delta_max_ms,latest_delta_median_abs_ms,latest_delta_max_abs_ms"
+            .to_string(),
+    ];
+    for (idx, result) in results.iter().enumerate() {
+        let d = &result.diagnostics;
+        rows.push(format!(
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+            idx,
+            result.target_ms,
+            csv_escape(&d.status),
+            d.requested_streams,
+            d.captured_streams,
+            d.complete_streams,
+            d.same_spill_streams,
+            d.missing_streams,
+            d.stale_capture_streams,
+            d.ahead_capture_streams,
+            d.payload_issue_streams,
+            d.latest_stale_streams,
+            d.latest_missing_streams,
+            d.latest_ahead_streams,
+            d.suspect_digitizers,
+            d.latest_poll_suspect_digitizers,
+            csv_opt_i64(d.wake_delta_ms),
+            csv_opt_i64(d.captured_timing.min_delta_ms),
+            csv_opt_i64(d.captured_timing.max_delta_ms),
+            csv_opt_f64(d.captured_timing.median_abs_delta_ms),
+            csv_opt_u64(d.captured_timing.max_abs_delta_ms),
+            csv_opt_i64(d.latest_timing.min_delta_ms),
+            csv_opt_i64(d.latest_timing.max_delta_ms),
+            csv_opt_f64(d.latest_timing.median_abs_delta_ms),
+            csv_opt_u64(d.latest_timing.max_abs_delta_ms)
+        ));
+    }
+    fs::write(
+        out_dir.join("capture_spill_diagnostics.csv"),
+        rows.join("\n") + "\n",
+    )
+    .with_context(|| "failed to write capture_spill_diagnostics.csv")
+}
+
+fn write_capture_stream_diagnostics_csv(
+    out_dir: &Path,
+    results: &[CaptureWriteResult],
+) -> Result<()> {
+    let mut rows = vec![
+        "capture_index,target_ms,device_label,bpm_ip,plane,stream_key,captured_status,latest_poll_status,primary_reason,captured_stream_id,captured_ms,captured_delta_ms,latest_id,latest_ms,latest_delta_ms,payload_bytes,sample_count"
+            .to_string(),
+    ];
+    for (idx, result) in results.iter().enumerate() {
+        for row in &result.diagnostics.streams {
+            rows.push(format!(
+                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+                idx,
+                result.target_ms,
+                csv_escape(&row.device_label),
+                csv_escape(&row.bpm_ip),
+                csv_escape(&row.plane),
+                csv_escape(&row.stream_key),
+                csv_escape(&row.captured_status),
+                csv_escape(&row.latest_poll_status),
+                csv_escape(&row.primary_reason),
+                csv_escape(row.captured_stream_id.as_deref().unwrap_or("")),
+                csv_opt_u64(row.captured_ms),
+                csv_opt_i64(row.captured_delta_ms),
+                csv_escape(row.latest_id.as_deref().unwrap_or("")),
+                csv_opt_u64(row.latest_ms),
+                csv_opt_i64(row.latest_delta_ms),
+                csv_opt_usize(row.payload_bytes),
+                csv_opt_usize(row.sample_count)
+            ));
+        }
+    }
+    fs::write(
+        out_dir.join("capture_stream_diagnostics.csv"),
+        rows.join("\n") + "\n",
+    )
+    .with_context(|| "failed to write capture_stream_diagnostics.csv")
+}
+
+fn write_capture_digitizer_diagnostics_csv(
+    out_dir: &Path,
+    results: &[CaptureWriteResult],
+) -> Result<()> {
+    let mut rows = vec![
+        "capture_index,target_ms,device_label,bpm_ip,status,configured_streams,complete_streams,same_spill_streams,missing_capture_streams,stale_capture_streams,ahead_capture_streams,payload_issue_streams,latest_stale_streams,latest_missing_streams,latest_ahead_streams,suspect,latest_poll_suspect"
+            .to_string(),
+    ];
+    for (idx, result) in results.iter().enumerate() {
+        for row in &result.diagnostics.digitizers {
+            rows.push(format!(
+                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+                idx,
+                result.target_ms,
+                csv_escape(&row.device_label),
+                csv_escape(&row.bpm_ip),
+                csv_escape(&row.status),
+                row.configured_streams,
+                row.complete_streams,
+                row.same_spill_streams,
+                row.missing_capture_streams,
+                row.stale_capture_streams,
+                row.ahead_capture_streams,
+                row.payload_issue_streams,
+                row.latest_stale_streams,
+                row.latest_missing_streams,
+                row.latest_ahead_streams,
+                row.suspect,
+                row.latest_poll_suspect
+            ));
+        }
+    }
+    fs::write(
+        out_dir.join("capture_digitizer_diagnostics.csv"),
+        rows.join("\n") + "\n",
+    )
+    .with_context(|| "failed to write capture_digitizer_diagnostics.csv")
+}
+
+fn write_capture_quality_summary_json(
+    out_dir: &Path,
+    results: &[CaptureWriteResult],
+) -> Result<()> {
+    let mut capture_suspects = HashMap::<String, usize>::new();
+    let mut latest_suspects = HashMap::<String, usize>::new();
+    for result in results {
+        for row in &result.diagnostics.digitizers {
+            if row.suspect {
+                *capture_suspects.entry(row.bpm_ip.clone()).or_insert(0) += 1;
+            }
+            if row.latest_poll_suspect {
+                *latest_suspects.entry(row.bpm_ip.clone()).or_insert(0) += 1;
+            }
+        }
+    }
+
+    let total = results.len();
+    let complete = results
+        .iter()
+        .filter(|result| result.diagnostics.status == "Complete")
+        .count();
+    let mut out = String::new();
+    out.push_str("{\n");
+    out.push_str(&format!("  \"spill_count\": {},\n", total));
+    out.push_str(&format!("  \"complete_spills\": {},\n", complete));
+    out.push_str(&format!("  \"partial_spills\": {},\n", total - complete));
+    out.push_str(&format!(
+        "  \"same_spill_tolerance_ms\": {},\n",
+        results
+            .first()
+            .map(|result| result.diagnostics.same_spill_tolerance_ms)
+            .unwrap_or(0)
+    ));
+    out.push_str("  \"capture_suspect_digitizers\": [\n");
+    let capture_items = sorted_count_items(&capture_suspects);
+    for (idx, (bpm_ip, count)) in capture_items.iter().enumerate() {
+        out.push_str(&format!(
+            "    {{\"bpm_ip\": {}, \"spill_count\": {}}}{}\n",
+            json_string(bpm_ip),
+            count,
+            comma(idx, capture_items.len())
+        ));
+    }
+    out.push_str("  ],\n");
+    out.push_str("  \"latest_poll_suspect_digitizers\": [\n");
+    let latest_items = sorted_count_items(&latest_suspects);
+    for (idx, (bpm_ip, count)) in latest_items.iter().enumerate() {
+        out.push_str(&format!(
+            "    {{\"bpm_ip\": {}, \"spill_count\": {}}}{}\n",
+            json_string(bpm_ip),
+            count,
+            comma(idx, latest_items.len())
+        ));
+    }
+    out.push_str("  ],\n");
+    out.push_str("  \"strict_fail_preview\": {\n");
+    out.push_str(&format!(
+        "    \"would_fail_on_capture_quality\": {},\n",
+        total != complete
+    ));
+    out.push_str(&format!(
+        "    \"would_fail_on_latest_poll_quality\": {}\n",
+        !latest_items.is_empty()
+    ));
+    out.push_str("  }\n");
+    out.push_str("}\n");
+
+    fs::write(out_dir.join("capture_quality_summary.json"), out)
+        .with_context(|| "failed to write capture_quality_summary.json")
+}
+
+fn write_capture_quality_report_md(out_dir: &Path, results: &[CaptureWriteResult]) -> Result<()> {
+    let total = results.len();
+    let complete = results
+        .iter()
+        .filter(|result| result.diagnostics.status == "Complete")
+        .count();
+    let mut capture_suspects = HashMap::<String, usize>::new();
+    let mut latest_suspects = HashMap::<String, usize>::new();
+    for result in results {
+        for row in &result.diagnostics.digitizers {
+            if row.suspect {
+                *capture_suspects.entry(row.bpm_ip.clone()).or_insert(0) += 1;
+            }
+            if row.latest_poll_suspect {
+                *latest_suspects.entry(row.bpm_ip.clone()).or_insert(0) += 1;
+            }
+        }
+    }
+
+    let mut lines = Vec::<String>::new();
+    lines.push("# Capture Quality Report".to_string());
+    lines.push(String::new());
+    lines.push(format!("- spills assessed: `{total}`"));
+    lines.push(format!("- complete captured spills: `{complete}`"));
+    lines.push(format!("- partial captured spills: `{}`", total - complete));
+    if let Some(first) = results.first() {
+        lines.push(format!(
+            "- same-spill tolerance: `±{} ms`",
+            first.diagnostics.same_spill_tolerance_ms
+        ));
+    }
+    lines.push(String::new());
+    lines.push("## Capture Suspect Digitizers".to_string());
+    if capture_suspects.is_empty() {
+        lines.push(String::new());
+        lines.push("None.".to_string());
+    } else {
+        lines.push(String::new());
+        for (bpm_ip, count) in sorted_count_items(&capture_suspects) {
+            lines.push(format!("- `{bpm_ip}` in `{count}` spills"));
+        }
+    }
+    lines.push(String::new());
+    lines.push("## Latest-Poll Suspect Digitizers".to_string());
+    if latest_suspects.is_empty() {
+        lines.push(String::new());
+        lines.push("None.".to_string());
+    } else {
+        lines.push(String::new());
+        for (bpm_ip, count) in sorted_count_items(&latest_suspects) {
+            lines.push(format!("- `{bpm_ip}` in `{count}` spills"));
+        }
+    }
+    lines.push(String::new());
+    lines.push("Latest-poll suspects are timing diagnostics. They do not make a captured artifact partial when the captured payload is complete and same-spill.".to_string());
+
+    fs::write(
+        out_dir.join("capture_quality_report.md"),
+        lines.join("\n") + "\n",
+    )
+    .with_context(|| "failed to write capture_quality_report.md")
+}
+
+fn write_assess_outputs(out_dir: &Path, snapshots: &[AssessSnapshot]) -> Result<()> {
+    write_assess_streams_csv(out_dir, snapshots)?;
+    write_assess_digitizers_csv(out_dir, snapshots)?;
+    write_assess_summary_json(out_dir, snapshots)?;
+    write_assess_report_md(out_dir, snapshots)?;
+    Ok(())
+}
+
+fn write_assess_streams_csv(out_dir: &Path, snapshots: &[AssessSnapshot]) -> Result<()> {
+    let mut rows = vec![
+        "assessment_index,assessment_kind,target_ms,device_label,bpm_ip,plane,stream_key,latest_status,latest_id,latest_ms,latest_delta_ms"
+            .to_string(),
+    ];
+    for snapshot in snapshots {
+        for row in &snapshot.stream_rows {
+            rows.push(format!(
+                "{},{},{},{},{},{},{},{},{},{},{}",
+                row.assessment_index,
+                csv_escape(&row.assessment_kind),
+                csv_opt_u64(row.target_ms),
+                csv_escape(&row.device_label),
+                csv_escape(&row.bpm_ip),
+                csv_escape(&row.plane),
+                csv_escape(&row.stream_key),
+                csv_escape(&row.latest_status),
+                csv_escape(row.latest_id.as_deref().unwrap_or("")),
+                csv_opt_u64(row.latest_ms),
+                csv_opt_i64(row.latest_delta_ms)
+            ));
+        }
+    }
+    fs::write(out_dir.join("assess_streams.csv"), rows.join("\n") + "\n")
+        .with_context(|| "failed to write assess_streams.csv")
+}
+
+fn write_assess_digitizers_csv(out_dir: &Path, snapshots: &[AssessSnapshot]) -> Result<()> {
+    let mut rows = vec![
+        "assessment_index,assessment_kind,target_ms,device_label,bpm_ip,status,configured_streams,same_spill_streams,latest_stale_streams,latest_missing_streams,latest_ahead_streams,suspect"
+            .to_string(),
+    ];
+    for snapshot in snapshots {
+        for row in &snapshot.digitizer_rows {
+            rows.push(format!(
+                "{},{},{},{},{},{},{},{},{},{},{},{}",
+                row.assessment_index,
+                csv_escape(&row.assessment_kind),
+                csv_opt_u64(row.target_ms),
+                csv_escape(&row.device_label),
+                csv_escape(&row.bpm_ip),
+                csv_escape(&row.status),
+                row.configured_streams,
+                row.same_spill_streams,
+                row.latest_stale_streams,
+                row.latest_missing_streams,
+                row.latest_ahead_streams,
+                row.suspect
+            ));
+        }
+    }
+    fs::write(
+        out_dir.join("assess_digitizers.csv"),
+        rows.join("\n") + "\n",
+    )
+    .with_context(|| "failed to write assess_digitizers.csv")
+}
+
+fn write_assess_summary_json(out_dir: &Path, snapshots: &[AssessSnapshot]) -> Result<()> {
+    let mut suspect_counts = HashMap::<String, usize>::new();
+    for snapshot in snapshots {
+        for row in &snapshot.digitizer_rows {
+            if row.suspect {
+                *suspect_counts.entry(row.bpm_ip.clone()).or_insert(0) += 1;
+            }
+        }
+    }
+    let items = sorted_count_items(&suspect_counts);
+    let mut out = String::new();
+    out.push_str("{\n");
+    out.push_str(&format!("  \"assessment_count\": {},\n", snapshots.len()));
+    out.push_str("  \"suspect_digitizers\": [\n");
+    for (idx, (bpm_ip, count)) in items.iter().enumerate() {
+        out.push_str(&format!(
+            "    {{\"bpm_ip\": {}, \"assessment_count\": {}}}{}\n",
+            json_string(bpm_ip),
+            count,
+            comma(idx, items.len())
+        ));
+    }
+    out.push_str("  ],\n");
+    out.push_str("  \"snapshots\": [\n");
+    for (idx, snapshot) in snapshots.iter().enumerate() {
+        let suspect_digitizers = snapshot
+            .digitizer_rows
+            .iter()
+            .filter(|row| row.suspect)
+            .count();
+        let latest_stale_streams = snapshot
+            .stream_rows
+            .iter()
+            .filter(|row| {
+                matches!(
+                    row.latest_status.as_str(),
+                    "LATEST_STALE" | "LATEST_STALE_BUT_CAPTURED_OK"
+                )
+            })
+            .count();
+        out.push_str(&format!(
+            "    {{\"assessment_index\": {}, \"assessment_kind\": {}, \"target_ms\": {}, \"suspect_digitizers\": {}, \"latest_stale_streams\": {}, \"warning_count\": {}}}{}\n",
+            snapshot.assessment_index,
+            json_string(&snapshot.assessment_kind),
+            json_opt_u64(snapshot.target_ms),
+            suspect_digitizers,
+            latest_stale_streams,
+            snapshot.warnings.len(),
+            comma(idx, snapshots.len())
+        ));
+    }
+    out.push_str("  ]\n");
+    out.push_str("}\n");
+    fs::write(out_dir.join("assess_summary.json"), out)
+        .with_context(|| "failed to write assess_summary.json")
+}
+
+fn write_assess_report_md(out_dir: &Path, snapshots: &[AssessSnapshot]) -> Result<()> {
+    let mut suspect_counts = HashMap::<String, usize>::new();
+    for snapshot in snapshots {
+        for row in &snapshot.digitizer_rows {
+            if row.suspect {
+                *suspect_counts.entry(row.bpm_ip.clone()).or_insert(0) += 1;
+            }
+        }
+    }
+    let mut lines = Vec::<String>::new();
+    lines.push("# Assess Report".to_string());
+    lines.push(String::new());
+    lines.push(format!("- snapshots: `{}`", snapshots.len()));
+    lines.push(String::new());
+    lines.push("## Suspect Digitizers".to_string());
+    if suspect_counts.is_empty() {
+        lines.push(String::new());
+        lines.push("None.".to_string());
+    } else {
+        lines.push(String::new());
+        for (bpm_ip, count) in sorted_count_items(&suspect_counts) {
+            lines.push(format!("- `{bpm_ip}` in `{count}` assessments"));
+        }
+    }
+    lines.push(String::new());
+    lines.push("## Snapshot Summary".to_string());
+    lines.push(String::new());
+    for snapshot in snapshots {
+        let suspect_digitizers = snapshot
+            .digitizer_rows
+            .iter()
+            .filter(|row| row.suspect)
+            .count();
+        let stale_streams = snapshot
+            .stream_rows
+            .iter()
+            .filter(|row| {
+                matches!(
+                    row.latest_status.as_str(),
+                    "LATEST_STALE" | "LATEST_STALE_BUT_CAPTURED_OK"
+                )
+            })
+            .count();
+        lines.push(format!(
+            "- `{}` target={} suspect_digitizers={} stale_streams={} warnings={}",
+            snapshot.assessment_kind,
+            snapshot
+                .target_ms
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "NA".to_string()),
+            suspect_digitizers,
+            stale_streams,
+            snapshot.warnings.len()
+        ));
+    }
+    fs::write(out_dir.join("assess_report.md"), lines.join("\n") + "\n")
+        .with_context(|| "failed to write assess_report.md")
+}
+
+fn sorted_count_items(map: &HashMap<String, usize>) -> Vec<(String, usize)> {
+    let mut items = map
+        .iter()
+        .map(|(key, value)| (key.clone(), *value))
+        .collect::<Vec<_>>();
+    items.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    items
 }
 
 fn run_free_run_watch_worker(
@@ -918,7 +1979,7 @@ fn compare_stream_ids(a: &str, b: &str) -> Ordering {
 }
 
 fn target_bucket_tolerance_ms(config: &MonitorConfig) -> u64 {
-    config.align_tolerance_ms.min(ADJACENT_BUCKET_TOLERANCE_MS)
+    config.same_spill_tolerance_ms
 }
 
 fn target_seen_within_tolerance(seen: &HashSet<u64>, target_ms: u64, tolerance_ms: u64) -> bool {
@@ -958,6 +2019,297 @@ fn timeliness_stats(
         abs_deltas.push(abs_delta as f64);
     }
     Some((min_delta, max_delta, median(&abs_deltas), max_abs_delta))
+}
+
+fn timing_summary(deltas: &[i64]) -> TimingSummary {
+    if deltas.is_empty() {
+        return TimingSummary {
+            count: 0,
+            min_delta_ms: None,
+            max_delta_ms: None,
+            median_abs_delta_ms: None,
+            max_abs_delta_ms: None,
+        };
+    }
+    let abs_deltas = deltas
+        .iter()
+        .map(|delta| delta.unsigned_abs() as f64)
+        .collect::<Vec<_>>();
+    TimingSummary {
+        count: deltas.len(),
+        min_delta_ms: deltas.iter().copied().min(),
+        max_delta_ms: deltas.iter().copied().max(),
+        median_abs_delta_ms: Some(median(&abs_deltas)),
+        max_abs_delta_ms: deltas.iter().map(|delta| delta.unsigned_abs()).max(),
+    }
+}
+
+fn stream_key_tuple(bpm_ip: &str, stream_key: &str) -> String {
+    format!("{bpm_ip}\n{stream_key}")
+}
+
+fn captured_status(
+    stream: Option<&CapturedStreamEntry>,
+    target_ms: u64,
+    tolerance_ms: u64,
+) -> (String, Option<i64>) {
+    let Some(stream) = stream else {
+        return ("MISSING_CAPTURE".to_string(), None);
+    };
+    let delta = signed_delta_ms(stream.stream_ms, target_ms);
+    if stream.payload_file.is_none() || stream.payload_bytes == 0 {
+        return ("PAYLOAD_MISSING".to_string(), Some(delta));
+    }
+    if stream.sample_count.is_none() {
+        return ("PAYLOAD_MALFORMED".to_string(), Some(delta));
+    }
+    if delta < -(tolerance_ms as i64) {
+        return ("STALE_CAPTURE".to_string(), Some(delta));
+    }
+    if delta > tolerance_ms as i64 {
+        return ("AHEAD_CAPTURE".to_string(), Some(delta));
+    }
+    ("COMPLETE".to_string(), Some(delta))
+}
+
+fn latest_status(
+    observation: Option<&CaptureObservation>,
+    target_ms: u64,
+    tolerance_ms: u64,
+    captured_ok: bool,
+) -> (String, Option<i64>) {
+    let Some(observation) = observation else {
+        return ("LATEST_MISSING".to_string(), None);
+    };
+    let delta = signed_delta_ms(observation.ms, target_ms);
+    if delta < -(tolerance_ms as i64) {
+        if captured_ok {
+            return ("LATEST_STALE_BUT_CAPTURED_OK".to_string(), Some(delta));
+        }
+        return ("LATEST_STALE".to_string(), Some(delta));
+    }
+    if delta > tolerance_ms as i64 {
+        return ("LATEST_AHEAD".to_string(), Some(delta));
+    }
+    ("COMPLETE".to_string(), Some(delta))
+}
+
+fn build_capture_diagnostics(
+    spill: &CapturedSpill,
+    streams: &[CapturedStreamEntry],
+) -> CaptureDiagnostics {
+    let target_ms = spill.target_ms;
+    let tolerance_ms = spill.same_spill_tolerance_ms;
+    let captured_by_key = streams
+        .iter()
+        .map(|stream| (stream_key_tuple(&stream.bpm_ip, &stream.stream_key), stream))
+        .collect::<HashMap<_, _>>();
+    let latest_by_key = spill
+        .latest_observations
+        .iter()
+        .map(|obs| (stream_key_tuple(&obs.bpm_ip, &obs.stream_key), obs))
+        .collect::<HashMap<_, _>>();
+
+    let mut stream_rows = Vec::<StreamDiagnosticRow>::new();
+    let mut captured_deltas = Vec::<i64>::new();
+    let mut latest_deltas = Vec::<i64>::new();
+
+    for inventory in &spill.stream_inventory {
+        let key = stream_key_tuple(&inventory.bpm_ip, &inventory.stream_key);
+        let captured = captured_by_key.get(&key).copied();
+        let latest = latest_by_key.get(&key).copied();
+        let (captured_reason, captured_delta) = captured_status(captured, target_ms, tolerance_ms);
+        let captured_ok = captured_reason == "COMPLETE";
+        let (latest_reason, latest_delta) =
+            latest_status(latest, target_ms, tolerance_ms, captured_ok);
+
+        if let Some(delta) = captured_delta {
+            captured_deltas.push(delta);
+        }
+        if let Some(delta) = latest_delta {
+            latest_deltas.push(delta);
+        }
+
+        let primary_reason = if captured_reason != "COMPLETE" {
+            captured_reason.clone()
+        } else {
+            latest_reason.clone()
+        };
+
+        stream_rows.push(StreamDiagnosticRow {
+            device_label: inventory.device_label.clone(),
+            bpm_ip: inventory.bpm_ip.clone(),
+            plane: inventory.plane.label().to_string(),
+            stream_key: inventory.stream_key.clone(),
+            captured_status: captured_reason,
+            latest_poll_status: latest_reason,
+            primary_reason,
+            captured_stream_id: captured.map(|stream| stream.stream_id.clone()),
+            captured_ms: captured.map(|stream| stream.stream_ms),
+            captured_delta_ms: captured_delta,
+            latest_id: latest.map(|obs| obs.id.clone()),
+            latest_ms: latest.map(|obs| obs.ms),
+            latest_delta_ms: latest_delta,
+            payload_bytes: captured.map(|stream| stream.payload_bytes),
+            sample_count: captured.and_then(|stream| stream.sample_count),
+        });
+    }
+
+    let mut digitizer_map = HashMap::<String, DigitizerDiagnosticRow>::new();
+    for row in &stream_rows {
+        let entry =
+            digitizer_map
+                .entry(row.bpm_ip.clone())
+                .or_insert_with(|| DigitizerDiagnosticRow {
+                    device_label: row.device_label.clone(),
+                    bpm_ip: row.bpm_ip.clone(),
+                    status: "Complete".to_string(),
+                    configured_streams: 0,
+                    complete_streams: 0,
+                    same_spill_streams: 0,
+                    missing_capture_streams: 0,
+                    stale_capture_streams: 0,
+                    ahead_capture_streams: 0,
+                    payload_issue_streams: 0,
+                    latest_stale_streams: 0,
+                    latest_missing_streams: 0,
+                    latest_ahead_streams: 0,
+                    suspect: false,
+                    latest_poll_suspect: false,
+                });
+        entry.configured_streams += 1;
+        if row.captured_status == "COMPLETE" {
+            entry.complete_streams += 1;
+        }
+        if row
+            .captured_delta_ms
+            .is_some_and(|delta| delta.unsigned_abs() <= tolerance_ms)
+        {
+            entry.same_spill_streams += 1;
+        }
+        match row.captured_status.as_str() {
+            "MISSING_CAPTURE" => entry.missing_capture_streams += 1,
+            "STALE_CAPTURE" => entry.stale_capture_streams += 1,
+            "AHEAD_CAPTURE" => entry.ahead_capture_streams += 1,
+            "PAYLOAD_MISSING" | "PAYLOAD_MALFORMED" => entry.payload_issue_streams += 1,
+            _ => {}
+        }
+        match row.latest_poll_status.as_str() {
+            "LATEST_STALE" | "LATEST_STALE_BUT_CAPTURED_OK" => entry.latest_stale_streams += 1,
+            "LATEST_MISSING" => entry.latest_missing_streams += 1,
+            "LATEST_AHEAD" => entry.latest_ahead_streams += 1,
+            _ => {}
+        }
+    }
+
+    let mut digitizers = digitizer_map.into_values().collect::<Vec<_>>();
+    digitizers.sort_by(|a, b| a.bpm_ip.cmp(&b.bpm_ip));
+    for digitizer in &mut digitizers {
+        digitizer.suspect = digitizer.missing_capture_streams > 0
+            || digitizer.stale_capture_streams > 0
+            || digitizer.ahead_capture_streams > 0
+            || digitizer.payload_issue_streams > 0;
+        digitizer.latest_poll_suspect = digitizer.latest_stale_streams > 0
+            || digitizer.latest_missing_streams > 0
+            || digitizer.latest_ahead_streams > 0;
+        digitizer.status = if digitizer.suspect {
+            "Partial".to_string()
+        } else {
+            "Complete".to_string()
+        };
+    }
+
+    let complete_streams = stream_rows
+        .iter()
+        .filter(|row| row.captured_status == "COMPLETE")
+        .count();
+    let same_spill_streams = stream_rows
+        .iter()
+        .filter(|row| {
+            row.captured_delta_ms
+                .is_some_and(|delta| delta.unsigned_abs() <= tolerance_ms)
+        })
+        .count();
+    let missing_streams = stream_rows
+        .iter()
+        .filter(|row| row.captured_status == "MISSING_CAPTURE")
+        .count();
+    let stale_capture_streams = stream_rows
+        .iter()
+        .filter(|row| row.captured_status == "STALE_CAPTURE")
+        .count();
+    let ahead_capture_streams = stream_rows
+        .iter()
+        .filter(|row| row.captured_status == "AHEAD_CAPTURE")
+        .count();
+    let payload_issue_streams = stream_rows
+        .iter()
+        .filter(|row| {
+            matches!(
+                row.captured_status.as_str(),
+                "PAYLOAD_MISSING" | "PAYLOAD_MALFORMED"
+            )
+        })
+        .count();
+    let latest_stale_streams = stream_rows
+        .iter()
+        .filter(|row| {
+            matches!(
+                row.latest_poll_status.as_str(),
+                "LATEST_STALE" | "LATEST_STALE_BUT_CAPTURED_OK"
+            )
+        })
+        .count();
+    let latest_missing_streams = stream_rows
+        .iter()
+        .filter(|row| row.latest_poll_status == "LATEST_MISSING")
+        .count();
+    let latest_ahead_streams = stream_rows
+        .iter()
+        .filter(|row| row.latest_poll_status == "LATEST_AHEAD")
+        .count();
+    let suspect_digitizers = digitizers.iter().filter(|row| row.suspect).count();
+    let latest_poll_suspect_digitizers = digitizers
+        .iter()
+        .filter(|row| row.latest_poll_suspect)
+        .count();
+    let status = if missing_streams == 0
+        && stale_capture_streams == 0
+        && ahead_capture_streams == 0
+        && payload_issue_streams == 0
+        && complete_streams == spill.requested_streams
+    {
+        "Complete"
+    } else {
+        "Partial"
+    }
+    .to_string();
+
+    CaptureDiagnostics {
+        same_spill_tolerance_ms: tolerance_ms,
+        status,
+        requested_streams: spill.requested_streams,
+        captured_streams: streams.len(),
+        complete_streams,
+        same_spill_streams,
+        missing_streams,
+        stale_capture_streams,
+        ahead_capture_streams,
+        payload_issue_streams,
+        latest_stale_streams,
+        latest_missing_streams,
+        latest_ahead_streams,
+        suspect_digitizers,
+        latest_poll_suspect_digitizers,
+        wake_delta_ms: spill
+            .wake
+            .as_ref()
+            .map(|wake| signed_delta_ms(wake.ms, spill.target_ms)),
+        captured_timing: timing_summary(&captured_deltas),
+        latest_timing: timing_summary(&latest_deltas),
+        streams: stream_rows,
+        digitizers,
+    }
 }
 
 fn median(values: &[f64]) -> f64 {
@@ -1014,7 +2366,11 @@ fn fnv1a64_hex(bytes: &[u8]) -> String {
     format!("{hash:016x}")
 }
 
-fn manifest_json(spill: &CapturedSpill, streams: &[CapturedStreamEntry]) -> String {
+fn manifest_json(
+    spill: &CapturedSpill,
+    streams: &[CapturedStreamEntry],
+    diagnostics: &CaptureDiagnostics,
+) -> String {
     let mut out = String::new();
     out.push_str("{\n");
     out.push_str(&format!(
@@ -1035,9 +2391,23 @@ fn manifest_json(spill: &CapturedSpill, streams: &[CapturedStreamEntry]) -> Stri
         spill.align_tolerance_ms
     ));
     out.push_str(&format!(
+        "  \"same_spill_tolerance_ms\": {},\n",
+        spill.same_spill_tolerance_ms
+    ));
+    out.push_str(&format!(
         "  \"min_aligned_fraction\": {:.6},\n",
         spill.min_aligned_fraction
     ));
+    match spill.wake.as_ref() {
+        Some(wake) => out.push_str(&format!(
+            "  \"wake\": {{\"bpm_ip\": {}, \"stream_id\": {}, \"ms\": {}, \"delta_ms\": {}}},\n",
+            json_string(&wake.bpm_ip),
+            json_string(&wake.stream_id),
+            wake.ms,
+            signed_delta_ms(wake.ms, spill.target_ms)
+        )),
+        None => out.push_str("  \"wake\": null,\n"),
+    }
     out.push_str(&format!(
         "  \"requested_streams\": {},\n",
         spill.requested_streams
@@ -1109,14 +2479,21 @@ fn manifest_json(spill: &CapturedSpill, streams: &[CapturedStreamEntry]) -> Stri
     }
     out.push_str("  ],\n");
     out.push_str(&format!(
-        "  \"warnings\": {}\n",
+        "  \"warnings\": {},\n",
         json_string_array(&spill.warnings)
     ));
+    out.push_str("  \"capture_diagnostics\": ");
+    out.push_str(&capture_diagnostics_json(diagnostics));
+    out.push('\n');
     out.push_str("}\n");
     out
 }
 
-fn capture_summary_lines(spill: &CapturedSpill, streams: &[CapturedStreamEntry]) -> Vec<String> {
+fn capture_summary_lines(
+    spill: &CapturedSpill,
+    streams: &[CapturedStreamEntry],
+    diagnostics: &CaptureDiagnostics,
+) -> Vec<String> {
     let mut lines = Vec::new();
     lines.push("captured-spill summary".to_string());
     lines.push(format!("schema_version: {}", spill.schema_version));
@@ -1124,6 +2501,11 @@ fn capture_summary_lines(spill: &CapturedSpill, streams: &[CapturedStreamEntry])
     lines.push(format!("redis_timestamp_ms: {}", spill.redis_timestamp_ms));
     lines.push(format!("target_ms: {}", spill.target_ms));
     lines.push(format!("align_tolerance_ms: {}", spill.align_tolerance_ms));
+    lines.push(format!(
+        "same_spill_tolerance_ms: {}",
+        spill.same_spill_tolerance_ms
+    ));
+    lines.push(format!("capture_status: {}", diagnostics.status));
     lines.push(format!("requested_streams: {}", spill.requested_streams));
     lines.push(format!(
         "latest_observations: {}",
@@ -1138,6 +2520,18 @@ fn capture_summary_lines(spill: &CapturedSpill, streams: &[CapturedStreamEntry])
             .count()
     ));
     lines.push(format!("captured_streams: {}", streams.len()));
+    lines.push(format!(
+        "complete_streams: {}",
+        diagnostics.complete_streams
+    ));
+    lines.push(format!(
+        "suspect_digitizers: {}",
+        diagnostics.suspect_digitizers
+    ));
+    lines.push(format!(
+        "latest_poll_suspect_digitizers: {}",
+        diagnostics.latest_poll_suspect_digitizers
+    ));
     if let Some((min_delta, max_delta, median_abs_delta, max_abs_delta)) =
         timeliness_stats(&spill.latest_observations, spill.target_ms)
     {
@@ -1176,9 +2570,26 @@ fn print_capture_summary(result: &CaptureWriteResult, spill: &CapturedSpill, tit
     println!("  manifest: {}", result.manifest_path.display());
     println!("  summary: {}", result.summary_path.display());
     println!(
+        "  capture status: {} (same-spill tolerance ±{} ms)",
+        result.diagnostics.status, result.diagnostics.same_spill_tolerance_ms
+    );
+    println!(
         "  streams: captured {} of {} configured",
         result.captured_streams, result.requested_streams
     );
+    println!(
+        "  complete streams: {} of {} configured",
+        result.diagnostics.complete_streams, result.requested_streams
+    );
+    if result.diagnostics.suspect_digitizers > 0
+        || result.diagnostics.latest_poll_suspect_digitizers > 0
+    {
+        println!(
+            "  suspect digitizers: capture={} latest_poll={}",
+            result.diagnostics.suspect_digitizers,
+            result.diagnostics.latest_poll_suspect_digitizers
+        );
+    }
     println!(
         "  latest observations: {} (aligned {})",
         result.latest_observations, result.aligned_latest_streams
@@ -1228,9 +2639,163 @@ fn json_opt_usize(value: Option<usize>) -> String {
         .unwrap_or_else(|| "null".to_string())
 }
 
+fn json_opt_u64(value: Option<u64>) -> String {
+    value
+        .map(|v| v.to_string())
+        .unwrap_or_else(|| "null".to_string())
+}
+
+fn json_opt_i64(value: Option<i64>) -> String {
+    value
+        .map(|v| v.to_string())
+        .unwrap_or_else(|| "null".to_string())
+}
+
+fn json_opt_f64(value: Option<f64>) -> String {
+    value
+        .map(|v| format!("{v:.3}"))
+        .unwrap_or_else(|| "null".to_string())
+}
+
 fn json_string_array(values: &[String]) -> String {
     let parts = values.iter().map(|v| json_string(v)).collect::<Vec<_>>();
     format!("[{}]", parts.join(","))
+}
+
+fn timing_summary_json(summary: &TimingSummary) -> String {
+    format!(
+        "{{\"count\":{},\"min_delta_ms\":{},\"max_delta_ms\":{},\"median_abs_delta_ms\":{},\"max_abs_delta_ms\":{}}}",
+        summary.count,
+        json_opt_i64(summary.min_delta_ms),
+        json_opt_i64(summary.max_delta_ms),
+        json_opt_f64(summary.median_abs_delta_ms),
+        json_opt_u64(summary.max_abs_delta_ms)
+    )
+}
+
+fn capture_diagnostics_json(diagnostics: &CaptureDiagnostics) -> String {
+    let mut out = String::new();
+    out.push_str("{\n");
+    out.push_str(&format!(
+        "    \"same_spill_tolerance_ms\": {},\n",
+        diagnostics.same_spill_tolerance_ms
+    ));
+    out.push_str(&format!(
+        "    \"status\": {},\n",
+        json_string(&diagnostics.status)
+    ));
+    out.push_str(&format!(
+        "    \"requested_streams\": {},\n",
+        diagnostics.requested_streams
+    ));
+    out.push_str(&format!(
+        "    \"captured_streams\": {},\n",
+        diagnostics.captured_streams
+    ));
+    out.push_str(&format!(
+        "    \"complete_streams\": {},\n",
+        diagnostics.complete_streams
+    ));
+    out.push_str(&format!(
+        "    \"same_spill_streams\": {},\n",
+        diagnostics.same_spill_streams
+    ));
+    out.push_str(&format!(
+        "    \"missing_streams\": {},\n",
+        diagnostics.missing_streams
+    ));
+    out.push_str(&format!(
+        "    \"stale_capture_streams\": {},\n",
+        diagnostics.stale_capture_streams
+    ));
+    out.push_str(&format!(
+        "    \"ahead_capture_streams\": {},\n",
+        diagnostics.ahead_capture_streams
+    ));
+    out.push_str(&format!(
+        "    \"payload_issue_streams\": {},\n",
+        diagnostics.payload_issue_streams
+    ));
+    out.push_str(&format!(
+        "    \"latest_stale_streams\": {},\n",
+        diagnostics.latest_stale_streams
+    ));
+    out.push_str(&format!(
+        "    \"latest_missing_streams\": {},\n",
+        diagnostics.latest_missing_streams
+    ));
+    out.push_str(&format!(
+        "    \"latest_ahead_streams\": {},\n",
+        diagnostics.latest_ahead_streams
+    ));
+    out.push_str(&format!(
+        "    \"suspect_digitizers\": {},\n",
+        diagnostics.suspect_digitizers
+    ));
+    out.push_str(&format!(
+        "    \"latest_poll_suspect_digitizers\": {},\n",
+        diagnostics.latest_poll_suspect_digitizers
+    ));
+    out.push_str(&format!(
+        "    \"wake_delta_ms\": {},\n",
+        json_opt_i64(diagnostics.wake_delta_ms)
+    ));
+    out.push_str(&format!(
+        "    \"captured_timing\": {},\n",
+        timing_summary_json(&diagnostics.captured_timing)
+    ));
+    out.push_str(&format!(
+        "    \"latest_timing\": {},\n",
+        timing_summary_json(&diagnostics.latest_timing)
+    ));
+    out.push_str("    \"streams\": [\n");
+    for (idx, row) in diagnostics.streams.iter().enumerate() {
+        out.push_str(&format!(
+            "      {{\"device_label\": {}, \"bpm_ip\": {}, \"plane\": {}, \"stream_key\": {}, \"captured_status\": {}, \"latest_poll_status\": {}, \"primary_reason\": {}, \"captured_stream_id\": {}, \"captured_ms\": {}, \"captured_delta_ms\": {}, \"latest_id\": {}, \"latest_ms\": {}, \"latest_delta_ms\": {}, \"payload_bytes\": {}, \"sample_count\": {}}}{}\n",
+            json_string(&row.device_label),
+            json_string(&row.bpm_ip),
+            json_string(&row.plane),
+            json_string(&row.stream_key),
+            json_string(&row.captured_status),
+            json_string(&row.latest_poll_status),
+            json_string(&row.primary_reason),
+            json_opt_string(row.captured_stream_id.as_deref()),
+            json_opt_u64(row.captured_ms),
+            json_opt_i64(row.captured_delta_ms),
+            json_opt_string(row.latest_id.as_deref()),
+            json_opt_u64(row.latest_ms),
+            json_opt_i64(row.latest_delta_ms),
+            json_opt_usize(row.payload_bytes),
+            json_opt_usize(row.sample_count),
+            comma(idx, diagnostics.streams.len())
+        ));
+    }
+    out.push_str("    ],\n");
+    out.push_str("    \"digitizers\": [\n");
+    for (idx, row) in diagnostics.digitizers.iter().enumerate() {
+        out.push_str(&format!(
+            "      {{\"device_label\": {}, \"bpm_ip\": {}, \"status\": {}, \"configured_streams\": {}, \"complete_streams\": {}, \"same_spill_streams\": {}, \"missing_capture_streams\": {}, \"stale_capture_streams\": {}, \"ahead_capture_streams\": {}, \"payload_issue_streams\": {}, \"latest_stale_streams\": {}, \"latest_missing_streams\": {}, \"latest_ahead_streams\": {}, \"suspect\": {}, \"latest_poll_suspect\": {}}}{}\n",
+            json_string(&row.device_label),
+            json_string(&row.bpm_ip),
+            json_string(&row.status),
+            row.configured_streams,
+            row.complete_streams,
+            row.same_spill_streams,
+            row.missing_capture_streams,
+            row.stale_capture_streams,
+            row.ahead_capture_streams,
+            row.payload_issue_streams,
+            row.latest_stale_streams,
+            row.latest_missing_streams,
+            row.latest_ahead_streams,
+            row.suspect,
+            row.latest_poll_suspect,
+            comma(idx, diagnostics.digitizers.len())
+        ));
+    }
+    out.push_str("    ]\n");
+    out.push_str("  }");
+    out
 }
 
 fn csv_escape(value: &str) -> String {
@@ -1239,6 +2804,22 @@ fn csv_escape(value: &str) -> String {
     } else {
         value.to_string()
     }
+}
+
+fn csv_opt_usize(value: Option<usize>) -> String {
+    value.map(|v| v.to_string()).unwrap_or_default()
+}
+
+fn csv_opt_u64(value: Option<u64>) -> String {
+    value.map(|v| v.to_string()).unwrap_or_default()
+}
+
+fn csv_opt_i64(value: Option<i64>) -> String {
+    value.map(|v| v.to_string()).unwrap_or_default()
+}
+
+fn csv_opt_f64(value: Option<f64>) -> String {
+    value.map(|v| format!("{v:.3}")).unwrap_or_default()
 }
 
 fn comma(idx: usize, len: usize) -> &'static str {
@@ -1252,6 +2833,7 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::*;
+    use crate::config::{DeviceConfig, RedisConfig};
 
     fn temp_dir(name: &str) -> PathBuf {
         let unique = SystemTime::now()
@@ -1269,7 +2851,9 @@ mod tests {
             redis_timestamp_ms: 1772830005123,
             target_ms: 1772830005123,
             align_tolerance_ms: 1,
+            same_spill_tolerance_ms: 25,
             min_aligned_fraction: 0.70,
+            wake: None,
             requested_streams: 2,
             stream_inventory: vec![
                 CaptureStreamInventoryEntry {
@@ -1311,6 +2895,63 @@ mod tests {
         }
     }
 
+    fn sample_complete_spill() -> CapturedSpill {
+        let mut spill = sample_spill();
+        spill.requested_streams = 1;
+        spill.stream_inventory.truncate(1);
+        spill.latest_observations[0].ms = spill.target_ms - 15_000;
+        spill.latest_observations[0].id = format!("{}-0", spill.latest_observations[0].ms);
+        spill.streams[0].payload_file = Some("payloads/test.bin".to_string());
+        spill
+    }
+
+    fn test_config() -> MonitorConfig {
+        MonitorConfig {
+            xread_block_ms: 1000,
+            reconnect_initial_ms: 2000,
+            reconnect_max_ms: 30000,
+            min_stream_values: 1,
+            injection_start_turn: 0,
+            injection_window_turns: 128,
+            sliding_window_turns: 128,
+            sliding_stride_turns: 64,
+            turn_period_us: 1.6,
+            plot_time_axes_in_us: false,
+            tune_plot_y_min: 0.20,
+            tune_plot_y_max: 0.40,
+            tune_plot_y_tick_step: 0.02,
+            qx_band_min: 0.20,
+            qx_band_max: 0.40,
+            qy_band_min: 0.20,
+            qy_band_max: 0.40,
+            min_peak_confidence: 1.1,
+            enable_peak_tracking: true,
+            qx_track_half_width: 0.02,
+            qy_track_half_width: 0.02,
+            max_tune_step_per_window: 0.02,
+            align_tolerance_ms: 1,
+            same_spill_tolerance_ms: 25,
+            min_aligned_fraction: 0.70,
+            devices: vec![DeviceConfig {
+                label: "BPM A".to_string(),
+                bpm_ip: "10.0.0.1".to_string(),
+                redis: RedisConfig {
+                    host: "192.0.2.1".to_string(),
+                    port: 6379,
+                    db: 0,
+                    username: None,
+                    password: None,
+                },
+                trigger_key: "{MUON:BPM:10.0.0.1}:LAST_TRIGGER_TIME".to_string(),
+                trigger_fallback_keys: Vec::new(),
+                stream_keys: vec![
+                    "{MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_SCALED".to_string(),
+                    "{MUON:BPM:10.0.0.1}:VP102:TBT_POSITION_SCALED".to_string(),
+                ],
+            }],
+        }
+    }
+
     #[test]
     fn choose_target_millisecond_merges_adjacent_buckets() {
         let target = choose_target_millisecond(&[10, 10, 11, 11, 20, 20, 20], 1);
@@ -1336,6 +2977,8 @@ mod tests {
         let manifest = fs::read_to_string(&result.manifest_path).expect("manifest should exist");
         assert!(manifest.contains("\"schema_version\": 1"));
         assert!(manifest.contains("\"artifact_type\": \"tbt-monitor.captured-spill\""));
+        assert!(manifest.contains("\"same_spill_tolerance_ms\": 25"));
+        assert!(manifest.contains("\"capture_diagnostics\""));
         assert!(manifest.contains("\"stream_inventory\""));
         assert!(manifest.contains("\"payload_checksum_algorithm\": \"fnv1a64\""));
         assert!(manifest.contains("\"payload_file\": \"payloads/stream_000_H_1772830005123_"));
@@ -1360,6 +3003,8 @@ mod tests {
     fn write_capture_index_records_bundles() {
         let dir = temp_dir("index");
         fs::create_dir_all(&dir).expect("temp dir should be created");
+        let spill = sample_spill();
+        let diagnostics = build_capture_diagnostics(&spill, &spill.streams);
         let result = CaptureWriteResult {
             target_ms: 123,
             redis_timestamp_ms: 123,
@@ -1371,6 +3016,7 @@ mod tests {
             aligned_latest_streams: 2,
             captured_streams: 2,
             warning_count: 0,
+            diagnostics,
         };
 
         write_capture_index(&dir, &[result], 1, 2).expect("index should write");
@@ -1380,5 +3026,97 @@ mod tests {
         assert!(index.contains(",1,2"));
 
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn same_spill_classification_uses_configured_tolerance() {
+        let mut spill = sample_complete_spill();
+        spill.streams[0].stream_ms = spill.target_ms + 25;
+        spill.streams[0].stream_id = format!("{}-0", spill.streams[0].stream_ms);
+        let diagnostics = build_capture_diagnostics(&spill, &spill.streams);
+        assert_eq!(diagnostics.status, "Complete");
+        assert_eq!(diagnostics.streams[0].captured_status, "COMPLETE");
+
+        spill.streams[0].stream_ms = spill.target_ms + 26;
+        spill.streams[0].stream_id = format!("{}-0", spill.streams[0].stream_ms);
+        let diagnostics = build_capture_diagnostics(&spill, &spill.streams);
+        assert_eq!(diagnostics.status, "Partial");
+        assert_eq!(diagnostics.streams[0].captured_status, "AHEAD_CAPTURE");
+    }
+
+    #[test]
+    fn latest_stale_but_captured_ok_remains_complete() {
+        let spill = sample_complete_spill();
+        let diagnostics = build_capture_diagnostics(&spill, &spill.streams);
+        assert_eq!(diagnostics.status, "Complete");
+        assert_eq!(
+            diagnostics.streams[0].latest_poll_status,
+            "LATEST_STALE_BUT_CAPTURED_OK"
+        );
+        assert_eq!(diagnostics.latest_poll_suspect_digitizers, 1);
+        assert_eq!(diagnostics.suspect_digitizers, 0);
+    }
+
+    #[test]
+    fn stale_capture_marks_spill_partial_and_digitizer_suspect() {
+        let mut spill = sample_complete_spill();
+        spill.streams[0].stream_ms = spill.target_ms - 26;
+        spill.streams[0].stream_id = format!("{}-0", spill.streams[0].stream_ms);
+        let diagnostics = build_capture_diagnostics(&spill, &spill.streams);
+        assert_eq!(diagnostics.status, "Partial");
+        assert_eq!(diagnostics.streams[0].captured_status, "STALE_CAPTURE");
+        assert_eq!(diagnostics.suspect_digitizers, 1);
+    }
+
+    #[test]
+    fn diagnose_captures_regenerates_run_outputs() {
+        let dir = temp_dir("diagnose-source");
+        let out_dir = temp_dir("diagnose-out");
+        let spill = sample_complete_spill();
+        write_capture_bundle(&dir, &spill).expect("bundle should write");
+        run_diagnose_captures(&dir, &out_dir, Some(25)).expect("diagnostics should regenerate");
+
+        assert!(out_dir.join("capture_spill_diagnostics.csv").exists());
+        assert!(out_dir.join("capture_stream_diagnostics.csv").exists());
+        assert!(out_dir.join("capture_digitizer_diagnostics.csv").exists());
+        assert!(out_dir.join("capture_quality_summary.json").exists());
+        assert!(out_dir.join("capture_quality_report.md").exists());
+
+        let _ = fs::remove_dir_all(dir);
+        let _ = fs::remove_dir_all(out_dir);
+    }
+
+    #[test]
+    fn assess_snapshot_flags_stale_latest_digitizer() {
+        let config = test_config();
+        let target_ms = 1772830005123;
+        let observations = vec![
+            CaptureObservation {
+                bpm_ip: "10.0.0.1".to_string(),
+                stream_key: "{MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_SCALED".to_string(),
+                id: format!("{}-0", target_ms - 26),
+                ms: target_ms - 26,
+                aligned: false,
+            },
+            CaptureObservation {
+                bpm_ip: "10.0.0.1".to_string(),
+                stream_key: "{MUON:BPM:10.0.0.1}:VP102:TBT_POSITION_SCALED".to_string(),
+                id: format!("{target_ms}-0"),
+                ms: target_ms,
+                aligned: true,
+            },
+        ];
+
+        let snapshot = build_assess_snapshot(
+            &config,
+            0,
+            "test",
+            Some(target_ms),
+            observations,
+            Vec::new(),
+        );
+        assert_eq!(snapshot.digitizer_rows.len(), 1);
+        assert!(snapshot.digitizer_rows[0].suspect);
+        assert_eq!(snapshot.digitizer_rows[0].latest_stale_streams, 1);
     }
 }
