@@ -154,21 +154,12 @@ Post-split analysis refinement:
 The acquisition/offline-analysis split is tracked in
 `docs/ISSUE_MAP_DAQ_SPLIT.md`.
 
-Completed split work:
-- Versioned captured-spill artifact contract (`schema_version=1`) with manifest,
-  stream inventory, raw payload files, byte counts, sample counts, and checksums.
-- Live `capture-spill` one-shot command.
-- Live `capture-spills --free-run [--count N]` command with `capture_index.csv`.
-- Same-spill DAQ diagnostics for capture completeness, timestamp distributions,
-  stream/digitizer reason codes, and regenerateable run reports.
-- Non-capturing `assess` preflight for latest-ID stream/digitizer timing checks
-  before raw payload acquisition.
-- Offline `analyze-captured-spill` command that consumes one captured bundle and
-  emits the current one-spill analysis artifacts without Redis connectivity.
-- Offline `analyze-captured-spills` command that consumes captured bundles and
-  emits current batch artifacts without Redis connectivity.
-- Minimal online/offline parity guardrail for the same raw spill data. This is
-  a split regression check, not physics certification of the current algorithm.
+Completed split work now covers versioned captured-spill bundles, live
+one-shot/free-run capture, same-spill DAQ diagnostics, `assess`,
+`diagnose-captures`, offline single/batch captured-bundle analysis, and a
+minimal online/offline parity guardrail. See `docs/USAGE.md` for command usage
+and `docs/ISSUE_MAP_DAQ_SPLIT.md` for the issue history. The parity guardrail
+is a split regression check, not physics certification of the current algorithm.
 
 ## Open Physics Questions (still external)
 

@@ -37,6 +37,17 @@ None.
 
 ## Done
 
+### [ENG-011] README and usage-doc restructure
+- Status: done
+- Owner: codex
+- Type: docs
+- Why: the README had grown into a long combined feature inventory, user guide, artifact reference, Docker guide, and developer orientation.
+- Scope: make `README.md` a concise project entry point, move command workflows into `docs/USAGE.md`, and trim repeated implemented-feature inventories across planning and physics docs.
+- Acceptance: README introduces the project succinctly with links to feature guides; user workflows remain documented outside the README; internal docs consistently reference implemented commands, timing semantics, captured-spill artifacts, batch outputs, and remaining physics work.
+- Docs: README.md, AGENTS.md, .github/pull_request_template.md, .github/ISSUE_TEMPLATE/feature_request.yml, docs/USAGE.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/GITHUB_WORKFLOW.md, docs/ENGINEERING_BACKLOG.md
+- Validation: cargo run --offline -- --help; cargo fmt --all; cargo test -- --nocapture
+- Notes: tracked by GitHub issue #17; docs-only restructure with no behavior or schema changes.
+
 ### [ENG-010] Capture timing diagnostics and assess preflight
 - Status: done
 - Owner: codex

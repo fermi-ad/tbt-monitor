@@ -1,35 +1,21 @@
 # ANALYSIS_CHECKLIST
 Remaining Implementation Checklist for Physics Validation
 
-This checklist has been trimmed to avoid re-tracking features that already
-exist in the repository (`README.md`, `docs/PLAN.md`, `docs/ARCHITECTURE.md`).
+This checklist tracks remaining analysis-quality work. Implemented command
+usage lives in `docs/USAGE.md`; implementation status and data flow live in
+`docs/PLAN.md` and `docs/ARCHITECTURE.md`.
 
 ## 1. Already Implemented (Removed from TODO)
 
-The following are already available and should be treated as baseline:
+Treat these as baseline rather than open TODOs:
 
-- per-spill artifacts: `spectrum_h/v`, `tune_vs_time`, `sliding_tune.csv`
-- per-spill tune-validation composite: `tune_validation.png`
-- per-spill spectrograms: `spectrogram_h/v` (top-down tune heatmap vs time with normalized log-power color scale)
-- optional flashpoint sampling mode (`--flashes N|max`) for fixed-count evenly
-  spaced sliding windows (bounded by available turn depth)
-- batch artifacts:
-  - `tune_vs_spill.png` (contains both `Qx` and `Qy`)
-  - optional `tune_vs_spill_flash_XX.png` series (flash-index trend across spills)
-  - optional `tune_histogram_flash_XX.png` series (flash-index histograms across spills)
-  - `confidence_vs_spill.png`
-  - `alignment_vs_spill.png` (coverage/alignment trend)
-  - `tune_scatter_qx_qy.png`
-  - `tune_histogram.png` (contains both `Qx` and `Qy` histograms)
-  - `batch_summary.md`
-- quality labels and flags: `GOOD`, `MARGINAL`, `BAD`, plus explicit
-  `quality_flags` (including edge and confidence checks)
-- batch records (`spills_summary.csv` / `.jsonl`) with tune, confidence,
-  alignment, stream counts, tracked-sliding statistics, and quality fields
-- robustness-study artifacts from `analyze-phase`:
-  - `tune_vs_window_start.png`, `tune_vs_window_length.png`
-  - `bpm_quality_table.csv`, `tune_by_bpm.png`, `confidence_by_bpm.png`
-  - `method_comparison.png`, `findings_summary.md`
+- per-spill tune artifacts, spectrograms, validation composite, and
+  `sliding_tune.csv`
+- flashpoint sampling (`--flashes N|max`) and per-flash batch trend/histogram
+  artifacts
+- batch records, plots, composite waterfalls, summaries, quality labels, and
+  explicit `quality_flags`
+- robustness-study artifacts from `analyze-phase`
 - external reference matching and residual plotting in batch mode
 
 ## 2. Open Implementation Work (Current TODO)
@@ -167,19 +153,10 @@ offline captured bundles to iterate on stronger physics-quality checks.
 
 Current split status:
 
-- `capture-spill` writes one raw captured-spill bundle without tune analysis.
-- `capture-spills --free-run [--count N]` writes one bundle per unique target
-  plus `capture_index.csv` and DAQ timing diagnostics.
-- `assess --events 1` checks latest-ID stream/digitizer timing without writing
-  raw payload bundles.
-- `diagnose-captures` regenerates capture timing diagnostics from existing
-  captured-spill manifests without Redis connectivity.
-- `analyze-captured-spill` consumes one captured-spill bundle and emits the
-  current one-spill analysis artifact set without Redis connectivity.
-- `analyze-captured-spills` consumes captured-spill bundles and emits the
-  current batch artifact set without Redis connectivity.
-- A minimal online/offline parity guardrail compares proof-of-concept outputs
-  for the same raw spill data in normal `cargo test`.
+The split is implemented for live capture, DAQ diagnostics, offline
+single/batch captured-bundle analysis, and a minimal online/offline parity
+guardrail. See `docs/USAGE.md` for command usage and
+`docs/ISSUE_MAP_DAQ_SPLIT.md` for issue history.
 
 The split guardrail is not a physics-quality acceptance criterion. It only
 checks that the captured-bundle path preserves today's analysis behavior so

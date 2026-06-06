@@ -6,30 +6,16 @@ existing BPM tune pipeline is physically credible for Delivery Ring operations.
 
 ## 1. Implemented Baseline (Current Repository)
 
-The software pipeline already provides:
+The current software baseline is documented in `docs/USAGE.md` and
+`docs/ARCHITECTURE.md`. Physics validation should build on these implemented
+capabilities rather than re-track them as new software tasks:
 
-- synchronized multi-BPM spill capture with adjacent-ms clustering (`±1 ms`)
-- injection-window and sliding-window tune extraction (`Qx`, `Qy`)
-- tracked sliding peaks with fallback/suspicious-step diagnostics
-- per-spill artifacts:
-  - `spectrum_h.png`, `spectrum_v.png`, `spectrogram_h.png`, `spectrogram_v.png`,
-    `tune_vs_time.png`, `tune_validation.png`, `sliding_tune.csv`
-- optional flashpoint sampling mode (`--flashes N|max`) for fixed-count evenly
-  spaced in-spill tune checkpoints (bounded by available turns and window size)
-- batch artifacts:
-  - `tune_vs_spill.png`, `confidence_vs_spill.png`, `alignment_vs_spill.png`,
-    `tune_scatter_qx_qy.png`, `tune_histogram.png`,
-    optional `tune_vs_spill_flash_XX.png` and `tune_histogram_flash_XX.png`
-    (one per flash index),
-    `composite_waterfall_h.png`, `composite_waterfall_v.png`, `batch_summary.md`
-- quality semantics and labels (`GOOD`, `MARGINAL`, `BAD`) with explicit flags
-  (for example `INCOMPLETE_TBT_POLL`, `LOW_ALIGNMENT_FRACTION`, low-confidence
-  and band-edge flags)
-- optional reference matching in batch mode (`reference-file`) with residual
-  outputs (`tune_residuals.png`)
-
-Physics validation should build on this baseline instead of redefining these as
-new software tasks.
+- synchronized multi-BPM spill snapshots and captured-spill bundles
+- injection-window, sliding-window, flashpoint, robustness-study, and batch
+  tune analysis
+- per-spill and batch plots, CSV/JSONL records, markdown summaries, quality
+  labels, explicit warnings, and timeliness metrics
+- optional external reference matching in batch mode
 
 ## 2. Core Physics Question
 
