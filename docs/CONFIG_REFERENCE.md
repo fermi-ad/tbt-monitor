@@ -73,7 +73,8 @@ This reference describes `config/monitor.cfg` keys used by runtime and analysis 
   - Exact stream timestamp deltas are still reported so millisecond-level spread
     can be trended.
 - `min_aligned_fraction`
-  - Minimum aligned fraction threshold for warnings/quality semantics.
+  - Minimum latest-ID same-spill fraction threshold for warnings. Capture
+    payload completeness is reported separately from latest-ID snapshot timing.
 
 ## Device Section
 

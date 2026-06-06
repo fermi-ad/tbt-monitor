@@ -13,7 +13,8 @@ Delivery Ring studies.
 - ACNET XML import into validated monitor/analyzer config.
 - Live Redis stream health monitoring with `XREAD BLOCK`.
 - One-shot and continuous raw spill capture.
-- Capture timing diagnostics and non-capturing preflight assessment.
+- Capture timing diagnostics, timestamp distributions, and non-capturing
+  preflight assessment.
 - Offline reanalysis from captured-spill bundles without Redis connectivity.
 - One-spill, multi-spill, no-beam, flashpoint, and robustness-study analysis.
 - Batch records, quality flags, timeliness metrics, plots, and summaries for
