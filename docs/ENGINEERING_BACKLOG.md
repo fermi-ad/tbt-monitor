@@ -37,6 +37,17 @@ None.
 
 ## Done
 
+### [ENG-010] Capture timing diagnostics and assess preflight
+- Status: done
+- Owner: codex
+- Type: reliability
+- Why: DAQ runs need first-class completeness and timing diagnostics so stale digitizers and timestamp distributions are visible before and during acquisition.
+- Scope: add `same_spill_tolerance_ms`, capture manifest diagnostics, run-level capture CSV/JSON/Markdown reports, offline `diagnose-captures`, non-capturing `assess`, reason-code tests, and documentation.
+- Acceptance: capture artifacts distinguish complete same-spill payloads from stale latest-poll observations; existing capture directories can regenerate reports; `assess` writes preflight stream/digitizer reports without payload capture; v1 remains annotate-only.
+- Docs: README.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/CONFIG_REFERENCE.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+- Validation: cargo fmt --all; cargo test -- --nocapture
+- Notes: future strict-fail mode should reuse the same reason codes and enforce captured artifact quality first.
+
 ### [ENG-009] Online/offline split parity guardrail
 - Status: done
 - Owner: codex

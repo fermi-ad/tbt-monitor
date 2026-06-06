@@ -40,6 +40,7 @@ pub struct MonitorConfig {
     pub qy_track_half_width: f64,
     pub max_tune_step_per_window: f64,
     pub align_tolerance_ms: u64,
+    pub same_spill_tolerance_ms: u64,
     pub min_aligned_fraction: f64,
     pub devices: Vec<DeviceConfig>,
 }
@@ -172,6 +173,7 @@ pub fn load_monitor_config(path: &Path) -> Result<MonitorConfig> {
     let mut qy_track_half_width = 0.005f64;
     let mut max_tune_step_per_window = 0.005f64;
     let mut align_tolerance_ms = 1u64;
+    let mut same_spill_tolerance_ms = 25u64;
     let mut min_aligned_fraction = 0.70f64;
 
     let mut devices: Vec<DeviceConfig> = Vec::new();
@@ -365,6 +367,11 @@ pub fn load_monitor_config(path: &Path) -> Result<MonitorConfig> {
                         format!("invalid align_tolerance_ms on line {}", line_no + 1)
                     })?
                 }
+                "same_spill_tolerance_ms" => {
+                    same_spill_tolerance_ms = value.parse::<u64>().with_context(|| {
+                        format!("invalid same_spill_tolerance_ms on line {}", line_no + 1)
+                    })?
+                }
                 "min_aligned_fraction" => {
                     min_aligned_fraction = value.parse::<f64>().with_context(|| {
                         format!("invalid min_aligned_fraction on line {}", line_no + 1)
@@ -405,6 +412,7 @@ pub fn load_monitor_config(path: &Path) -> Result<MonitorConfig> {
         qy_track_half_width,
         max_tune_step_per_window,
         align_tolerance_ms,
+        same_spill_tolerance_ms,
         min_aligned_fraction,
         devices,
     };
@@ -480,6 +488,10 @@ pub fn save_monitor_config(path: &Path, config: &MonitorConfig) -> Result<()> {
     out.push_str(&format!(
         "align_tolerance_ms={}\n",
         config.align_tolerance_ms
+    ));
+    out.push_str(&format!(
+        "same_spill_tolerance_ms={}\n",
+        config.same_spill_tolerance_ms
     ));
     out.push_str(&format!(
         "min_aligned_fraction={}\n",
@@ -618,6 +630,7 @@ stream_key={MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_SCALED
         assert!((config.qx_track_half_width - 0.005).abs() < 1e-12);
         assert!((config.qy_track_half_width - 0.005).abs() < 1e-12);
         assert!((config.max_tune_step_per_window - 0.005).abs() < 1e-12);
+        assert_eq!(config.same_spill_tolerance_ms, 25);
     }
 
     #[test]
@@ -633,6 +646,7 @@ stream_key={MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_SCALED
         text.push_str("tune_plot_y_min=0.61\n");
         text.push_str("tune_plot_y_max=0.74\n");
         text.push_str("tune_plot_y_tick_step=0.02\n");
+        text.push_str("same_spill_tolerance_ms=50\n");
         text.push_str(&base_config_text());
         let path = write_temp_config(&text);
         let config = load_monitor_config(&path).expect("load config");
@@ -648,6 +662,7 @@ stream_key={MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_SCALED
         assert!((config.tune_plot_y_min - 0.61).abs() < 1e-12);
         assert!((config.tune_plot_y_max - 0.74).abs() < 1e-12);
         assert!((config.tune_plot_y_tick_step - 0.02).abs() < 1e-12);
+        assert_eq!(config.same_spill_tolerance_ms, 50);
     }
 
     #[test]

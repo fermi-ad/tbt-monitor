@@ -182,6 +182,7 @@ pub fn import_xml_config(path: &Path) -> Result<(MonitorConfig, ImportReport)> {
         qy_track_half_width: 0.005,
         max_tune_step_per_window: 0.005,
         align_tolerance_ms: 1,
+        same_spill_tolerance_ms: 25,
         min_aligned_fraction: 0.70,
         devices,
     };

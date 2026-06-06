@@ -64,7 +64,14 @@ This reference describes `config/monitor.cfg` keys used by runtime and analysis 
 ## Synchronization Keys
 
 - `align_tolerance_ms`
-  - Per-stream alignment tolerance for considering an observation aligned with `target_ms`.
+  - Legacy/live-analysis per-stream alignment tolerance for strict observation
+    alignment checks.
+- `same_spill_tolerance_ms`
+  - Capture and DAQ diagnostics tolerance for deciding whether a stream belongs
+    to the selected same-spill `target_ms`.
+  - Default: `25`.
+  - Exact stream timestamp deltas are still reported so millisecond-level spread
+    can be trended.
 - `min_aligned_fraction`
   - Minimum aligned fraction threshold for warnings/quality semantics.
 
@@ -78,7 +85,10 @@ Each `[[device]]` defines:
 
 ## Operational Guidance
 
-- Keep `align_tolerance_ms` conservative to avoid over-merging independent events.
+- Keep `same_spill_tolerance_ms` far below the nominal event spacing. The
+  default `25 ms` is intended to measure millisecond jitter while staying well
+  below the 15-second spill cadence.
+- Keep `align_tolerance_ms` conservative for legacy live-analysis checks.
 - Tune `min_peak_confidence` by signal regime:
   - higher for stricter quality gating
   - lower when signal amplitude is weak but expected

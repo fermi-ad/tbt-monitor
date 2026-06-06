@@ -169,7 +169,11 @@ Current split status:
 
 - `capture-spill` writes one raw captured-spill bundle without tune analysis.
 - `capture-spills --free-run [--count N]` writes one bundle per unique target
-  plus `capture_index.csv`.
+  plus `capture_index.csv` and DAQ timing diagnostics.
+- `assess --events 1` checks latest-ID stream/digitizer timing without writing
+  raw payload bundles.
+- `diagnose-captures` regenerates capture timing diagnostics from existing
+  captured-spill manifests without Redis connectivity.
 - `analyze-captured-spill` consumes one captured-spill bundle and emits the
   current one-spill analysis artifact set without Redis connectivity.
 - `analyze-captured-spills` consumes captured-spill bundles and emits the

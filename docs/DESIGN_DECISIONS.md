@@ -273,6 +273,32 @@ Tradeoffs:
 - Offline analysis depends on the manifest schema remaining explicit and
   versioned; schema changes must include loader/test/docs updates.
 
+## DD-016: Same-spill timing diagnostics
+
+Decision:
+- Treat capture completeness as a same-spill artifact question, not exact
+  millisecond equality.
+- Add `same_spill_tolerance_ms` with default `25 ms` for capture lookup,
+  duplicate suppression, and DAQ diagnostics.
+- Preserve exact timestamp deltas in per-spill manifests and run-level
+  diagnostics so jitter distributions can be trended.
+- Separate captured artifact quality from latest-poll timing diagnostics.
+  `LATEST_STALE_BUT_CAPTURED_OK` is diagnostic context, not a partial capture.
+- Add `assess` as a non-capturing preflight and `diagnose-captures` as an
+  offline report regenerator.
+
+Why:
+- Machine events arrive about every 15 seconds, so millisecond-level timestamp
+  spread should be measured instead of treated as missing data.
+- Operators need to identify stale digitizers before and during DAQ runs.
+- Stable reason codes allow a future strict-fail mode without changing the
+  diagnostic schema.
+
+Tradeoffs:
+- Manifests and run directories contain more diagnostic metadata.
+- There are now two timing concepts: legacy strict `align_tolerance_ms` and
+  capture-oriented `same_spill_tolerance_ms`.
+
 ## Decision Update Rule
 
 When changing one of these decisions, update:

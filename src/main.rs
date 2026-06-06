@@ -27,8 +27,8 @@ use analyze::{
     SpillSourceMode, StudyOptions, run_analyze_captured_spill, run_analyze_captured_spills,
     run_analyze_spill, run_analyze_spills, run_analyze_study,
 };
-use capture::{run_capture_spill, run_capture_spills};
-use config::{load_monitor_config, save_monitor_config};
+use capture::{run_assess, run_capture_spill, run_capture_spills, run_diagnose_captures};
+use config::{MonitorConfig, load_monitor_config, save_monitor_config};
 use importer::import_xml_config;
 use tui::run_dashboard;
 
@@ -89,7 +89,11 @@ enum Command {
         #[arg(long, default_value = "/out")]
         out_dir: PathBuf,
 
-        /// Override the allowed stream-ID millisecond delta for aligned capture.
+        /// Override the same-spill millisecond delta for capture and diagnostics.
+        #[arg(long)]
+        same_spill_tolerance_ms: Option<u64>,
+
+        /// Compatibility alias for --same-spill-tolerance-ms on capture commands.
         #[arg(long)]
         align_tolerance_ms: Option<u64>,
 
@@ -114,13 +118,52 @@ enum Command {
         #[arg(long)]
         count: Option<usize>,
 
-        /// Override the allowed stream-ID millisecond delta for aligned capture.
+        /// Override the same-spill millisecond delta for capture and diagnostics.
+        #[arg(long)]
+        same_spill_tolerance_ms: Option<u64>,
+
+        /// Compatibility alias for --same-spill-tolerance-ms on capture commands.
         #[arg(long)]
         align_tolerance_ms: Option<u64>,
 
         /// Override the minimum aligned stream fraction before warnings are emitted.
         #[arg(long)]
         min_aligned_fraction: Option<f64>,
+    },
+
+    /// Regenerate capture timing diagnostics from existing captured-spill bundles.
+    DiagnoseCaptures {
+        /// Directory containing captured-spill bundle directories, one bundle, or one manifest.
+        #[arg(long)]
+        bundles_dir: PathBuf,
+
+        #[arg(long, default_value = "/out")]
+        out_dir: PathBuf,
+
+        /// Override the same-spill millisecond delta used for regenerated diagnostics.
+        #[arg(long)]
+        same_spill_tolerance_ms: Option<u64>,
+    },
+
+    /// Assess configured TBT stream timing without collecting raw payload artifacts.
+    Assess {
+        #[arg(long, default_value = "config/monitor.cfg")]
+        config: PathBuf,
+
+        #[arg(long, default_value = "/out")]
+        out_dir: PathBuf,
+
+        /// Number of new machine events to watch after the initial latest-ID snapshot.
+        #[arg(long, default_value_t = 1)]
+        events: usize,
+
+        /// Override the same-spill millisecond delta for preflight diagnostics.
+        #[arg(long)]
+        same_spill_tolerance_ms: Option<u64>,
+
+        /// Compatibility alias for --same-spill-tolerance-ms.
+        #[arg(long)]
+        align_tolerance_ms: Option<u64>,
     },
 
     /// Run tune analysis for one spill, or continuously with --free-run.
@@ -547,15 +590,18 @@ fn main() -> Result<()> {
         Command::CaptureSpill {
             config,
             out_dir,
+            same_spill_tolerance_ms,
             align_tolerance_ms,
             min_aligned_fraction,
         } => {
             let mut monitor_config = load_monitor_config(&config)
                 .with_context(|| format!("failed to load {}", config.display()))?;
 
-            if let Some(v) = align_tolerance_ms {
-                monitor_config.align_tolerance_ms = v;
-            }
+            apply_same_spill_override(
+                &mut monitor_config,
+                same_spill_tolerance_ms,
+                align_tolerance_ms,
+            );
             if let Some(v) = min_aligned_fraction {
                 monitor_config.min_aligned_fraction = v;
             }
@@ -568,6 +614,7 @@ fn main() -> Result<()> {
             out_dir,
             free_run,
             count,
+            same_spill_tolerance_ms,
             align_tolerance_ms,
             min_aligned_fraction,
         } => {
@@ -578,15 +625,41 @@ fn main() -> Result<()> {
             let mut monitor_config = load_monitor_config(&config)
                 .with_context(|| format!("failed to load {}", config.display()))?;
 
-            if let Some(v) = align_tolerance_ms {
-                monitor_config.align_tolerance_ms = v;
-            }
+            apply_same_spill_override(
+                &mut monitor_config,
+                same_spill_tolerance_ms,
+                align_tolerance_ms,
+            );
             if let Some(v) = min_aligned_fraction {
                 monitor_config.min_aligned_fraction = v;
             }
 
             monitor_config.validate()?;
             run_capture_spills(monitor_config, &out_dir, free_run, count)?;
+        }
+        Command::DiagnoseCaptures {
+            bundles_dir,
+            out_dir,
+            same_spill_tolerance_ms,
+        } => {
+            run_diagnose_captures(&bundles_dir, &out_dir, same_spill_tolerance_ms)?;
+        }
+        Command::Assess {
+            config,
+            out_dir,
+            events,
+            same_spill_tolerance_ms,
+            align_tolerance_ms,
+        } => {
+            let mut monitor_config = load_monitor_config(&config)
+                .with_context(|| format!("failed to load {}", config.display()))?;
+            apply_same_spill_override(
+                &mut monitor_config,
+                same_spill_tolerance_ms,
+                align_tolerance_ms,
+            );
+            monitor_config.validate()?;
+            run_assess(monitor_config, &out_dir, Some(events))?;
         }
         Command::AnalyzeSpill {
             config,
@@ -1043,6 +1116,20 @@ fn main() -> Result<()> {
 
 fn normalize_block_ms(v: u64) -> u64 {
     if v == 0 { 0 } else { v.max(50) }
+}
+
+fn apply_same_spill_override(
+    config: &mut MonitorConfig,
+    same_spill_tolerance_ms: Option<u64>,
+    align_tolerance_ms: Option<u64>,
+) {
+    if let Some(v) = align_tolerance_ms {
+        config.align_tolerance_ms = v;
+        config.same_spill_tolerance_ms = v;
+    }
+    if let Some(v) = same_spill_tolerance_ms {
+        config.same_spill_tolerance_ms = v;
+    }
 }
 
 fn parse_flashes_arg(raw: &str) -> std::result::Result<usize, String> {
