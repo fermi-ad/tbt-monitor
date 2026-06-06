@@ -2,15 +2,19 @@
 
 ## Scope
 
-`tbt-monitor-tui` is a single Rust binary with six functional areas:
+`tbt-monitor-tui` is a single Rust binary with these functional areas:
 - config import and validation
 - live stream monitoring (TUI)
-- raw spill capture
-- one-spill tune analysis
+- raw spill capture and capture timing diagnostics
+- live one-spill tune analysis
+- offline captured-bundle analysis
 - robustness studies
 - multi-spill batch analysis
 
 The program reads Redis stream data from many BPM devices and converts it into synchronized spill-level artifacts and summary records.
+
+User command workflows live in `docs/USAGE.md`; this file focuses on module
+boundaries, data flow, synchronization policy, and artifact contracts.
 
 ## Module Map
 
@@ -262,6 +266,7 @@ Windowing policy:
   `effective_flashes <= floor(consensus_turns / sliding_window_turns)`.
 
 When changing artifact fields or meaning, update:
+- `docs/USAGE.md`
 - `README.md`
 - `docs/PLAN.md` (if plan alignment changes)
 - any downstream analysis scripts expecting stable columns
@@ -283,7 +288,8 @@ Implementation slices are tracked in `docs/ISSUE_MAP_DAQ_SPLIT.md`.
 1. Compute metric in `src/analyze.rs` snapshot/plane paths.
 2. Add to `SpillRecord` and batch serializers.
 3. Add to summary outputs and tests.
-4. Document in `README.md` and this file.
+4. Document in `docs/USAGE.md`, this file, and `README.md` only when the
+   high-level feature map changes.
 
 ### Add a new data source or reference
 

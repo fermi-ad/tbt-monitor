@@ -40,7 +40,8 @@ Before merge:
 
 1. `cargo fmt --all`
 2. `cargo test -- --nocapture`
-3. User-visible behavior/docs updated (`README.md`)
+3. User-visible behavior/docs updated (`docs/USAGE.md`, and `README.md` when
+   the project overview or command map changes)
 4. Architecture/rationale docs updated as needed
 5. `docs/ENGINEERING_BACKLOG.md` item moved to `done` (or deferral note recorded)
 

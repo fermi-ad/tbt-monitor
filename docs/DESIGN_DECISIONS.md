@@ -305,4 +305,7 @@ When changing one of these decisions, update:
 1. this file,
 2. `docs/ARCHITECTURE.md`,
 3. `docs/PLAN.md` (if plan alignment changes), and
-4. `README.md` for user-visible behavior changes.
+4. `docs/USAGE.md` for user-visible behavior changes.
+
+Update `README.md` only when the project overview, command map, or documentation
+routing changes.

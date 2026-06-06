@@ -10,7 +10,7 @@ This file helps coding assistants make safe, coherent changes in this repository
 - Live monitor runtime: `src/monitor.rs`
 - Raw spill capture path: `src/capture.rs`
 - Analysis/study/batch logic: `src/analyze.rs`
-- User docs: `README.md`
+- User docs: `README.md`, `docs/USAGE.md`, `docs/CONFIG_REFERENCE.md`
 - Architecture and rationale docs: `docs/ARCHITECTURE.md`, `docs/DESIGN_DECISIONS.md`, `docs/PLAN.md`
 
 ## Core Invariants
@@ -25,7 +25,8 @@ This file helps coding assistants make safe, coherent changes in this repository
 
 When behavior changes, update all of:
 - implementation (`src/*.rs`)
-- user docs (`README.md`)
+- user workflow docs (`docs/USAGE.md`) and `README.md` when the project-level
+  command map changes
 - architecture/rationale docs (`docs/*.md`)
 - plan alignment (`docs/PLAN.md`) if roadmap fit changes
 
@@ -38,7 +39,9 @@ Required completion checks:
 
 1. Backlog item status is moved to `done` in `docs/ENGINEERING_BACKLOG.md`.
 2. Affected docs listed in the backlog item's `Docs:` line are updated.
-3. `README.md` is updated for user-visible behavior/CLI/artifact changes.
+3. `docs/USAGE.md` is updated for user-visible behavior/CLI/artifact changes;
+   `README.md` is updated when the high-level project overview or command map
+   changes.
 4. `docs/ARCHITECTURE.md` and `docs/DESIGN_DECISIONS.md` are updated when
    module boundaries, data flow, or rationale/tradeoffs change.
 5. `docs/PLAN.md` is updated when plan alignment/divergence changes.
@@ -56,14 +59,14 @@ the same backlog item under `Notes:`.
 1. Compute in `src/analyze.rs`.
 2. Thread into spill summary and batch summary if applicable.
 3. Add tests in `src/analyze.rs`.
-4. Document in `README.md` and architecture docs.
+4. Document in `docs/USAGE.md` and architecture docs.
 
 ### Add CLI option
 
 1. Add flag in `src/main.rs` command struct.
 2. Apply override before dispatch.
 3. Validate through config and command-specific checks.
-4. Update CLI examples in `README.md`.
+4. Update CLI examples in `docs/USAGE.md`.
 
 ### Modify synchronization/timing behavior
 

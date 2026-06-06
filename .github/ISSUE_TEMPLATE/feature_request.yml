@@ -59,7 +59,7 @@ body:
     attributes:
       label: Required Doc Updates
       description: List docs that must be updated per AGENTS.md doc-sync gate.
-      placeholder: README.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+      placeholder: README.md, docs/USAGE.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
     validations:
       required: true
 
