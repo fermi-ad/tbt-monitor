@@ -1565,6 +1565,10 @@ fn write_capture_quality_report_md(out_dir: &Path, results: &[CaptureWriteResult
     let mut lines = Vec::<String>::new();
     lines.push("# Capture Quality Report".to_string());
     lines.push(String::new());
+    lines.push("This report treats captured payload completeness as the acquisition-quality source of truth. Latest-poll diagnostics are advisory unless a future strict mode explicitly enables them.".to_string());
+    lines.push(String::new());
+    lines.push("## Captured Artifact Completeness".to_string());
+    lines.push(String::new());
     lines.push(format!("- spills assessed: `{total}`"));
     lines.push(format!("- complete captured spills: `{complete}`"));
     lines.push(format!("- partial captured spills: `{}`", total - complete));
@@ -1587,26 +1591,9 @@ fn write_capture_quality_report_md(out_dir: &Path, results: &[CaptureWriteResult
         .map(|bucket| bucket.count)
         .sum::<usize>();
     lines.push(String::new());
-    lines.push("## Timestamp Delta Distribution".to_string());
-    lines.push(String::new());
-    lines.push("Delta is `stream_timestamp_ms - target_ms`.".to_string());
-    lines.push(String::new());
-    lines.push(format!(
-        "- captured payload timestamps: `{captured_observed}` observed stream timestamps"
-    ));
-    lines.push(format!(
-        "- captured payload delta_ms: `{}`",
-        format_aggregate_delta_distribution(&captured_distribution)
-    ));
-    lines.push(format!(
-        "- latest-ID snapshot timestamps: `{latest_observed}` observed stream timestamps"
-    ));
-    lines.push(format!(
-        "- latest-ID snapshot delta_ms: `{}`",
-        format_aggregate_delta_distribution(&latest_distribution)
-    ));
-    lines.push(String::new());
     lines.push("## Capture Suspect Digitizers".to_string());
+    lines.push(String::new());
+    lines.push("Primary bad-digitizer signal: a digitizer appears here only when captured payloads are missing, stale, ahead, or malformed.".to_string());
     if capture_suspects.is_empty() {
         lines.push(String::new());
         lines.push("None.".to_string());
@@ -1617,18 +1604,38 @@ fn write_capture_quality_report_md(out_dir: &Path, results: &[CaptureWriteResult
         }
     }
     lines.push(String::new());
-    lines.push("## Latest-Poll Suspect Digitizers".to_string());
+    lines.push("## Captured Payload Timestamp Distribution".to_string());
+    lines.push(String::new());
+    lines.push("Delta is `stream_timestamp_ms - target_ms`.".to_string());
+    lines.push(String::new());
+    lines.push(format!(
+        "- observed stream timestamps: `{captured_observed}`"
+    ));
+    lines.push(format!(
+        "- delta_ms: `{}`",
+        format_aggregate_delta_distribution(&captured_distribution)
+    ));
+    lines.push(String::new());
+    lines.push("## Latest-Poll Diagnostics".to_string());
+    lines.push(String::new());
+    lines.push("Secondary signal only: these are instantaneous latest-ID snapshot observations and do not make a complete captured artifact partial.".to_string());
+    lines.push(String::new());
+    lines.push(format!(
+        "- latest-ID snapshot timestamps: `{latest_observed}` observed stream timestamps"
+    ));
+    lines.push(format!(
+        "- latest-ID snapshot delta_ms: `{}`",
+        format_aggregate_delta_distribution(&latest_distribution)
+    ));
     if latest_suspects.is_empty() {
         lines.push(String::new());
-        lines.push("None.".to_string());
+        lines.push("- latest-poll suspect digitizers: none".to_string());
     } else {
-        lines.push(String::new());
+        lines.push("- latest-poll suspect digitizers:".to_string());
         for (bpm_ip, count) in sorted_count_items(&latest_suspects) {
-            lines.push(format!("- `{bpm_ip}` in `{count}` spills"));
+            lines.push(format!("  - `{bpm_ip}` in `{count}` spills"));
         }
     }
-    lines.push(String::new());
-    lines.push("Latest-poll suspects are timing diagnostics. They do not make a captured artifact partial when the captured payload is complete and same-spill.".to_string());
 
     fs::write(
         out_dir.join("capture_quality_report.md"),
@@ -2750,27 +2757,25 @@ fn capture_summary_lines(
         "same_spill_tolerance_ms: {}",
         spill.same_spill_tolerance_ms
     ));
-    lines.push(format!("capture_status: {}", diagnostics.status));
+    lines.push(format!("artifact_status: {}", diagnostics.status));
     lines.push(format!("requested_streams: {}", spill.requested_streams));
-    lines.push(format!(
-        "latest_observations: {}",
-        spill.latest_observations.len()
-    ));
-    lines.push(format!(
-        "latest_same_spill_streams: {}",
-        diagnostics.latest_timing.same_spill_count
-    ));
     lines.push(format!("captured_streams: {}", streams.len()));
     lines.push(format!(
         "complete_streams: {}",
         diagnostics.complete_streams
     ));
     lines.push(format!(
-        "suspect_digitizers: {}",
+        "capture_suspect_digitizers: {}",
         diagnostics.suspect_digitizers
     ));
+    if diagnostics.suspect_digitizers > 0 {
+        lines.push(format!(
+            "capture_suspect_digitizer_details: {}",
+            format_capture_suspect_digitizers(diagnostics)
+        ));
+    }
     lines.push(format!(
-        "latest_poll_suspect_digitizers: {}",
+        "latest_poll_only_suspect_digitizers: {}",
         diagnostics.latest_poll_suspect_digitizers
     ));
     lines.push(format!(
@@ -2784,6 +2789,15 @@ fn capture_summary_lines(
     lines.push(format!(
         "captured_payload_delta_distribution: {}",
         format_delta_distribution(&diagnostics.captured_timing)
+    ));
+    lines.push("latest_poll_diagnostics: advisory only; captured artifact status is determined from captured payloads".to_string());
+    lines.push(format!(
+        "latest_observations: {}",
+        spill.latest_observations.len()
+    ));
+    lines.push(format!(
+        "latest_same_spill_streams: {}",
+        diagnostics.latest_timing.same_spill_count
     ));
     lines.push(format!(
         "latest_id_snapshot_timestamp_counts: {}",
@@ -2811,9 +2825,16 @@ fn capture_summary_lines(
             stream.payload_file.as_deref().unwrap_or("NA")
         ));
     }
-    if !spill.warnings.is_empty() {
+    let (capture_warnings, latest_poll_warnings) = split_capture_warnings(&spill.warnings);
+    if !capture_warnings.is_empty() {
         lines.push("warnings:".to_string());
-        for warning in &spill.warnings {
+        for warning in capture_warnings {
+            lines.push(format!("  - {warning}"));
+        }
+    }
+    if !latest_poll_warnings.is_empty() {
+        lines.push("latest_poll_warnings:".to_string());
+        for warning in latest_poll_warnings {
             lines.push(format!("  - {warning}"));
         }
     }
@@ -2827,25 +2848,20 @@ fn print_capture_summary(result: &CaptureWriteResult, spill: &CapturedSpill, tit
     println!("  manifest: {}", result.manifest_path.display());
     println!("  summary: {}", result.summary_path.display());
     println!(
-        "  capture status: {} (same-spill tolerance ±{} ms)",
+        "  artifact status: {} (captured payloads within ±{} ms)",
         result.diagnostics.status, result.diagnostics.same_spill_tolerance_ms
     );
     println!(
-        "  streams: captured {} of {} configured",
-        result.captured_streams, result.requested_streams
-    );
-    println!(
-        "  complete streams: {} of {} configured",
+        "  captured artifact: {}/{} complete streams",
         result.diagnostics.complete_streams, result.requested_streams
     );
-    if result.diagnostics.suspect_digitizers > 0
-        || result.diagnostics.latest_poll_suspect_digitizers > 0
-    {
+    if result.diagnostics.suspect_digitizers > 0 {
         println!(
-            "  suspect digitizers: capture={} latest_poll={}",
-            result.diagnostics.suspect_digitizers,
-            result.diagnostics.latest_poll_suspect_digitizers
+            "  capture suspect digitizers: {}",
+            format_capture_suspect_digitizers(&result.diagnostics)
         );
+    } else {
+        println!("  capture suspect digitizers: none");
     }
     println!(
         "  captured payload timestamps: {}",
@@ -2856,22 +2872,62 @@ fn print_capture_summary(result: &CaptureWriteResult, spill: &CapturedSpill, tit
         timing_range_text(&result.diagnostics.captured_timing),
         format_delta_distribution(&result.diagnostics.captured_timing)
     );
-    println!(
-        "  latest-ID snapshot timestamps: {}; observations={}",
-        timing_bucket_counts_text(&result.diagnostics.latest_timing),
-        result.latest_observations
-    );
-    println!(
-        "  latest-ID snapshot delta_ms: {}; distribution: {}",
-        timing_range_text(&result.diagnostics.latest_timing),
-        format_delta_distribution(&result.diagnostics.latest_timing)
-    );
-    if !spill.warnings.is_empty() {
+    if result.diagnostics.latest_poll_suspect_digitizers > 0 {
+        println!(
+            "  latest-poll advisory: {} suspect digitizers in snapshot only; ignored for artifact completeness",
+            result.diagnostics.latest_poll_suspect_digitizers
+        );
+    }
+    let (capture_warnings, latest_poll_warnings) = split_capture_warnings(&spill.warnings);
+    if !capture_warnings.is_empty() {
         println!("  warnings:");
-        for warning in &spill.warnings {
+        for warning in capture_warnings {
             println!("    - {warning}");
         }
     }
+    if !latest_poll_warnings.is_empty() {
+        println!("  latest-poll warnings (advisory):");
+        for warning in latest_poll_warnings {
+            println!("    - {warning}");
+        }
+    }
+}
+
+fn format_capture_suspect_digitizers(diagnostics: &CaptureDiagnostics) -> String {
+    let items = diagnostics
+        .digitizers
+        .iter()
+        .filter(|row| row.suspect)
+        .map(|row| {
+            format!(
+                "{} missing={} stale={} ahead={} payload={}",
+                row.bpm_ip,
+                row.missing_capture_streams,
+                row.stale_capture_streams,
+                row.ahead_capture_streams,
+                row.payload_issue_streams
+            )
+        })
+        .collect::<Vec<_>>();
+    if items.is_empty() {
+        "none".to_string()
+    } else {
+        items.join("; ")
+    }
+}
+
+fn split_capture_warnings(warnings: &[String]) -> (Vec<&str>, Vec<&str>) {
+    warnings
+        .iter()
+        .map(String::as_str)
+        .partition(|warning| !is_latest_poll_warning(warning))
+}
+
+fn is_latest_poll_warning(warning: &str) -> bool {
+    warning.contains("latest-ID")
+        || warning.contains("latest entry")
+        || warning.contains("latest TBT entries")
+        || warning.contains("target selection")
 }
 
 fn opt_usize(value: Option<usize>) -> String {

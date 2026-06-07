@@ -126,6 +126,13 @@ captured-payload timestamp distribution to understand how those streams were
 bucketed. Latest-ID snapshot staleness is diagnostic context and can be one
 machine event old even when the captured payload is complete.
 
+For acquisition quality, treat captured payload completeness as the source of
+truth. `capture_suspect_digitizers` and captured statuses such as
+`MISSING_CAPTURE`, `STALE_CAPTURE`, `AHEAD_CAPTURE`, `PAYLOAD_MISSING`, and
+`PAYLOAD_MALFORMED` are the primary bad-digitizer signals. Latest-poll-only
+suspects are advisory and should not reject an otherwise complete captured
+artifact.
+
 Each bundle is written as:
 
 - `spill_<target_ms>/manifest.json`

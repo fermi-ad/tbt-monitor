@@ -287,6 +287,9 @@ Decision:
   captured payload for the same target is complete.
 - Separate captured artifact quality from latest-poll timing diagnostics.
   `LATEST_STALE_BUT_CAPTURED_OK` is diagnostic context, not a partial capture.
+- Make operator-facing summaries lead with captured artifact completeness and
+  capture suspect digitizers. Latest-poll-only suspects remain available for
+  troubleshooting, but are explicitly secondary to captured payload quality.
 - Add `assess` as a non-capturing preflight and `diagnose-captures` as an
   offline report regenerator.
 

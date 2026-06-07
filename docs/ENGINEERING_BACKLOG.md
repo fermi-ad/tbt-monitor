@@ -37,6 +37,17 @@ None.
 
 ## Done
 
+### [ENG-014] Make captured-artifact quality the primary capture UX
+- Status: done
+- Owner: codex
+- Type: qol
+- Why: operators care first about complete same-spill acquisitions and bad digitizers in captured payloads; latest-poll snapshot staleness was too prominent in console and run reports.
+- Scope: update capture summaries and quality reports to lead with artifact completeness and capture suspect digitizers, while keeping latest-poll-only suspects as explicitly advisory diagnostics.
+- Acceptance: complete captures with stale latest-poll snapshots read as complete acquisitions; bad-digitizer alerts are tied to captured payload missing/stale/ahead/malformed reasons; latest-poll diagnostics remain available for troubleshooting.
+- Docs: docs/USAGE.md, docs/DESIGN_DECISIONS.md, docs/ENGINEERING_BACKLOG.md
+- Validation: cargo fmt --all; cargo test -- --nocapture
+- Notes: this is a reporting/triage priority change, not a captured bundle schema change.
+
 ### [ENG-013] RAW position plus auxiliary RAW intensity capture
 - Status: done
 - Owner: codex
