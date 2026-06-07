@@ -302,6 +302,33 @@ Tradeoffs:
 - There are now two timing concepts: legacy strict `align_tolerance_ms` and
   capture-oriented `same_spill_tolerance_ms`.
 
+## DD-017: RAW position plus auxiliary RAW intensity capture
+
+Decision:
+- Use `TBT_POSITION_RAW` as the checked-in position capture stream variant for
+  the next preservation run.
+- Add `capture_intensity_variant` as an optional config-level derived capture
+  control. `capture_intensity_variant=raw` derives one `TBT_INTENSITY_RAW`
+  stream from each configured position stream.
+- Keep position streams responsible for free-run wake watching, target
+  selection, and offline tune analysis.
+- Capture and diagnose derived intensity streams as auxiliary raw payloads, but
+  do not promote them into tune-analysis semantics yet.
+
+Why:
+- RAW position preserves the least-transformed position artifact while RAW vs
+  SCALED conventions are still being investigated.
+- RAW intensity appears available at the same 5000-sample full-resolution shape
+  and may help later quality/beam-present studies.
+- Keeping intensity auxiliary avoids accidentally treating intensity waveforms as
+  H/V position traces in the proof-of-concept tune chain.
+
+Tradeoffs:
+- A complete default capture now expects 240 streams instead of 120, roughly
+  doubling full-resolution payload bytes per spill.
+- Offline tune analysis must intentionally skip auxiliary intensity entries
+  until an intensity analysis or quality-gating contract is defined.
+
 ## Decision Update Rule
 
 When changing one of these decisions, update:

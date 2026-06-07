@@ -16,6 +16,8 @@ capabilities rather than re-track them as new software tasks:
 - per-spill and batch plots, CSV/JSONL records, markdown summaries, quality
   labels, explicit warnings, and timeliness metrics
 - optional external reference matching in batch mode
+- acquisition of RAW position payloads plus auxiliary RAW intensity payloads
+  for later data-quality studies
 
 ## 2. Core Physics Question
 
@@ -125,6 +127,12 @@ Use repository field names when reviewing outputs:
 - no dedicated cross-BPM coherence metric exported as first-class batch field
 - no dedicated clipping/saturation diagnostic exported yet
 - no SVD/PCA tune path in production flow yet
+- no physics-quality contract yet for auxiliary intensity payloads; RAW
+  intensity is currently preserved for offline study, not used in tune
+  extraction
+- current full-resolution Redis payloads observed so far contain 5000 `f32`
+  samples; any expectation of a longer turn window still needs to be reconciled
+  with front-end acquisition settings or stream variant semantics
 
 ## 7. Acceptance Criteria
 

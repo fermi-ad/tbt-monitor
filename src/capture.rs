@@ -79,6 +79,12 @@ struct CapturedStreamEntry {
 }
 
 #[derive(Debug, Clone)]
+struct CaptureStreamSpec {
+    stream_key: String,
+    plane: Plane,
+}
+
+#[derive(Debug, Clone)]
 struct CaptureWake {
     bpm_ip: String,
     stream_id: String,
@@ -405,7 +411,11 @@ fn collect_assess_snapshot(
     let mut warnings = Vec::<String>::new();
     let mut observations = collect_latest_tbt_observations(config, &mut warnings)?;
     let target_ms = choose_target_millisecond(
-        &observations.iter().map(|obs| obs.ms).collect::<Vec<_>>(),
+        &observations
+            .iter()
+            .filter(|obs| classify_plane(&obs.stream_key).is_some())
+            .map(|obs| obs.ms)
+            .collect::<Vec<_>>(),
         target_bucket_tolerance_ms(config),
     );
     if let Some(target_ms) = target_ms {
@@ -846,8 +856,8 @@ fn capture_latest_spill_with_retries(config: &MonitorConfig) -> Result<CapturedS
 
 fn capture_latest_spill(config: &MonitorConfig) -> Result<CapturedSpill> {
     let mut warnings = Vec::<String>::new();
-    let requested_streams = count_requested_tbt_streams(config);
     let stream_inventory = collect_stream_inventory(config);
+    let requested_streams = stream_inventory.len();
 
     let mut latest_observations = collect_latest_tbt_observations(config, &mut warnings)?;
     if latest_observations.is_empty() {
@@ -862,10 +872,14 @@ fn capture_latest_spill(config: &MonitorConfig) -> Result<CapturedSpill> {
     }
 
     let target_ms = choose_target_millisecond(
-        &latest_observations.iter().map(|o| o.ms).collect::<Vec<_>>(),
+        &latest_observations
+            .iter()
+            .filter(|obs| classify_plane(&obs.stream_key).is_some())
+            .map(|obs| obs.ms)
+            .collect::<Vec<_>>(),
         target_bucket_tolerance_ms(config),
     )
-    .ok_or_else(|| anyhow!("failed to choose target TBT millisecond"))?;
+    .ok_or_else(|| anyhow!("failed to choose target TBT millisecond from position streams"))?;
 
     for obs in &mut latest_observations {
         obs.aligned = abs_diff_u64(obs.ms, target_ms) <= config.same_spill_tolerance_ms;
@@ -933,10 +947,8 @@ fn collect_latest_tbt_observations(
         };
 
         let mut device_observations = 0usize;
-        for stream_key in &device.stream_keys {
-            if classify_plane(stream_key).is_none() {
-                continue;
-            }
+        for spec in collect_capture_stream_specs(config, device) {
+            let stream_key = &spec.stream_key;
 
             match fetch_latest_entry(&mut conn, stream_key) {
                 Ok(Some((id, _))) => {
@@ -968,7 +980,7 @@ fn collect_latest_tbt_observations(
 
         if device_observations == 0 {
             warnings.push(format!(
-                "{}: no latest TBT entries found on configured position streams",
+                "{}: no latest TBT entries found on configured capture streams",
                 device.bpm_ip
             ));
         }
@@ -997,10 +1009,8 @@ fn collect_stream_entries(
             }
         };
 
-        for stream_key in &device.stream_keys {
-            let Some(plane) = classify_plane(stream_key) else {
-                continue;
-            };
+        for spec in collect_capture_stream_specs(config, device) {
+            let stream_key = &spec.stream_key;
 
             let entry = match fetch_entry_near_target(
                 &mut conn,
@@ -1057,7 +1067,7 @@ fn collect_stream_entries(
                 device_label: device.label.clone(),
                 bpm_ip: device.bpm_ip.clone(),
                 stream_key: stream_key.clone(),
-                plane,
+                plane: spec.plane,
                 stream_id: id,
                 stream_ms: ms,
                 aligned: abs_diff_u64(ms, target_ms) <= tolerance_ms,
@@ -1826,7 +1836,10 @@ fn run_free_run_watch_worker(
 ) -> Result<()> {
     let keys = collect_tbt_stream_keys(&device);
     if keys.is_empty() {
-        bail!("{} has no TBT_POSITION_SCALED stream keys", device.bpm_ip);
+        bail!(
+            "{} has no configured position TBT stream keys",
+            device.bpm_ip
+        );
     }
 
     let mut reconnect_delay_ms = reconnect_initial_ms.max(250);
@@ -1881,19 +1894,46 @@ fn run_free_run_watch_worker(
 fn collect_stream_inventory(config: &MonitorConfig) -> Vec<CaptureStreamInventoryEntry> {
     let mut entries = Vec::new();
     for device in &config.devices {
-        for stream_key in &device.stream_keys {
-            let Some(plane) = classify_plane(stream_key) else {
-                continue;
-            };
+        for spec in collect_capture_stream_specs(config, device) {
             entries.push(CaptureStreamInventoryEntry {
                 device_label: device.label.clone(),
                 bpm_ip: device.bpm_ip.clone(),
-                stream_key: stream_key.clone(),
-                plane,
+                stream_key: spec.stream_key,
+                plane: spec.plane,
             });
         }
     }
     entries
+}
+
+fn collect_capture_stream_specs(
+    config: &MonitorConfig,
+    device: &DeviceConfig,
+) -> Vec<CaptureStreamSpec> {
+    let mut specs = Vec::new();
+    let mut seen = HashSet::<String>::new();
+    for key in &device.stream_keys {
+        let Some(plane) = classify_plane(key) else {
+            continue;
+        };
+        if seen.insert(key.clone()) {
+            specs.push(CaptureStreamSpec {
+                stream_key: key.clone(),
+                plane,
+            });
+        }
+        if let Some(aux_key) =
+            derive_intensity_stream_key(key, config.capture_intensity_variant.as_deref())
+        {
+            if seen.insert(aux_key.clone()) {
+                specs.push(CaptureStreamSpec {
+                    stream_key: aux_key,
+                    plane,
+                });
+            }
+        }
+    }
+    specs
 }
 
 fn collect_tbt_stream_keys(device: &DeviceConfig) -> Vec<String> {
@@ -2063,22 +2103,32 @@ fn payload_field(fields: &[(Vec<u8>, Vec<u8>)]) -> Option<&[u8]> {
 }
 
 fn classify_plane(key: &str) -> Option<Plane> {
-    if key.contains(":HP") && key.ends_with(":TBT_POSITION_SCALED") {
+    if key.contains(":HP") && is_position_stream_key(key) {
         Some(Plane::Horizontal)
-    } else if key.contains(":VP") && key.ends_with(":TBT_POSITION_SCALED") {
+    } else if key.contains(":VP") && is_position_stream_key(key) {
         Some(Plane::Vertical)
     } else {
         None
     }
 }
 
-fn count_requested_tbt_streams(config: &MonitorConfig) -> usize {
-    config
-        .devices
-        .iter()
-        .flat_map(|device| device.stream_keys.iter())
-        .filter(|key| classify_plane(key).is_some())
-        .count()
+fn is_position_stream_key(key: &str) -> bool {
+    key.ends_with(":TBT_POSITION_SCALED") || key.ends_with(":TBT_POSITION_RAW")
+}
+
+fn derive_intensity_stream_key(position_key: &str, variant: Option<&str>) -> Option<String> {
+    let variant = variant?;
+    let intensity_suffix = match variant {
+        "raw" => "TBT_INTENSITY_RAW",
+        "scaled" => "TBT_INTENSITY_SCALED",
+        "scaled_9a" => "TBT_INTENSITY_SCALED_9A",
+        "downsampled" => "TBT_INTENSITY_DOWNSAMPLED",
+        _ => return None,
+    };
+    position_key
+        .strip_suffix(":TBT_POSITION_SCALED")
+        .or_else(|| position_key.strip_suffix(":TBT_POSITION_RAW"))
+        .map(|prefix| format!("{prefix}:{intensity_suffix}"))
 }
 
 fn choose_target_millisecond(values: &[u64], merge_tolerance_ms: u64) -> Option<u64> {
@@ -3186,6 +3236,7 @@ mod tests {
             align_tolerance_ms: 1,
             same_spill_tolerance_ms: 25,
             min_aligned_fraction: 0.70,
+            capture_intensity_variant: None,
             devices: vec![DeviceConfig {
                 label: "BPM A".to_string(),
                 bpm_ip: "10.0.0.1".to_string(),
@@ -3220,6 +3271,51 @@ mod tests {
         assert!(sanitized.len() <= 32);
         assert!(!sanitized.contains(':'));
         assert!(!sanitized.contains('{'));
+    }
+
+    #[test]
+    fn raw_position_streams_classify_as_tbt_planes() {
+        assert_eq!(
+            classify_plane("{MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_RAW"),
+            Some(Plane::Horizontal)
+        );
+        assert_eq!(
+            classify_plane("{MUON:BPM:10.0.0.1}:VP102:TBT_POSITION_RAW"),
+            Some(Plane::Vertical)
+        );
+        assert_eq!(
+            classify_plane("{MUON:BPM:10.0.0.1}:HP101:TBT_INTENSITY_RAW"),
+            None
+        );
+    }
+
+    #[test]
+    fn capture_inventory_derives_raw_intensity_streams() {
+        let mut config = test_config();
+        config.capture_intensity_variant = Some("raw".to_string());
+        config.devices[0].stream_keys = vec![
+            "{MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_RAW".to_string(),
+            "{MUON:BPM:10.0.0.1}:VP102:TBT_POSITION_RAW".to_string(),
+        ];
+
+        let inventory = collect_stream_inventory(&config);
+        let keys = inventory
+            .iter()
+            .map(|entry| entry.stream_key.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(inventory.len(), 4);
+        assert!(keys.contains(&"{MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_RAW"));
+        assert!(keys.contains(&"{MUON:BPM:10.0.0.1}:HP101:TBT_INTENSITY_RAW"));
+        assert!(keys.contains(&"{MUON:BPM:10.0.0.1}:VP102:TBT_POSITION_RAW"));
+        assert!(keys.contains(&"{MUON:BPM:10.0.0.1}:VP102:TBT_INTENSITY_RAW"));
+        assert_eq!(
+            collect_tbt_stream_keys(&config.devices[0]),
+            vec![
+                "{MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_RAW".to_string(),
+                "{MUON:BPM:10.0.0.1}:VP102:TBT_POSITION_RAW".to_string()
+            ]
+        );
     }
 
     #[test]

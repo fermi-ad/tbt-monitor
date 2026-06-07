@@ -138,9 +138,12 @@ Divergence:
 ## Current Priorities
 
 1. Keep synchronized capture robust under real-world timestamp jitter.
-2. Preserve diagnostics even when data is incomplete (warn/flag instead of silent drop).
-3. Provide timing observability so data freshness/jitter can be trended.
-4. Keep outputs compatible with external reference validation workflows.
+2. Preserve least-transformed RAW position payloads for offline reanalysis.
+3. Capture auxiliary RAW intensity payloads so later quality studies can compare
+   beam/intensity behavior against position traces.
+4. Preserve diagnostics even when data is incomplete (warn/flag instead of silent drop).
+5. Provide timing observability so data freshness/jitter can be trended.
+6. Keep outputs compatible with external reference validation workflows.
 
 ## Next Milestones
 
@@ -157,8 +160,9 @@ The acquisition/offline-analysis split is tracked in
 Completed split work now covers versioned captured-spill bundles, live
 one-shot/free-run capture, same-spill DAQ diagnostics with explicit timestamp
 distributions, `assess`, `diagnose-captures`, offline single/batch
-captured-bundle analysis, and a minimal online/offline parity guardrail. See
-`docs/USAGE.md` for command usage and `docs/ISSUE_MAP_DAQ_SPLIT.md` for the
+captured-bundle analysis, a minimal online/offline parity guardrail, and
+auxiliary RAW intensity capture derived from configured RAW position streams.
+See `docs/USAGE.md` for command usage and `docs/ISSUE_MAP_DAQ_SPLIT.md` for the
 issue history. The parity guardrail is a split regression check, not physics
 certification of the current algorithm.
 
