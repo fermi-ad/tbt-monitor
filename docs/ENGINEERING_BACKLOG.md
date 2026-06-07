@@ -37,6 +37,17 @@ None.
 
 ## Done
 
+### [ENG-012] Capture timestamp distribution reporting
+- Status: done
+- Owner: codex
+- Type: reliability
+- Why: operators need `120/120` captured streams to show the actual timestamp distribution instead of relying on ambiguous latest-poll `% aligned` wording.
+- Scope: add captured-payload and latest-ID timestamp delta distributions to manifests, summaries, run-level JSON/Markdown, and a dedicated `capture_timestamp_distribution.csv`; clarify console warnings and docs.
+- Acceptance: complete captures report captured-payload timestamp buckets separately from latest-ID snapshot buckets; run-level reports aggregate both distributions; tests cover distribution fields and output creation.
+- Docs: README.md, docs/USAGE.md, docs/CONFIG_REFERENCE.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/ENGINEERING_BACKLOG.md
+- Validation: cargo fmt --all; cargo test -- --nocapture
+- Notes: implements the first practical slice of GitHub issue #19; settle-after-wake polling remains a follow-up if latest-ID snapshots still need delayed classification.
+
 ### [ENG-011] README and usage-doc restructure
 - Status: done
 - Owner: codex

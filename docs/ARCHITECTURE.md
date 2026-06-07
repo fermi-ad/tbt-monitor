@@ -78,7 +78,9 @@ boundaries, data flow, synchronization policy, and artifact contracts.
 3. Pull near-target Redis stream entries from every configured TbT stream.
 4. Persist raw `_` payload bytes without decoding them for tune analysis.
 5. Emit a captured-spill bundle with `manifest.json`, `capture_summary.txt`,
-   `payloads/*.bin`, and per-spill capture diagnostics.
+   `payloads/*.bin`, and per-spill capture diagnostics. The summary reports
+   captured-payload timestamp distributions separately from latest-ID snapshot
+   distributions.
 
 ### Capture Spills (`capture-spills --free-run`)
 
@@ -87,7 +89,7 @@ boundaries, data flow, synchronization policy, and artifact contracts.
 3. Suppress duplicate physical spills using same-spill tolerance.
 4. Write one captured-spill bundle per unique target.
 5. Maintain `capture_index.csv` plus stream, digitizer, JSON, and markdown
-   quality diagnostics.
+   quality diagnostics, including exact timestamp delta distributions.
 
 ### Assess (`assess`)
 
@@ -162,7 +164,7 @@ Rationale:
 Diagnostics are intentionally preserved instead of aggressively dropping imperfect spills.
 
 - Warnings are attached to snapshots when:
-  - alignment fraction is low
+  - latest-ID same-spill fraction is low
   - complete poll is unavailable
   - near-target reads are incomplete
 - Batch quality flags include `INCOMPLETE_TBT_POLL` and other confidence/alignment checks.
@@ -199,7 +201,8 @@ Captured-spill bundle schema:
   stream-ID millisecond, payload file path, byte count, sample count, and
   `fnv1a64` checksum
 - `capture_diagnostics` with per-stream reason codes, per-digitizer summaries,
-  exact timestamp deltas, and complete/partial status
+  exact timestamp deltas, delta-count distributions, and complete/partial
+  status
 - warnings for incomplete target selection, incomplete near-target capture,
   low alignment, missing payload fields, or non-`f32`-sized payloads
 
@@ -210,8 +213,8 @@ Raw payload policy:
 - `capture-spills` writes `capture_index.csv` as the run-level bundle index,
   keyed by `redis_timestamp_ms` / `target_ms`, and also writes
   `capture_spill_diagnostics.csv`, `capture_stream_diagnostics.csv`,
-  `capture_digitizer_diagnostics.csv`, `capture_quality_summary.json`, and
-  `capture_quality_report.md`.
+  `capture_timestamp_distribution.csv`, `capture_digitizer_diagnostics.csv`,
+  `capture_quality_summary.json`, and `capture_quality_report.md`.
 
 Offline single-spill analysis policy:
 - `analyze-captured-spill` consumes the captured-spill manifest/payload contract

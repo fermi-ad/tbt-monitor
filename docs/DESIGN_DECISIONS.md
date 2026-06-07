@@ -282,6 +282,9 @@ Decision:
   duplicate suppression, and DAQ diagnostics.
 - Preserve exact timestamp deltas in per-spill manifests and run-level
   diagnostics so jitter distributions can be trended.
+- Report captured-payload timestamp distributions separately from latest-ID
+  snapshot distributions. A latest-ID snapshot can be one event stale while the
+  captured payload for the same target is complete.
 - Separate captured artifact quality from latest-poll timing diagnostics.
   `LATEST_STALE_BUT_CAPTURED_OK` is diagnostic context, not a partial capture.
 - Add `assess` as a non-capturing preflight and `diagnose-captures` as an

@@ -107,6 +107,17 @@ streams within `same_spill_tolerance_ms` (default `25 ms`). Exact timestamp
 deltas are recorded; millisecond spread is diagnostic information, not automatic
 failure. Live duplicate suppression uses the same same-spill tolerance.
 
+Capture reports distinguish two timestamp populations:
+
+- captured payload timestamps: the raw entries actually written to the bundle
+- latest-ID snapshot timestamps: what each stream reported as its latest Redis
+  stream ID during target selection
+
+When captured payloads are `120/120`, use the captured-payload timestamp
+distribution to understand how those 120 streams were bucketed. Latest-ID
+snapshot staleness is diagnostic context and can be one machine event old even
+when the captured payload is complete.
+
 Each bundle is written as:
 
 - `spill_<target_ms>/manifest.json`
@@ -118,6 +129,7 @@ Free-run capture also writes run-level files:
 - `capture_index.csv`
 - `capture_spill_diagnostics.csv`
 - `capture_stream_diagnostics.csv`
+- `capture_timestamp_distribution.csv`
 - `capture_digitizer_diagnostics.csv`
 - `capture_quality_summary.json`
 - `capture_quality_report.md`
@@ -149,6 +161,15 @@ cargo run --offline -- diagnose-captures \
 Capture quality and latest-poll timing are separate. For example,
 `LATEST_STALE_BUT_CAPTURED_OK` means a latest-ID observation looked stale, but
 the near-target raw payload was found and captured.
+
+`capture_timestamp_distribution.csv` has one row per spill/source/delta bucket:
+
+- `source=captured_payload` describes timestamps for entries written to
+  payload files
+- `source=latest_id_snapshot` describes the latest Redis IDs observed during
+  target selection
+- `delta_ms` is `stream_timestamp_ms - target_ms`
+- `stream_count` is how many streams landed in that timestamp bucket
 
 ## One-Spill Analysis
 

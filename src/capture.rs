@@ -6,7 +6,7 @@
 //! later offline analysis.
 
 use std::cmp::Ordering;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Sender};
@@ -111,7 +111,7 @@ pub struct CaptureWriteResult {
     pub summary_path: PathBuf,
     pub requested_streams: usize,
     pub latest_observations: usize,
-    pub aligned_latest_streams: usize,
+    pub latest_same_spill_streams: usize,
     pub captured_streams: usize,
     pub warning_count: usize,
     diagnostics: CaptureDiagnostics,
@@ -136,6 +136,16 @@ struct TimingSummary {
     max_delta_ms: Option<i64>,
     median_abs_delta_ms: Option<f64>,
     max_abs_delta_ms: Option<u64>,
+    same_spill_count: usize,
+    stale_count: usize,
+    ahead_count: usize,
+    delta_counts: Vec<TimingDeltaCount>,
+}
+
+#[derive(Debug, Clone)]
+struct TimingDeltaCount {
+    delta_ms: i64,
+    count: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -300,7 +310,7 @@ pub fn run_diagnose_captures(
                 .join("capture_summary.txt"),
             requested_streams: spill.requested_streams,
             latest_observations: spill.latest_observations.len(),
-            aligned_latest_streams: spill
+            latest_same_spill_streams: spill
                 .latest_observations
                 .iter()
                 .filter(|obs| obs.aligned)
@@ -1111,7 +1121,7 @@ fn write_capture_bundle(out_dir: &Path, spill: &CapturedSpill) -> Result<Capture
         summary_path,
         requested_streams: spill.requested_streams,
         latest_observations: spill.latest_observations.len(),
-        aligned_latest_streams: spill
+        latest_same_spill_streams: spill
             .latest_observations
             .iter()
             .filter(|obs| obs.aligned)
@@ -1130,7 +1140,7 @@ fn write_capture_index(
 ) -> Result<()> {
     let mut rows = Vec::<String>::new();
     rows.push(
-        "capture_index,target_ms,redis_timestamp_ms,bundle_dir,manifest_path,requested_streams,latest_observations,aligned_latest_streams,captured_streams,warning_count,unresolved_wakes,duplicate_wakes,status,complete_streams,same_spill_streams,missing_streams,stale_capture_streams,ahead_capture_streams,payload_issue_streams,suspect_digitizers,latest_poll_suspect_digitizers,captured_delta_min_ms,captured_delta_max_ms,captured_delta_median_abs_ms,latest_delta_min_ms,latest_delta_max_ms,latest_delta_median_abs_ms"
+        "capture_index,target_ms,redis_timestamp_ms,bundle_dir,manifest_path,requested_streams,latest_observations,latest_same_spill_streams,captured_streams,warning_count,unresolved_wakes,duplicate_wakes,status,complete_streams,same_spill_streams,missing_streams,stale_capture_streams,ahead_capture_streams,payload_issue_streams,suspect_digitizers,latest_poll_suspect_digitizers,captured_delta_min_ms,captured_delta_max_ms,captured_delta_median_abs_ms,latest_delta_min_ms,latest_delta_max_ms,latest_delta_median_abs_ms"
             .to_string(),
     );
 
@@ -1144,7 +1154,7 @@ fn write_capture_index(
             csv_escape(&result.manifest_path.display().to_string()),
             result.requested_streams,
             result.latest_observations,
-            result.aligned_latest_streams,
+            result.latest_same_spill_streams,
             result.captured_streams,
             result.warning_count,
             unresolved_wakes,
@@ -1175,6 +1185,7 @@ fn write_capture_index(
 fn write_capture_diagnostics_outputs(out_dir: &Path, results: &[CaptureWriteResult]) -> Result<()> {
     write_capture_spill_diagnostics_csv(out_dir, results)?;
     write_capture_stream_diagnostics_csv(out_dir, results)?;
+    write_capture_timestamp_distribution_csv(out_dir, results)?;
     write_capture_digitizer_diagnostics_csv(out_dir, results)?;
     write_capture_quality_summary_json(out_dir, results)?;
     write_capture_quality_report_md(out_dir, results)?;
@@ -1264,6 +1275,63 @@ fn write_capture_stream_diagnostics_csv(
         rows.join("\n") + "\n",
     )
     .with_context(|| "failed to write capture_stream_diagnostics.csv")
+}
+
+fn write_capture_timestamp_distribution_csv(
+    out_dir: &Path,
+    results: &[CaptureWriteResult],
+) -> Result<()> {
+    let mut rows = vec![
+        "capture_index,target_ms,source,delta_ms,stream_count,total_observed_streams,fraction_observed"
+            .to_string(),
+    ];
+    for (idx, result) in results.iter().enumerate() {
+        append_timestamp_distribution_rows(
+            &mut rows,
+            idx,
+            result.target_ms,
+            "captured_payload",
+            &result.diagnostics.captured_timing,
+        );
+        append_timestamp_distribution_rows(
+            &mut rows,
+            idx,
+            result.target_ms,
+            "latest_id_snapshot",
+            &result.diagnostics.latest_timing,
+        );
+    }
+    fs::write(
+        out_dir.join("capture_timestamp_distribution.csv"),
+        rows.join("\n") + "\n",
+    )
+    .with_context(|| "failed to write capture_timestamp_distribution.csv")
+}
+
+fn append_timestamp_distribution_rows(
+    rows: &mut Vec<String>,
+    capture_index: usize,
+    target_ms: u64,
+    source: &str,
+    summary: &TimingSummary,
+) {
+    for bucket in &summary.delta_counts {
+        let fraction = if summary.count == 0 {
+            0.0
+        } else {
+            bucket.count as f64 / summary.count as f64
+        };
+        rows.push(format!(
+            "{},{},{},{},{},{},{:.6}",
+            capture_index,
+            target_ms,
+            csv_escape(source),
+            bucket.delta_ms,
+            bucket.count,
+            summary.count,
+            fraction
+        ));
+    }
 }
 
 fn write_capture_digitizer_diagnostics_csv(
@@ -1361,6 +1429,16 @@ fn write_capture_quality_summary_json(
         ));
     }
     out.push_str("  ],\n");
+    out.push_str("  \"captured_payload_delta_distribution\": [\n");
+    let captured_distribution =
+        aggregate_timing_distribution(results, |result| &result.diagnostics.captured_timing);
+    write_delta_distribution_json_items(&mut out, &captured_distribution, "    ");
+    out.push_str("  ],\n");
+    out.push_str("  \"latest_id_snapshot_delta_distribution\": [\n");
+    let latest_distribution =
+        aggregate_timing_distribution(results, |result| &result.diagnostics.latest_timing);
+    write_delta_distribution_json_items(&mut out, &latest_distribution, "    ");
+    out.push_str("  ],\n");
     out.push_str("  \"strict_fail_preview\": {\n");
     out.push_str(&format!(
         "    \"would_fail_on_capture_quality\": {},\n",
@@ -1375,6 +1453,84 @@ fn write_capture_quality_summary_json(
 
     fs::write(out_dir.join("capture_quality_summary.json"), out)
         .with_context(|| "failed to write capture_quality_summary.json")
+}
+
+fn aggregate_timing_distribution<F>(
+    results: &[CaptureWriteResult],
+    timing_selector: F,
+) -> Vec<TimingDeltaCount>
+where
+    F: Fn(&CaptureWriteResult) -> &TimingSummary,
+{
+    let mut counts = BTreeMap::<i64, usize>::new();
+    for result in results {
+        for bucket in &timing_selector(result).delta_counts {
+            *counts.entry(bucket.delta_ms).or_insert(0) += bucket.count;
+        }
+    }
+    counts
+        .into_iter()
+        .map(|(delta_ms, count)| TimingDeltaCount { delta_ms, count })
+        .collect()
+}
+
+fn write_delta_distribution_json_items(
+    out: &mut String,
+    distribution: &[TimingDeltaCount],
+    indent: &str,
+) {
+    for (idx, bucket) in distribution.iter().enumerate() {
+        out.push_str(&format!(
+            "{}{{\"delta_ms\": {}, \"stream_count\": {}}}{}\n",
+            indent,
+            bucket.delta_ms,
+            bucket.count,
+            comma(idx, distribution.len())
+        ));
+    }
+}
+
+fn format_delta_distribution(summary: &TimingSummary) -> String {
+    if summary.delta_counts.is_empty() {
+        return "none".to_string();
+    }
+    summary
+        .delta_counts
+        .iter()
+        .map(|bucket| format!("{} ms: {}", bucket.delta_ms, bucket.count))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn format_aggregate_delta_distribution(distribution: &[TimingDeltaCount]) -> String {
+    if distribution.is_empty() {
+        return "none".to_string();
+    }
+    distribution
+        .iter()
+        .map(|bucket| format!("{} ms: {}", bucket.delta_ms, bucket.count))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn timing_range_text(summary: &TimingSummary) -> String {
+    format!(
+        "min={} ms max={} ms median_abs={} ms max_abs={} ms",
+        opt_i64(summary.min_delta_ms),
+        opt_i64(summary.max_delta_ms),
+        summary
+            .median_abs_delta_ms
+            .map(|value| format!("{value:.2}"))
+            .unwrap_or_else(|| "NA".to_string()),
+        opt_u64(summary.max_abs_delta_ms)
+    )
+}
+
+fn timing_bucket_counts_text(summary: &TimingSummary) -> String {
+    format!(
+        "same_spill={} stale={} ahead={} observed={}",
+        summary.same_spill_count, summary.stale_count, summary.ahead_count, summary.count
+    )
 }
 
 fn write_capture_quality_report_md(out_dir: &Path, results: &[CaptureWriteResult]) -> Result<()> {
@@ -1408,6 +1564,37 @@ fn write_capture_quality_report_md(out_dir: &Path, results: &[CaptureWriteResult
             first.diagnostics.same_spill_tolerance_ms
         ));
     }
+    let captured_distribution =
+        aggregate_timing_distribution(results, |result| &result.diagnostics.captured_timing);
+    let latest_distribution =
+        aggregate_timing_distribution(results, |result| &result.diagnostics.latest_timing);
+    let captured_observed = captured_distribution
+        .iter()
+        .map(|bucket| bucket.count)
+        .sum::<usize>();
+    let latest_observed = latest_distribution
+        .iter()
+        .map(|bucket| bucket.count)
+        .sum::<usize>();
+    lines.push(String::new());
+    lines.push("## Timestamp Delta Distribution".to_string());
+    lines.push(String::new());
+    lines.push("Delta is `stream_timestamp_ms - target_ms`.".to_string());
+    lines.push(String::new());
+    lines.push(format!(
+        "- captured payload timestamps: `{captured_observed}` observed stream timestamps"
+    ));
+    lines.push(format!(
+        "- captured payload delta_ms: `{}`",
+        format_aggregate_delta_distribution(&captured_distribution)
+    ));
+    lines.push(format!(
+        "- latest-ID snapshot timestamps: `{latest_observed}` observed stream timestamps"
+    ));
+    lines.push(format!(
+        "- latest-ID snapshot delta_ms: `{}`",
+        format_aggregate_delta_distribution(&latest_distribution)
+    ));
     lines.push(String::new());
     lines.push("## Capture Suspect Digitizers".to_string());
     if capture_suspects.is_empty() {
@@ -1959,7 +2146,7 @@ fn push_alignment_warning(
     let aligned_fraction = aligned as f64 / observations.len() as f64;
     if aligned_fraction < min_aligned_fraction {
         warnings.push(format!(
-            "TBT stream alignment fraction {:.1}% is below configured minimum {:.1}%",
+            "latest-ID same-spill fraction {:.1}% is below configured minimum {:.1}%",
             aligned_fraction * 100.0,
             min_aligned_fraction * 100.0
         ));
@@ -1999,29 +2186,7 @@ fn signed_delta_ms(ms: u64, target_ms: u64) -> i64 {
     }
 }
 
-fn timeliness_stats(
-    observations: &[CaptureObservation],
-    target_ms: u64,
-) -> Option<(i64, i64, f64, u64)> {
-    if observations.is_empty() {
-        return None;
-    }
-    let mut min_delta = i64::MAX;
-    let mut max_delta = i64::MIN;
-    let mut abs_deltas = Vec::<f64>::with_capacity(observations.len());
-    let mut max_abs_delta = 0u64;
-    for obs in observations {
-        let delta = signed_delta_ms(obs.ms, target_ms);
-        min_delta = min_delta.min(delta);
-        max_delta = max_delta.max(delta);
-        let abs_delta = abs_diff_u64(obs.ms, target_ms);
-        max_abs_delta = max_abs_delta.max(abs_delta);
-        abs_deltas.push(abs_delta as f64);
-    }
-    Some((min_delta, max_delta, median(&abs_deltas), max_abs_delta))
-}
-
-fn timing_summary(deltas: &[i64]) -> TimingSummary {
+fn timing_summary(deltas: &[i64], tolerance_ms: u64) -> TimingSummary {
     if deltas.is_empty() {
         return TimingSummary {
             count: 0,
@@ -2029,18 +2194,43 @@ fn timing_summary(deltas: &[i64]) -> TimingSummary {
             max_delta_ms: None,
             median_abs_delta_ms: None,
             max_abs_delta_ms: None,
+            same_spill_count: 0,
+            stale_count: 0,
+            ahead_count: 0,
+            delta_counts: Vec::new(),
         };
     }
     let abs_deltas = deltas
         .iter()
         .map(|delta| delta.unsigned_abs() as f64)
         .collect::<Vec<_>>();
+    let mut counts = BTreeMap::<i64, usize>::new();
+    let mut same_spill_count = 0usize;
+    let mut stale_count = 0usize;
+    let mut ahead_count = 0usize;
+    for delta in deltas {
+        *counts.entry(*delta).or_insert(0) += 1;
+        if delta.unsigned_abs() <= tolerance_ms {
+            same_spill_count += 1;
+        } else if *delta < 0 {
+            stale_count += 1;
+        } else {
+            ahead_count += 1;
+        }
+    }
     TimingSummary {
         count: deltas.len(),
         min_delta_ms: deltas.iter().copied().min(),
         max_delta_ms: deltas.iter().copied().max(),
         median_abs_delta_ms: Some(median(&abs_deltas)),
         max_abs_delta_ms: deltas.iter().map(|delta| delta.unsigned_abs()).max(),
+        same_spill_count,
+        stale_count,
+        ahead_count,
+        delta_counts: counts
+            .into_iter()
+            .map(|(delta_ms, count)| TimingDeltaCount { delta_ms, count })
+            .collect(),
     }
 }
 
@@ -2305,8 +2495,8 @@ fn build_capture_diagnostics(
             .wake
             .as_ref()
             .map(|wake| signed_delta_ms(wake.ms, spill.target_ms)),
-        captured_timing: timing_summary(&captured_deltas),
-        latest_timing: timing_summary(&latest_deltas),
+        captured_timing: timing_summary(&captured_deltas, tolerance_ms),
+        latest_timing: timing_summary(&latest_deltas, tolerance_ms),
         streams: stream_rows,
         digitizers,
     }
@@ -2416,13 +2606,18 @@ fn manifest_json(
         "  \"latest_observation_count\": {},\n",
         spill.latest_observations.len()
     ));
+    let latest_same_spill_streams = spill
+        .latest_observations
+        .iter()
+        .filter(|obs| obs.aligned)
+        .count();
+    out.push_str(&format!(
+        "  \"latest_same_spill_streams\": {},\n",
+        latest_same_spill_streams
+    ));
     out.push_str(&format!(
         "  \"aligned_latest_streams\": {},\n",
-        spill
-            .latest_observations
-            .iter()
-            .filter(|obs| obs.aligned)
-            .count()
+        latest_same_spill_streams
     ));
     out.push_str(&format!("  \"captured_streams\": {},\n", streams.len()));
     out.push_str(&format!(
@@ -2512,12 +2707,8 @@ fn capture_summary_lines(
         spill.latest_observations.len()
     ));
     lines.push(format!(
-        "aligned_latest_streams: {}",
-        spill
-            .latest_observations
-            .iter()
-            .filter(|obs| obs.aligned)
-            .count()
+        "latest_same_spill_streams: {}",
+        diagnostics.latest_timing.same_spill_count
     ));
     lines.push(format!("captured_streams: {}", streams.len()));
     lines.push(format!(
@@ -2532,14 +2723,30 @@ fn capture_summary_lines(
         "latest_poll_suspect_digitizers: {}",
         diagnostics.latest_poll_suspect_digitizers
     ));
-    if let Some((min_delta, max_delta, median_abs_delta, max_abs_delta)) =
-        timeliness_stats(&spill.latest_observations, spill.target_ms)
-    {
-        lines.push(format!(
-            "TBT timeliness (obs ms - target_ms): min={} ms max={} ms median|delta|={:.2} ms max|delta|={} ms",
-            min_delta, max_delta, median_abs_delta, max_abs_delta
-        ));
-    }
+    lines.push(format!(
+        "captured_payload_timestamp_counts: {}",
+        timing_bucket_counts_text(&diagnostics.captured_timing)
+    ));
+    lines.push(format!(
+        "captured_payload_delta_ms: {}",
+        timing_range_text(&diagnostics.captured_timing)
+    ));
+    lines.push(format!(
+        "captured_payload_delta_distribution: {}",
+        format_delta_distribution(&diagnostics.captured_timing)
+    ));
+    lines.push(format!(
+        "latest_id_snapshot_timestamp_counts: {}",
+        timing_bucket_counts_text(&diagnostics.latest_timing)
+    ));
+    lines.push(format!(
+        "latest_id_snapshot_delta_ms: {}",
+        timing_range_text(&diagnostics.latest_timing)
+    ));
+    lines.push(format!(
+        "latest_id_snapshot_delta_distribution: {}",
+        format_delta_distribution(&diagnostics.latest_timing)
+    ));
     lines.push("payloads:".to_string());
     for stream in streams {
         lines.push(format!(
@@ -2591,17 +2798,24 @@ fn print_capture_summary(result: &CaptureWriteResult, spill: &CapturedSpill, tit
         );
     }
     println!(
-        "  latest observations: {} (aligned {})",
-        result.latest_observations, result.aligned_latest_streams
+        "  captured payload timestamps: {}",
+        timing_bucket_counts_text(&result.diagnostics.captured_timing)
     );
-    if let Some((min_delta, max_delta, median_abs_delta, max_abs_delta)) =
-        timeliness_stats(&spill.latest_observations, spill.target_ms)
-    {
-        println!(
-            "  timeliness: min_delta={} ms max_delta={} ms median_abs={:.2} ms max_abs={} ms",
-            min_delta, max_delta, median_abs_delta, max_abs_delta
-        );
-    }
+    println!(
+        "  captured payload delta_ms: {}; distribution: {}",
+        timing_range_text(&result.diagnostics.captured_timing),
+        format_delta_distribution(&result.diagnostics.captured_timing)
+    );
+    println!(
+        "  latest-ID snapshot timestamps: {}; observations={}",
+        timing_bucket_counts_text(&result.diagnostics.latest_timing),
+        result.latest_observations
+    );
+    println!(
+        "  latest-ID snapshot delta_ms: {}; distribution: {}",
+        timing_range_text(&result.diagnostics.latest_timing),
+        format_delta_distribution(&result.diagnostics.latest_timing)
+    );
     if !spill.warnings.is_empty() {
         println!("  warnings:");
         for warning in &spill.warnings {
@@ -2611,6 +2825,18 @@ fn print_capture_summary(result: &CaptureWriteResult, spill: &CapturedSpill, tit
 }
 
 fn opt_usize(value: Option<usize>) -> String {
+    value
+        .map(|v| v.to_string())
+        .unwrap_or_else(|| "NA".to_string())
+}
+
+fn opt_u64(value: Option<u64>) -> String {
+    value
+        .map(|v| v.to_string())
+        .unwrap_or_else(|| "NA".to_string())
+}
+
+fn opt_i64(value: Option<i64>) -> String {
     value
         .map(|v| v.to_string())
         .unwrap_or_else(|| "NA".to_string())
@@ -2663,14 +2889,42 @@ fn json_string_array(values: &[String]) -> String {
 }
 
 fn timing_summary_json(summary: &TimingSummary) -> String {
-    format!(
-        "{{\"count\":{},\"min_delta_ms\":{},\"max_delta_ms\":{},\"median_abs_delta_ms\":{},\"max_abs_delta_ms\":{}}}",
-        summary.count,
-        json_opt_i64(summary.min_delta_ms),
-        json_opt_i64(summary.max_delta_ms),
-        json_opt_f64(summary.median_abs_delta_ms),
+    let mut out = String::new();
+    out.push_str("{");
+    out.push_str(&format!("\"count\":{},", summary.count));
+    out.push_str(&format!(
+        "\"min_delta_ms\":{},",
+        json_opt_i64(summary.min_delta_ms)
+    ));
+    out.push_str(&format!(
+        "\"max_delta_ms\":{},",
+        json_opt_i64(summary.max_delta_ms)
+    ));
+    out.push_str(&format!(
+        "\"median_abs_delta_ms\":{},",
+        json_opt_f64(summary.median_abs_delta_ms)
+    ));
+    out.push_str(&format!(
+        "\"max_abs_delta_ms\":{},",
         json_opt_u64(summary.max_abs_delta_ms)
-    )
+    ));
+    out.push_str(&format!(
+        "\"same_spill_count\":{},",
+        summary.same_spill_count
+    ));
+    out.push_str(&format!("\"stale_count\":{},", summary.stale_count));
+    out.push_str(&format!("\"ahead_count\":{},", summary.ahead_count));
+    out.push_str("\"delta_counts\":[");
+    for (idx, bucket) in summary.delta_counts.iter().enumerate() {
+        out.push_str(&format!(
+            "{{\"delta_ms\":{},\"stream_count\":{}}}{}",
+            bucket.delta_ms,
+            bucket.count,
+            comma(idx, summary.delta_counts.len())
+        ));
+    }
+    out.push_str("]}");
+    out
 }
 
 fn capture_diagnostics_json(diagnostics: &CaptureDiagnostics) -> String {
@@ -2979,10 +3233,14 @@ mod tests {
         assert!(manifest.contains("\"artifact_type\": \"tbt-monitor.captured-spill\""));
         assert!(manifest.contains("\"same_spill_tolerance_ms\": 25"));
         assert!(manifest.contains("\"capture_diagnostics\""));
+        assert!(manifest.contains("\"delta_counts\""));
         assert!(manifest.contains("\"stream_inventory\""));
         assert!(manifest.contains("\"payload_checksum_algorithm\": \"fnv1a64\""));
         assert!(manifest.contains("\"payload_file\": \"payloads/stream_000_H_1772830005123_"));
         assert!(result.summary_path.exists());
+        let summary = fs::read_to_string(&result.summary_path).expect("summary should read");
+        assert!(summary.contains("captured_payload_delta_distribution"));
+        assert!(summary.contains("latest_id_snapshot_delta_distribution"));
 
         let payload_path = result
             .bundle_dir
@@ -3013,7 +3271,7 @@ mod tests {
             summary_path: dir.join("spill_123/capture_summary.txt"),
             requested_streams: 2,
             latest_observations: 2,
-            aligned_latest_streams: 2,
+            latest_same_spill_streams: 2,
             captured_streams: 2,
             warning_count: 0,
             diagnostics,
@@ -3053,6 +3311,12 @@ mod tests {
             diagnostics.streams[0].latest_poll_status,
             "LATEST_STALE_BUT_CAPTURED_OK"
         );
+        assert_eq!(diagnostics.captured_timing.same_spill_count, 1);
+        assert_eq!(diagnostics.captured_timing.delta_counts[0].delta_ms, 0);
+        assert_eq!(diagnostics.captured_timing.delta_counts[0].count, 1);
+        assert_eq!(diagnostics.latest_timing.stale_count, 1);
+        assert_eq!(diagnostics.latest_timing.delta_counts[0].delta_ms, -15_000);
+        assert_eq!(diagnostics.latest_timing.delta_counts[0].count, 1);
         assert_eq!(diagnostics.latest_poll_suspect_digitizers, 1);
         assert_eq!(diagnostics.suspect_digitizers, 0);
     }
@@ -3078,9 +3342,14 @@ mod tests {
 
         assert!(out_dir.join("capture_spill_diagnostics.csv").exists());
         assert!(out_dir.join("capture_stream_diagnostics.csv").exists());
+        assert!(out_dir.join("capture_timestamp_distribution.csv").exists());
         assert!(out_dir.join("capture_digitizer_diagnostics.csv").exists());
         assert!(out_dir.join("capture_quality_summary.json").exists());
         assert!(out_dir.join("capture_quality_report.md").exists());
+        let distribution = fs::read_to_string(out_dir.join("capture_timestamp_distribution.csv"))
+            .expect("distribution should read");
+        assert!(distribution.contains("captured_payload"));
+        assert!(distribution.contains("latest_id_snapshot"));
 
         let _ = fs::remove_dir_all(dir);
         let _ = fs::remove_dir_all(out_dir);

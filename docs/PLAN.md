@@ -155,11 +155,12 @@ The acquisition/offline-analysis split is tracked in
 `docs/ISSUE_MAP_DAQ_SPLIT.md`.
 
 Completed split work now covers versioned captured-spill bundles, live
-one-shot/free-run capture, same-spill DAQ diagnostics, `assess`,
-`diagnose-captures`, offline single/batch captured-bundle analysis, and a
-minimal online/offline parity guardrail. See `docs/USAGE.md` for command usage
-and `docs/ISSUE_MAP_DAQ_SPLIT.md` for the issue history. The parity guardrail
-is a split regression check, not physics certification of the current algorithm.
+one-shot/free-run capture, same-spill DAQ diagnostics with explicit timestamp
+distributions, `assess`, `diagnose-captures`, offline single/batch
+captured-bundle analysis, and a minimal online/offline parity guardrail. See
+`docs/USAGE.md` for command usage and `docs/ISSUE_MAP_DAQ_SPLIT.md` for the
+issue history. The parity guardrail is a split regression check, not physics
+certification of the current algorithm.
 
 ## Open Physics Questions (still external)
 
