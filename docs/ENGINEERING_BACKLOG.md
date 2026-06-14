@@ -37,6 +37,61 @@ None.
 
 ## Done
 
+### [ENG-017] Elite full-data autosweep stage
+- Status: done
+- Owner: codex
+- Type: feature
+- Why: the completed Spark pilot needs a focused full-data stage that reruns only explicit elite H/V/poster configurations over usable Tier A spills and generates heavy review artifacts.
+- Scope: add elite full-stage selection and summary scripts, make full mode consume the supplied config list exactly, add BPM leaderboard and subset-consistency analyzer artifacts, and cover the flow with stdlib tests.
+- Acceptance: pilot ranked outputs can produce filtered elite manifests/config lists, full-stage runs preserve rejected diagnostics, summaries identify best H/V/robust/poster configs, and heavy jobs emit BPM leaderboard and subset-consistency artifacts.
+- Docs: README.md, docs/USAGE.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+- Validation: python3 -m py_compile scripts/build_elite_full_stage.py scripts/make_elite_full_summary.py scripts/run_autosweep.py scripts/gpu_analyze_captured_spills.py scripts/test_autosweep.py; python3 scripts/test_autosweep.py; python3 scripts/gpu_analyze_captured_spills.py --self-test
+- Notes: Tier A usable-spill filtering comes from `spill_health.csv`; poster-safe summaries exclude `TOO_SLOW`, `UNSTABLE_H`, `UNSTABLE_V`, and `OVERFITS_BAND` by default.
+
+### [ENG-016] Spark BPM autosweep ranking and classification
+- Status: done
+- Owner: codex
+- Type: feature
+- Why: the raw Spark position-only BPM dataset needs automated staged parameter exploration, candidate spill/config ranking, and classification without a naive full Cartesian sweep.
+- Scope: add Stage 0 manifest/health/cache scripts, extend the raw captured-spill GPU analyzer with turn/plane/BPM-combination/preprocessing/ridge-anchor knobs, add deterministic autosweep orchestration, ranking/classification tables, initial summary generation, optional Spark venv bootstrap, and stdlib tests.
+- Acceptance: Tier A raw position-only bundles can be inventoried, health-checked, swept in pilot/full modes, ranked with the required weighted score formula, classified with stable spill/config labels, and summarized into the required CSV/JSON/Markdown/PNG artifact set.
+- Docs: README.md, docs/USAGE.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+- Validation: python3 -m py_compile scripts/gpu_analyze_captured_spills.py scripts/build_collection_manifest.py scripts/validate_spill_integrity.py scripts/build_spill_cache.py scripts/run_autosweep.py scripts/rank_autosweep_results.py scripts/make_initial_analysis_summary.py scripts/test_autosweep.py; python3 scripts/test_autosweep.py; python3 scripts/gpu_analyze_captured_spills.py --self-test
+- Notes: Tier B intensity/beam-loss support remains later-capable and does not block Tier A outputs. Autosweep scoring is BPM-only and should not be treated as Schottky/reference validation.
+
+### [ENG-015] Offline tune-evolution poster upgrade
+- Status: done
+- Owner: codex
+- Type: feature
+- Why: `BPM_TUNE_EVOLUTION_ANALYSIS_UPGRADE_PLAN.md` requires cleaner and more physics-reviewable tune-evolution products than baseline FFT/stride traces alone.
+- Scope: extend `scripts/gpu_analyze_captured_spills.py` with ridge-density plots, Hann/multitaper spectrogram options, dynamic-programming ridge extraction, representative ridge traces/overlays, optional SVD/PCA denoising products, and DGX benchmark markdown/PNG outputs while keeping CPU reproducibility and the existing baseline outputs.
+- Acceptance: the analyzer exposes the requested CLI knobs; a CPU smoke run with `--spectrogram-method both --ridge-method dp --ridge-source-method multitaper --svd-denoise` produces all named upgrade artifacts; Spark can run the same upgraded path over `/home/derekste/tbt-spills-2000` with CuPy.
+- Docs: README.md, docs/USAGE.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+- Validation: python3 -m py_compile scripts/gpu_analyze_captured_spills.py scripts/bpm_dgx_poster.py; python3 scripts/gpu_analyze_captured_spills.py --self-test; CPU synthetic smoke with both spectrogram methods, DP ridge, and SVD enabled; remote Spark upgraded run over the copied 2000-spill dataset
+- Notes: SVD/PCA remains opt-in and representative-spill only; it is not a production Rust tune-extraction default or a Schottky validation substitute.
+
+### [ENG-014] Spark GPU raw captured-spill analysis
+- Status: done
+- Owner: codex
+- Type: feature
+- Why: the 2000-spill raw payload set is large enough that the poster/DGX phase needs a direct CuPy/CUDA analyzer instead of only summary-artifact synthesis.
+- Scope: add `scripts/gpu_analyze_captured_spills.py` to load captured-spill `manifest.json` files and little-endian f32 payloads, run Hann-window FFT tune extraction with flash windows and local tracking on CuPy, keep NumPy CPU fallback/self-test, and emit GPU spill summaries, sliding/flash CSVs, tune/waterfall/spectrogram PNGs, and benchmark markdown.
+- Acceptance: local and Spark self-tests pass; Spark can run CUDA smoke/full passes over the copied two-run 2000-spill dataset using `/home/derekste/venvs/cupy-spark-cu13`.
+- Docs: README.md, AGENTS.md, docs/USAGE.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+- Validation: python3 -m py_compile scripts/gpu_analyze_captured_spills.py; python3 scripts/gpu_analyze_captured_spills.py --self-test; remote Spark self-test with `/home/derekste/venvs/cupy-spark-cu13/bin/python`; Spark CUDA smoke/full run over `/home/derekste/tbt-spills-2000`
+- Notes: CuPy/CUDA 13 on Spark is provided by `/home/derekste/venvs/cupy-spark-cu13`; use `ssh -K spark.fnal.gov` from `drbpm1` for restartable `rsync --partial` copies. The 2000-spill raw dataset was copied to `/home/derekste/tbt-spills-2000` on Spark. Full Spark outputs were generated at `/home/derekste/tbt-spills-2000-gpu-20260609-flash128-w2048` (2048-turn window, 1776 usable spills, 96000 sliding rows, 22.404 s elapsed) and `/home/derekste/tbt-spills-2000-gpu-20260609-flash128-w256` (256-turn true-128 flash windows, 1775 usable spills, 512000 sliding rows, 24.244 s elapsed).
+
+### [ENG-013] BPM-only poster/DGX standalone artifact tool
+- Status: done
+- Owner: codex
+- Type: feature
+- Why: the conference-poster sprint needs a standalone offline tool that runs over the complete collected BPM artifact set on `drbpm1` or a DGX-mounted copy without changing the Rust runtime.
+- Scope: add `scripts/bpm_dgx_poster.py` plus thin phase wrappers for manifest, baseline, flash, spectrogram/waterfall, subset, optional ML, benchmark, and poster-plot collection; support `candidate_spills.csv`, `spills_summary.csv`, and `capture_index.csv`; keep CPU fallback and optional CUDA/CuPy benchmarking; ignore generated Python cache and local poster-output directories.
+- Acceptance: local self-test and review-artifact smoke run produce the poster-phase manifest, summaries, PNGs, model reports, benchmark report, and poster plot index; docs state that the full run should target `/home/derekste/out` on `drbpm1` or the DGX copy and that Schottky is excluded from this phase.
+- Docs: README.md, AGENTS.md, docs/USAGE.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+- Validation: python3 scripts/bpm_dgx_poster.py --self-test; python3 scripts/bpm_dgx_poster.py run-all --input review-artifacts --out /private/tmp/tbt-monitor-poster-smoke --flashes 128 256 512 --device cpu; remote `drbpm1` self-test; remote `drbpm1` run-all over `/home/derekste/out`; remote `spark` run-all over copied `tune-curation`; cargo fmt --all; cargo test -- --nocapture
+- Notes: full remote output was generated at `/home/derekste/out/bpm-dgx-poster-20260609`; Spark output was generated at `/home/derekste/bpm-dgx-poster-20260609-spark` after copying the 671 MB `tune-curation` tree. CuPy was installed into `/home/derekste/venvs/cupy-spark-cu13` using a wheelhouse downloaded on `adlinux3`; rerunning on Spark with that venv produced `/home/derekste/bpm-dgx-poster-20260609-spark-cu13` with CUDA benchmark availability.
+
 ### [ENG-012] Capture timestamp distribution reporting
 - Status: done
 - Owner: codex

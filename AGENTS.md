@@ -10,6 +10,8 @@ This file helps coding assistants make safe, coherent changes in this repository
 - Live monitor runtime: `src/monitor.rs`
 - Raw spill capture path: `src/capture.rs`
 - Analysis/study/batch logic: `src/analyze.rs`
+- Standalone poster/DGX artifact tool: `scripts/bpm_dgx_poster.py`
+- GPU raw captured-spill analyzer: `scripts/gpu_analyze_captured_spills.py`
 - User docs: `README.md`, `docs/USAGE.md`, `docs/CONFIG_REFERENCE.md`
 - Architecture and rationale docs: `docs/ARCHITECTURE.md`, `docs/DESIGN_DECISIONS.md`, `docs/PLAN.md`
 
@@ -60,6 +62,14 @@ the same backlog item under `Notes:`.
 2. Thread into spill summary and batch summary if applicable.
 3. Add tests in `src/analyze.rs`.
 4. Document in `docs/USAGE.md` and architecture docs.
+
+### Modify standalone poster/DGX artifact processing
+
+1. Update `scripts/bpm_dgx_poster.py` and any affected thin wrappers.
+2. Keep CPU fallback working when CUDA/CuPy is unavailable.
+3. Preserve BPM-only scope unless the poster phase is explicitly expanded.
+4. Update `docs/POSTER_ANALYSIS.md`, `docs/USAGE.md`, and architecture docs.
+5. Run `python3 scripts/bpm_dgx_poster.py --self-test`.
 
 ### Add CLI option
 
