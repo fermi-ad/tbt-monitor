@@ -16,6 +16,8 @@ capabilities rather than re-track them as new software tasks:
 - per-spill and batch plots, CSV/JSONL records, markdown summaries, quality
   labels, explicit warnings, and timeliness metrics
 - optional external reference matching in batch mode
+- acquisition of RAW position payloads plus auxiliary RAW intensity payloads
+  for later data-quality studies
 - standalone BPM-only poster artifact synthesis through
   `scripts/bpm_dgx_poster.py`
 - raw captured-spill GPU flash analysis through
@@ -141,6 +143,12 @@ Use repository field names when reviewing outputs:
 - no direct Schottky ingestion/auto-sync path in this repository
 - no dedicated cross-BPM coherence metric exported as first-class batch field
 - no dedicated clipping/saturation diagnostic exported yet
+- no physics-quality contract yet for auxiliary intensity payloads; RAW
+  intensity is currently preserved for offline study, not used in tune
+  extraction
+- current full-resolution Redis payloads observed so far contain 5000 `f32`
+  samples; any expectation of a longer turn window still needs to be reconciled
+  with front-end acquisition settings or stream variant semantics
 - no SVD/PCA tune path in the Rust production flow yet; the standalone poster
   analyzer has opt-in SVD/PCA comparison plots that still need physics review
 - autosweep scoring uses pragmatic proxy metrics until independent tune labels

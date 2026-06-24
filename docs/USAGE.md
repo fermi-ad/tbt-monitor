@@ -84,6 +84,13 @@ Use capture commands when acquisition should be separated from tune analysis.
 Captured bundles store raw Redis stream `_` field bytes exactly as collected.
 Current BPM TbT payloads are interpreted later as little-endian `f32` samples.
 
+The checked-in `config/monitor.cfg` is set up for the next preservation run:
+the primary configured streams are `TBT_POSITION_RAW`, and
+`capture_intensity_variant=raw` derives matching `TBT_INTENSITY_RAW` streams
+for the same plates. Position streams still drive target selection and offline
+tune analysis; intensity streams are captured and diagnosed as auxiliary raw
+payloads for later study.
+
 Capture one synchronized spill:
 
 ```bash
@@ -113,10 +120,18 @@ Capture reports distinguish two timestamp populations:
 - latest-ID snapshot timestamps: what each stream reported as its latest Redis
   stream ID during target selection
 
-When captured payloads are `120/120`, use the captured-payload timestamp
-distribution to understand how those 120 streams were bucketed. Latest-ID
-snapshot staleness is diagnostic context and can be one machine event old even
-when the captured payload is complete.
+With RAW position plus RAW intensity enabled, a complete capture is `240/240`:
+120 position payloads and 120 derived intensity payloads. Use the
+captured-payload timestamp distribution to understand how those streams were
+bucketed. Latest-ID snapshot staleness is diagnostic context and can be one
+machine event old even when the captured payload is complete.
+
+For acquisition quality, treat captured payload completeness as the source of
+truth. `capture_suspect_digitizers` and captured statuses such as
+`MISSING_CAPTURE`, `STALE_CAPTURE`, `AHEAD_CAPTURE`, `PAYLOAD_MISSING`, and
+`PAYLOAD_MALFORMED` are the primary bad-digitizer signals. Latest-poll-only
+suspects are advisory and should not reject an otherwise complete captured
+artifact.
 
 Each bundle is written as:
 

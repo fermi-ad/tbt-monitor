@@ -34,7 +34,7 @@ use tui::run_dashboard;
 
 #[derive(Debug, Parser)]
 #[command(name = "tbt-monitor-tui")]
-#[command(about = "Monitor MUON BPM TBT_POSITION_SCALED arrivals across multiple Redis devices")]
+#[command(about = "Monitor MUON BPM turn-by-turn arrivals across multiple Redis devices")]
 struct Cli {
     #[command(subcommand)]
     command: Command,

@@ -5658,7 +5658,10 @@ fn run_free_run_watch_worker(
 ) -> Result<()> {
     let tbt_keys = collect_tbt_stream_keys(&device);
     if tbt_keys.is_empty() {
-        bail!("{} has no TBT_POSITION_SCALED stream keys", device.bpm_ip);
+        bail!(
+            "{} has no configured position TBT stream keys",
+            device.bpm_ip
+        );
     }
 
     let mut reconnect_delay_ms = reconnect_initial_ms.max(250);
@@ -5971,11 +5974,21 @@ fn analyze_captured_spill_snapshot(
         }
     }
 
-    let requested_streams = manifest
-        .requested_streams
-        .unwrap_or_else(|| count_requested_tbt_streams(config));
+    let manifest_requested_streams = manifest.requested_streams;
     let config_requested_streams = count_requested_tbt_streams(config);
-    if config_requested_streams != 0 && config_requested_streams != requested_streams {
+    let requested_streams = manifest_requested_streams.unwrap_or(config_requested_streams);
+    let requested_position_streams = if config_requested_streams != 0
+        && config_requested_streams < requested_streams
+    {
+        warnings.push(format!(
+                "captured manifest requested_streams {} includes auxiliary streams; tune analysis expects {} configured position streams",
+                requested_streams, config_requested_streams
+            ));
+        config_requested_streams
+    } else {
+        requested_streams
+    };
+    if config_requested_streams != 0 && config_requested_streams > requested_streams {
         warnings.push(format!(
             "config TBT stream count {} differs from captured manifest requested_streams {}",
             config_requested_streams, requested_streams
@@ -5997,11 +6010,11 @@ fn analyze_captured_spill_snapshot(
             manifest.target_ms
         ));
     } else {
-        if observations.len() < requested_streams {
+        if observations.len() < requested_position_streams {
             warnings.push(format!(
                 "incomplete captured manifest: observed {} of {} requested streams",
                 observations.len(),
-                requested_streams
+                requested_position_streams
             ));
         }
         let aligned = observations.iter().filter(|obs| obs.aligned).count();
@@ -6014,11 +6027,11 @@ fn analyze_captured_spill_snapshot(
             ));
         }
     }
-    if traces.len() < requested_streams {
+    if traces.len() < requested_position_streams {
         warnings.push(format!(
             "incomplete captured payload set: usable traces {} of {} requested streams",
             traces.len(),
-            requested_streams
+            requested_position_streams
         ));
     }
 
@@ -6241,10 +6254,12 @@ fn load_captured_stream_traces(
 
     for stream in &manifest.streams {
         let Some(plane) = classify_plane(&stream.stream_key) else {
-            warnings.push(format!(
-                "{}: captured stream key {} is not a known TBT plane",
-                stream.bpm_ip, stream.stream_key
-            ));
+            if !is_auxiliary_captured_stream(&stream.stream_key) {
+                warnings.push(format!(
+                    "{}: captured stream key {} is not a known TBT plane",
+                    stream.bpm_ip, stream.stream_key
+                ));
+            }
             continue;
         };
 
@@ -6566,7 +6581,7 @@ fn discover_historical_candidates(
     }
 
     if scanned_streams == 0 {
-        bail!("no TBT_POSITION_SCALED streams were available to scan");
+        bail!("no position TBT streams were available to scan");
     }
 
     Ok(rank_historical_candidates(
@@ -7544,13 +7559,21 @@ fn fnv1a64_hex(bytes: &[u8]) -> String {
 }
 
 fn classify_plane(key: &str) -> Option<Plane> {
-    if key.contains(":HP") && key.ends_with(":TBT_POSITION_SCALED") {
+    if key.contains(":HP") && is_position_stream_key(key) {
         Some(Plane::Horizontal)
-    } else if key.contains(":VP") && key.ends_with(":TBT_POSITION_SCALED") {
+    } else if key.contains(":VP") && is_position_stream_key(key) {
         Some(Plane::Vertical)
     } else {
         None
     }
+}
+
+fn is_position_stream_key(key: &str) -> bool {
+    key.ends_with(":TBT_POSITION_SCALED") || key.ends_with(":TBT_POSITION_RAW")
+}
+
+fn is_auxiliary_captured_stream(key: &str) -> bool {
+    key.contains(":TBT_INTENSITY_")
 }
 
 fn choose_target_millisecond(values: &[u64], merge_tolerance_ms: u64) -> Option<u64> {
@@ -9881,6 +9904,7 @@ mod tests {
             align_tolerance_ms: 1,
             same_spill_tolerance_ms: 25,
             min_aligned_fraction: 0.70,
+            capture_intensity_variant: None,
             devices: vec![DeviceConfig {
                 label: "offline-test".to_string(),
                 bpm_ip: "10.0.0.1".to_string(),
@@ -9905,6 +9929,25 @@ mod tests {
             payload.extend_from_slice(&(angle.sin() as f32).to_le_bytes());
         }
         payload
+    }
+
+    #[test]
+    fn raw_position_streams_are_analysis_planes_but_intensity_is_auxiliary() {
+        assert_eq!(
+            classify_plane("{MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_RAW"),
+            Some(Plane::Horizontal)
+        );
+        assert_eq!(
+            classify_plane("{MUON:BPM:10.0.0.1}:VP102:TBT_POSITION_RAW"),
+            Some(Plane::Vertical)
+        );
+        assert_eq!(
+            classify_plane("{MUON:BPM:10.0.0.1}:HP101:TBT_INTENSITY_RAW"),
+            None
+        );
+        assert!(is_auxiliary_captured_stream(
+            "{MUON:BPM:10.0.0.1}:HP101:TBT_INTENSITY_RAW"
+        ));
     }
 
     fn write_test_captured_bundle(
@@ -10791,6 +10834,7 @@ mod tests {
             align_tolerance_ms: 1,
             same_spill_tolerance_ms: 25,
             min_aligned_fraction: 0.70,
+            capture_intensity_variant: None,
             devices: Vec::new(),
         };
 
@@ -10847,6 +10891,7 @@ mod tests {
             align_tolerance_ms: 1,
             same_spill_tolerance_ms: 25,
             min_aligned_fraction: 0.70,
+            capture_intensity_variant: None,
             devices: Vec::new(),
         };
 
@@ -10927,6 +10972,7 @@ mod tests {
             align_tolerance_ms: 1,
             same_spill_tolerance_ms: 25,
             min_aligned_fraction: 0.70,
+            capture_intensity_variant: None,
             devices: Vec::new(),
         };
 
@@ -10988,6 +11034,7 @@ mod tests {
             align_tolerance_ms: 1,
             same_spill_tolerance_ms: 25,
             min_aligned_fraction: 0.70,
+            capture_intensity_variant: None,
             devices: vec![DeviceConfig {
                 label: "test".to_string(),
                 bpm_ip: "10.0.0.1".to_string(),

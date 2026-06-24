@@ -75,6 +75,13 @@ This reference describes `config/monitor.cfg` keys used by runtime and analysis 
 - `min_aligned_fraction`
   - Minimum latest-ID same-spill fraction threshold for warnings. Capture
     payload completeness is reported separately from latest-ID snapshot timing.
+- `capture_intensity_variant`
+  - Optional derived auxiliary intensity capture. Use `raw`, `scaled`,
+    `scaled_9a`, or `downsampled`; omit or set `none`/`off` to disable.
+  - When enabled, each configured position `stream_key` derives one matching
+    intensity key by replacing `TBT_POSITION_RAW` or `TBT_POSITION_SCALED` with
+    the selected intensity suffix. The current checked-in config uses `raw`,
+    so capture expects `TBT_POSITION_RAW` plus `TBT_INTENSITY_RAW`.
 
 ## Device Section
 
@@ -82,7 +89,9 @@ Each `[[device]]` defines:
 - identity: `label`, `bpm_ip`
 - redis endpoint: `redis_host`, `redis_port`, `redis_db`, optional auth
 - trigger keys: `trigger_key`, repeated `trigger_fallback`
-- measured streams: repeated `stream_key` (usually `*:TBT_POSITION_SCALED`)
+- measured streams: repeated position `stream_key` values. The checked-in
+  capture config uses `*:TBT_POSITION_RAW`; imported configs may still use
+  `*:TBT_POSITION_SCALED`.
 
 ## Operational Guidance
 

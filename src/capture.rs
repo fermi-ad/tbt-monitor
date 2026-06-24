@@ -79,6 +79,12 @@ struct CapturedStreamEntry {
 }
 
 #[derive(Debug, Clone)]
+struct CaptureStreamSpec {
+    stream_key: String,
+    plane: Plane,
+}
+
+#[derive(Debug, Clone)]
 struct CaptureWake {
     bpm_ip: String,
     stream_id: String,
@@ -405,7 +411,11 @@ fn collect_assess_snapshot(
     let mut warnings = Vec::<String>::new();
     let mut observations = collect_latest_tbt_observations(config, &mut warnings)?;
     let target_ms = choose_target_millisecond(
-        &observations.iter().map(|obs| obs.ms).collect::<Vec<_>>(),
+        &observations
+            .iter()
+            .filter(|obs| classify_plane(&obs.stream_key).is_some())
+            .map(|obs| obs.ms)
+            .collect::<Vec<_>>(),
         target_bucket_tolerance_ms(config),
     );
     if let Some(target_ms) = target_ms {
@@ -846,8 +856,8 @@ fn capture_latest_spill_with_retries(config: &MonitorConfig) -> Result<CapturedS
 
 fn capture_latest_spill(config: &MonitorConfig) -> Result<CapturedSpill> {
     let mut warnings = Vec::<String>::new();
-    let requested_streams = count_requested_tbt_streams(config);
     let stream_inventory = collect_stream_inventory(config);
+    let requested_streams = stream_inventory.len();
 
     let mut latest_observations = collect_latest_tbt_observations(config, &mut warnings)?;
     if latest_observations.is_empty() {
@@ -862,10 +872,14 @@ fn capture_latest_spill(config: &MonitorConfig) -> Result<CapturedSpill> {
     }
 
     let target_ms = choose_target_millisecond(
-        &latest_observations.iter().map(|o| o.ms).collect::<Vec<_>>(),
+        &latest_observations
+            .iter()
+            .filter(|obs| classify_plane(&obs.stream_key).is_some())
+            .map(|obs| obs.ms)
+            .collect::<Vec<_>>(),
         target_bucket_tolerance_ms(config),
     )
-    .ok_or_else(|| anyhow!("failed to choose target TBT millisecond"))?;
+    .ok_or_else(|| anyhow!("failed to choose target TBT millisecond from position streams"))?;
 
     for obs in &mut latest_observations {
         obs.aligned = abs_diff_u64(obs.ms, target_ms) <= config.same_spill_tolerance_ms;
@@ -933,10 +947,8 @@ fn collect_latest_tbt_observations(
         };
 
         let mut device_observations = 0usize;
-        for stream_key in &device.stream_keys {
-            if classify_plane(stream_key).is_none() {
-                continue;
-            }
+        for spec in collect_capture_stream_specs(config, device) {
+            let stream_key = &spec.stream_key;
 
             match fetch_latest_entry(&mut conn, stream_key) {
                 Ok(Some((id, _))) => {
@@ -968,7 +980,7 @@ fn collect_latest_tbt_observations(
 
         if device_observations == 0 {
             warnings.push(format!(
-                "{}: no latest TBT entries found on configured position streams",
+                "{}: no latest TBT entries found on configured capture streams",
                 device.bpm_ip
             ));
         }
@@ -997,10 +1009,8 @@ fn collect_stream_entries(
             }
         };
 
-        for stream_key in &device.stream_keys {
-            let Some(plane) = classify_plane(stream_key) else {
-                continue;
-            };
+        for spec in collect_capture_stream_specs(config, device) {
+            let stream_key = &spec.stream_key;
 
             let entry = match fetch_entry_near_target(
                 &mut conn,
@@ -1057,7 +1067,7 @@ fn collect_stream_entries(
                 device_label: device.label.clone(),
                 bpm_ip: device.bpm_ip.clone(),
                 stream_key: stream_key.clone(),
-                plane,
+                plane: spec.plane,
                 stream_id: id,
                 stream_ms: ms,
                 aligned: abs_diff_u64(ms, target_ms) <= tolerance_ms,
@@ -1555,6 +1565,10 @@ fn write_capture_quality_report_md(out_dir: &Path, results: &[CaptureWriteResult
     let mut lines = Vec::<String>::new();
     lines.push("# Capture Quality Report".to_string());
     lines.push(String::new());
+    lines.push("This report treats captured payload completeness as the acquisition-quality source of truth. Latest-poll diagnostics are advisory unless a future strict mode explicitly enables them.".to_string());
+    lines.push(String::new());
+    lines.push("## Captured Artifact Completeness".to_string());
+    lines.push(String::new());
     lines.push(format!("- spills assessed: `{total}`"));
     lines.push(format!("- complete captured spills: `{complete}`"));
     lines.push(format!("- partial captured spills: `{}`", total - complete));
@@ -1577,26 +1591,9 @@ fn write_capture_quality_report_md(out_dir: &Path, results: &[CaptureWriteResult
         .map(|bucket| bucket.count)
         .sum::<usize>();
     lines.push(String::new());
-    lines.push("## Timestamp Delta Distribution".to_string());
-    lines.push(String::new());
-    lines.push("Delta is `stream_timestamp_ms - target_ms`.".to_string());
-    lines.push(String::new());
-    lines.push(format!(
-        "- captured payload timestamps: `{captured_observed}` observed stream timestamps"
-    ));
-    lines.push(format!(
-        "- captured payload delta_ms: `{}`",
-        format_aggregate_delta_distribution(&captured_distribution)
-    ));
-    lines.push(format!(
-        "- latest-ID snapshot timestamps: `{latest_observed}` observed stream timestamps"
-    ));
-    lines.push(format!(
-        "- latest-ID snapshot delta_ms: `{}`",
-        format_aggregate_delta_distribution(&latest_distribution)
-    ));
-    lines.push(String::new());
     lines.push("## Capture Suspect Digitizers".to_string());
+    lines.push(String::new());
+    lines.push("Primary bad-digitizer signal: a digitizer appears here only when captured payloads are missing, stale, ahead, or malformed.".to_string());
     if capture_suspects.is_empty() {
         lines.push(String::new());
         lines.push("None.".to_string());
@@ -1607,18 +1604,38 @@ fn write_capture_quality_report_md(out_dir: &Path, results: &[CaptureWriteResult
         }
     }
     lines.push(String::new());
-    lines.push("## Latest-Poll Suspect Digitizers".to_string());
+    lines.push("## Captured Payload Timestamp Distribution".to_string());
+    lines.push(String::new());
+    lines.push("Delta is `stream_timestamp_ms - target_ms`.".to_string());
+    lines.push(String::new());
+    lines.push(format!(
+        "- observed stream timestamps: `{captured_observed}`"
+    ));
+    lines.push(format!(
+        "- delta_ms: `{}`",
+        format_aggregate_delta_distribution(&captured_distribution)
+    ));
+    lines.push(String::new());
+    lines.push("## Latest-Poll Diagnostics".to_string());
+    lines.push(String::new());
+    lines.push("Secondary signal only: these are instantaneous latest-ID snapshot observations and do not make a complete captured artifact partial.".to_string());
+    lines.push(String::new());
+    lines.push(format!(
+        "- latest-ID snapshot timestamps: `{latest_observed}` observed stream timestamps"
+    ));
+    lines.push(format!(
+        "- latest-ID snapshot delta_ms: `{}`",
+        format_aggregate_delta_distribution(&latest_distribution)
+    ));
     if latest_suspects.is_empty() {
         lines.push(String::new());
-        lines.push("None.".to_string());
+        lines.push("- latest-poll suspect digitizers: none".to_string());
     } else {
-        lines.push(String::new());
+        lines.push("- latest-poll suspect digitizers:".to_string());
         for (bpm_ip, count) in sorted_count_items(&latest_suspects) {
-            lines.push(format!("- `{bpm_ip}` in `{count}` spills"));
+            lines.push(format!("  - `{bpm_ip}` in `{count}` spills"));
         }
     }
-    lines.push(String::new());
-    lines.push("Latest-poll suspects are timing diagnostics. They do not make a captured artifact partial when the captured payload is complete and same-spill.".to_string());
 
     fs::write(
         out_dir.join("capture_quality_report.md"),
@@ -1826,7 +1843,10 @@ fn run_free_run_watch_worker(
 ) -> Result<()> {
     let keys = collect_tbt_stream_keys(&device);
     if keys.is_empty() {
-        bail!("{} has no TBT_POSITION_SCALED stream keys", device.bpm_ip);
+        bail!(
+            "{} has no configured position TBT stream keys",
+            device.bpm_ip
+        );
     }
 
     let mut reconnect_delay_ms = reconnect_initial_ms.max(250);
@@ -1881,19 +1901,46 @@ fn run_free_run_watch_worker(
 fn collect_stream_inventory(config: &MonitorConfig) -> Vec<CaptureStreamInventoryEntry> {
     let mut entries = Vec::new();
     for device in &config.devices {
-        for stream_key in &device.stream_keys {
-            let Some(plane) = classify_plane(stream_key) else {
-                continue;
-            };
+        for spec in collect_capture_stream_specs(config, device) {
             entries.push(CaptureStreamInventoryEntry {
                 device_label: device.label.clone(),
                 bpm_ip: device.bpm_ip.clone(),
-                stream_key: stream_key.clone(),
-                plane,
+                stream_key: spec.stream_key,
+                plane: spec.plane,
             });
         }
     }
     entries
+}
+
+fn collect_capture_stream_specs(
+    config: &MonitorConfig,
+    device: &DeviceConfig,
+) -> Vec<CaptureStreamSpec> {
+    let mut specs = Vec::new();
+    let mut seen = HashSet::<String>::new();
+    for key in &device.stream_keys {
+        let Some(plane) = classify_plane(key) else {
+            continue;
+        };
+        if seen.insert(key.clone()) {
+            specs.push(CaptureStreamSpec {
+                stream_key: key.clone(),
+                plane,
+            });
+        }
+        if let Some(aux_key) =
+            derive_intensity_stream_key(key, config.capture_intensity_variant.as_deref())
+        {
+            if seen.insert(aux_key.clone()) {
+                specs.push(CaptureStreamSpec {
+                    stream_key: aux_key,
+                    plane,
+                });
+            }
+        }
+    }
+    specs
 }
 
 fn collect_tbt_stream_keys(device: &DeviceConfig) -> Vec<String> {
@@ -2063,22 +2110,32 @@ fn payload_field(fields: &[(Vec<u8>, Vec<u8>)]) -> Option<&[u8]> {
 }
 
 fn classify_plane(key: &str) -> Option<Plane> {
-    if key.contains(":HP") && key.ends_with(":TBT_POSITION_SCALED") {
+    if key.contains(":HP") && is_position_stream_key(key) {
         Some(Plane::Horizontal)
-    } else if key.contains(":VP") && key.ends_with(":TBT_POSITION_SCALED") {
+    } else if key.contains(":VP") && is_position_stream_key(key) {
         Some(Plane::Vertical)
     } else {
         None
     }
 }
 
-fn count_requested_tbt_streams(config: &MonitorConfig) -> usize {
-    config
-        .devices
-        .iter()
-        .flat_map(|device| device.stream_keys.iter())
-        .filter(|key| classify_plane(key).is_some())
-        .count()
+fn is_position_stream_key(key: &str) -> bool {
+    key.ends_with(":TBT_POSITION_SCALED") || key.ends_with(":TBT_POSITION_RAW")
+}
+
+fn derive_intensity_stream_key(position_key: &str, variant: Option<&str>) -> Option<String> {
+    let variant = variant?;
+    let intensity_suffix = match variant {
+        "raw" => "TBT_INTENSITY_RAW",
+        "scaled" => "TBT_INTENSITY_SCALED",
+        "scaled_9a" => "TBT_INTENSITY_SCALED_9A",
+        "downsampled" => "TBT_INTENSITY_DOWNSAMPLED",
+        _ => return None,
+    };
+    position_key
+        .strip_suffix(":TBT_POSITION_SCALED")
+        .or_else(|| position_key.strip_suffix(":TBT_POSITION_RAW"))
+        .map(|prefix| format!("{prefix}:{intensity_suffix}"))
 }
 
 fn choose_target_millisecond(values: &[u64], merge_tolerance_ms: u64) -> Option<u64> {
@@ -2700,27 +2757,25 @@ fn capture_summary_lines(
         "same_spill_tolerance_ms: {}",
         spill.same_spill_tolerance_ms
     ));
-    lines.push(format!("capture_status: {}", diagnostics.status));
+    lines.push(format!("artifact_status: {}", diagnostics.status));
     lines.push(format!("requested_streams: {}", spill.requested_streams));
-    lines.push(format!(
-        "latest_observations: {}",
-        spill.latest_observations.len()
-    ));
-    lines.push(format!(
-        "latest_same_spill_streams: {}",
-        diagnostics.latest_timing.same_spill_count
-    ));
     lines.push(format!("captured_streams: {}", streams.len()));
     lines.push(format!(
         "complete_streams: {}",
         diagnostics.complete_streams
     ));
     lines.push(format!(
-        "suspect_digitizers: {}",
+        "capture_suspect_digitizers: {}",
         diagnostics.suspect_digitizers
     ));
+    if diagnostics.suspect_digitizers > 0 {
+        lines.push(format!(
+            "capture_suspect_digitizer_details: {}",
+            format_capture_suspect_digitizers(diagnostics)
+        ));
+    }
     lines.push(format!(
-        "latest_poll_suspect_digitizers: {}",
+        "latest_poll_only_suspect_digitizers: {}",
         diagnostics.latest_poll_suspect_digitizers
     ));
     lines.push(format!(
@@ -2734,6 +2789,15 @@ fn capture_summary_lines(
     lines.push(format!(
         "captured_payload_delta_distribution: {}",
         format_delta_distribution(&diagnostics.captured_timing)
+    ));
+    lines.push("latest_poll_diagnostics: advisory only; captured artifact status is determined from captured payloads".to_string());
+    lines.push(format!(
+        "latest_observations: {}",
+        spill.latest_observations.len()
+    ));
+    lines.push(format!(
+        "latest_same_spill_streams: {}",
+        diagnostics.latest_timing.same_spill_count
     ));
     lines.push(format!(
         "latest_id_snapshot_timestamp_counts: {}",
@@ -2761,9 +2825,16 @@ fn capture_summary_lines(
             stream.payload_file.as_deref().unwrap_or("NA")
         ));
     }
-    if !spill.warnings.is_empty() {
+    let (capture_warnings, latest_poll_warnings) = split_capture_warnings(&spill.warnings);
+    if !capture_warnings.is_empty() {
         lines.push("warnings:".to_string());
-        for warning in &spill.warnings {
+        for warning in capture_warnings {
+            lines.push(format!("  - {warning}"));
+        }
+    }
+    if !latest_poll_warnings.is_empty() {
+        lines.push("latest_poll_warnings:".to_string());
+        for warning in latest_poll_warnings {
             lines.push(format!("  - {warning}"));
         }
     }
@@ -2777,25 +2848,20 @@ fn print_capture_summary(result: &CaptureWriteResult, spill: &CapturedSpill, tit
     println!("  manifest: {}", result.manifest_path.display());
     println!("  summary: {}", result.summary_path.display());
     println!(
-        "  capture status: {} (same-spill tolerance ±{} ms)",
+        "  artifact status: {} (captured payloads within ±{} ms)",
         result.diagnostics.status, result.diagnostics.same_spill_tolerance_ms
     );
     println!(
-        "  streams: captured {} of {} configured",
-        result.captured_streams, result.requested_streams
-    );
-    println!(
-        "  complete streams: {} of {} configured",
+        "  captured artifact: {}/{} complete streams",
         result.diagnostics.complete_streams, result.requested_streams
     );
-    if result.diagnostics.suspect_digitizers > 0
-        || result.diagnostics.latest_poll_suspect_digitizers > 0
-    {
+    if result.diagnostics.suspect_digitizers > 0 {
         println!(
-            "  suspect digitizers: capture={} latest_poll={}",
-            result.diagnostics.suspect_digitizers,
-            result.diagnostics.latest_poll_suspect_digitizers
+            "  capture suspect digitizers: {}",
+            format_capture_suspect_digitizers(&result.diagnostics)
         );
+    } else {
+        println!("  capture suspect digitizers: none");
     }
     println!(
         "  captured payload timestamps: {}",
@@ -2806,22 +2872,62 @@ fn print_capture_summary(result: &CaptureWriteResult, spill: &CapturedSpill, tit
         timing_range_text(&result.diagnostics.captured_timing),
         format_delta_distribution(&result.diagnostics.captured_timing)
     );
-    println!(
-        "  latest-ID snapshot timestamps: {}; observations={}",
-        timing_bucket_counts_text(&result.diagnostics.latest_timing),
-        result.latest_observations
-    );
-    println!(
-        "  latest-ID snapshot delta_ms: {}; distribution: {}",
-        timing_range_text(&result.diagnostics.latest_timing),
-        format_delta_distribution(&result.diagnostics.latest_timing)
-    );
-    if !spill.warnings.is_empty() {
+    if result.diagnostics.latest_poll_suspect_digitizers > 0 {
+        println!(
+            "  latest-poll advisory: {} suspect digitizers in snapshot only; ignored for artifact completeness",
+            result.diagnostics.latest_poll_suspect_digitizers
+        );
+    }
+    let (capture_warnings, latest_poll_warnings) = split_capture_warnings(&spill.warnings);
+    if !capture_warnings.is_empty() {
         println!("  warnings:");
-        for warning in &spill.warnings {
+        for warning in capture_warnings {
             println!("    - {warning}");
         }
     }
+    if !latest_poll_warnings.is_empty() {
+        println!("  latest-poll warnings (advisory):");
+        for warning in latest_poll_warnings {
+            println!("    - {warning}");
+        }
+    }
+}
+
+fn format_capture_suspect_digitizers(diagnostics: &CaptureDiagnostics) -> String {
+    let items = diagnostics
+        .digitizers
+        .iter()
+        .filter(|row| row.suspect)
+        .map(|row| {
+            format!(
+                "{} missing={} stale={} ahead={} payload={}",
+                row.bpm_ip,
+                row.missing_capture_streams,
+                row.stale_capture_streams,
+                row.ahead_capture_streams,
+                row.payload_issue_streams
+            )
+        })
+        .collect::<Vec<_>>();
+    if items.is_empty() {
+        "none".to_string()
+    } else {
+        items.join("; ")
+    }
+}
+
+fn split_capture_warnings(warnings: &[String]) -> (Vec<&str>, Vec<&str>) {
+    warnings
+        .iter()
+        .map(String::as_str)
+        .partition(|warning| !is_latest_poll_warning(warning))
+}
+
+fn is_latest_poll_warning(warning: &str) -> bool {
+    warning.contains("latest-ID")
+        || warning.contains("latest entry")
+        || warning.contains("latest TBT entries")
+        || warning.contains("target selection")
 }
 
 fn opt_usize(value: Option<usize>) -> String {
@@ -3186,6 +3292,7 @@ mod tests {
             align_tolerance_ms: 1,
             same_spill_tolerance_ms: 25,
             min_aligned_fraction: 0.70,
+            capture_intensity_variant: None,
             devices: vec![DeviceConfig {
                 label: "BPM A".to_string(),
                 bpm_ip: "10.0.0.1".to_string(),
@@ -3220,6 +3327,51 @@ mod tests {
         assert!(sanitized.len() <= 32);
         assert!(!sanitized.contains(':'));
         assert!(!sanitized.contains('{'));
+    }
+
+    #[test]
+    fn raw_position_streams_classify_as_tbt_planes() {
+        assert_eq!(
+            classify_plane("{MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_RAW"),
+            Some(Plane::Horizontal)
+        );
+        assert_eq!(
+            classify_plane("{MUON:BPM:10.0.0.1}:VP102:TBT_POSITION_RAW"),
+            Some(Plane::Vertical)
+        );
+        assert_eq!(
+            classify_plane("{MUON:BPM:10.0.0.1}:HP101:TBT_INTENSITY_RAW"),
+            None
+        );
+    }
+
+    #[test]
+    fn capture_inventory_derives_raw_intensity_streams() {
+        let mut config = test_config();
+        config.capture_intensity_variant = Some("raw".to_string());
+        config.devices[0].stream_keys = vec![
+            "{MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_RAW".to_string(),
+            "{MUON:BPM:10.0.0.1}:VP102:TBT_POSITION_RAW".to_string(),
+        ];
+
+        let inventory = collect_stream_inventory(&config);
+        let keys = inventory
+            .iter()
+            .map(|entry| entry.stream_key.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(inventory.len(), 4);
+        assert!(keys.contains(&"{MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_RAW"));
+        assert!(keys.contains(&"{MUON:BPM:10.0.0.1}:HP101:TBT_INTENSITY_RAW"));
+        assert!(keys.contains(&"{MUON:BPM:10.0.0.1}:VP102:TBT_POSITION_RAW"));
+        assert!(keys.contains(&"{MUON:BPM:10.0.0.1}:VP102:TBT_INTENSITY_RAW"));
+        assert_eq!(
+            collect_tbt_stream_keys(&config.devices[0]),
+            vec![
+                "{MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_RAW".to_string(),
+                "{MUON:BPM:10.0.0.1}:VP102:TBT_POSITION_RAW".to_string()
+            ]
+        );
     }
 
     #[test]

@@ -13,6 +13,8 @@ Delivery Ring studies.
 - ACNET XML import into validated monitor/analyzer config.
 - Live Redis stream health monitoring with `XREAD BLOCK`.
 - One-shot and continuous raw spill capture.
+- Default capture config preserves `TBT_POSITION_RAW` plus derived
+  `TBT_INTENSITY_RAW` payloads for offline study.
 - Capture timing diagnostics, timestamp distributions, and non-capturing
   preflight assessment.
 - Offline reanalysis from captured-spill bundles without Redis connectivity.

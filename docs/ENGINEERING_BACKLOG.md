@@ -37,6 +37,28 @@ None.
 
 ## Done
 
+### [ENG-019] Make captured-artifact quality the primary capture UX
+- Status: done
+- Owner: codex
+- Type: qol
+- Why: operators care first about complete same-spill acquisitions and bad digitizers in captured payloads; latest-poll snapshot staleness was too prominent in console and run reports.
+- Scope: update capture summaries and quality reports to lead with artifact completeness and capture suspect digitizers, while keeping latest-poll-only suspects as explicitly advisory diagnostics.
+- Acceptance: complete captures with stale latest-poll snapshots read as complete acquisitions; bad-digitizer alerts are tied to captured payload missing/stale/ahead/malformed reasons; latest-poll diagnostics remain available for troubleshooting.
+- Docs: docs/USAGE.md, docs/DESIGN_DECISIONS.md, docs/ENGINEERING_BACKLOG.md
+- Validation: cargo fmt --all; cargo test -- --nocapture
+- Notes: this is a reporting/triage priority change, not a captured bundle schema change.
+
+### [ENG-018] RAW position plus auxiliary RAW intensity capture
+- Status: done
+- Owner: codex
+- Type: feature
+- Why: the next acquisition run should preserve least-transformed position payloads and collect matching intensity artifacts before analysis semantics are refined.
+- Scope: switch checked-in monitor config to `TBT_POSITION_RAW`, add `capture_intensity_variant=raw`, derive matching `TBT_INTENSITY_RAW` streams during capture/assess, keep position streams as target-selection and tune-analysis inputs, and skip auxiliary intensity during offline tune analysis.
+- Acceptance: default config captures 120 RAW position streams plus 120 derived RAW intensity streams; RAW position streams classify as H/V analysis inputs; intensity streams are captured as auxiliary payloads without being analyzed as position traces; docs describe the 240-stream default capture.
+- Docs: README.md, docs/USAGE.md, docs/CONFIG_REFERENCE.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/ENGINEERING_BACKLOG.md
+- Validation: cargo fmt --all; cargo test -- --nocapture
+- Notes: follows the RAW-vs-SCALED findings tracked in GitHub issue #25; intensity remains auxiliary until a later curation/analysis contract promotes it.
+
 ### [ENG-017] Elite full-data autosweep stage
 - Status: done
 - Owner: codex

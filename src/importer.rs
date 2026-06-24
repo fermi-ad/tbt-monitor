@@ -184,6 +184,7 @@ pub fn import_xml_config(path: &Path) -> Result<(MonitorConfig, ImportReport)> {
         align_tolerance_ms: 1,
         same_spill_tolerance_ms: 25,
         min_aligned_fraction: 0.70,
+        capture_intensity_variant: None,
         devices,
     };
 
