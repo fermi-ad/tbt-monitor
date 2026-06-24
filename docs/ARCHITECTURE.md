@@ -12,6 +12,8 @@
 - multi-spill batch analysis
 - standalone BPM-only poster/DGX artifact processing scripts
 - staged BPM-only Spark autosweep, ranking, and classification scripts
+- Best-BPM mining scripts for unsupervised per-spill BPM subset selection and
+  poster narrative statistics
 
 The program reads Redis stream data from many BPM devices and converts it into synchronized spill-level artifacts and summary records.
 
@@ -198,6 +200,30 @@ boundaries, data flow, synchronization policy, and artifact contracts.
 
 This workflow is offline and BPM-only. It does not connect to Redis, does not
 use Schottky labels, and does not alter Rust runtime command safety checks.
+
+### Best-BPM Mining (`scripts/bpm_mining/`)
+
+The Best-BPM mining layer is a downstream raw-bundle study for the 2000-spill
+Spark Tier A dataset. It is separate from the Rust analyzer and from autosweep
+config ranking. Its package modules cover:
+
+- `io.py`: captured-bundle discovery, little-endian `f32` payload loading,
+  channel integrity checks, stable plane-local BPM indexing, and manifest CSVs.
+- `spectra.py` and `gpu.py`: Hann-window spectral cache generation with a
+  NumPy/CuPy backend and parallel per-spill workers.
+- `peaks.py`: per-BPM peak candidates, robust prominence, entropy, width, and
+  visibility summaries.
+- `consensus.py`: deterministic weighted 1D tune clustering per spill/plane.
+- `subset_score.py` and `subset_search.py`: exact best-1/best-3 enumeration,
+  screened-pool best-5/best-10 enumeration, and beam/random full-space audits.
+- `evolution.py`, `statistics.py`, `clustering.py`, `artifact_selection.py`,
+  `plots.py`, and `report.py`: downstream review tables, plots, morphology
+  clusters, and narrative-safe Markdown summaries.
+
+Best-1 and best-3 are globally exhaustive over valid BPMs for each spill/plane.
+Best-5 and best-10 are not globally exhaustive; their CSV rows carry
+`search_scope`, `search_exact`, and `audit_performed` fields so downstream
+claims cannot overstate the search.
 
 ### Analyze Phase (`analyze-phase`)
 

@@ -33,7 +33,16 @@ None.
 
 ## In Progress
 
-None.
+### [ENG-018] Best-BPM 2000-spill mining pipeline
+- Status: in_progress
+- Owner: codex
+- Type: feature
+- Why: the poster narrative needs a defensible BPM-only study of which individual and small BPM subsets most consistently recover tune information in the 2000 unlabeled Spark spills.
+- Scope: add `scripts/bpm_mining/`, pass wrappers, default config, exact best-1/best-3 search, screened audited best-5/best-10 search, per-BPM consensus/features, global statistics, clustering, artifact selection, plots, final reports, and Spark parallel worker controls.
+- Acceptance: the pipeline writes every required output group from `BEST_BPM_2000_SPILL_MINING_IMPLEMENTATION_PLAN.md`, passes synthetic unit/smoke tests, and completes a Spark run over the two Tier A collections using parallel workers.
+- Docs: README.md, docs/USAGE.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/*.py scripts/test_best_bpm_mining.py; python3 scripts/test_best_bpm_mining.py; Spark smoke passed; full Spark run active at `/home/derekste/best_bpm_mining_20260624_full_v2`
+- Notes: v1 keeps the full-buffer evolution schema but uses cached early rolling spectra unless a longer spectral-cache config is added.
 
 ## Done
 

@@ -26,6 +26,9 @@ Delivery Ring studies.
 - Staged BPM autosweep scripts for Spark raw position-only data: manifest and
   health inventory, deterministic pilot/full config sweeps, elite config
   selection, ranking, classification, and summary/artifact packages.
+- Best-BPM mining scripts for the 2000-spill Spark dataset: per-BPM spectra,
+  within-spill consensus, exact best-1/best-3 searches, screened-pool audited
+  best-5/best-10 searches, global statistics, clustering, and reports.
 
 ## Start Here
 
@@ -41,6 +44,7 @@ Delivery Ring studies.
 | Build poster-analysis products from collected artifacts | `scripts/bpm_dgx_poster.py` | [Poster Analysis](docs/POSTER_ANALYSIS.md) |
 | Analyze raw captured spills on Spark/GPU | `scripts/gpu_analyze_captured_spills.py` | [Poster Analysis](docs/POSTER_ANALYSIS.md#raw-captured-spill-gpu-analysis) |
 | Run staged Spark autosweep/ranking over raw BPM bundles | `scripts/run_autosweep.py` | [Poster Analysis](docs/POSTER_ANALYSIS.md#spark-bpm-autosweep) |
+| Mine strongest BPM subsets from the 2000-spill Spark dataset | `scripts/run_best_bpm_pipeline.py` | [Poster Analysis](docs/POSTER_ANALYSIS.md#best-bpm-2000-spill-mining) |
 | Review implementation and rationale | modules, timing, artifacts | [Architecture](docs/ARCHITECTURE.md), [Design Decisions](docs/DESIGN_DECISIONS.md) |
 | Review physics status and remaining validation work | acceptance criteria, open tasks | [Physics](docs/PHYSICS.md), [Analysis Checklist](docs/ANALYSIS_CHECKLIST.md), [Plan](docs/PLAN.md) |
 
@@ -155,6 +159,17 @@ python3 scripts/make_elite_full_summary.py \
   --elite-dir /home/derekste/tbt-spills-2000-autosweep/elite-full
 ```
 
+Run Best-BPM mining over the same Spark Tier A collections:
+
+```bash
+/home/derekste/venvs/cupy-spark-cu13/bin/python scripts/run_best_bpm_pipeline.py \
+  --config config/best_bpm_mining.yaml \
+  --out /home/derekste/best_bpm_mining \
+  --device cuda \
+  --workers 4 \
+  --resume
+```
+
 ## Documentation Map
 
 - [Usage Guide](docs/USAGE.md): command workflows, options, outputs, Docker
@@ -188,7 +203,7 @@ python3 scripts/make_elite_full_summary.py \
 - `src/capture.rs`: raw synchronized spill capture and diagnostics.
 - `src/analyze.rs`: live/offline tune analysis, studies, batch outputs.
 - `scripts/`: standalone BPM-only poster/DGX artifact and raw-spill GPU
-  processing helpers.
+  processing helpers, Spark autosweep tooling, and Best-BPM mining passes.
 - `config/monitor.cfg`: generated/example config.
 - `docs/`: user, architecture, physics, planning, and workflow docs.
 
@@ -202,6 +217,7 @@ cargo test -- --nocapture
 python3 scripts/bpm_dgx_poster.py --self-test
 python3 scripts/gpu_analyze_captured_spills.py --self-test
 python3 scripts/test_autosweep.py
+python3 scripts/test_best_bpm_mining.py
 ```
 
 For focused timing/selection checks:

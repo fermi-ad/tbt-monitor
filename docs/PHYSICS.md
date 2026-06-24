@@ -26,6 +26,10 @@ capabilities rather than re-track them as new software tasks:
   `scripts/rank_autosweep_results.py`, and
   `scripts/make_initial_analysis_summary.py` for selecting candidate H/V/poster
   configurations and candidate spills from raw position bundles
+- Best-BPM mining through `scripts/run_best_bpm_pipeline.py`, including
+  per-BPM spectral features, within-spill consensus, exact best-1/best-3
+  searches, screened-pool audited best-5/best-10 searches, global BPM
+  statistics, morphology clustering, selected artifacts, and reports
 
 ## 2. Core Physics Question
 
@@ -110,6 +114,13 @@ Notes:
 - Autosweep labels are BPM-only ranking labels. They help select candidate
   configs/spills for review, but do not prove true tune without independent
   reference comparison.
+- Best-BPM mining labels and consensus tunes are BPM-only internal evidence.
+  The method intentionally avoids using global tune distributions or neighboring
+  spills as labels because the machine configuration changed during collection.
+- Best-1 and best-3 subset searches can be described as globally exhaustive
+  over valid BPMs. Best-5 and best-10 must be described as screened-pool exact
+  searches with beam/random full-space audits unless a true global enumeration
+  is ever run.
 
 Deliverables:
 

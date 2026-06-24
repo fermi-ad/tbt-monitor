@@ -27,6 +27,10 @@ Treat these as baseline rather than open TODOs:
   manifest/health/cache outputs, deterministic pilot/full config grids,
   weighted ranking, spill/config labels, top full-stage config lists, and
   `initial_analysis_summary.md`
+- Best-BPM mining pass over the 2000-spill Spark dataset, including per-BPM
+  spectra/features, within-spill consensus, exact best-1/best-3 searches,
+  screened-pool audited best-5/best-10 searches, fixed-vs-dynamic statistics,
+  morphology clustering, selected artifacts, and final reports
 
 ## 2. Open Implementation Work (Current TODO)
 
@@ -153,8 +157,8 @@ Improve consistency across plot outputs:
 4. FFT resolution metadata fields
 5. optional frequency-axis mode
 6. `physics_summary.md` and `physics_usable` flag integration
-7. Spark autosweep elite full-data execution and review of top-ranked
-   H/V/robust/poster configurations
+7. Spark Best-BPM full run execution and review of
+   `reports/strong_bpm_analysis_summary.md`
 
 SVD/PCA remains deferred for production Rust tune extraction. The standalone
 poster analyzer can already produce opt-in representative-spill SVD/PCA
@@ -185,6 +189,9 @@ Optional but useful:
   `autosweep_ranked_spills.csv`, `elite_full_summary.md`,
   `bpm_leaderboard.csv`, `bpm_leaderboard_h/v.png`, and elite poster candidate
   plots/artifacts
+- Best-BPM mining `reports/strong_bpm_analysis_summary.md`,
+  `statistics/bpm_global_statistics.csv`, `subset_search/best*/best*_results.csv`,
+  and selected `artifacts/global/*.png`
 
 ## 6. Related Acquisition/Analysis Split
 

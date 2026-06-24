@@ -557,6 +557,43 @@ CuPy is optional for GPU execution.
 See `docs/POSTER_ANALYSIS.md` for the phase-by-phase script layout and output
 inventory.
 
+## Best-BPM Mining
+
+Use the Best-BPM mining pipeline when the question is not which analyzer config
+is best, but which BPM subsets carry the most defensible within-spill tune
+evidence. The pipeline consumes raw captured position bundles, caches per-BPM
+spectra, builds within-spill consensus clusters, searches best 1/3/5/10 BPM
+subsets, computes global/fixed/dynamic statistics, clusters spill morphologies,
+selects review artifacts, and writes final reports.
+
+```bash
+/home/derekste/venvs/cupy-spark-cu13/bin/python scripts/run_best_bpm_pipeline.py \
+  --config config/best_bpm_mining.yaml \
+  --out /home/derekste/best_bpm_mining \
+  --device cuda \
+  --workers 4 \
+  --resume
+```
+
+Use `--limit` for a Spark smoke test and `--workers` to fan out per-spill
+manifest/integrity checks while keeping single-GPU FFT/cache and subset scoring
+on the CUDA path. The default config is JSON-compatible YAML so the Spark
+runtime only needs stdlib plus NumPy/CuPy.
+
+Main outputs:
+
+- `manifest/spills.csv`, `manifest/bpm_index.csv`,
+  `manifest/channels.csv`, `manifest/rejections.csv`
+- `cache/index/spectral_cache.csv` and per-spill `.npy` spectra
+- `per_bpm/per_bpm_*features.csv`
+- `consensus/spill_consensus_*.csv`
+- `subset_search/best1`, `best3`, `best5`, `best10`, and
+  `subset_search/audit_results.csv`
+- `statistics/*.csv`, `clustering/*.csv`,
+  `artifact_selection/artifact_manifest.csv`
+- `artifacts/global/*.png`, selected per-spill plots, and
+  `reports/strong_bpm_analysis_summary.md`
+
 ## Timing Semantics
 
 The primary synchronization timestamp is the Redis stream-ID millisecond. The

@@ -335,6 +335,55 @@ Required autosweep outputs are:
   `elite_rejected_config_diagnostics.csv`, `elite_full_summary.md`,
   `elite_artifacts_manifest.csv`, and `poster_candidate_gallery/`
 
+## Best-BPM 2000-Spill Mining
+
+`BEST_BPM_2000_SPILL_MINING_IMPLEMENTATION_PLAN.md` is implemented as a
+separate BPM-only mining layer under `scripts/bpm_mining/` with thin pass
+wrappers. It is designed for the same two Tier A Spark position-only
+collections and does not assume constant tune, chronological tune trend, or an
+external truth label.
+
+Run the full pipeline on Spark:
+
+```bash
+/home/derekste/venvs/cupy-spark-cu13/bin/python scripts/run_best_bpm_pipeline.py \
+  --config config/best_bpm_mining.yaml \
+  --out /home/derekste/best_bpm_mining \
+  --device cuda \
+  --workers 4 \
+  --resume
+```
+
+Individual passes are also available:
+
+```bash
+python3 scripts/build_best_bpm_manifest.py --config config/best_bpm_mining.yaml --out best_bpm_mining/manifest
+python3 scripts/build_bpm_spectral_cache.py --config config/best_bpm_mining.yaml --manifest best_bpm_mining/manifest/spills.csv --out best_bpm_mining/cache --device cuda --workers 4 --resume
+python3 scripts/extract_per_bpm_features.py --config config/best_bpm_mining.yaml --cache best_bpm_mining/cache --manifest best_bpm_mining/manifest --out best_bpm_mining/per_bpm
+python3 scripts/build_spill_tune_consensus.py --config config/best_bpm_mining.yaml --features best_bpm_mining/per_bpm --cache best_bpm_mining/cache --out best_bpm_mining/consensus
+python3 scripts/search_best_bpm_subsets.py --config config/best_bpm_mining.yaml --cache best_bpm_mining/cache --manifest best_bpm_mining/manifest --features best_bpm_mining/per_bpm --consensus best_bpm_mining/consensus --subset-sizes 1 3 5 10 --out best_bpm_mining/subset_search --resume
+python3 scripts/evaluate_best_subset_evolution.py --config config/best_bpm_mining.yaml --subsets best_bpm_mining/subset_search --out best_bpm_mining/evolution
+python3 scripts/aggregate_best_bpm_statistics.py --config config/best_bpm_mining.yaml --inputs best_bpm_mining --out best_bpm_mining/statistics
+python3 scripts/cluster_spill_morphologies.py --config config/best_bpm_mining.yaml --inputs best_bpm_mining --out best_bpm_mining/clustering
+python3 scripts/select_best_bpm_artifacts.py --config config/best_bpm_mining.yaml --inputs best_bpm_mining --out best_bpm_mining/artifact_selection
+python3 scripts/make_best_bpm_artifacts.py --config config/best_bpm_mining.yaml --inputs best_bpm_mining --manifest best_bpm_mining/artifact_selection/artifact_manifest.csv --out best_bpm_mining/artifacts
+python3 scripts/make_best_bpm_report.py --config config/best_bpm_mining.yaml --inputs best_bpm_mining --out best_bpm_mining/reports
+```
+
+The scope statement in the final report is intentional:
+
+- best-1 and best-3 are globally exhaustive over valid BPMs in each
+  spill/plane.
+- best-5 and best-10 are exact searches within data-driven screened pools.
+- best-5 and best-10 also run independent beam/random full-space audits and
+  report whether the pool was expanded.
+- per-spill consensus is an internal unsupervised reference, not ground truth.
+- expected H near `0.65` and V near `0.72` are soft priors only.
+
+Required outputs are grouped under `best_bpm_mining/manifest`, `cache`,
+`per_bpm`, `consensus`, `subset_search`, `evolution`, `statistics`,
+`clustering`, `artifact_selection`, `artifacts`, `logs`, and `reports`.
+
 ## Validation
 
 Run the built-in smoke test:
@@ -343,6 +392,7 @@ Run the built-in smoke test:
 python3 scripts/bpm_dgx_poster.py --self-test
 python3 scripts/gpu_analyze_captured_spills.py --self-test
 python3 scripts/test_autosweep.py
+python3 scripts/test_best_bpm_mining.py
 ```
 
 The smoke test uses synthetic ranked artifacts and verifies that the full
