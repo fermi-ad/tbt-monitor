@@ -17,6 +17,16 @@ Treat these as baseline rather than open TODOs:
   explicit `quality_flags`
 - robustness-study artifacts from `analyze-phase`
 - external reference matching and residual plotting in batch mode
+- standalone BPM-only poster/DGX manifest, baseline, flash, trace-density,
+  weak-label quality, benchmark, and poster-index products
+- raw captured-spill CuPy/CUDA analysis from payload bundles, including
+  same-grid flash summaries, median band spectrograms, ridge-density plots,
+  representative Hann/multitaper spectrogram overlays, dynamic-programming
+  ridge traces, optional SVD/PCA denoising plots, and DGX benchmarks
+- staged Spark BPM autosweep over raw position bundles, including Stage 0
+  manifest/health/cache outputs, deterministic pilot/full config grids,
+  weighted ranking, spill/config labels, top full-stage config lists, and
+  `initial_analysis_summary.md`
 
 ## 2. Open Implementation Work (Current TODO)
 
@@ -33,6 +43,15 @@ Method:
 - compute median power per `[window, tune_bin]`
 - overlay median tracked tune path
 
+Current poster helper note:
+
+- `scripts/bpm_dgx_poster.py` can emit `median_spectrogram_h/v.png` as
+  selected-tune trace-density products from existing summaries.
+- `scripts/gpu_analyze_captured_spills.py` emits median band-spectrogram PNGs
+  from raw payload FFT power for same-grid flash runs.
+- Full median spectral-power products still require same-grid spectral arrays
+  from offline analysis outputs.
+
 ### 2.2 BPM subset consistency checks
 
 Add:
@@ -46,6 +65,13 @@ Modes:
 - odd/even split
 - first/second half split
 - random fixed-size subsets
+
+Current poster helper note:
+
+- `scripts/bpm_dgx_poster.py` emits conservative spill-subset proxy outputs
+  when only summary/ranking artifacts are present.
+- True per-BPM subset checks still require per-BPM spectra or `analyze-phase`
+  study artifacts.
 
 ### 2.3 Best-BPM vs all-BPM spectrum comparison plot
 
@@ -100,6 +126,16 @@ Keep existing `status` and `quality_label`, and add optional:
 
 - `physics_usable` flag (stricter than generic analysis success)
 
+Current autosweep note:
+
+- `scripts/rank_autosweep_results.py` emits BPM-only `GOOD`, `MARGINAL`,
+  `BAD`, `NO_SIGNAL`, `AMBIGUOUS_RIDGE`, and `MISSING_DATA` spill labels, plus
+  config labels for ranking. These are offline ranking labels, not yet the
+  production Rust `physics_usable` field.
+- `scripts/build_elite_full_stage.py` filters the full Tier A stage to
+  `spill_health.csv` usable spills and preserves rejected/flagged configs in
+  diagnostics before full-data reruns.
+
 ## 3. Plot Usability Upgrades (Applies to Existing + New Plots)
 
 Improve consistency across plot outputs:
@@ -117,9 +153,12 @@ Improve consistency across plot outputs:
 4. FFT resolution metadata fields
 5. optional frequency-axis mode
 6. `physics_summary.md` and `physics_usable` flag integration
+7. Spark autosweep elite full-data execution and review of top-ranked
+   H/V/robust/poster configurations
 
-SVD/PCA remains deferred until the above baseline physics-review artifacts are
-in place.
+SVD/PCA remains deferred for production Rust tune extraction. The standalone
+poster analyzer can already produce opt-in representative-spill SVD/PCA
+comparison plots for physics review.
 
 ## 5. Next Review Deliverables
 
@@ -139,6 +178,13 @@ Optional but useful:
 - `spectrum_compare_h.png`
 - `spectrum_compare_v.png`
 - `*_freq.png` spectra with revolution-line annotations
+- standalone poster-analysis `ridge_density_h/v.png`,
+  `method_comparison_h/v.png`, and optional `svd_*` products from raw captured
+  bundles
+- autosweep `initial_analysis_summary.md`, `autosweep_ranked_configs.csv`,
+  `autosweep_ranked_spills.csv`, `elite_full_summary.md`,
+  `bpm_leaderboard.csv`, `bpm_leaderboard_h/v.png`, and elite poster candidate
+  plots/artifacts
 
 ## 6. Related Acquisition/Analysis Split
 

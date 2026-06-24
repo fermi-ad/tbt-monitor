@@ -7,9 +7,12 @@
 *.swo
 .vscode/
 .idea/
+__pycache__/
+*.pyc
 
 # Runtime outputs
 /out/
+/poster-artifacts/
 *.png
 *.csv
 *.jsonl

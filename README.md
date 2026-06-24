@@ -19,6 +19,13 @@ Delivery Ring studies.
 - One-spill, multi-spill, no-beam, flashpoint, and robustness-study analysis.
 - Batch records, quality flags, timeliness metrics, plots, and summaries for
   physics review.
+- Standalone BPM-only poster/DGX analysis scripts for collected artifact sets,
+  including a CuPy GPU path for raw captured-spill bundles on Spark with
+  ridge-density, multitaper, dynamic-programming ridge, SVD/PCA, and benchmark
+  poster products.
+- Staged BPM autosweep scripts for Spark raw position-only data: manifest and
+  health inventory, deterministic pilot/full config sweeps, elite config
+  selection, ranking, classification, and summary/artifact packages.
 
 ## Start Here
 
@@ -31,6 +38,9 @@ Delivery Ring studies.
 | Analyze one live or captured spill | `analyze-spill`, `analyze-captured-spill` | [Usage Guide](docs/USAGE.md#one-spill-analysis) |
 | Analyze many spills | `analyze-spills`, `analyze-captured-spills` | [Usage Guide](docs/USAGE.md#batch-analysis) |
 | Study analysis robustness | `analyze-phase` | [Usage Guide](docs/USAGE.md#robustness-studies) |
+| Build poster-analysis products from collected artifacts | `scripts/bpm_dgx_poster.py` | [Poster Analysis](docs/POSTER_ANALYSIS.md) |
+| Analyze raw captured spills on Spark/GPU | `scripts/gpu_analyze_captured_spills.py` | [Poster Analysis](docs/POSTER_ANALYSIS.md#raw-captured-spill-gpu-analysis) |
+| Run staged Spark autosweep/ranking over raw BPM bundles | `scripts/run_autosweep.py` | [Poster Analysis](docs/POSTER_ANALYSIS.md#spark-bpm-autosweep) |
 | Review implementation and rationale | modules, timing, artifacts | [Architecture](docs/ARCHITECTURE.md), [Design Decisions](docs/DESIGN_DECISIONS.md) |
 | Review physics status and remaining validation work | acceptance criteria, open tasks | [Physics](docs/PHYSICS.md), [Analysis Checklist](docs/ANALYSIS_CHECKLIST.md), [Plan](docs/PLAN.md) |
 
@@ -77,6 +87,74 @@ cargo run --offline -- analyze-captured-spills \
   --count 25
 ```
 
+Build BPM-only poster products from a collected artifact tree:
+
+```bash
+python3 scripts/bpm_dgx_poster.py run-all \
+  --input /home/derekste/out \
+  --out poster-artifacts/drbpm1-poster \
+  --flashes 128 256 512 \
+  --device auto
+```
+
+Run GPU-backed flash analysis directly over raw captured-spill bundles:
+
+```bash
+/home/derekste/venvs/cupy-spark-cu13/bin/python scripts/gpu_analyze_captured_spills.py \
+  --input /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-183119 \
+          /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-231330 \
+  --out /home/derekste/tbt-spills-2000-gpu-upgrade \
+  --device cuda \
+  --flashes 128 \
+  --spectrogram-method both \
+  --ridge-method dp \
+  --ridge-source-method multitaper \
+  --svd-denoise
+```
+
+Build and rank a staged BPM-only Spark autosweep package:
+
+```bash
+python3 scripts/build_collection_manifest.py \
+  --roots /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-183119 \
+          /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-231330 \
+  --out /home/derekste/tbt-spills-2000-autosweep/stage0
+python3 scripts/validate_spill_integrity.py \
+  --manifest /home/derekste/tbt-spills-2000-autosweep/stage0/dataset_manifest.csv \
+  --out /home/derekste/tbt-spills-2000-autosweep/stage0 \
+  --device cuda
+python3 scripts/run_autosweep.py \
+  --dataset /home/derekste/tbt-spills-2000-autosweep/stage0/dataset_manifest.csv \
+  --mode pilot \
+  --spills 200 \
+  --max-configs 300 \
+  --device cuda \
+  --out /home/derekste/tbt-spills-2000-autosweep/pilot
+python3 scripts/rank_autosweep_results.py \
+  --autosweep-dir /home/derekste/tbt-spills-2000-autosweep/pilot
+python3 scripts/make_initial_analysis_summary.py \
+  --ranking-dir /home/derekste/tbt-spills-2000-autosweep/pilot
+python3 scripts/build_elite_full_stage.py \
+  --pilot-dir /home/derekste/tbt-spills-2000-autosweep/pilot \
+  --dataset /home/derekste/tbt-spills-2000-autosweep/stage0/dataset_manifest.csv \
+  --health /home/derekste/tbt-spills-2000-autosweep/stage0/spill_health.csv \
+  --out /home/derekste/tbt-spills-2000-autosweep/elite-full \
+  --expected-usable-spills 1988
+python3 scripts/run_autosweep.py \
+  --dataset /home/derekste/tbt-spills-2000-autosweep/elite-full/elite_dataset_manifest.csv \
+  --mode full \
+  --config-list /home/derekste/tbt-spills-2000-autosweep/elite-full/elite_configs_for_full.csv \
+  --device cuda \
+  --heavy-plots \
+  --job-timeout-seconds 900 \
+  --out /home/derekste/tbt-spills-2000-autosweep/elite-full
+python3 scripts/rank_autosweep_results.py \
+  --autosweep-dir /home/derekste/tbt-spills-2000-autosweep/elite-full \
+  --min-spills 500
+python3 scripts/make_elite_full_summary.py \
+  --elite-dir /home/derekste/tbt-spills-2000-autosweep/elite-full
+```
+
 ## Documentation Map
 
 - [Usage Guide](docs/USAGE.md): command workflows, options, outputs, Docker
@@ -92,6 +170,8 @@ cargo run --offline -- analyze-captured-spills \
 - [Physics](docs/PHYSICS.md): physics-validation criteria and known limits.
 - [Analysis Checklist](docs/ANALYSIS_CHECKLIST.md): remaining review artifacts
   and analysis-quality work.
+- [Poster Analysis](docs/POSTER_ANALYSIS.md): standalone BPM-only DGX/poster
+  workflow for complete collected artifact sets.
 - [Engineering Backlog](docs/ENGINEERING_BACKLOG.md): completed and active
   implementation tracking.
 - [GitHub Workflow](docs/GITHUB_WORKFLOW.md): issue-first and PR workflow.
@@ -107,6 +187,8 @@ cargo run --offline -- analyze-captured-spills \
 - `src/monitor.rs`: live TUI stream monitor runtime.
 - `src/capture.rs`: raw synchronized spill capture and diagnostics.
 - `src/analyze.rs`: live/offline tune analysis, studies, batch outputs.
+- `scripts/`: standalone BPM-only poster/DGX artifact and raw-spill GPU
+  processing helpers.
 - `config/monitor.cfg`: generated/example config.
 - `docs/`: user, architecture, physics, planning, and workflow docs.
 
@@ -117,6 +199,9 @@ Run from the repository root:
 ```bash
 cargo fmt --all
 cargo test -- --nocapture
+python3 scripts/bpm_dgx_poster.py --self-test
+python3 scripts/gpu_analyze_captured_spills.py --self-test
+python3 scripts/test_autosweep.py
 ```
 
 For focused timing/selection checks:

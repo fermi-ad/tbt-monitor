@@ -302,6 +302,106 @@ Tradeoffs:
 - There are now two timing concepts: legacy strict `align_tolerance_ms` and
   capture-oriented `same_spill_tolerance_ms`.
 
+## DD-017: Standalone BPM-only poster analysis layer
+
+Decision:
+- Implement the DGX/poster sprint as Python scripts under `scripts/` rather
+  than as new Rust runtime commands.
+- Consume existing collected artifacts (`candidate_spills.csv`,
+  `spills_summary.csv`, and `capture_index.csv`) and write poster-phase
+  products into a separate output tree.
+- Add a second standalone script for raw captured-spill bundles when Spark/GPU
+  processing should run directly from payload bytes instead of summary CSVs.
+- Keep Schottky comparison out of this phase.
+- Use CPU execution as the reproducibility baseline and CUDA/CuPy only as an
+  optional DGX acceleration path.
+
+Why:
+- The poster work is offline evidence synthesis over already collected data,
+  not an online deployment or control-room feedback feature.
+- Keeping it standalone avoids expanding the runtime safety surface while still
+  letting the complete `drbpm1` artifact tree feed the poster manifest.
+- CPU fallback makes local review and regression checks possible even when DGX
+  access is unavailable.
+- Keeping the raw payload GPU analyzer outside the Rust runtime lets Spark
+  process the 2000-spill dataset without expanding the online monitoring or
+  acquisition safety surface.
+
+Tradeoffs:
+- The scripts must be kept in sync with stable artifact schemas.
+- When only summary/ranking artifacts are available, median spectrogram and
+  BPM-subset products are conservative proxies until raw spectral/per-BPM study
+  artifacts are provided.
+
+## DD-018: Offline tune-evolution upgrade products
+
+Decision:
+- Add ridge-density, multitaper spectrogram, dynamic-programming ridge, optional
+  SVD/PCA denoising, and DGX benchmark products to
+  `scripts/gpu_analyze_captured_spills.py`.
+- Keep the default backend as CPU and make CUDA an explicit/offline acceleration
+  choice.
+- Keep the current all-BPM averaged Hann spectrum as the baseline, then write
+  comparison plots instead of silently replacing the baseline tune trace.
+- Use SVD/PCA only as an opt-in representative-spill denoising experiment, not
+  as the default physics answer.
+
+Why:
+- The 2000-spill captured dataset is large enough that clean composite
+  tune-evolution plots require density/ridge aggregation rather than thousands
+  of individual traces.
+- Multitaper and DP ridge extraction improve poster-review readability while
+  preserving side-by-side comparison against the existing FFT/stride baseline.
+- SVD/PCA can clarify coherent motion, but betatron motion may occupy mode
+  pairs; it needs comparison plots before becoming a production default.
+
+Tradeoffs:
+- The raw-spill analyzer has a larger Python artifact surface to document and
+  regression-test.
+- DP ridge penalties and SVD mode counts are method choices that require
+  physics review before being treated as operational defaults.
+- These plots are BPM-only offline evidence products; they are not Schottky
+  validation, online inference, or feedback-loop controls.
+
+## DD-019: Staged BPM autosweep instead of full Cartesian search
+
+Decision:
+- Implement Spark tune-tracking parameter exploration as a staged autosweep:
+  Stage 0 inventory/health/cache, baseline configs, factor screening, capped
+  interaction pilot, and elite full-data reruns.
+- Use canonical sorted JSON plus `sha256[:12]` config hashes for deterministic
+  config identity, resume-safe output directories, and reproducible handoff
+  lists.
+- Keep v1 BPM-only over Tier A raw position bundles; Tier B intensity/beam-loss
+  paths remain later-capable but do not block Tier A outputs.
+- Score configs with fixed component weights:
+  `0.25 injection + 0.25 ridge + 0.20 bpm_robustness +
+  0.15 spectrogram_quality + 0.10 usable_fraction +
+  0.05 compute_efficiency`.
+- Classify spill/config rows with explicit labels so later strict filters can
+  be applied to ranked tables rather than rerunning acquisition.
+
+Why:
+- The parameter space is too large for a naive Cartesian sweep over all spills.
+- The first need is to identify robust candidate tune-tracking configurations
+  and top candidate spills for review, not to exhaustively generate artifacts
+  for every combination.
+- Deterministic hashes and CSV logs make Spark jobs restartable and auditable.
+- Keeping autosweep as Python scripts avoids adding offline research controls
+  to the Rust runtime safety surface.
+
+Tradeoffs:
+- Pilot selection can miss interactions that a full Cartesian search would
+  reveal; full-stage reruns should therefore include baseline and top H/V/poster
+  configs.
+- Full-stage execution uses an explicit elite builder rather than implicit
+  baseline injection inside the runner, so the config list is auditable and the
+  full run never expands beyond the selected effective configs.
+- Some scoring components are pragmatic proxies until independent reference
+  labels or richer per-BPM spectral products are available.
+- The ranking schema is a downstream analysis contract and must be versioned
+  through docs/tests when field meanings change.
+
 ## Decision Update Rule
 
 When changing one of these decisions, update:

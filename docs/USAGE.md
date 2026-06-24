@@ -374,6 +374,189 @@ Detailed artifact mode controls per-spill plot volume:
   lowest-alignment, and bad spills.
 - `none`: skip detailed per-spill artifacts.
 
+## Standalone Poster/DGX Analysis
+
+Use `scripts/bpm_dgx_poster.py` after data has already been collected and, where
+available, analyzed or ranked. This is a BPM-only poster workflow; it does not
+perform Schottky comparison or use Schottky-derived labels.
+
+The complete collected artifact set lives on `drbpm1`, so the full poster run
+should target that tree or a DGX-mounted/copy of it:
+
+```bash
+python3 scripts/bpm_dgx_poster.py run-all \
+  --input /home/derekste/out \
+  --out poster-artifacts/drbpm1-poster \
+  --flashes 128 256 512 \
+  --device auto
+```
+
+`--input` accepts directories or files containing `candidate_spills.csv`,
+`spills_summary.csv`, and `capture_index.csv`. The command writes manifest,
+baseline, flash, spectrogram/waterfall, subset, optional ML, benchmark, and
+poster-plot products. Use `--device cuda` on DGX Spark when CuPy is available;
+CPU mode remains the reproducible fallback.
+
+For the raw 2000-spill captured payload set, copy the two capture directories
+to Spark and run the GPU analyzer directly over `manifest.json`/payload bundles:
+
+```bash
+/home/derekste/venvs/cupy-spark-cu13/bin/python scripts/gpu_analyze_captured_spills.py \
+  --input /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-183119 \
+          /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-231330 \
+  --out /home/derekste/tbt-spills-2000-gpu-upgrade \
+  --device cuda \
+  --flashes 128 \
+  --spectrogram-method both \
+  --ridge-method dp \
+  --ridge-source-method multitaper \
+  --svd-denoise
+```
+
+This emits `gpu_spills_summary.csv`, `gpu_sliding_tune.csv`,
+`gpu_flash_summary_<N>.csv`, median tune trends, flash waterfalls, median
+band-spectrogram PNGs, and a benchmark/summary markdown pair. The upgraded
+tune-evolution path also writes:
+
+- `ridge_density_h.png` and `ridge_density_v.png`
+- representative Hann/multitaper spectrogram overlays and method comparisons
+- `ridge_trace_h.csv`, `ridge_trace_v.csv`, and `ridge_overlay_h/v.png`
+- optional `svd_*` denoising plots when `--svd-denoise` is set
+- `dgx_benchmark.md`, `dgx_benchmark.png`, and
+  `dgx_processing_benchmark.png`
+
+Key raw-spill GPU-analysis options:
+
+- `--device cpu|cuda|auto`: select NumPy CPU, CuPy CUDA, or best available
+  backend; default is CPU for reproducibility.
+- `--turn-start N --turn-end N`: analyze a bounded turn interval from each
+  waveform, useful when buffers exceed the first 50,000 turns needed for the
+  current study.
+- `--plane H|V|both`: analyze one plane or both planes.
+- `--spectrogram-method hann|multitaper|both`: select Hann, multitaper, or both
+  for comparison plots.
+- `--multitaper-nw 2.5 --multitaper-k 4`: set DPSS/Slepian taper parameters.
+- `--bpm-combination mean|median|trimmed_mean_10pct|best_single_bpm|top10_by_confidence|top20_by_confidence|odd_even|first_second_half`:
+  select how BPM spectra are combined for a plane.
+- `--bpm-normalization none|rms_per_bpm|mad_per_bpm|injection_rms_per_bpm`:
+  normalize each BPM trace before spectral combination.
+- `--detrend none|mean_subtract|linear|polynomial_order_2` and
+  `--dc-handling keep|zero_dc_bin|ignore_low_bins`: control window
+  preprocessing.
+- `--ridge-method greedy|dp`: select local peak tracking or
+  dynamic-programming ridge extraction.
+- `--ridge-jump-penalty`, `--ridge-jump2-penalty`, `--ridge-max-step`, and
+  `--ridge-normalize row|global|none`: tune DP smoothness behavior.
+- `--ridge-anchor-enabled true|false`, `--ridge-anchor-h`, `--ridge-anchor-v`,
+  and `--ridge-anchor-half-width`: apply H/V tune-anchor priors to DP ridge
+  selection; defaults are H `0.65`, V `0.72`, half-width `0.02`.
+- `--svd-denoise --svd-modes 1,2,4 --svd-normalize-bpm true|false`: create
+  representative SVD/PCA denoising products.
+
+Use `--limit` for Spark smoke tests before the full pass.
+
+## Spark BPM Autosweep
+
+Use the autosweep scripts when you want to explore tune-tracking parameter
+space over raw captured BPM bundles without running a full Cartesian sweep.
+The v1 path is BPM-only and is intended for the two Tier A Spark position-only
+collections under `/home/derekste/tbt-spills-2000`.
+
+Stage 0 inventories raw captures, checks payload health, and writes a metadata
+cache:
+
+```bash
+python3 scripts/build_collection_manifest.py \
+  --roots /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-183119 \
+          /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-231330 \
+  --out /home/derekste/tbt-spills-2000-autosweep/stage0
+
+python3 scripts/validate_spill_integrity.py \
+  --manifest /home/derekste/tbt-spills-2000-autosweep/stage0/dataset_manifest.csv \
+  --out /home/derekste/tbt-spills-2000-autosweep/stage0 \
+  --device cuda
+
+python3 scripts/build_spill_cache.py \
+  --manifest /home/derekste/tbt-spills-2000-autosweep/stage0/dataset_manifest.csv \
+  --health /home/derekste/tbt-spills-2000-autosweep/stage0/spill_health.csv \
+  --out /home/derekste/tbt-spills-2000-autosweep/stage0 \
+  --device cuda
+```
+
+Pilot mode runs baseline configs, factor screening, and a deterministic capped
+interaction grid (`seed=20260613`, default `max-configs=300`):
+
+```bash
+python3 scripts/run_autosweep.py \
+  --dataset /home/derekste/tbt-spills-2000-autosweep/stage0/dataset_manifest.csv \
+  --mode pilot \
+  --spills 200 \
+  --max-configs 300 \
+  --device cuda \
+  --out /home/derekste/tbt-spills-2000-autosweep/pilot
+```
+
+Rank the pilot and make the initial summary package:
+
+```bash
+python3 scripts/rank_autosweep_results.py \
+  --autosweep-dir /home/derekste/tbt-spills-2000-autosweep/pilot
+
+python3 scripts/make_initial_analysis_summary.py \
+  --ranking-dir /home/derekste/tbt-spills-2000-autosweep/pilot \
+  --top 10
+```
+
+Build an explicit elite full-data package from the pilot rankings and Stage 0
+health table:
+
+```bash
+python3 scripts/build_elite_full_stage.py \
+  --pilot-dir /home/derekste/tbt-spills-2000-autosweep/pilot \
+  --dataset /home/derekste/tbt-spills-2000-autosweep/stage0/dataset_manifest.csv \
+  --health /home/derekste/tbt-spills-2000-autosweep/stage0/spill_health.csv \
+  --out /home/derekste/tbt-spills-2000-autosweep/elite-full \
+  --expected-usable-spills 1988
+```
+
+Full mode consumes the supplied elite config list exactly; the builder owns
+baseline inclusion and usable-spill filtering:
+
+```bash
+python3 scripts/run_autosweep.py \
+  --dataset /home/derekste/tbt-spills-2000-autosweep/elite-full/elite_dataset_manifest.csv \
+  --mode full \
+  --config-list /home/derekste/tbt-spills-2000-autosweep/elite-full/elite_configs_for_full.csv \
+  --device cuda \
+  --heavy-plots \
+  --job-timeout-seconds 900 \
+  --out /home/derekste/tbt-spills-2000-autosweep/elite-full
+python3 scripts/rank_autosweep_results.py \
+  --autosweep-dir /home/derekste/tbt-spills-2000-autosweep/elite-full \
+  --min-spills 500
+python3 scripts/make_elite_full_summary.py \
+  --elite-dir /home/derekste/tbt-spills-2000-autosweep/elite-full
+```
+
+Autosweep outputs include `dataset_manifest.csv`, `spill_health.csv`,
+`spill_cache_index.json`, `autosweep_config_grid.csv`,
+`autosweep_run_log.csv`, `autosweep_spill_scores.csv`,
+`autosweep_config_scores.csv`, `autosweep_collection_scores.csv`,
+`autosweep_ranked_configs.csv`, `autosweep_ranked_spills.csv`,
+`autosweep_rejected_configs.csv`, `top_configs_for_full.csv`, and
+`initial_analysis_summary.md`. The elite full stage adds
+`elite_dataset_manifest.csv`, `elite_configs_h.csv`, `elite_configs_v.csv`,
+`elite_configs_for_full.csv`, `elite_config_sources.csv`,
+`elite_rejected_config_diagnostics.csv`, `elite_full_summary.md`,
+`elite_artifacts_manifest.csv`, and `poster_candidate_gallery/`.
+
+`scripts/bootstrap_spark_env.sh` can create a minimal optional venv, but the
+scripts intentionally avoid pandas, scipy, pyarrow, and zarr. NumPy is required;
+CuPy is optional for GPU execution.
+
+See `docs/POSTER_ANALYSIS.md` for the phase-by-phase script layout and output
+inventory.
+
 ## Timing Semantics
 
 The primary synchronization timestamp is the Redis stream-ID millisecond. The
