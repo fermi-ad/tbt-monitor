@@ -166,7 +166,7 @@ Run Best-BPM mining over the same Spark Tier A collections:
   --config config/best_bpm_mining.yaml \
   --out /home/derekste/best_bpm_mining \
   --device cuda \
-  --workers 4 \
+  --workers 12 \
   --resume
 ```
 

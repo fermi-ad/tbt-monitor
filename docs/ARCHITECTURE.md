@@ -211,8 +211,8 @@ config ranking. Its package modules cover:
   channel integrity checks, stable plane-local BPM indexing, and manifest CSVs.
 - `spectra.py` and `gpu.py`: Hann-window spectral cache generation with a
   NumPy/CuPy backend and parallel per-spill workers.
-- `peaks.py`: per-BPM peak candidates, robust prominence, entropy, width, and
-  visibility summaries.
+- `peaks.py`: sharded per-BPM peak candidates, robust prominence, entropy,
+  width, and visibility summaries with CPU worker fan-out.
 - `consensus.py`: deterministic weighted 1D tune clustering per spill/plane.
 - `subset_score.py` and `subset_search.py`: exact best-1/best-3 enumeration,
   screened-pool best-5/best-10 enumeration, and beam/random full-space audits.

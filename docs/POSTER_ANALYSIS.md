@@ -350,7 +350,7 @@ Run the full pipeline on Spark:
   --config config/best_bpm_mining.yaml \
   --out /home/derekste/best_bpm_mining \
   --device cuda \
-  --workers 4 \
+  --workers 12 \
   --resume
 ```
 
@@ -359,7 +359,7 @@ Individual passes are also available:
 ```bash
 python3 scripts/build_best_bpm_manifest.py --config config/best_bpm_mining.yaml --out best_bpm_mining/manifest
 python3 scripts/build_bpm_spectral_cache.py --config config/best_bpm_mining.yaml --manifest best_bpm_mining/manifest/spills.csv --out best_bpm_mining/cache --device cuda --workers 4 --resume
-python3 scripts/extract_per_bpm_features.py --config config/best_bpm_mining.yaml --cache best_bpm_mining/cache --manifest best_bpm_mining/manifest --out best_bpm_mining/per_bpm
+python3 scripts/extract_per_bpm_features.py --config config/best_bpm_mining.yaml --cache best_bpm_mining/cache --manifest best_bpm_mining/manifest --out best_bpm_mining/per_bpm --workers 12
 python3 scripts/build_spill_tune_consensus.py --config config/best_bpm_mining.yaml --features best_bpm_mining/per_bpm --cache best_bpm_mining/cache --out best_bpm_mining/consensus
 python3 scripts/search_best_bpm_subsets.py --config config/best_bpm_mining.yaml --cache best_bpm_mining/cache --manifest best_bpm_mining/manifest --features best_bpm_mining/per_bpm --consensus best_bpm_mining/consensus --subset-sizes 1 3 5 10 --out best_bpm_mining/subset_search --resume
 python3 scripts/evaluate_best_subset_evolution.py --config config/best_bpm_mining.yaml --subsets best_bpm_mining/subset_search --cache best_bpm_mining/cache --features best_bpm_mining/per_bpm --manifest best_bpm_mining/manifest --out best_bpm_mining/evolution

@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import csv
 import math
+import shutil
 import statistics
 import tempfile
+import traceback
 from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 import numpy as np
@@ -154,12 +157,174 @@ def extract_candidates(
     return rows
 
 
-def extract_per_bpm_features(cfg: dict[str, object], cache_dir: Path, manifest_dir: Path, out: Path) -> None:
+def _write_cache_feature_rows(
+    cache: dict[str, str],
+    bpm_rows: dict[tuple[str, str], dict[str, str]],
+    cfg: dict[str, object],
+    window_writer: csv.DictWriter,
+    injection_writer: csv.DictWriter,
+    summary_state: dict[tuple[object, ...], dict[str, object]],
+    injection_pairs: dict[tuple[object, ...], dict[str, float]],
+) -> tuple[int, int]:
+    window_count = 0
+    injection_count = 0
+    spectra = np.load(cache["spectra_path"], mmap_mode="r")
+    tune_axis = np.load(cache["tune_axis_path"])
+    centers = np.load(cache["window_centers_path"])
+    bpm_indices = np.load(cache["bpm_indices_path"])
+    for bpos, bpm_index in enumerate(bpm_indices):
+        bpm = bpm_rows.get((cache["plane"], str(int(bpm_index))), {})
+        for widx, center in enumerate(centers):
+            for candidate in extract_candidates(np.asarray(spectra[bpos, widx], dtype=np.float32), tune_axis, cache["plane"], cfg):
+                row = {
+                    "collection": cache["collection"],
+                    "spill_id": cache["spill_id"],
+                    "plane": cache["plane"],
+                    "bpm_index": int(bpm_index),
+                    "bpm_name": bpm.get("bpm_name", ""),
+                    "digitizer": bpm.get("digitizer", ""),
+                    "spectral_config": cache["spectral_config"],
+                    "window_index": widx,
+                    "center_turn": float(center),
+                    **candidate,
+                }
+                window_writer.writerow({field: row.get(field, "") for field in PER_BPM_WINDOW_FIELDS})
+                window_count += 1
+                add_summary_observation(summary_state, row)
+                if cache["spectral_config"] in {"injection_2048", "injection_4096"}:
+                    injection_row = {**row, "delta_q_2048_4096": "", "consistent_across_windows": ""}
+                    injection_writer.writerow({field: injection_row.get(field, "") for field in PER_BPM_INJECTION_FIELDS})
+                    injection_count += 1
+                    if str(row.get("candidate_rank")) == "1" and str(row.get("valid_candidate")).lower() == "true":
+                        q = _finite_float(row.get("peak_tune"))
+                        if q is not None:
+                            injection_pairs[(row["collection"], row["spill_id"], row["plane"], row["bpm_index"])][str(row["spectral_config"])] = q
+    return window_count, injection_count
+
+
+def _process_cache_feature_shard(
+    args: tuple[int, dict[str, str], dict[tuple[str, str], dict[str, str]], dict[str, object], Path],
+) -> dict[str, object]:
+    index, cache, bpm_rows, cfg, shard_dir = args
+    window_path = shard_dir / f"window_{index:06d}.csv"
+    injection_path = shard_dir / f"injection_{index:06d}.csv"
+    summary_state: dict[tuple[object, ...], dict[str, object]] = {}
+    injection_pairs: dict[tuple[object, ...], dict[str, float]] = defaultdict(dict)
+    try:
+        with window_path.open("w", newline="") as window_handle, injection_path.open("w", newline="") as injection_handle:
+            window_writer = csv.DictWriter(window_handle, fieldnames=PER_BPM_WINDOW_FIELDS, extrasaction="ignore")
+            injection_writer = csv.DictWriter(injection_handle, fieldnames=PER_BPM_INJECTION_FIELDS, extrasaction="ignore")
+            window_writer.writeheader()
+            injection_writer.writeheader()
+            window_count, injection_count = _write_cache_feature_rows(
+                cache,
+                bpm_rows,
+                cfg,
+                window_writer,
+                injection_writer,
+                summary_state,
+                injection_pairs,
+            )
+    except Exception:
+        return {"index": index, "status": "error", "message": traceback.format_exc(limit=5)}
+    return {
+        "index": index,
+        "status": "ok",
+        "window_path": str(window_path),
+        "injection_path": str(injection_path),
+        "window_count": window_count,
+        "injection_count": injection_count,
+        "summary_state": summary_state,
+        "injection_pairs": dict(injection_pairs),
+    }
+
+
+def _merge_summary_state(
+    target: dict[tuple[object, ...], dict[str, object]],
+    source: dict[tuple[object, ...], dict[str, object]],
+) -> None:
+    for key, state in source.items():
+        merged = target.setdefault(
+            key,
+            {
+                "total": 0,
+                "valid": 0,
+                "tunes": [],
+                "prominences": [],
+                "widths": [],
+                "centers": [],
+            },
+        )
+        merged["total"] = int(merged["total"]) + int(state.get("total", 0))
+        merged["valid"] = int(merged["valid"]) + int(state.get("valid", 0))
+        for field in ("tunes", "prominences", "widths", "centers"):
+            merged[field].extend(state.get(field, []))
+
+
+def _merge_injection_pairs(
+    target: dict[tuple[object, ...], dict[str, float]],
+    source: dict[tuple[object, ...], dict[str, float]],
+) -> None:
+    for key, values in source.items():
+        target[key].update(values)
+
+
+def _concat_csv_shards(paths: list[Path], final_path: Path, fields: list[str]) -> None:
+    ensure_dir(final_path.parent)
+    with tempfile.NamedTemporaryFile("wb", delete=False, dir=str(final_path.parent)) as handle:
+        tmp = Path(handle.name)
+        handle.write((",".join(fields) + "\n").encode("utf-8"))
+        for path in paths:
+            with path.open("rb") as source:
+                source.readline()
+                shutil.copyfileobj(source, handle, length=1024 * 1024)
+    tmp.replace(final_path)
+
+
+def extract_per_bpm_features(cfg: dict[str, object], cache_dir: Path, manifest_dir: Path, out: Path, workers: int | None = None) -> None:
     cache_rows = [row for row in read_csv(cache_dir / "index" / "spectral_cache.csv") if row.get("status") == "ok"]
     bpm_rows = {(row["plane"], row["bpm_index"]): row for row in read_csv(manifest_dir / "bpm_index.csv")}
     ensure_dir(out)
+    runtime = cfg.get("runtime", {})
+    worker_count = max(1, int(workers if workers is not None else runtime.get("workers", 1) if isinstance(runtime, dict) else 1))
     summary_state: dict[tuple[object, ...], dict[str, object]] = {}
     injection_pairs: dict[tuple[object, ...], dict[str, float]] = defaultdict(dict)
+    if worker_count > 1 and len(cache_rows) > 1:
+        shard_tmp = Path(tempfile.mkdtemp(prefix="feature-shards-", dir=str(out)))
+        shard_results: list[dict[str, object]] = []
+        window_count = 0
+        injection_count = 0
+        try:
+            tasks = [(idx, cache, bpm_rows, cfg, shard_tmp) for idx, cache in enumerate(cache_rows)]
+            with ProcessPoolExecutor(max_workers=worker_count) as pool:
+                for future in as_completed(pool.submit(_process_cache_feature_shard, task) for task in tasks):
+                    result = future.result()
+                    if result.get("status") != "ok":
+                        raise RuntimeError(f"per-BPM feature shard failed: {result.get('message', '')}")
+                    shard_results.append(result)
+                    window_count += int(result.get("window_count", 0))
+                    injection_count += int(result.get("injection_count", 0))
+            shard_results.sort(key=lambda row: int(row["index"]))
+            for result in shard_results:
+                _merge_summary_state(summary_state, result.get("summary_state", {}))
+                _merge_injection_pairs(injection_pairs, result.get("injection_pairs", {}))
+            _concat_csv_shards([Path(str(row["window_path"])) for row in shard_results], out / "per_bpm_window_features.csv", PER_BPM_WINDOW_FIELDS)
+            raw_injection = out / "per_bpm_injection_features.raw.csv"
+            _concat_csv_shards([Path(str(row["injection_path"])) for row in shard_results], raw_injection, PER_BPM_INJECTION_FIELDS)
+            rewrite_injection_with_consistency(raw_injection, out / "per_bpm_injection_features.csv", injection_pairs)
+            try:
+                raw_injection.unlink()
+            except Exception:
+                pass
+        finally:
+            try:
+                shutil.rmtree(shard_tmp)
+            except Exception:
+                pass
+        summary_rows = summarize_per_bpm_state(summary_state)
+        write_csv(out / "per_bpm_spill_summary.csv", summary_rows, PER_BPM_SUMMARY_FIELDS)
+        atomic_write_text(out / "per_bpm_summary.md", f"# Per-BPM Feature Summary\n\n- window candidate rows: `{window_count}`\n- injection rows: `{injection_count}`\n- BPM spill summaries: `{len(summary_rows)}`\n- workers: `{worker_count}`\n")
+        return
     tmp_window = tempfile.NamedTemporaryFile("w", newline="", delete=False, dir=str(out))
     tmp_injection_raw = tempfile.NamedTemporaryFile("w", newline="", delete=False, dir=str(out))
     window_tmp_path = Path(tmp_window.name)
@@ -172,37 +337,9 @@ def extract_per_bpm_features(cfg: dict[str, object], cache_dir: Path, manifest_d
         window_writer.writeheader()
         injection_writer.writeheader()
         for cache in cache_rows:
-            spectra = np.load(cache["spectra_path"], mmap_mode="r")
-            tune_axis = np.load(cache["tune_axis_path"])
-            centers = np.load(cache["window_centers_path"])
-            bpm_indices = np.load(cache["bpm_indices_path"])
-            for bpos, bpm_index in enumerate(bpm_indices):
-                bpm = bpm_rows.get((cache["plane"], str(int(bpm_index))), {})
-                for widx, center in enumerate(centers):
-                    for candidate in extract_candidates(np.asarray(spectra[bpos, widx], dtype=np.float32), tune_axis, cache["plane"], cfg):
-                        row = {
-                            "collection": cache["collection"],
-                            "spill_id": cache["spill_id"],
-                            "plane": cache["plane"],
-                            "bpm_index": int(bpm_index),
-                            "bpm_name": bpm.get("bpm_name", ""),
-                            "digitizer": bpm.get("digitizer", ""),
-                            "spectral_config": cache["spectral_config"],
-                            "window_index": widx,
-                            "center_turn": float(center),
-                            **candidate,
-                        }
-                        window_writer.writerow({field: row.get(field, "") for field in PER_BPM_WINDOW_FIELDS})
-                        window_count += 1
-                        add_summary_observation(summary_state, row)
-                        if cache["spectral_config"] in {"injection_2048", "injection_4096"}:
-                            injection_row = {**row, "delta_q_2048_4096": "", "consistent_across_windows": ""}
-                            injection_writer.writerow({field: injection_row.get(field, "") for field in PER_BPM_INJECTION_FIELDS})
-                            injection_count += 1
-                            if str(row.get("candidate_rank")) == "1" and str(row.get("valid_candidate")).lower() == "true":
-                                q = _finite_float(row.get("peak_tune"))
-                                if q is not None:
-                                    injection_pairs[(row["collection"], row["spill_id"], row["plane"], row["bpm_index"])][str(row["spectral_config"])] = q
+            counts = _write_cache_feature_rows(cache, bpm_rows, cfg, window_writer, injection_writer, summary_state, injection_pairs)
+            window_count += counts[0]
+            injection_count += counts[1]
         tmp_window.close()
         tmp_injection_raw.close()
         window_tmp_path.replace(out / "per_bpm_window_features.csv")
@@ -221,7 +358,7 @@ def extract_per_bpm_features(cfg: dict[str, object], cache_dir: Path, manifest_d
                 pass
     summary_rows = summarize_per_bpm_state(summary_state)
     write_csv(out / "per_bpm_spill_summary.csv", summary_rows, PER_BPM_SUMMARY_FIELDS)
-    atomic_write_text(out / "per_bpm_summary.md", f"# Per-BPM Feature Summary\n\n- window candidate rows: `{window_count}`\n- injection rows: `{injection_count}`\n- BPM spill summaries: `{len(summary_rows)}`\n")
+    atomic_write_text(out / "per_bpm_summary.md", f"# Per-BPM Feature Summary\n\n- window candidate rows: `{window_count}`\n- injection rows: `{injection_count}`\n- BPM spill summaries: `{len(summary_rows)}`\n- workers: `{worker_count}`\n")
 
 
 def add_summary_observation(state_by_key: dict[tuple[object, ...], dict[str, object]], row: dict[str, object]) -> None:

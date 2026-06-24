@@ -423,6 +423,8 @@ Why:
   implying a global exhaustive result.
 - Plane-local BPM indices preserve the 64-bit subset-mask contract while
   keeping H and V searches independent.
+- Spark execution uses CuPy for FFT cache and subset scoring, while the
+  Python-heavy per-BPM peak pass is sharded across CPU workers.
 
 Tradeoffs:
 - Final reports must say that per-spill consensus is an internal unsupervised
@@ -434,6 +436,9 @@ Tradeoffs:
   config; the v1 implementation keeps the schema and visibility classes in
   place while using cached early rolling spectra and a finalist re-evaluation
   table for mean, median, trimmed-mean, and static-quality-weighted aggregators.
+- The per-BPM feature pass writes shard CSVs and merges them deterministically;
+  this uses more scratch disk during the pass but avoids leaving Spark mostly
+  idle on one Python process.
 
 ## Decision Update Rule
 

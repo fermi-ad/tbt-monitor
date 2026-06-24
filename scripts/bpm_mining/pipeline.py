@@ -116,9 +116,12 @@ def cmd_features(argv: list[str] | None = None) -> None:
     parser.add_argument("--cache", required=True)
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--out", required=True)
+    parser.add_argument("--workers", type=int, default=None)
     args = parser.parse_args(argv)
     cfg = load_config(args.config)
-    run_guarded("per_bpm_features", cfg, Path(args.out).parent / "logs", args, lambda: extract_per_bpm_features(cfg, Path(args.cache), Path(args.manifest), Path(args.out)))
+    workers = args.workers if args.workers is not None else int(cfg["runtime"].get("workers", 1))
+    cfg.setdefault("runtime", {})["workers"] = workers
+    run_guarded("per_bpm_features", cfg, Path(args.out).parent / "logs", args, lambda: extract_per_bpm_features(cfg, Path(args.cache), Path(args.manifest), Path(args.out), workers))
 
 
 def cmd_consensus(argv: list[str] | None = None) -> None:
@@ -257,7 +260,7 @@ def cmd_pipeline(argv: list[str] | None = None) -> None:
         steps: list[tuple[str, Callable[[], None]]] = [
             ("manifest", lambda: build_manifest_outputs(cfg, root / "manifest", args.limit)),
             ("spectral_cache", lambda: build_spectral_cache(cfg, root / "manifest", root / "cache", device, workers, args.resume, args.limit)),
-            ("per_bpm_features", lambda: extract_per_bpm_features(cfg, root / "cache", root / "manifest", root / "per_bpm")),
+            ("per_bpm_features", lambda: extract_per_bpm_features(cfg, root / "cache", root / "manifest", root / "per_bpm", workers)),
             ("consensus", lambda: build_consensus(cfg, root / "per_bpm", root / "consensus", root / "cache")),
             ("subset_search", lambda: search_best_bpm_subsets(cfg, root / "cache", root / "manifest", root / "per_bpm", root / "consensus", root / "subset_search", args.subset_sizes, device, args.limit)),
             ("evolution", lambda: evaluate_evolution(cfg, root / "subset_search", root / "evolution", root / "cache", root / "per_bpm", root / "manifest")),
