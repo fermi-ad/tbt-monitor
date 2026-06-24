@@ -362,7 +362,7 @@ python3 scripts/build_bpm_spectral_cache.py --config config/best_bpm_mining.yaml
 python3 scripts/extract_per_bpm_features.py --config config/best_bpm_mining.yaml --cache best_bpm_mining/cache --manifest best_bpm_mining/manifest --out best_bpm_mining/per_bpm
 python3 scripts/build_spill_tune_consensus.py --config config/best_bpm_mining.yaml --features best_bpm_mining/per_bpm --cache best_bpm_mining/cache --out best_bpm_mining/consensus
 python3 scripts/search_best_bpm_subsets.py --config config/best_bpm_mining.yaml --cache best_bpm_mining/cache --manifest best_bpm_mining/manifest --features best_bpm_mining/per_bpm --consensus best_bpm_mining/consensus --subset-sizes 1 3 5 10 --out best_bpm_mining/subset_search --resume
-python3 scripts/evaluate_best_subset_evolution.py --config config/best_bpm_mining.yaml --subsets best_bpm_mining/subset_search --out best_bpm_mining/evolution
+python3 scripts/evaluate_best_subset_evolution.py --config config/best_bpm_mining.yaml --subsets best_bpm_mining/subset_search --cache best_bpm_mining/cache --features best_bpm_mining/per_bpm --manifest best_bpm_mining/manifest --out best_bpm_mining/evolution
 python3 scripts/aggregate_best_bpm_statistics.py --config config/best_bpm_mining.yaml --inputs best_bpm_mining --out best_bpm_mining/statistics
 python3 scripts/cluster_spill_morphologies.py --config config/best_bpm_mining.yaml --inputs best_bpm_mining --out best_bpm_mining/clustering
 python3 scripts/select_best_bpm_artifacts.py --config config/best_bpm_mining.yaml --inputs best_bpm_mining --out best_bpm_mining/artifact_selection
@@ -379,6 +379,9 @@ The scope statement in the final report is intentional:
   report whether the pool was expanded.
 - per-spill consensus is an internal unsupervised reference, not ground truth.
 - expected H near `0.65` and V near `0.72` are soft priors only.
+- finalist re-evaluation compares mean power, median power, trimmed mean, and
+  static-quality-weighted mean on cached rolling spectra before report
+  generation.
 
 Required outputs are grouped under `best_bpm_mining/manifest`, `cache`,
 `per_bpm`, `consensus`, `subset_search`, `evolution`, `statistics`,

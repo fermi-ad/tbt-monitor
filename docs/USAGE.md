@@ -589,6 +589,8 @@ Main outputs:
 - `consensus/spill_consensus_*.csv`
 - `subset_search/best1`, `best3`, `best5`, `best10`, and
   `subset_search/audit_results.csv`
+- `evolution/subset_evolution_*.csv` and
+  `evolution/finalist_reevaluation.csv`
 - `statistics/*.csv`, `clustering/*.csv`,
   `artifact_selection/artifact_manifest.csv`
 - `artifacts/global/*.png`, selected per-spill plots, and

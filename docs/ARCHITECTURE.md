@@ -217,8 +217,9 @@ config ranking. Its package modules cover:
 - `subset_score.py` and `subset_search.py`: exact best-1/best-3 enumeration,
   screened-pool best-5/best-10 enumeration, and beam/random full-space audits.
 - `evolution.py`, `statistics.py`, `clustering.py`, `artifact_selection.py`,
-  `plots.py`, and `report.py`: downstream review tables, plots, morphology
-  clusters, and narrative-safe Markdown summaries.
+  `plots.py`, and `report.py`: finalist subset re-evaluation with robust
+  spectrum aggregators, downstream review tables, plots, morphology clusters,
+  and narrative-safe Markdown summaries.
 
 Best-1 and best-3 are globally exhaustive over valid BPMs for each spill/plane.
 Best-5 and best-10 are not globally exhaustive; their CSV rows carry

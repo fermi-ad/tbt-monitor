@@ -19,6 +19,7 @@ def make_report(cfg: dict[str, object], inputs: Path, out: Path) -> None:
     consensus = read_csv(inputs / "consensus" / "spill_consensus_summary.csv") if (inputs / "consensus" / "spill_consensus_summary.csv").exists() else []
     bpm_stats = read_csv(inputs / "statistics" / "bpm_global_statistics.csv") if (inputs / "statistics" / "bpm_global_statistics.csv").exists() else []
     artifacts = read_csv(inputs / "artifact_selection" / "artifact_manifest.csv") if (inputs / "artifact_selection" / "artifact_manifest.csv").exists() else []
+    finalists = read_csv(inputs / "evolution" / "finalist_reevaluation.csv") if (inputs / "evolution" / "finalist_reevaluation.csv").exists() else []
     class_counts = Counter(row.get("consensus_label", "") for row in consensus)
     lines = [
         "# Strong BPM Analysis Summary",
@@ -52,6 +53,7 @@ def make_report(cfg: dict[str, object], inputs: Path, out: Path) -> None:
             "## Dynamic Per-Spill Subset Performance",
             "",
             "Dynamic subset outputs are in `subset_search/best*/best*_results.csv`; scores are within-spill and use held-out BPM support.",
+            f"`evolution/finalist_reevaluation.csv` contains `{len(finalists)}` robust finalist rows across mean, median, trimmed-mean, and static-quality-weighted aggregators.",
             "",
             "## Fixed-Vs-Dynamic Performance",
             "",

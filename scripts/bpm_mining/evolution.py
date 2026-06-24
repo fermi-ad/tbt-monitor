@@ -7,7 +7,11 @@ the schema and visibility logic are already in place for that rerun.
 
 from __future__ import annotations
 
+import csv
+import math
 from pathlib import Path
+
+import numpy as np
 
 from .io import atomic_write_text, read_csv, write_csv
 
@@ -46,13 +50,201 @@ SUMMARY_FIELDS = [
 ]
 
 SIZE_FIELDS = ["collection", "spill_id", "plane", "subset_size", "subset_score", "visible_fraction", "visibility_duration_turns"]
+FINALIST_FIELDS = [
+    "collection",
+    "spill_id",
+    "plane",
+    "subset_size",
+    "subset_mask",
+    "bpm_members",
+    "aggregator",
+    "source_rank",
+    "q_hat",
+    "visible_fraction",
+    "visibility_duration_turns",
+    "last_visible_turn",
+    "median_prominence",
+    "median_abs_step_visible",
+    "p95_step_visible",
+    "ridge_jump_fraction",
+    "finite_fraction_visible_only",
+]
 
 
 def result_files(subsets_dir: Path) -> list[Path]:
     return [subsets_dir / f"best{size}" / f"best{size}_results.csv" for size in (1, 3, 5, 10)]
 
 
-def evaluate_evolution(cfg: dict[str, object], subsets_dir: Path, out: Path) -> None:
+def _f(value) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return math.nan
+    return number if math.isfinite(number) else math.nan
+
+
+def percentile(values: list[float], pct: float) -> float:
+    vals = sorted(v for v in values if math.isfinite(v))
+    if not vals:
+        return math.nan
+    if len(vals) == 1:
+        return vals[0]
+    idx = (len(vals) - 1) * pct
+    lo = int(math.floor(idx))
+    hi = int(math.ceil(idx))
+    if lo == hi:
+        return vals[lo]
+    return vals[lo] + (vals[hi] - vals[lo]) * (idx - lo)
+
+
+def median(values: list[float]) -> float:
+    vals = sorted(v for v in values if math.isfinite(v))
+    if not vals:
+        return math.nan
+    mid = len(vals) // 2
+    if len(vals) % 2:
+        return vals[mid]
+    return 0.5 * (vals[mid - 1] + vals[mid])
+
+
+def top_candidate_files(subsets_dir: Path) -> list[Path]:
+    return [
+        subsets_dir / "best1" / "best1_rankings.csv",
+        subsets_dir / "best3" / "best3_top_candidates.csv",
+        subsets_dir / "best5" / "best5_top_candidates.csv",
+        subsets_dir / "best10" / "best10_top_candidates.csv",
+    ]
+
+
+def finalist_candidates(subsets_dir: Path, per_key: int = 2) -> list[dict[str, str]]:
+    selected: dict[tuple[str, str, str, str], list[dict[str, str]]] = {}
+    for path in top_candidate_files(subsets_dir):
+        if not path.exists():
+            continue
+        with path.open(newline="") as handle:
+            for row in csv.DictReader(handle):
+                key = (row["collection"], row["spill_id"], row["plane"], row["subset_size"])
+                rows = selected.setdefault(key, [])
+                if len(rows) < per_key:
+                    row = dict(row)
+                    row["source_rank"] = str(len(rows) + 1)
+                    rows.append(row)
+    return [row for key in sorted(selected) for row in selected[key]]
+
+
+def cache_lookup(cache_dir: Path, spectral_config: str) -> dict[tuple[str, str, str], dict[str, str]]:
+    path = cache_dir / "index" / "spectral_cache.csv"
+    if not path.exists():
+        return {}
+    return {
+        (row["collection"], row["spill_id"], row["plane"]): row
+        for row in read_csv(path)
+        if row.get("status") == "ok" and row.get("spectral_config") == spectral_config
+    }
+
+
+def bpm_name_to_index(manifest_dir: Path) -> dict[tuple[str, str], int]:
+    path = manifest_dir / "bpm_index.csv"
+    if not path.exists():
+        return {}
+    return {(row["plane"], row["bpm_name"]): int(row["bpm_index"]) for row in read_csv(path)}
+
+
+def quality_weights(features_dir: Path) -> dict[tuple[str, str, str, int], float]:
+    path = features_dir / "per_bpm_spill_summary.csv"
+    if not path.exists():
+        return {}
+    out: dict[tuple[str, str, str, int], float] = {}
+    for row in read_csv(path):
+        score = _f(row.get("single_bpm_quality_score"))
+        if not math.isfinite(score):
+            score = 0.05
+        out[(row["collection"], row["spill_id"], row["plane"], int(row["bpm_index"]))] = math.sqrt(max(0.05, min(1.0, score)))
+    return out
+
+
+def combine_spectra(selected: np.ndarray, aggregator: str, weights: np.ndarray | None = None) -> np.ndarray:
+    if selected.shape[0] == 1:
+        return np.asarray(selected[0], dtype=np.float32)
+    if aggregator == "median_power":
+        return np.asarray(np.median(selected, axis=0), dtype=np.float32)
+    if aggregator == "trimmed_mean_10pct":
+        k = int(math.floor(selected.shape[0] * 0.10))
+        if k > 0 and selected.shape[0] - 2 * k >= 1:
+            return np.asarray(np.mean(np.sort(selected, axis=0)[k:-k], axis=0), dtype=np.float32)
+    if aggregator == "static_quality_weighted_mean" and weights is not None and weights.size == selected.shape[0]:
+        norm = weights / max(float(np.mean(weights)), 1e-12)
+        norm = np.clip(norm, 0.25, 4.0).astype(np.float32)
+        return np.asarray(np.average(selected, axis=0, weights=norm), dtype=np.float32)
+    return np.asarray(np.mean(selected, axis=0), dtype=np.float32)
+
+
+def score_evolution_windows(power: np.ndarray, tune_axis: np.ndarray, centers: np.ndarray) -> dict[str, float]:
+    log_power = np.log10(np.asarray(power, dtype=np.float64) + 1e-24)
+    peak_idx = np.argmax(log_power, axis=1)
+    peak_log = log_power[np.arange(log_power.shape[0]), peak_idx]
+    band_median = np.median(log_power, axis=1)
+    band_mad = np.median(np.abs(log_power - band_median[:, None]), axis=1) * 1.4826
+    prominence = (peak_log - band_median) / np.maximum(band_mad, 1e-9)
+    tunes = np.asarray(tune_axis[peak_idx], dtype=np.float64)
+    visible_mask = np.isfinite(tunes) & np.isfinite(prominence) & (prominence >= 4.0)
+    visible_tunes = [float(v) for v in tunes[visible_mask]]
+    visible_centers = [float(v) for v in centers[visible_mask]]
+    steps = [abs(b - a) for a, b in zip(visible_tunes, visible_tunes[1:])]
+    jumps = [step for step in steps if step > 0.006]
+    return {
+        "q_hat": median(visible_tunes),
+        "visible_fraction": float(np.mean(visible_mask)) if visible_mask.size else 0.0,
+        "visibility_duration_turns": max(visible_centers) - min(visible_centers) if len(visible_centers) > 1 else 0.0,
+        "last_visible_turn": max(visible_centers) if visible_centers else math.nan,
+        "median_prominence": median([float(v) for v in prominence[visible_mask]]),
+        "median_abs_step_visible": median(steps),
+        "p95_step_visible": percentile(steps, 0.95),
+        "ridge_jump_fraction": len(jumps) / max(1, len(steps)),
+        "finite_fraction_visible_only": len(visible_tunes) / max(1, len(visible_mask)),
+    }
+
+
+def reevaluate_finalists(cfg: dict[str, object], subsets_dir: Path, cache_dir: Path, features_dir: Path, manifest_dir: Path) -> list[dict[str, object]]:
+    spectral_config = str(cfg.get("subset_search", {}).get("search_spectral_config", "early_4096_256"))
+    caches = cache_lookup(cache_dir, spectral_config)
+    name_index = bpm_name_to_index(manifest_dir)
+    weights_by_bpm = quality_weights(features_dir)
+    rows = []
+    for row in finalist_candidates(subsets_dir):
+        cache = caches.get((row["collection"], row["spill_id"], row["plane"]))
+        if not cache:
+            continue
+        bpm_indices = np.load(cache["bpm_indices_path"])
+        pos_by_index = {int(idx): pos for pos, idx in enumerate(bpm_indices)}
+        wanted = [name_index.get((row["plane"], name)) for name in row.get("bpm_members", "").split(",") if name]
+        positions = [pos_by_index[idx] for idx in wanted if idx is not None and idx in pos_by_index]
+        if not positions:
+            continue
+        spectra = np.asarray(np.load(cache["spectra_path"], mmap_mode="r")[positions], dtype=np.float32)
+        tune_axis = np.load(cache["tune_axis_path"])
+        centers = np.load(cache["window_centers_path"])
+        w = np.asarray([weights_by_bpm.get((row["collection"], row["spill_id"], row["plane"], int(idx)), 1.0) for idx in wanted if idx is not None and idx in pos_by_index], dtype=np.float32)
+        for aggregator in ("mean_power", "median_power", "trimmed_mean_10pct", "static_quality_weighted_mean"):
+            combined = combine_spectra(spectra, aggregator, w)
+            metrics = score_evolution_windows(combined, tune_axis, centers)
+            rows.append(
+                {
+                    "collection": row["collection"],
+                    "spill_id": row["spill_id"],
+                    "plane": row["plane"],
+                    "subset_size": row["subset_size"],
+                    "subset_mask": row["subset_mask"],
+                    "bpm_members": row["bpm_members"],
+                    "aggregator": aggregator,
+                    "source_rank": row.get("source_rank", ""),
+                    **{key: ("" if not math.isfinite(value) else f"{value:.9g}") for key, value in metrics.items()},
+                }
+            )
+    return rows
+
+
+def evaluate_evolution(cfg: dict[str, object], subsets_dir: Path, out: Path, cache_dir: Path | None = None, features_dir: Path | None = None, manifest_dir: Path | None = None) -> None:
     rows = []
     for path in result_files(subsets_dir):
         if path.exists():
@@ -113,9 +305,15 @@ def evaluate_evolution(cfg: dict[str, object], subsets_dir: Path, out: Path) -> 
     write_csv(out / "subset_evolution_windows.csv", window_rows, WINDOW_FIELDS)
     write_csv(out / "subset_evolution_summary.csv", summary_rows, SUMMARY_FIELDS)
     write_csv(out / "subset_size_comparison.csv", comparison_rows, SIZE_FIELDS)
+    finalist_rows = []
+    if cache_dir is not None and features_dir is not None and manifest_dir is not None:
+        finalist_rows = reevaluate_finalists(cfg, subsets_dir, cache_dir, features_dir, manifest_dir)
+        write_csv(out / "finalist_reevaluation.csv", finalist_rows, FINALIST_FIELDS)
     atomic_write_text(
         out / "evolution_summary.md",
         "# Subset Evolution Summary\n\n"
         f"- subset rows: `{len(summary_rows)}`\n"
-        "- v1 uses cached early rolling spectra; full-buffer evolution is enabled by adding the configured full-buffer cache pass.\n",
+        f"- finalist re-evaluation rows: `{len(finalist_rows)}`\n"
+        "- finalist re-evaluation uses cached rolling spectra with mean, median, trimmed-mean, and static-quality-weighted aggregators.\n"
+        "- full raw-buffer evolution remains a heavier follow-up path if the poster narrative needs windows beyond the cached early interval.\n",
     )

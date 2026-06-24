@@ -247,14 +247,15 @@ Implemented structure:
 - exact best-1 and best-3 enumeration over valid BPMs
 - screened-pool best-5 and best-10 enumeration with beam/random audit records
 - evolution/statistics/clustering/artifact/report outputs matching the plan
-  layout
+  layout, including cache-backed finalist re-evaluation across robust spectrum
+  aggregators
 
 Current documented implementation choice to revisit:
 
 - Full-buffer rolling evolution is represented by the same output schema, but
-  v1 uses cached early rolling spectra unless a longer cache config is added.
-  This keeps the pass runnable on Spark while preserving a clear path to the
-  more expensive full-buffer rerun.
+  v1 uses cached early rolling spectra unless a longer raw/full-buffer path is
+  explicitly run. This keeps the pass runnable on Spark while preserving a clear
+  path to the more expensive full-buffer rerun.
 
 ## Next Milestones
 
