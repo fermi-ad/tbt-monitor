@@ -161,6 +161,31 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertAlmostEqual(float(spearman({"a": 3, "b": 2, "c": 1}, {"a": 30, "b": 20, "c": 10})), 1.0)
         self.assertAlmostEqual(float(kendall_tau({"a": 3, "b": 2, "c": 1}, {"a": 30, "b": 20, "c": 10})), 1.0)
 
+    def test_malformed_position_stream_is_rejected_not_dropped(self) -> None:
+        collection = self.root / "malformed-positiononly"
+        bundle = collection / "spill_1234"
+        bundle.mkdir(parents=True)
+        manifest = {
+            "target_ms": 1234,
+            "streams": [
+                {
+                    "stream_key": "{TEST}:BAD:TBT_POSITION_RAW",
+                    "payload_file": "",
+                    "sample_count": "",
+                }
+            ],
+        }
+        (bundle / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+        cfg = small_config(collection)
+        out = self.root / "malformed_out"
+        build_manifest_outputs(cfg, out / "manifest")
+        channels = read_csv(out / "manifest" / "channels.csv")
+        rejections = read_csv(out / "manifest" / "rejections.csv")
+        self.assertEqual(len(channels), 1)
+        self.assertTrue(rejections)
+        self.assertIn("UNKNOWN_PLANE", rejections[0]["rejection_flags"])
+        self.assertIn("MISSING", rejections[0]["rejection_flags"])
+
     def test_end_to_end_small_pipeline(self) -> None:
         collection = self.root / "synthetic-positiononly"
         synthetic_collection(collection)

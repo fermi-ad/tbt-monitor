@@ -139,8 +139,6 @@ def load_spill(manifest_path: Path) -> Spill:
         payload_bytes = _int_or_none(item.get("payload_bytes"))
         if sample_count is None and payload_bytes is not None:
             sample_count = payload_bytes // 4
-        if not plane or payload_path is None or sample_count is None:
-            continue
         bpm_name = parse_bpm_name(item, plane)
         channels.append(
             Channel(
@@ -148,12 +146,12 @@ def load_spill(manifest_path: Path) -> Spill:
                 spill_id=bundle_dir.name,
                 timestamp=timestamp,
                 manifest_path=manifest_path,
-                payload_path=payload_path,
+                payload_path=payload_path or (bundle_dir / "__invalid_payload_path__"),
                 plane=plane,
                 bpm_name=bpm_name,
                 digitizer=parse_digitizer(item, bpm_name),
                 source_key=key,
-                sample_count=sample_count,
+                sample_count=sample_count or 0,
                 payload_bytes=payload_bytes,
             )
         )
