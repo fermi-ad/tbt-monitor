@@ -25,7 +25,7 @@ from bpm_mining.consensus import build_consensus
 from bpm_mining.subset_search import search_best_bpm_subsets
 from bpm_mining.evolution import evaluate_evolution
 from bpm_mining.statistics import aggregate_statistics
-from bpm_mining.statistics import spearman, kendall_tau
+from bpm_mining.statistics import spearman, kendall_tau, paired_tests
 from bpm_mining.clustering import cluster_spills
 from bpm_mining.artifact_selection import select_artifacts
 from bpm_mining.plots import make_artifacts
@@ -161,6 +161,27 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertEqual(set(pool), {0, 1, 2, 3})
         self.assertAlmostEqual(float(spearman({"a": 3, "b": 2, "c": 1}, {"a": 30, "b": 20, "c": 10})), 1.0)
         self.assertAlmostEqual(float(kendall_tau({"a": 3, "b": 2, "c": 1}, {"a": 30, "b": 20, "c": 10})), 1.0)
+
+    def test_paired_statistics_emit_permutation_and_fdr(self) -> None:
+        rows = []
+        for spill in range(8):
+            for size, score in (("1", 0.40 + spill * 0.001), ("3", 0.55 + spill * 0.001), ("5", 0.62 + spill * 0.001), ("10", 0.64 + spill * 0.001)):
+                rows.append(
+                    {
+                        "collection": "a",
+                        "spill_id": str(spill),
+                        "plane": "H",
+                        "subset_size": size,
+                        "subset_score": str(score),
+                    }
+                )
+        cfg = default_config()
+        cfg["statistics"]["permutation_samples"] = 128
+        stats = paired_tests(rows, cfg)
+        self.assertEqual(len(stats), 3)
+        self.assertTrue(all(row["permutation_p_value"] for row in stats))
+        self.assertTrue(all(row["fdr_q_value"] for row in stats))
+        self.assertTrue(all(row["effect_size"] for row in stats))
 
     def test_malformed_position_stream_is_rejected_not_dropped(self) -> None:
         collection = self.root / "malformed-positiononly"

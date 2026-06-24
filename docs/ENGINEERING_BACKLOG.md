@@ -41,7 +41,7 @@ None.
 - Scope: add `scripts/bpm_mining/`, pass wrappers, default config, exact best-1/best-3 search, screened audited best-5/best-10 search, per-BPM consensus/features, global statistics, clustering, artifact selection, plots, final reports, and Spark parallel worker controls.
 - Acceptance: the pipeline writes every required output group from `BEST_BPM_2000_SPILL_MINING_IMPLEMENTATION_PLAN.md`, passes synthetic unit/smoke tests, and completes a Spark run over the two Tier A collections using parallel workers.
 - Docs: README.md, docs/USAGE.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
-- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/*.py scripts/test_best_bpm_mining.py; python3 scripts/test_best_bpm_mining.py (7 tests, parallel worker regression skipped locally when process pools are sandbox-blocked); Spark smoke passed; full Spark run active at `/home/derekste/best_bpm_mining_20260624_full_v2`
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/*.py scripts/test_best_bpm_mining.py; python3 scripts/test_best_bpm_mining.py (8 tests, parallel worker regression skipped locally when process pools are sandbox-blocked); Spark smoke passed; full Spark run active at `/home/derekste/best_bpm_mining_20260624_full_v2`
 - Notes: v1 keeps the full-buffer evolution schema but uses cached early rolling spectra unless a longer spectral-cache config is added.
 
 ## Done

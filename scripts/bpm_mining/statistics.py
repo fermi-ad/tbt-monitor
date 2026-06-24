@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import itertools
 import math
 import random
@@ -129,7 +130,7 @@ def aggregate_statistics(cfg: dict[str, object], inputs: Path, manifest_dir: Pat
     write_csv(out / "fixed_sets_train_A_test_B.csv", fixed_sets(rows, train_index=0), ["plane", "subset_size", "train_collection", "test_collection", "fixed_members", "test_median_score"])
     write_csv(out / "fixed_sets_train_B_test_A.csv", fixed_sets(rows, train_index=1), ["plane", "subset_size", "train_collection", "test_collection", "fixed_members", "test_median_score"])
     write_csv(out / "fixed_sets_crossfit_summary.csv", fixed_sets(rows, train_index=-1), ["plane", "subset_size", "train_collection", "test_collection", "fixed_members", "test_median_score"])
-    write_csv(out / "paired_method_tests.csv", paired_tests(rows), ["plane", "comparison", "median_paired_difference", "bootstrap_ci_low", "bootstrap_ci_high", "permutation_p_value", "effect_size", "note"])
+    write_csv(out / "paired_method_tests.csv", paired_tests(rows, cfg), ["plane", "comparison", "median_paired_difference", "bootstrap_ci_low", "bootstrap_ci_high", "permutation_p_value", "fdr_q_value", "effect_size", "note"])
     write_csv(out / "subset_size_pareto.csv", pareto(rows), ["plane", "subset_size", "median_score", "median_visible_fraction", "compute_cost", "pareto_frontier"])
     write_csv(out / "bpm_marginal_value.csv", marginal_value(rows), ["plane", "bpm_name", "approx_marginal_value", "samples"])
     write_csv(out / "bpm_pair_synergy.csv", pair_synergy(rows), ["plane", "bpm_a", "bpm_b", "pair_count", "median_pair_score"])
@@ -232,18 +233,91 @@ def fixed_sets(rows, train_index):
     return out
 
 
-def paired_tests(rows):
+def stable_seed(*parts: object) -> int:
+    digest = hashlib.sha256("|".join(str(part) for part in parts).encode("utf-8")).hexdigest()
+    return int(digest[:16], 16)
+
+
+def paired_permutation_p_value(diffs: list[float], samples: int, seed: int) -> float | str:
+    vals = [v for v in diffs if math.isfinite(v) and v != 0.0]
+    if not vals:
+        return ""
+    observed = abs(statistics.median(vals))
+    total_exact = 2 ** len(vals)
+    rng = random.Random(seed)
+    exceed = 0
+    draws = min(max(100, samples), 5000)
+    if total_exact <= draws:
+        draws = total_exact
+        for mask in range(total_exact):
+            flipped = [value if (mask >> idx) & 1 else -value for idx, value in enumerate(vals)]
+            if abs(statistics.median(flipped)) >= observed - 1e-15:
+                exceed += 1
+        return exceed / draws
+    for _ in range(draws):
+        flipped = [value if rng.random() < 0.5 else -value for value in vals]
+        if abs(statistics.median(flipped)) >= observed - 1e-15:
+            exceed += 1
+    return (exceed + 1) / (draws + 1)
+
+
+def rank_biserial_effect(diffs: list[float]) -> float | str:
+    vals = [v for v in diffs if math.isfinite(v) and v != 0.0]
+    if not vals:
+        return ""
+    positive = sum(1 for value in vals if value > 0)
+    negative = sum(1 for value in vals if value < 0)
+    return (positive - negative) / len(vals)
+
+
+def benjamini_hochberg(rows: list[dict[str, object]]) -> None:
+    indexed = [
+        (idx, float(row["permutation_p_value"]))
+        for idx, row in enumerate(rows)
+        if row.get("permutation_p_value") not in {"", None}
+    ]
+    if not indexed:
+        return
+    indexed.sort(key=lambda item: item[1])
+    m = len(indexed)
+    q_by_idx: dict[int, float] = {}
+    prior = 1.0
+    for rank, (idx, p_value) in reversed(list(enumerate(indexed, start=1))):
+        q = min(prior, p_value * m / rank)
+        prior = q
+        q_by_idx[idx] = q
+    for idx, q in q_by_idx.items():
+        rows[idx]["fdr_q_value"] = f"{q:.9g}"
+
+
+def paired_tests(rows, cfg):
     by_spill = defaultdict(dict)
     for row in rows:
         by_spill[(row["collection"], row["spill_id"], row["plane"])][row["subset_size"]] = _f(row.get("subset_score"))
     out = []
+    samples = int(cfg.get("statistics", {}).get("permutation_samples", 10000)) if isinstance(cfg.get("statistics"), dict) else 10000
     for plane in sorted({key[2] for key in by_spill}):
         for a, b in (("1", "3"), ("3", "5"), ("5", "10")):
             diffs = [vals[b] - vals[a] for key, vals in by_spill.items() if key[2] == plane and vals.get(a) is not None and vals.get(b) is not None]
             if not diffs:
                 continue
-            lo, hi = bootstrap_interval(diffs, 500, hash((plane, a, b)) & 0xFFFFFFFF)
-            out.append({"plane": plane, "comparison": f"best{a} vs best{b}", "median_paired_difference": statistics.median(diffs), "bootstrap_ci_low": lo, "bootstrap_ci_high": hi, "permutation_p_value": "", "effect_size": statistics.median(diffs), "note": "paired bootstrap CI; scipy-free permutation omitted"})
+            seed = stable_seed("paired", plane, a, b)
+            lo, hi = bootstrap_interval(diffs, 500, seed & 0xFFFFFFFF)
+            p_value = paired_permutation_p_value(diffs, samples, seed)
+            out.append(
+                {
+                    "plane": plane,
+                    "comparison": f"best{a} vs best{b}",
+                    "median_paired_difference": statistics.median(diffs),
+                    "bootstrap_ci_low": lo,
+                    "bootstrap_ci_high": hi,
+                    "permutation_p_value": f"{p_value:.9g}" if isinstance(p_value, float) else "",
+                    "fdr_q_value": "",
+                    "effect_size": rank_biserial_effect(diffs),
+                    "note": "paired sign-flip permutation on subset-score differences; effect_size is rank-biserial sign balance",
+                }
+            )
+    benjamini_hochberg(out)
     return out
 
 

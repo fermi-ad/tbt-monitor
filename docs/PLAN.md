@@ -249,7 +249,7 @@ Implemented structure:
 - screened-pool best-5 and best-10 enumeration with beam/random audit records
 - evolution/statistics/clustering/artifact/report outputs matching the plan
   layout, including cache-backed finalist re-evaluation across robust spectrum
-  aggregators
+  aggregators and paired bootstrap/permutation/FDR subset-size comparisons
 
 Current documented implementation choice to revisit:
 

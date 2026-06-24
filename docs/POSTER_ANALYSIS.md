@@ -386,6 +386,9 @@ The scope statement in the final report is intentional:
 Required outputs are grouped under `best_bpm_mining/manifest`, `cache`,
 `per_bpm`, `consensus`, `subset_search`, `evolution`, `statistics`,
 `clustering`, `artifact_selection`, `artifacts`, `logs`, and `reports`.
+`statistics/paired_method_tests.csv` includes paired bootstrap confidence
+intervals, sign-flip permutation p-values, Benjamini-Hochberg q-values, and
+rank-biserial effect sizes for subset-size comparisons.
 Artifact selection is capped by plane and includes clean consensus, best-subset
 improvement, fixed/dynamic agreement and disagreement, multimodal, low-signal,
 and cluster-representative spill-plane examples.
