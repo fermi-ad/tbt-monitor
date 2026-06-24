@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import math
 import random
+import hashlib
 from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Sequence
 
@@ -38,6 +40,11 @@ def _f(value: object) -> float | None:
     return number if math.isfinite(number) else None
 
 
+def stable_seed(*parts: object) -> int:
+    digest = hashlib.sha256("|".join(str(part) for part in parts).encode("utf-8")).hexdigest()
+    return int(digest[:16], 16)
+
+
 def metadata_for_bpms(manifest_dir: Path, plane: str) -> dict[int, dict[str, str]]:
     rows = read_csv(manifest_dir / "bpm_index.csv")
     return {int(row["bpm_index"]): row for row in rows if row.get("plane") == plane}
@@ -51,6 +58,26 @@ def candidate_tune_index(features_dir: Path) -> dict[tuple[str, str, str], dict[
             continue
         index[(row["collection"], row["spill_id"], row["plane"])][int(row["bpm_index"])] = tune
     return index
+
+
+def empty_results() -> tuple[dict[int, list[dict[str, object]]], dict[int, list[dict[str, object]]], list[dict[str, object]], list[dict[str, object]]]:
+    return {1: [], 3: [], 5: [], 10: []}, {1: [], 3: [], 5: [], 10: []}, [], []
+
+
+def merge_results(
+    target_results: dict[int, list[dict[str, object]]],
+    target_candidates: dict[int, list[dict[str, object]]],
+    target_pools: list[dict[str, object]],
+    target_audits: list[dict[str, object]],
+    source: tuple[dict[int, list[dict[str, object]]], dict[int, list[dict[str, object]]], list[dict[str, object]], list[dict[str, object]]],
+) -> None:
+    results, candidates, pools, audits = source
+    for size, rows in results.items():
+        target_results.setdefault(size, []).extend(rows)
+    for size, rows in candidates.items():
+        target_candidates.setdefault(size, []).extend(rows)
+    target_pools.extend(pools)
+    target_audits.extend(audits)
 
 
 def candidate_tunes_for(
@@ -277,34 +304,21 @@ def random_audit(
     )
 
 
-def search_best_bpm_subsets(
+def process_cache_rows(
     cfg: dict[str, object],
-    cache_dir: Path,
+    cache_rows: Sequence[dict[str, str]],
     manifest_dir: Path,
     features_dir: Path,
     consensus_dir: Path,
-    out: Path,
     subset_sizes: Sequence[int],
-    device: str = "cpu",
-    limit: int = 0,
-) -> None:
+    device: str,
+) -> tuple[dict[int, list[dict[str, object]]], dict[int, list[dict[str, object]]], list[dict[str, object]], list[dict[str, object]]]:
     search_cfg = cfg["subset_search"]
-    spectral_config = str(search_cfg["search_spectral_config"])
     chunk_size = int(search_cfg.get("subset_chunk_size", 512))
     max_windows = int(search_cfg.get("max_search_windows", 16))
     consensus_map = consensus_lookup(consensus_dir)
     tune_index = candidate_tune_index(features_dir)
-    cache_rows = [
-        row
-        for row in read_csv(cache_dir / "index" / "spectral_cache.csv")
-        if row.get("status") == "ok" and row.get("spectral_config") == spectral_config
-    ]
-    if limit:
-        cache_rows = cache_rows[:limit]
-    results = {1: [], 3: [], 5: [], 10: []}
-    top_candidates = {3: [], 5: [], 10: []}
-    pools: list[dict[str, object]] = []
-    audits: list[dict[str, object]] = []
+    results, top_candidates, pools, audits = empty_results()
     for cache in cache_rows:
         collection, spill_id, plane = cache["collection"], cache["spill_id"], cache["plane"]
         bpm_meta = metadata_for_bpms(manifest_dir, plane)
@@ -325,7 +339,7 @@ def search_best_bpm_subsets(
             if best1:
                 results[1].append(result_row(collection, spill_id, plane, best1[0], bpm_indices, bpm_meta, spectra.shape[0], "FULL_60", True, False, consensus))
                 for score in best1:
-                    top_candidates.setdefault(1, []).append(result_row(collection, spill_id, plane, score, bpm_indices, bpm_meta, spectra.shape[0], "FULL_60", True, False, consensus))
+                    top_candidates[1].append(result_row(collection, spill_id, plane, score, bpm_indices, bpm_meta, spectra.shape[0], "FULL_60", True, False, consensus))
         if 3 in subset_sizes and spectra.shape[0] >= 3:
             combos = combination_array(list(range(spectra.shape[0])), 3)
             best3 = score_combos(spectra, tune_axis, centers, bpm_indices, candidate_tunes, combos, bpm_meta, consensus, window_turns, chunk_size, device)
@@ -381,6 +395,62 @@ def search_best_bpm_subsets(
                     results[10].append(result_row(collection, spill_id, plane, best10[0], bpm_indices, bpm_meta, len(pool), "SCREENED_POOL", True, audited, consensus, "POOL_EXPANDED_BY_AUDIT" if expanded_by_audit else ""))
                     for score in best10[: int(search_cfg.get("best10_keep", 64))]:
                         top_candidates[10].append(result_row(collection, spill_id, plane, score, bpm_indices, bpm_meta, len(pool), "SCREENED_POOL", True, audited, consensus))
+    return results, top_candidates, pools, audits
+
+
+def _process_cache_chunk(
+    args: tuple[int, list[dict[str, str]], dict[str, object], str, str, str, list[int], str],
+) -> tuple[int, tuple[dict[int, list[dict[str, object]]], dict[int, list[dict[str, object]]], list[dict[str, object]], list[dict[str, object]]]]:
+    index, rows, cfg, manifest_dir, features_dir, consensus_dir, subset_sizes, device = args
+    return index, process_cache_rows(cfg, rows, Path(manifest_dir), Path(features_dir), Path(consensus_dir), subset_sizes, device)
+
+
+def split_chunks(rows: Sequence[dict[str, str]], chunks: int) -> list[list[dict[str, str]]]:
+    chunks = max(1, min(chunks, len(rows)))
+    size = int(math.ceil(len(rows) / chunks))
+    return [list(rows[start : start + size]) for start in range(0, len(rows), size)]
+
+
+def search_best_bpm_subsets(
+    cfg: dict[str, object],
+    cache_dir: Path,
+    manifest_dir: Path,
+    features_dir: Path,
+    consensus_dir: Path,
+    out: Path,
+    subset_sizes: Sequence[int],
+    device: str = "cpu",
+    limit: int = 0,
+    workers: int | None = None,
+) -> None:
+    search_cfg = cfg["subset_search"]
+    spectral_config = str(search_cfg["search_spectral_config"])
+    cache_rows = [
+        row
+        for row in read_csv(cache_dir / "index" / "spectral_cache.csv")
+        if row.get("status") == "ok" and row.get("spectral_config") == spectral_config
+    ]
+    if limit:
+        cache_rows = cache_rows[:limit]
+    requested_workers = max(1, int(workers if workers is not None else cfg.get("runtime", {}).get("workers", 1) if isinstance(cfg.get("runtime"), dict) else 1))
+    cuda_cap = int(search_cfg.get("cuda_workers", 4))
+    worker_count = min(requested_workers, cuda_cap) if device == "cuda" else requested_workers
+    worker_count = max(1, min(worker_count, len(cache_rows) if cache_rows else 1))
+    results, top_candidates, pools, audits = empty_results()
+    if worker_count > 1:
+        chunks = split_chunks(cache_rows, worker_count)
+        tasks = [
+            (idx, chunk, cfg, str(manifest_dir), str(features_dir), str(consensus_dir), list(subset_sizes), device)
+            for idx, chunk in enumerate(chunks)
+        ]
+        chunk_results = []
+        with ProcessPoolExecutor(max_workers=worker_count) as pool:
+            for future in as_completed(pool.submit(_process_cache_chunk, task) for task in tasks):
+                chunk_results.append(future.result())
+        for _, partial in sorted(chunk_results, key=lambda item: item[0]):
+            merge_results(results, top_candidates, pools, audits, partial)
+    else:
+        results, top_candidates, pools, audits = process_cache_rows(cfg, cache_rows, manifest_dir, features_dir, consensus_dir, subset_sizes, device)
     for size, rows in results.items():
         if size in subset_sizes:
             write_csv(out / f"best{size}" / f"best{size}_results.csv", rows, BEST_SUBSET_FIELDS)
@@ -428,7 +498,7 @@ def run_audits(cfg, spectra, tune_axis, centers, bpm_indices, candidate_tunes, b
         chunk_size,
         subset_size,
         int(search_cfg.get("random_audit_samples", 10000)),
-        int(cfg["runtime"].get("random_seed", 20260614)) + hash((collection, spill_id, plane, subset_size)) % 100000,
+        int(cfg["runtime"].get("random_seed", 20260614)) + stable_seed(collection, spill_id, plane, subset_size) % 100000,
         device,
     )
     best = sorted((beam[:1] + rnd[:1]), key=lambda score: score.subset_score, reverse=True)

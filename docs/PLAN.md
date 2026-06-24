@@ -245,8 +245,9 @@ Implemented structure:
   parallel workers
 - sharded per-BPM peak feature extraction and cache-backed within-spill tune
   consensus clustering
-- exact best-1 and best-3 enumeration over valid BPMs
-- screened-pool best-5 and best-10 enumeration with beam/random audit records
+- row-sharded exact best-1 and best-3 enumeration over valid BPMs
+- row-sharded screened-pool best-5 and best-10 enumeration with beam/random
+  audit records and a bounded CUDA worker pool
 - evolution/statistics/clustering/artifact/report outputs matching the plan
   layout, including cache-backed finalist re-evaluation across robust spectrum
   aggregators and paired bootstrap/permutation/FDR subset-size comparisons

@@ -149,9 +149,12 @@ def cmd_search(argv: list[str] | None = None) -> None:
     parser.add_argument("--subset-sizes", nargs="+", type=int, default=[1, 3, 5, 10])
     parser.add_argument("--device", default=None)
     parser.add_argument("--out", required=True)
+    parser.add_argument("--workers", type=int, default=None)
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args(argv)
     cfg = load_config(args.config)
+    workers = args.workers if args.workers is not None else int(cfg["runtime"].get("workers", 1))
+    cfg.setdefault("runtime", {})["workers"] = workers
     run_guarded(
         "subset_search",
         cfg,
@@ -167,6 +170,7 @@ def cmd_search(argv: list[str] | None = None) -> None:
             args.subset_sizes,
             args.device or str(cfg["runtime"].get("device", "auto")),
             args.limit,
+            workers,
         ),
     )
 
@@ -265,7 +269,7 @@ def cmd_pipeline(argv: list[str] | None = None) -> None:
             ("spectral_cache", lambda: build_spectral_cache(cfg, root / "manifest", root / "cache", device, workers, args.resume, args.limit)),
             ("per_bpm_features", lambda: extract_per_bpm_features(cfg, root / "cache", root / "manifest", root / "per_bpm", workers)),
             ("consensus", lambda: build_consensus(cfg, root / "per_bpm", root / "consensus", root / "cache", workers)),
-            ("subset_search", lambda: search_best_bpm_subsets(cfg, root / "cache", root / "manifest", root / "per_bpm", root / "consensus", root / "subset_search", args.subset_sizes, device, args.limit)),
+            ("subset_search", lambda: search_best_bpm_subsets(cfg, root / "cache", root / "manifest", root / "per_bpm", root / "consensus", root / "subset_search", args.subset_sizes, device, args.limit, workers)),
             ("evolution", lambda: evaluate_evolution(cfg, root / "subset_search", root / "evolution", root / "cache", root / "per_bpm", root / "manifest")),
             ("statistics", lambda: aggregate_statistics(cfg, root, root / "manifest", root / "statistics")),
             ("clustering", lambda: cluster_spills(cfg, root, root / "clustering")),

@@ -73,6 +73,7 @@ def default_config() -> dict[str, Any]:
             "best10_pool_size": 18,
             "best10_keep": 64,
             "subset_chunk_size": 512,
+            "cuda_workers": 4,
             "beam_width": 512,
             "random_audit_samples": 10000,
             "audit_improvement_threshold": 0.01,
