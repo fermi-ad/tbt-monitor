@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
@@ -13,14 +12,8 @@ import numpy as np
 from .config import plane_band
 from .gpu import Backend
 from .io import atomic_write_text, ensure_dir, load_spill, load_waveform, read_csv, write_csv
+from .preprocessing import hann
 from .schema import SPECTRAL_CACHE_FIELDS
-
-
-def hann(n: int) -> np.ndarray:
-    if n <= 1:
-        return np.ones((n,), dtype=np.float32)
-    idx = np.arange(n, dtype=np.float32)
-    return (0.5 - 0.5 * np.cos((2.0 * math.pi * idx) / (n - 1))).astype(np.float32)
 
 
 def tune_axis_for(window_turns: int, padding_factor: int, band: tuple[float, float]) -> tuple[np.ndarray, np.ndarray]:
@@ -63,9 +56,16 @@ def compute_spectra(traces: np.ndarray, spec: dict[str, object], band: tuple[flo
     x_traces = xp.asarray(traces, dtype=xp.float32)
     x_tap = xp.asarray(tap, dtype=xp.float32)
     x_bins = xp.asarray(bin_indices)
+    detrend = str(spec.get("detrend") or cfg["spectra"].get("detrend", "none"))
     for widx, start in enumerate(starts):
         block = x_traces[:, start : start + window_turns]
         block = block - xp.mean(block, axis=1, keepdims=True)
+        if detrend == "linear":
+            x = xp.arange(window_turns, dtype=xp.float32)
+            x = x - xp.mean(x)
+            denom = xp.sum(x * x)
+            slope = xp.sum(block * x[None, :], axis=1, keepdims=True) / xp.maximum(denom, 1e-12)
+            block = block - slope * x[None, :]
         power = xp.abs(xp.fft.rfft(block * x_tap[None, :], n=window_turns * padding, axis=1)) ** 2 / norm
         out[:, widx, :] = backend.to_numpy(power[:, x_bins]).astype(np.float32)
     backend.synchronize()

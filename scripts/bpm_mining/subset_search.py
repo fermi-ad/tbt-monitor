@@ -174,6 +174,39 @@ def pool_row(collection, spill_id, plane, subset_size, pool, bpm_indices, bpm_me
     }
 
 
+def supplement_pool(
+    pool: list[int],
+    single_scores: list[SubsetScore],
+    bpm_indices: np.ndarray,
+    bpm_meta: dict[int, dict[str, str]],
+    cap: int,
+) -> list[int]:
+    if len(pool) >= cap:
+        return pool[:cap]
+    ordered = [int(score.subset[0]) for score in single_scores if len(score.subset) == 1]
+    by_digitizer: dict[str, int] = {}
+    by_sector: dict[int, int] = {}
+    for pos in ordered:
+        bpm_idx = int(bpm_indices[pos])
+        meta = bpm_meta.get(bpm_idx, {})
+        digitizer = meta.get("digitizer", "")
+        if digitizer and digitizer not in by_digitizer:
+            by_digitizer[digitizer] = pos
+        try:
+            sector = int(float(meta.get("ring_order", "0")) // 100)
+        except ValueError:
+            sector = -1
+        if sector >= 0 and sector not in by_sector:
+            by_sector[sector] = pos
+    expanded = list(pool)
+    for pos in list(by_digitizer.values()) + list(by_sector.values()) + ordered:
+        if pos not in expanded:
+            expanded.append(pos)
+        if len(expanded) >= cap:
+            break
+    return expanded[:cap]
+
+
 def beam_audit(
     spectra: np.ndarray,
     tune_axis: np.ndarray,
@@ -305,7 +338,7 @@ def search_best_bpm_subsets(
             top_single = [idx for score in best_by_size.get(1, [])[:12] for idx in score.subset]
             top_triple_members = [idx for score in best_by_size.get(3, [])[:256] for idx in score.subset]
             pool = sorted(set(top_single + top_triple_members), key=lambda idx: (top_single + top_triple_members).count(idx), reverse=True)
-            pool = pool[: min(int(search_cfg.get("best5_pool_size", 20)), spectra.shape[0])]
+            pool = supplement_pool(pool, best_by_size.get(1, []), bpm_indices, bpm_meta, min(int(search_cfg.get("best5_pool_size", 20)), spectra.shape[0]))
             pools.append(pool_row(collection, spill_id, plane, 5, pool, bpm_indices, bpm_meta, "top_single_and_top_triples"))
             if len(pool) >= 5:
                 best5 = score_combos(spectra, tune_axis, centers, bpm_indices, candidate_tunes, combination_array(pool, 5), bpm_meta, consensus, window_turns, chunk_size, device)
@@ -327,7 +360,7 @@ def search_best_bpm_subsets(
             top_single = [idx for score in best_by_size.get(1, [])[:16] for idx in score.subset]
             top5_members = [idx for score in best_by_size.get(5, [])[:128] for idx in score.subset]
             pool = sorted(set(top_single + top5_members), key=lambda idx: (top_single + top5_members).count(idx), reverse=True)
-            pool = pool[: min(int(search_cfg.get("best10_pool_size", 18)), spectra.shape[0])]
+            pool = supplement_pool(pool, best_by_size.get(1, []), bpm_indices, bpm_meta, min(int(search_cfg.get("best10_pool_size", 18)), spectra.shape[0]))
             pools.append(pool_row(collection, spill_id, plane, 10, pool, bpm_indices, bpm_meta, "top_single_and_top5"))
             if len(pool) >= 10:
                 best10 = score_combos(spectra, tune_axis, centers, bpm_indices, candidate_tunes, combination_array(pool, 10), bpm_meta, consensus, window_turns, chunk_size, device)

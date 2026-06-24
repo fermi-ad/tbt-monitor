@@ -48,7 +48,7 @@
     "best5_keep": 128,
     "best10_pool_size": 18,
     "best10_keep": 64,
-    "subset_chunk_size": 512,
+    "subset_chunk_size": 4096,
     "beam_width": 512,
     "random_audit_samples": 10000,
     "audit_improvement_threshold": 0.01
@@ -67,6 +67,12 @@
   },
   "artifacts": {
     "max_spills_per_plane": 40
+  },
+  "gpu": {
+    "spill_batch_size": 8,
+    "window_batch_size": 64,
+    "dtype_input": "float32",
+    "dtype_cache": "float16"
   },
   "runtime": {
     "device": "cuda",

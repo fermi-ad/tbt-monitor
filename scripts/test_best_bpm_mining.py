@@ -15,8 +15,10 @@ from bpm_mining.config import default_config
 from bpm_mining.consensus import cluster_candidates, weighted_median
 from bpm_mining.io import build_manifest_outputs, read_csv
 from bpm_mining.peaks import extract_candidates
+from bpm_mining.preprocessing import preprocess_window_np
 from bpm_mining.spectra import build_spectral_cache, compute_spectra, tune_axis_for
 from bpm_mining.subset_score import combination_array, subset_mask
+from bpm_mining.subset_search import supplement_pool
 from bpm_mining.peaks import extract_per_bpm_features
 from bpm_mining.consensus import build_consensus
 from bpm_mining.subset_search import search_best_bpm_subsets
@@ -137,6 +139,24 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertEqual(subset_mask([0, 2, 5]), 0b100101)
         combos = combination_array(list(range(8)), 3)
         self.assertEqual(combos.shape[0], 56)
+
+    def test_preprocessing_and_pool_supplements(self) -> None:
+        ramp = np.tile(np.linspace(1.0, 5.0, 16, dtype=np.float32), (2, 1))
+        detrended = preprocess_window_np(ramp, "linear")
+        self.assertLess(float(np.max(np.abs(detrended))), 1e-5)
+        bpm_indices = np.asarray([0, 1, 2, 3], dtype=np.int32)
+        bpm_meta = {
+            0: {"digitizer": "d0", "ring_order": "100"},
+            1: {"digitizer": "d0", "ring_order": "200"},
+            2: {"digitizer": "d1", "ring_order": "300"},
+            3: {"digitizer": "d2", "ring_order": "400"},
+        }
+        class Score:
+            def __init__(self, idx):
+                self.subset = (idx,)
+
+        pool = supplement_pool([0], [Score(0), Score(1), Score(2), Score(3)], bpm_indices, bpm_meta, 4)
+        self.assertEqual(set(pool), {0, 1, 2, 3})
 
     def test_end_to_end_small_pipeline(self) -> None:
         collection = self.root / "synthetic-positiononly"

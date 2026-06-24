@@ -37,6 +37,14 @@ def write_run_manifest(logs: Path, cfg: dict[str, object], pass_name: str, args:
     atomic_write_text(logs / "run_manifest.json", json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
 
+def write_effective_config(root: Path, cfg: dict[str, object]) -> None:
+    payload = {
+        "config_hash": config_hash(cfg),
+        "config": cfg,
+    }
+    atomic_write_text(root / "config" / "effective_config.json", json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+
 def append_failure(logs: Path, pass_name: str, exc: BaseException) -> None:
     ensure_dir(logs)
     with (logs / "failures.jsonl").open("a", encoding="utf-8") as handle:
@@ -239,6 +247,7 @@ def cmd_pipeline(argv: list[str] | None = None) -> None:
 
     def run_all() -> None:
         logs = root / "logs"
+        write_effective_config(root, cfg)
         steps: list[tuple[str, Callable[[], None]]] = [
             ("manifest", lambda: build_manifest_outputs(cfg, root / "manifest", args.limit)),
             ("spectral_cache", lambda: build_spectral_cache(cfg, root / "manifest", root / "cache", device, workers, args.resume, args.limit)),
