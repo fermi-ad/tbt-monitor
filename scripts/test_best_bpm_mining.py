@@ -227,6 +227,26 @@ class BestBpmMiningTests(unittest.TestCase):
             parallel = (out / "per_bpm_parallel" / name).read_text(encoding="utf-8")
             self.assertEqual(serial, parallel)
 
+    def test_parallel_consensus_matches_serial(self) -> None:
+        try:
+            with ProcessPoolExecutor(max_workers=1) as pool:
+                list(pool.map(int, ["1"]))
+        except PermissionError as exc:
+            self.skipTest(f"process pools unavailable in this sandbox: {exc}")
+        collection = self.root / "parallel-consensus-positiononly"
+        synthetic_collection(collection, spills=2, bpms=4)
+        cfg = small_config(collection)
+        out = self.root / "parallel_consensus"
+        build_manifest_outputs(cfg, out / "manifest")
+        build_spectral_cache(cfg, out / "manifest", out / "cache", "cpu", 1, False)
+        extract_per_bpm_features(cfg, out / "cache", out / "manifest", out / "per_bpm", workers=1)
+        build_consensus(cfg, out / "per_bpm", out / "consensus_serial", out / "cache", workers=1)
+        build_consensus(cfg, out / "per_bpm", out / "consensus_parallel", out / "cache", workers=2)
+        for name in ("spill_consensus_windows.csv", "spill_consensus_summary.csv", "consensus_class_counts.csv"):
+            serial = (out / "consensus_serial" / name).read_text(encoding="utf-8")
+            parallel = (out / "consensus_parallel" / name).read_text(encoding="utf-8")
+            self.assertEqual(serial, parallel)
+
     def test_end_to_end_small_pipeline(self) -> None:
         collection = self.root / "synthetic-positiononly"
         synthetic_collection(collection)

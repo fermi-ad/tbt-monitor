@@ -576,7 +576,8 @@ selects review artifacts, and writes final reports.
 ```
 
 Use `--limit` for a Spark smoke test and `--workers` to fan out per-spill
-manifest/integrity checks and sharded per-BPM peak extraction. Single-GPU
+manifest/integrity checks, sharded per-BPM peak extraction, and cache-backed
+consensus clustering. Single-GPU
 FFT/cache construction intentionally uses one CuPy worker to avoid multiple
 independent CUDA contexts, and subset scoring still uses the CUDA path. The
 default config is JSON-compatible YAML so the Spark runtime only needs stdlib

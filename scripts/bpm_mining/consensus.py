@@ -6,6 +6,8 @@ import math
 import random
 import statistics
 from collections import Counter, defaultdict
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import hashlib
 from pathlib import Path
 
 import numpy as np
@@ -145,7 +147,7 @@ def consensus_window_row(
         second_weight = float(clusters[1]["total_weight"]) if len(clusters) > 1 else 0.0
         second_ratio = second_weight / max(float(first["total_weight"]), 1e-12)
         unique_fraction = float(first["unique_bpm_count"]) / max(1, valid_bpms)
-        lo, hi, unc = bootstrap_ci(first["rows"], anchor, boot, hash(key) & 0xFFFFFFFF)
+        lo, hi, unc = bootstrap_ci(first["rows"], anchor, boot, stable_seed("consensus", *key) & 0xFFFFFFFF)
         label = consensus_label(unique_fraction, second_ratio, float(first["weighted_mad_tune"]), int(first["unique_bpm_count"]))
         return {
             "collection": collection,
@@ -178,42 +180,68 @@ def consensus_window_row(
     }
 
 
-def window_rows_from_cache(cfg: dict[str, object], cache_dir: Path) -> list[dict[str, object]]:
+def stable_seed(*parts: object) -> int:
+    digest = hashlib.sha256("|".join(str(part) for part in parts).encode("utf-8")).hexdigest()
+    return int(digest[:16], 16)
+
+
+def cache_window_rows_for_cache(cfg: dict[str, object], cache: dict[str, str], max_windows: int, boot: int, min_eps: float) -> list[dict[str, object]]:
+    window_rows: list[dict[str, object]] = []
+    spectra = np.load(cache["spectra_path"], mmap_mode="r")
+    tune_axis = np.load(cache["tune_axis_path"])
+    centers = np.load(cache["window_centers_path"])
+    bpm_indices = np.load(cache["bpm_indices_path"])
+    for widx, center in enumerate(centers[:max_windows]):
+        group: list[dict[str, str]] = []
+        for bpos, bpm_index in enumerate(bpm_indices):
+            candidates = extract_candidates(np.asarray(spectra[bpos, widx], dtype=np.float32), tune_axis, cache["plane"], cfg)
+            for candidate in candidates:
+                if int(candidate.get("candidate_rank", 0)) != 1:
+                    continue
+                group.append(
+                    {
+                        "bpm_index": str(int(bpm_index)),
+                        "peak_tune": str(candidate.get("peak_tune", "")),
+                        "peak_prominence_z": str(candidate.get("peak_prominence_z", "")),
+                        "second_peak_ratio": str(candidate.get("second_peak_ratio", "")),
+                        "distance_to_band_edge": str(candidate.get("distance_to_band_edge", "")),
+                        "valid_candidate": str(candidate.get("valid_candidate", "")),
+                    }
+                )
+        key = (cache["collection"], cache["spill_id"], cache["plane"], cache["spectral_config"], str(widx), str(float(center)))
+        window_rows.append(consensus_window_row(cfg, key, group, boot, min_eps))
+    return window_rows
+
+
+def _process_cache_consensus(args: tuple[int, dict[str, str], dict[str, object], int, int, float]) -> tuple[int, list[dict[str, object]]]:
+    index, cache, cfg, max_windows, boot, min_eps = args
+    return index, cache_window_rows_for_cache(cfg, cache, max_windows, boot, min_eps)
+
+
+def window_rows_from_cache(cfg: dict[str, object], cache_dir: Path, workers: int | None = None) -> list[dict[str, object]]:
     search_cfg = cfg.get("subset_search", {}) if isinstance(cfg.get("subset_search"), dict) else {}
     spectral_config = str(search_cfg.get("search_spectral_config", "early_4096_256"))
     max_windows = int(search_cfg.get("max_search_windows", 16))
     boot = int(cfg["consensus"].get("bootstrap_samples", 200))
     min_eps = float(cfg["consensus"].get("cluster_eps_min", 0.0015))
-    window_rows: list[dict[str, object]] = []
+    runtime = cfg.get("runtime", {}) if isinstance(cfg.get("runtime"), dict) else {}
+    worker_count = max(1, int(workers if workers is not None else runtime.get("workers", 1)))
     cache_rows = [
         row
         for row in read_csv(cache_dir / "index" / "spectral_cache.csv")
         if row.get("status") == "ok" and row.get("spectral_config") == spectral_config
     ]
-    for cache in cache_rows:
-        spectra = np.load(cache["spectra_path"], mmap_mode="r")
-        tune_axis = np.load(cache["tune_axis_path"])
-        centers = np.load(cache["window_centers_path"])
-        bpm_indices = np.load(cache["bpm_indices_path"])
-        for widx, center in enumerate(centers[:max_windows]):
-            group: list[dict[str, str]] = []
-            for bpos, bpm_index in enumerate(bpm_indices):
-                candidates = extract_candidates(np.asarray(spectra[bpos, widx], dtype=np.float32), tune_axis, cache["plane"], cfg)
-                for candidate in candidates:
-                    if int(candidate.get("candidate_rank", 0)) != 1:
-                        continue
-                    group.append(
-                        {
-                            "bpm_index": str(int(bpm_index)),
-                            "peak_tune": str(candidate.get("peak_tune", "")),
-                            "peak_prominence_z": str(candidate.get("peak_prominence_z", "")),
-                            "second_peak_ratio": str(candidate.get("second_peak_ratio", "")),
-                            "distance_to_band_edge": str(candidate.get("distance_to_band_edge", "")),
-                            "valid_candidate": str(candidate.get("valid_candidate", "")),
-                        }
-                    )
-            key = (cache["collection"], cache["spill_id"], cache["plane"], cache["spectral_config"], str(widx), str(float(center)))
-            window_rows.append(consensus_window_row(cfg, key, group, boot, min_eps))
+    indexed_rows: list[tuple[int, list[dict[str, object]]]] = []
+    if worker_count > 1 and len(cache_rows) > 1:
+        tasks = [(idx, cache, cfg, max_windows, boot, min_eps) for idx, cache in enumerate(cache_rows)]
+        with ProcessPoolExecutor(max_workers=worker_count) as pool:
+            for future in as_completed(pool.submit(_process_cache_consensus, task) for task in tasks):
+                indexed_rows.append(future.result())
+    else:
+        indexed_rows = [(idx, cache_window_rows_for_cache(cfg, cache, max_windows, boot, min_eps)) for idx, cache in enumerate(cache_rows)]
+    window_rows: list[dict[str, object]] = []
+    for _, rows in sorted(indexed_rows, key=lambda item: item[0]):
+        window_rows.extend(rows)
     return window_rows
 
 
@@ -230,9 +258,9 @@ def window_rows_from_feature_csv(cfg: dict[str, object], features_dir: Path) -> 
     return window_rows
 
 
-def build_consensus(cfg: dict[str, object], features_dir: Path, out: Path, cache_dir: Path | None = None) -> None:
+def build_consensus(cfg: dict[str, object], features_dir: Path, out: Path, cache_dir: Path | None = None, workers: int | None = None) -> None:
     if cache_dir is not None and (cache_dir / "index" / "spectral_cache.csv").exists():
-        window_rows = window_rows_from_cache(cfg, cache_dir)
+        window_rows = window_rows_from_cache(cfg, cache_dir, workers)
     else:
         window_rows = window_rows_from_feature_csv(cfg, features_dir)
     summary_rows = summarize_consensus(window_rows)

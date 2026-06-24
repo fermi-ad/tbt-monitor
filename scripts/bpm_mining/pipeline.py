@@ -130,10 +130,13 @@ def cmd_consensus(argv: list[str] | None = None) -> None:
     parser.add_argument("--features", required=True)
     parser.add_argument("--cache", default=None)
     parser.add_argument("--out", required=True)
+    parser.add_argument("--workers", type=int, default=None)
     args = parser.parse_args(argv)
     cfg = load_config(args.config)
+    workers = args.workers if args.workers is not None else int(cfg["runtime"].get("workers", 1))
+    cfg.setdefault("runtime", {})["workers"] = workers
     cache_dir = Path(args.cache) if args.cache else None
-    run_guarded("consensus", cfg, Path(args.out).parent / "logs", args, lambda: build_consensus(cfg, Path(args.features), Path(args.out), cache_dir))
+    run_guarded("consensus", cfg, Path(args.out).parent / "logs", args, lambda: build_consensus(cfg, Path(args.features), Path(args.out), cache_dir, workers))
 
 
 def cmd_search(argv: list[str] | None = None) -> None:
@@ -261,7 +264,7 @@ def cmd_pipeline(argv: list[str] | None = None) -> None:
             ("manifest", lambda: build_manifest_outputs(cfg, root / "manifest", args.limit)),
             ("spectral_cache", lambda: build_spectral_cache(cfg, root / "manifest", root / "cache", device, workers, args.resume, args.limit)),
             ("per_bpm_features", lambda: extract_per_bpm_features(cfg, root / "cache", root / "manifest", root / "per_bpm", workers)),
-            ("consensus", lambda: build_consensus(cfg, root / "per_bpm", root / "consensus", root / "cache")),
+            ("consensus", lambda: build_consensus(cfg, root / "per_bpm", root / "consensus", root / "cache", workers)),
             ("subset_search", lambda: search_best_bpm_subsets(cfg, root / "cache", root / "manifest", root / "per_bpm", root / "consensus", root / "subset_search", args.subset_sizes, device, args.limit)),
             ("evolution", lambda: evaluate_evolution(cfg, root / "subset_search", root / "evolution", root / "cache", root / "per_bpm", root / "manifest")),
             ("statistics", lambda: aggregate_statistics(cfg, root, root / "manifest", root / "statistics")),

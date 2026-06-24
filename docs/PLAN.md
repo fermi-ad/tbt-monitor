@@ -243,8 +243,8 @@ Implemented structure:
   channel rejection flags
 - GPU/CPU spectral-cache pass with resumable per-spill `.npy` products and
   parallel workers
-- sharded per-BPM peak feature extraction and within-spill tune consensus
-  clustering
+- sharded per-BPM peak feature extraction and cache-backed within-spill tune
+  consensus clustering
 - exact best-1 and best-3 enumeration over valid BPMs
 - screened-pool best-5 and best-10 enumeration with beam/random audit records
 - evolution/statistics/clustering/artifact/report outputs matching the plan

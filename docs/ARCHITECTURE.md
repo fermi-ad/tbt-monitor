@@ -213,7 +213,8 @@ config ranking. Its package modules cover:
   NumPy/CuPy backend and parallel per-spill workers.
 - `peaks.py`: sharded per-BPM peak candidates, robust prominence, entropy,
   width, and visibility summaries with CPU worker fan-out.
-- `consensus.py`: deterministic weighted 1D tune clustering per spill/plane.
+- `consensus.py`: deterministic weighted 1D tune clustering per spill/plane
+  with cache-row worker sharding for Spark runs.
 - `subset_score.py` and `subset_search.py`: exact best-1/best-3 enumeration,
   screened-pool best-5/best-10 enumeration, and beam/random full-space audits.
 - `evolution.py`, `statistics.py`, `clustering.py`, `artifact_selection.py`,
