@@ -30,6 +30,11 @@ def subset_rows(inputs: Path) -> list[dict[str, str]]:
     return rows
 
 
+def best1_ranking_rows(inputs: Path) -> list[dict[str, str]]:
+    path = inputs / "subset_search" / "best1" / "best1_rankings.csv"
+    return read_csv(path) if path.exists() else []
+
+
 def parse_members(row: dict[str, str]) -> list[str]:
     return [item for item in row.get("bpm_members", "").split(",") if item]
 
@@ -54,24 +59,47 @@ def bootstrap_interval(values: list[float], samples: int, seed: int) -> tuple[fl
 
 def aggregate_statistics(cfg: dict[str, object], inputs: Path, manifest_dir: Path, out: Path) -> None:
     rows = subset_rows(inputs)
+    ranking_rows = best1_ranking_rows(inputs)
     bpm_index = read_csv(manifest_dir / "bpm_index.csv")
     by_plane_name = {(row["plane"], row["bpm_name"]): row for row in bpm_index}
     grouped = defaultdict(list)
     for row in rows:
         for member in parse_members(row):
             grouped[(row["plane"], member)].append(row)
+    totals = Counter((row["plane"], row["subset_size"]) for row in rows)
+    rank_percentiles: dict[tuple[str, str], list[float]] = defaultdict(list)
+    rank_percentiles_by_collection: dict[tuple[str, str, str], list[float]] = defaultdict(list)
+    rankings_by_spill = defaultdict(list)
+    for row in ranking_rows:
+        rankings_by_spill[(row["collection"], row["spill_id"], row["plane"])].append(row)
+    for key, group in rankings_by_spill.items():
+        group.sort(key=lambda row: _f(row.get("subset_score")) or -math.inf, reverse=True)
+        denom = max(1, len(group) - 1)
+        for rank, row in enumerate(group):
+            member = parse_members(row)[0] if parse_members(row) else ""
+            pct = rank / denom
+            rank_percentiles[(row["plane"], member)].append(pct)
+            rank_percentiles_by_collection[(row["collection"], row["plane"], member)].append(pct)
     stats_rows = []
     boot = int(cfg["statistics"].get("bootstrap_samples", 2000))
-    for key, group in grouped.items():
+    for key in sorted(by_plane_name):
         plane, bpm = key
+        group = grouped.get(key, [])
         meta = by_plane_name.get(key, {})
         scores = [_f(row.get("subset_score")) for row in group]
         hold = [_f(row.get("holdout_support")) for row in group]
-        residuals = []
+        residuals = [
+            abs(q - c)
+            for q, c in ((_f(row.get("q_hat")), _f(row.get("consensus_tune"))) for row in group)
+            if q is not None and c is not None
+        ]
         durations = [_f(row.get("visibility_duration_turns")) for row in group]
         top_counts = Counter(row["subset_size"] for row in group)
-        rank_low, rank_high = bootstrap_interval([float(row.get("subset_size", 99)) for row in group], boot, hash(key) & 0xFFFFFFFF)
-        collections = sorted({row["collection"] for row in group})
+        rank_values = rank_percentiles.get(key, [])
+        rank_low, rank_high = bootstrap_interval(rank_values, boot, hash(key) & 0xFFFFFFFF)
+        collections = sorted({row["collection"] for row in rows})
+        c1 = median(rank_percentiles_by_collection.get((collections[0], plane, bpm), [])) if collections else ""
+        c2 = median(rank_percentiles_by_collection.get((collections[1], plane, bpm), [])) if len(collections) > 1 else ""
         stats_rows.append(
             {
                 "plane": plane,
@@ -79,17 +107,17 @@ def aggregate_statistics(cfg: dict[str, object], inputs: Path, manifest_dir: Pat
                 "bpm_name": bpm,
                 "digitizer": meta.get("digitizer", ""),
                 "valid_spill_count": len({(row["collection"], row["spill_id"]) for row in group}),
-                "median_percentile_rank": "",
-                "top1_frequency": top_counts["1"] / max(1, len(group)),
-                "top3_inclusion_frequency": top_counts["3"] / max(1, len(group)),
-                "top5_inclusion_frequency": top_counts["5"] / max(1, len(group)),
-                "top10_inclusion_frequency": top_counts["10"] / max(1, len(group)),
+                "median_percentile_rank": median(rank_values),
+                "top1_frequency": top_counts["1"] / max(1, totals[(plane, "1")]),
+                "top3_inclusion_frequency": top_counts["3"] / max(1, totals[(plane, "3")]),
+                "top5_inclusion_frequency": top_counts["5"] / max(1, totals[(plane, "5")]),
+                "top10_inclusion_frequency": top_counts["10"] / max(1, totals[(plane, "10")]),
                 "median_score": median([v for v in scores if v is not None]),
                 "median_holdout_support": median([v for v in hold if v is not None]),
                 "median_consensus_residual": median(residuals),
                 "median_visibility_duration": median([v for v in durations if v is not None]),
-                "collection1_rank": collections[0] if collections else "",
-                "collection2_rank": collections[1] if len(collections) > 1 else "",
+                "collection1_rank": c1,
+                "collection2_rank": c2,
                 "bootstrap_rank_low": rank_low,
                 "bootstrap_rank_high": rank_high,
             }
@@ -109,6 +137,53 @@ def aggregate_statistics(cfg: dict[str, object], inputs: Path, manifest_dir: Pat
     atomic_write_text(out / "statistics_summary.md", f"# Best-BPM Statistics Summary\n\n- subset rows: `{len(rows)}`\n- BPM statistic rows: `{len(stats_rows)}`\n")
 
 
+def ranks_for_scores(scores: dict[str, float]) -> dict[str, float]:
+    ordered = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+    ranks: dict[str, float] = {}
+    idx = 0
+    while idx < len(ordered):
+        j = idx
+        while j + 1 < len(ordered) and ordered[j + 1][1] == ordered[idx][1]:
+            j += 1
+        rank = (idx + j) / 2.0 + 1.0
+        for k in range(idx, j + 1):
+            ranks[ordered[k][0]] = rank
+        idx = j + 1
+    return ranks
+
+
+def spearman(a_scores: dict[str, float], b_scores: dict[str, float]) -> float | str:
+    common = sorted(set(a_scores) & set(b_scores))
+    if len(common) < 2:
+        return ""
+    ar = ranks_for_scores({key: a_scores[key] for key in common})
+    br = ranks_for_scores({key: b_scores[key] for key in common})
+    av = sum(ar[key] for key in common) / len(common)
+    bv = sum(br[key] for key in common) / len(common)
+    num = sum((ar[key] - av) * (br[key] - bv) for key in common)
+    da = math.sqrt(sum((ar[key] - av) ** 2 for key in common))
+    db = math.sqrt(sum((br[key] - bv) ** 2 for key in common))
+    return num / (da * db) if da > 0 and db > 0 else ""
+
+
+def kendall_tau(a_scores: dict[str, float], b_scores: dict[str, float]) -> float | str:
+    common = sorted(set(a_scores) & set(b_scores))
+    if len(common) < 2:
+        return ""
+    concordant = 0
+    discordant = 0
+    for left, right in itertools.combinations(common, 2):
+        da = a_scores[left] - a_scores[right]
+        db = b_scores[left] - b_scores[right]
+        prod = da * db
+        if prod > 0:
+            concordant += 1
+        elif prod < 0:
+            discordant += 1
+    total = concordant + discordant
+    return (concordant - discordant) / total if total else ""
+
+
 def rank_stability(rows):
     out = []
     for plane in sorted({row["plane"] for row in rows}):
@@ -118,8 +193,10 @@ def rank_stability(rows):
             b = {m for row in rows if row["plane"] == plane and row["collection"] == collections[1] for m in parse_members(row)}
             jac = len(a & b) / max(1, len(a | b))
             out.append({"plane": plane, "metric": "topN_jaccard_overlap", "value": jac, "detail": f"{collections[0]} vs {collections[1]}"})
-        out.append({"plane": plane, "metric": "spearman_rank_correlation", "value": "", "detail": "not computed without scipy; use topN Jaccard fallback"})
-        out.append({"plane": plane, "metric": "kendall_tau", "value": "", "detail": "not computed without scipy; use topN Jaccard fallback"})
+            a_scores = Counter(m for row in rows if row["plane"] == plane and row["collection"] == collections[0] for m in parse_members(row))
+            b_scores = Counter(m for row in rows if row["plane"] == plane and row["collection"] == collections[1] for m in parse_members(row))
+            out.append({"plane": plane, "metric": "spearman_rank_correlation", "value": spearman(dict(a_scores), dict(b_scores)), "detail": f"{collections[0]} vs {collections[1]}"})
+            out.append({"plane": plane, "metric": "kendall_tau", "value": kendall_tau(dict(a_scores), dict(b_scores)), "detail": f"{collections[0]} vs {collections[1]}"})
     return out
 
 

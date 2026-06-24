@@ -116,7 +116,11 @@ def top_candidate_files(subsets_dir: Path) -> list[Path]:
     ]
 
 
-def finalist_candidates(subsets_dir: Path, per_key: int = 2) -> list[dict[str, str]]:
+def finalist_limit(subset_size: str) -> int:
+    return 10 if str(subset_size) == "1" else 20
+
+
+def finalist_candidates(subsets_dir: Path) -> list[dict[str, str]]:
     selected: dict[tuple[str, str, str, str], list[dict[str, str]]] = {}
     for path in top_candidate_files(subsets_dir):
         if not path.exists():
@@ -125,7 +129,7 @@ def finalist_candidates(subsets_dir: Path, per_key: int = 2) -> list[dict[str, s
             for row in csv.DictReader(handle):
                 key = (row["collection"], row["spill_id"], row["plane"], row["subset_size"])
                 rows = selected.setdefault(key, [])
-                if len(rows) < per_key:
+                if len(rows) < finalist_limit(row["subset_size"]):
                     row = dict(row)
                     row["source_rank"] = str(len(rows) + 1)
                     rows.append(row)

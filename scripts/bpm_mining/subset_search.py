@@ -129,6 +129,7 @@ def result_row(
     exact: bool,
     audit: bool,
     consensus: dict[str, str] | None,
+    quality_flags: str = "",
 ) -> dict[str, object]:
     members_idx = [int(bpm_indices[pos]) for pos in score.subset]
     names = [bpm_meta.get(idx, {}).get("bpm_name", str(idx)) for idx in members_idx]
@@ -156,7 +157,7 @@ def result_row(
         "visibility_duration_turns": f"{score.visibility_duration_turns:.9g}",
         "consensus_tune": consensus.get("dominant_consensus_tune", "") if consensus else "",
         "consensus_label": consensus.get("consensus_label", "") if consensus else "",
-        "quality_flags": "",
+        "quality_flags": quality_flags,
     }
 
 
@@ -323,7 +324,7 @@ def search_best_bpm_subsets(
             best_by_size[1] = best1
             if best1:
                 results[1].append(result_row(collection, spill_id, plane, best1[0], bpm_indices, bpm_meta, spectra.shape[0], "FULL_60", True, False, consensus))
-                for score in best1[:10]:
+                for score in best1:
                     top_candidates.setdefault(1, []).append(result_row(collection, spill_id, plane, score, bpm_indices, bpm_meta, spectra.shape[0], "FULL_60", True, False, consensus))
         if 3 in subset_sizes and spectra.shape[0] >= 3:
             combos = combination_array(list(range(spectra.shape[0])), 3)
@@ -344,16 +345,18 @@ def search_best_bpm_subsets(
                 best5 = score_combos(spectra, tune_axis, centers, bpm_indices, candidate_tunes, combination_array(pool, 5), bpm_meta, consensus, window_turns, chunk_size, device)
                 best_by_size[5] = best5
                 audited = False
+                expanded_by_audit = False
                 best_audit = []
                 if best5:
-                    best_audit = run_audits(cfg, spectra, tune_axis, centers, bpm_indices, candidate_tunes, bpm_meta, consensus, window_turns, chunk_size, 5, best_by_size, collection, spill_id, plane, audits, device)
+                    best_audit = run_audits(cfg, spectra, tune_axis, centers, bpm_indices, candidate_tunes, bpm_meta, consensus, window_turns, chunk_size, 5, best_by_size, collection, spill_id, plane, audits, device, best5[0].subset_score)
                     audited = True
                     if best_audit and best_audit[0].subset_score > best5[0].subset_score + float(search_cfg.get("audit_improvement_threshold", 0.01)):
                         pool = sorted(set(pool + list(best_audit[0].subset)))
                         pools.append(pool_row(collection, spill_id, plane, 5, pool, bpm_indices, bpm_meta, "POOL_EXPANDED_BY_AUDIT"))
                         best5 = score_combos(spectra, tune_axis, centers, bpm_indices, candidate_tunes, combination_array(pool, 5), bpm_meta, consensus, window_turns, chunk_size, device)
+                        expanded_by_audit = True
                 if best5:
-                    results[5].append(result_row(collection, spill_id, plane, best5[0], bpm_indices, bpm_meta, len(pool), "SCREENED_POOL", True, audited, consensus))
+                    results[5].append(result_row(collection, spill_id, plane, best5[0], bpm_indices, bpm_meta, len(pool), "SCREENED_POOL", True, audited, consensus, "POOL_EXPANDED_BY_AUDIT" if expanded_by_audit else ""))
                     for score in best5[: int(search_cfg.get("best5_keep", 128))]:
                         top_candidates[5].append(result_row(collection, spill_id, plane, score, bpm_indices, bpm_meta, len(pool), "SCREENED_POOL", True, audited, consensus))
         if 10 in subset_sizes and spectra.shape[0] >= 10:
@@ -365,15 +368,17 @@ def search_best_bpm_subsets(
             if len(pool) >= 10:
                 best10 = score_combos(spectra, tune_axis, centers, bpm_indices, candidate_tunes, combination_array(pool, 10), bpm_meta, consensus, window_turns, chunk_size, device)
                 audited = False
+                expanded_by_audit = False
                 if best10:
-                    best_audit = run_audits(cfg, spectra, tune_axis, centers, bpm_indices, candidate_tunes, bpm_meta, consensus, window_turns, chunk_size, 10, best_by_size, collection, spill_id, plane, audits, device)
+                    best_audit = run_audits(cfg, spectra, tune_axis, centers, bpm_indices, candidate_tunes, bpm_meta, consensus, window_turns, chunk_size, 10, best_by_size, collection, spill_id, plane, audits, device, best10[0].subset_score)
                     audited = True
                     if best_audit and best_audit[0].subset_score > best10[0].subset_score + float(search_cfg.get("audit_improvement_threshold", 0.01)):
                         pool = sorted(set(pool + list(best_audit[0].subset)))
                         pools.append(pool_row(collection, spill_id, plane, 10, pool, bpm_indices, bpm_meta, "POOL_EXPANDED_BY_AUDIT"))
                         best10 = score_combos(spectra, tune_axis, centers, bpm_indices, candidate_tunes, combination_array(pool, 10), bpm_meta, consensus, window_turns, chunk_size, device)
+                        expanded_by_audit = True
                 if best10:
-                    results[10].append(result_row(collection, spill_id, plane, best10[0], bpm_indices, bpm_meta, len(pool), "SCREENED_POOL", True, audited, consensus))
+                    results[10].append(result_row(collection, spill_id, plane, best10[0], bpm_indices, bpm_meta, len(pool), "SCREENED_POOL", True, audited, consensus, "POOL_EXPANDED_BY_AUDIT" if expanded_by_audit else ""))
                     for score in best10[: int(search_cfg.get("best10_keep", 64))]:
                         top_candidates[10].append(result_row(collection, spill_id, plane, score, bpm_indices, bpm_meta, len(pool), "SCREENED_POOL", True, audited, consensus))
     for size, rows in results.items():
@@ -391,7 +396,7 @@ def search_best_bpm_subsets(
     atomic_write_text(out / "subset_search_summary.md", f"# Subset Search Summary\n\n- best result rows: `{total}`\n- audit rows: `{len(audits)}`\n")
 
 
-def run_audits(cfg, spectra, tune_axis, centers, bpm_indices, candidate_tunes, bpm_meta, consensus, window_turns, chunk_size, subset_size, best_by_size, collection, spill_id, plane, audit_rows, device):
+def run_audits(cfg, spectra, tune_axis, centers, bpm_indices, candidate_tunes, bpm_meta, consensus, window_turns, chunk_size, subset_size, best_by_size, collection, spill_id, plane, audit_rows, device, screened_score):
     search_cfg = cfg["subset_search"]
     seeds = []
     seeds.extend(score.subset for score in best_by_size.get(1, [])[:10])
@@ -430,6 +435,8 @@ def run_audits(cfg, spectra, tune_axis, centers, bpm_indices, candidate_tunes, b
     for audit_type, scored in (("BEAM_AUDIT", beam), ("RANDOM_AUDIT", rnd)):
         if not scored:
             continue
+        improvement = scored[0].subset_score - screened_score
+        expanded = improvement > float(search_cfg.get("audit_improvement_threshold", 0.01))
         audit_rows.append(
             {
                 "collection": collection,
@@ -438,9 +445,9 @@ def run_audits(cfg, spectra, tune_axis, centers, bpm_indices, candidate_tunes, b
                 "subset_size": subset_size,
                 "audit_type": audit_type,
                 "best_audit_score": f"{scored[0].subset_score:.9g}",
-                "screened_winner_score": "",
-                "improvement": "",
-                "pool_expanded": "",
+                "screened_winner_score": f"{screened_score:.9g}",
+                "improvement": f"{improvement:.9g}",
+                "pool_expanded": str(expanded).lower(),
                 "bpm_members": ",".join(str(int(bpm_indices[pos])) for pos in scored[0].subset),
             }
         )

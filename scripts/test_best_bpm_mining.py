@@ -24,6 +24,7 @@ from bpm_mining.consensus import build_consensus
 from bpm_mining.subset_search import search_best_bpm_subsets
 from bpm_mining.evolution import evaluate_evolution
 from bpm_mining.statistics import aggregate_statistics
+from bpm_mining.statistics import spearman, kendall_tau
 from bpm_mining.clustering import cluster_spills
 from bpm_mining.artifact_selection import select_artifacts
 from bpm_mining.plots import make_artifacts
@@ -157,6 +158,8 @@ class BestBpmMiningTests(unittest.TestCase):
 
         pool = supplement_pool([0], [Score(0), Score(1), Score(2), Score(3)], bpm_indices, bpm_meta, 4)
         self.assertEqual(set(pool), {0, 1, 2, 3})
+        self.assertAlmostEqual(float(spearman({"a": 3, "b": 2, "c": 1}, {"a": 30, "b": 20, "c": 10})), 1.0)
+        self.assertAlmostEqual(float(kendall_tau({"a": 3, "b": 2, "c": 1}, {"a": 30, "b": 20, "c": 10})), 1.0)
 
     def test_end_to_end_small_pipeline(self) -> None:
         collection = self.root / "synthetic-positiononly"
@@ -177,11 +180,15 @@ class BestBpmMiningTests(unittest.TestCase):
 
         self.assertEqual(len(read_csv(out / "manifest" / "spills.csv")), 3)
         best1 = read_csv(out / "subset_search" / "best1" / "best1_results.csv")
+        best1_rankings = read_csv(out / "subset_search" / "best1" / "best1_rankings.csv")
         best3 = read_csv(out / "subset_search" / "best3" / "best3_results.csv")
         best5 = read_csv(out / "subset_search" / "best5" / "best5_results.csv")
+        audits = read_csv(out / "subset_search" / "audit_results.csv")
         self.assertTrue(best1)
+        self.assertGreater(len(best1_rankings), len(best1))
         self.assertTrue(best3)
         self.assertTrue(best5)
+        self.assertTrue(audits[0]["screened_winner_score"])
         self.assertEqual(best3[0]["search_scope"], "FULL_60")
         self.assertEqual(best5[0]["search_scope"], "SCREENED_POOL")
         self.assertTrue((out / "statistics" / "bpm_global_statistics.csv").exists())
