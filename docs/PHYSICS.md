@@ -18,6 +18,16 @@ capabilities rather than re-track them as new software tasks:
 - optional external reference matching in batch mode
 - acquisition of RAW position payloads plus auxiliary RAW intensity payloads
   for later data-quality studies
+- standalone BPM-only poster artifact synthesis through
+  `scripts/bpm_dgx_poster.py`
+- raw captured-spill GPU flash analysis through
+  `scripts/gpu_analyze_captured_spills.py`, including ridge-density,
+  multitaper, DP-ridge, optional SVD/PCA, and DGX benchmark products for the
+  offline poster workflow
+- staged Spark BPM autosweep/ranking through `scripts/run_autosweep.py`,
+  `scripts/rank_autosweep_results.py`, and
+  `scripts/make_initial_analysis_summary.py` for selecting candidate H/V/poster
+  configurations and candidate spills from raw position bundles
 
 ## 2. Core Physics Question
 
@@ -95,6 +105,13 @@ Notes:
 
 - current repo supports external reference-file matching, not direct Schottky
   ingestion
+- the current poster/DGX sprint is explicitly BPM-only and should not include
+  Schottky labels or validation plots
+- Spark GPU outputs are BPM-only tune estimates unless later joined to an
+  independent reference table.
+- Autosweep labels are BPM-only ranking labels. They help select candidate
+  configs/spills for review, but do not prove true tune without independent
+  reference comparison.
 
 Deliverables:
 
@@ -126,13 +143,16 @@ Use repository field names when reviewing outputs:
 - no direct Schottky ingestion/auto-sync path in this repository
 - no dedicated cross-BPM coherence metric exported as first-class batch field
 - no dedicated clipping/saturation diagnostic exported yet
-- no SVD/PCA tune path in production flow yet
 - no physics-quality contract yet for auxiliary intensity payloads; RAW
   intensity is currently preserved for offline study, not used in tune
   extraction
 - current full-resolution Redis payloads observed so far contain 5000 `f32`
   samples; any expectation of a longer turn window still needs to be reconciled
   with front-end acquisition settings or stream variant semantics
+- no SVD/PCA tune path in the Rust production flow yet; the standalone poster
+  analyzer has opt-in SVD/PCA comparison plots that still need physics review
+- autosweep scoring uses pragmatic proxy metrics until independent tune labels
+  or richer per-BPM spectral products are available
 
 ## 7. Acceptance Criteria
 

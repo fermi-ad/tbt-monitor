@@ -66,9 +66,12 @@ Status: `Partial`
 What exists:
 - Multi-BPM averaging paths and per-BPM method comparison artifacts.
 - Weighted/unweighted analysis options in study workflows.
+- Optional representative-spill SVD/PCA denoising products in the standalone
+  raw captured-spill GPU analyzer.
 
 Divergence:
-- SVD/PCA path is explicitly deferred in current implementation.
+- SVD/PCA is not a production Rust tune-extraction path; it is an offline
+  comparison/denoising product for poster analysis.
 - Phase-aware lattice combination is not implemented.
 
 ### 5) Tune extraction + confidence/uncertainty
@@ -145,14 +148,102 @@ Divergence:
 5. Provide timing observability so data freshness/jitter can be trended.
 6. Keep outputs compatible with external reference validation workflows.
 
+## BPM-Only Poster/DGX Sprint
+
+Status: `Implemented as standalone scripts`
+
+`BPM_DGX_POSTER_CODEX_PLAN.md` is handled by `scripts/bpm_dgx_poster.py` and
+the thin phase wrappers in `scripts/`. This is a downstream poster-analysis
+layer over already collected artifacts, with the complete data source expected
+to be the `drbpm1` artifact tree (`/home/derekste/out`) or a DGX-mounted/copy
+of that tree.
+
+Implemented poster-phase products include:
+
+- dataset manifest and summary from `candidate_spills.csv`,
+  `spills_summary.csv`, and `capture_index.csv`
+- baseline BPM tune summaries and reproducibility plots
+- flash-mode summaries for requested flash counts
+- selected-tune waterfall and median trace-density products
+- conservative subset-consistency proxy outputs when per-BPM spectra are not
+  present
+- weak-label quality classifier reports
+- tune/ridge model skip report when no independent labels are available
+- synthetic CPU/CUDA FFT benchmark and poster plot index
+- raw captured-spill CuPy/CUDA flash analysis directly from payload bundles,
+  with GPU spill summaries, sliding/flash CSVs, waterfalls, median
+  spectrograms, tune-ridge density plots, Hann/multitaper representative
+  spectrogram overlays, dynamic-programming ridge traces, optional SVD/PCA
+  denoising products, and DGX benchmark markdown/plots
+
+This sprint intentionally excludes Schottky comparison and Schottky-derived
+labels. Reference-monitor validation remains a separate roadmap item.
+
+## Spark BPM Autosweep, Ranking, And Classification
+
+Status: `Implemented as staged standalone scripts`
+
+`SPARK_BPM_AUTOSWEEP_RANKING_AND_CLASSIFICATION_PLAN.md` is handled by the
+Stage 0/autosweep/ranking scripts in `scripts/`. The implementation is a
+BPM-only staged search over raw captured position bundles, not a full Cartesian
+sweep.
+
+Implemented pieces:
+
+- `scripts/build_collection_manifest.py`: raw bundle discovery, collection
+  tier/view assignment, stream counts, plane availability, waveform length, and
+  completeness fields.
+- `scripts/validate_spill_integrity.py`: payload health checks for missing,
+  constant, clipped, non-finite, RMS/MAD, usable/reject reason fields.
+- `scripts/build_spill_cache.py`: lightweight decoded metadata cache for
+  manifests, BPM/plane counts, turn counts, health flags, and manifest lists;
+  no FFT products are cached.
+- `scripts/gpu_analyze_captured_spills.py`: additional offline knobs for turn
+  range, plane, BPM combination, BPM normalization, detrending, DC handling,
+  and H/V ridge-anchor priors.
+- `scripts/run_autosweep.py`: deterministic baseline/factor/pilot/full runner
+  with config hashes, manifest lists, resume/cached detection, and run logs.
+- `scripts/rank_autosweep_results.py`: required weighted scores, spill/config
+  labels, ranked spill/config/collection tables, rejected configs, and
+  `top_configs_for_full.csv`.
+- `scripts/make_initial_analysis_summary.py`: initial summary markdown,
+  lightweight score plots, and top-artifact collation.
+- `scripts/build_elite_full_stage.py`: usable Tier A manifest filtering,
+  effective-config deduplication, explicit H/V/poster elite lists, and
+  rejected/flagged diagnostic preservation.
+- `scripts/make_elite_full_summary.py`: elite full-stage summary and heavy
+  artifact collation for best H/V, robust H/V, and poster candidates.
+
+Tier A inputs are the two Spark raw position-only collections under
+`/home/derekste/tbt-spills-2000`. Tier B intensity/beam-loss support remains a
+later-capable extension and should not block Tier A autosweep outputs.
+
+The ranker uses the fixed score formula:
+
+```text
+0.25 injection + 0.25 ridge + 0.20 bpm_robustness
++ 0.15 spectrogram_quality + 0.10 usable_fraction
++ 0.05 compute_efficiency
+```
+
+Spill labels are `GOOD`, `MARGINAL`, `BAD`, `NO_SIGNAL`,
+`AMBIGUOUS_RIDGE`, and `MISSING_DATA`. Config labels are `RECOMMENDED`,
+`PROMISING`, `EXPLORATORY`, `REJECTED`, `TOO_SLOW`, `OVERFITS_BAND`,
+`UNSTABLE_H`, and `UNSTABLE_V`.
+
 ## Next Milestones
 
 Post-split analysis refinement:
 
-1. Add explicit spectral-coherence and clipping diagnostics.
-2. Export peak-width and uncertainty-oriented metrics in summaries/CSV.
-3. Add optional SVD/PCA-based tune extraction path for side-by-side comparison.
-4. Add a first-party Schottky reference ingestion path (or converter contract) to reduce manual matching.
+1. Run the elite full-data autosweep package on Spark over the usable Tier A
+   manifest and review `elite_full_summary.md`.
+2. Add explicit spectral-coherence and clipping diagnostics to production
+   analysis summaries when the autosweep identifies stable criteria.
+3. Export peak-width and uncertainty-oriented metrics in summaries/CSV.
+4. Promote or reject the standalone SVD/PCA denoising findings after physics
+   review; do not make SVD the default without that review.
+5. Add a first-party Schottky reference ingestion path (or converter contract)
+   to reduce manual matching.
 
 The acquisition/offline-analysis split is tracked in
 `docs/ISSUE_MAP_DAQ_SPLIT.md`.

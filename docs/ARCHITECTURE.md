@@ -10,6 +10,8 @@
 - offline captured-bundle analysis
 - robustness studies
 - multi-spill batch analysis
+- standalone BPM-only poster/DGX artifact processing scripts
+- staged BPM-only Spark autosweep, ranking, and classification scripts
 
 The program reads Redis stream data from many BPM devices and converts it into synchronized spill-level artifacts and summary records.
 
@@ -41,6 +43,44 @@ boundaries, data flow, synchronization policy, and artifact contracts.
   - FFT-based tune extraction and sliding analysis.
   - Study and batch workflows.
   - Artifact and summary generation.
+- `scripts/bpm_dgx_poster.py`
+  - Standalone poster-analysis entrypoint for already collected artifacts.
+  - Consumes `candidate_spills.csv`, `spills_summary.csv`, and
+    `capture_index.csv`.
+  - Writes poster manifest, baseline/flash summaries, trace-density
+    waterfalls, weak-label quality reports, and CPU/CUDA benchmark artifacts.
+  - Does not connect to Redis and does not participate in runtime safety checks.
+- `scripts/gpu_analyze_captured_spills.py`
+  - Standalone raw captured-spill analyzer for `manifest.json` plus binary
+    payload bundles.
+  - Uses NumPy as the reproducibility baseline and CuPy/CUDA for batched Hann
+    or multitaper FFT power, peak picking inputs, dynamic-programming ridge
+    extraction inputs, and flash-mode processing on Spark.
+  - Writes GPU spill summaries, sliding/flash CSVs, median tune plots, flash
+    waterfalls, median band spectrograms, ridge-density plots, representative
+    Hann/multitaper spectrogram overlays, DP ridge traces/overlays, optional
+    SVD/PCA denoising products, and DGX benchmark markdown/plots.
+  - Does not connect to Redis and does not replace `MonitorConfig::validate()`
+    or runtime safety checks.
+- `scripts/build_collection_manifest.py`, `scripts/validate_spill_integrity.py`,
+  `scripts/build_spill_cache.py`
+  - Stage 0 autosweep inventory and health tooling for raw captured bundles.
+  - Discover manifest trees, classify collection tier/view, record waveform
+    length and H/V availability, flag missing/constant/clipped/non-finite
+    payloads, and write a lightweight metadata cache without FFT products.
+- `scripts/run_autosweep.py`
+  - Deterministic staged autosweep orchestrator.
+  - Builds baseline, factor-screening, and capped pilot config grids using
+    canonical JSON hashes for resume-safe job directories; full mode consumes
+    a supplied elite config list exactly.
+  - Invokes `gpu_analyze_captured_spills.py` through manifest-list files.
+- `scripts/rank_autosweep_results.py`,
+  `scripts/make_initial_analysis_summary.py`,
+  `scripts/build_elite_full_stage.py`,
+  `scripts/make_elite_full_summary.py`
+  - Reduce analyzer outputs into spill/config/collection scores, labels,
+    ranked tables, explicit elite full-stage handoff lists, lightweight plots,
+    heavy-artifact galleries, and autosweep markdown summaries.
 
 ## Runtime Data Flow
 
@@ -135,6 +175,30 @@ boundaries, data flow, synchronization policy, and artifact contracts.
 6. Record `trigger_source=captured-spill`; the batch path does not read Redis
    trigger keys.
 
+### Spark BPM Autosweep (`scripts/run_autosweep.py`)
+
+1. Stage 0 discovers raw captured-spill manifests and records collection tier,
+   view, stream counts, plane availability, waveform length, and payload health.
+2. The runner builds a deterministic config grid using canonical sorted JSON
+   and `sha256[:12]` config hashes.
+3. Pilot mode runs baseline configs, factor screening, and a capped randomized
+   interaction grid with seed `20260613`.
+4. The elite builder filters Stage 0 to usable Tier A spills, selects explicit
+   H/V/poster roles from combined-view pilot rankings, deduplicates effective
+   configs, and preserves rejected/flagged rows in diagnostics.
+5. Full mode runs exactly the supplied elite config list over the filtered
+   usable-spill manifest.
+6. Each job writes a manifest-list file and invokes the raw captured-spill GPU
+   analyzer with explicit turn range, BPM-combination, normalization,
+   detrending, DC-handling, tune-band, and ridge-anchor settings.
+7. The ranker reads each job's `gpu_spills_summary.csv`, scores spill/config
+   rows, assigns stable labels, and writes handoff CSVs for full-stage analysis.
+8. The elite summary writer collates ranked tables and heavy GPU plots for the
+   best H, best V, robust H/V, and poster candidates.
+
+This workflow is offline and BPM-only. It does not connect to Redis, does not
+use Schottky labels, and does not alter Rust runtime command safety checks.
+
 ### Analyze Phase (`analyze-phase`)
 
 Builds the same synchronized snapshot, then runs sweeps and method-comparison artifacts for robustness studies.
@@ -187,6 +251,27 @@ Main artifact families:
 - batch records (`csv`/`jsonl`)
 - batch plots (including composite H/V waterfall, and optional per-flash
   `tune_vs_spill_flash_XX` and `tune_histogram_flash_XX`) and markdown summary
+- standalone poster products (`dataset_manifest.csv`, baseline/flash summaries,
+  trace-density waterfalls, optional weak-label ML reports, DGX benchmark
+  summaries, and copied poster-plot index)
+- raw captured-spill GPU/poster products (`gpu_spills_summary.csv`,
+  `gpu_sliding_tune.csv`, `ridge_density_h/v.png`,
+  `single_spill_spectrogram_h/v.png`, `spectrogram_*_{hann,multitaper}.png`,
+  `ridge_trace_h/v.csv`, `ridge_overlay_h/v.png`, `bpm_leaderboard.csv`,
+  `bpm_leaderboard_h/v.png`, `subset_consistency_h/v.png`, optional `svd_*`
+  plots, and `dgx_benchmark.md/png`)
+- Spark autosweep products (`dataset_manifest.csv`, `spill_health.csv`,
+  `spill_cache_index.json`, `autosweep_config_grid.csv`,
+  `autosweep_run_log.csv`, `autosweep_spill_scores.csv`,
+  `autosweep_config_scores.csv`, `autosweep_collection_scores.csv`,
+  `autosweep_ranked_configs.csv`, `autosweep_ranked_spills.csv`,
+  `autosweep_rejected_configs.csv`, `top_configs_for_full.csv`,
+  `initial_analysis_summary.md`, `elite_dataset_manifest.csv`,
+  `elite_configs_h.csv`, `elite_configs_v.csv`,
+  `elite_configs_for_full.csv`, `elite_config_sources.csv`,
+  `elite_rejected_config_diagnostics.csv`, `elite_full_summary.md`,
+  `elite_artifacts_manifest.csv`, lightweight plots, heavy-artifact galleries,
+  and copied top-artifact manifests)
 
 Captured-spill bundle schema:
 - `schema_version=1`
@@ -279,6 +364,21 @@ When changing artifact fields or meaning, update:
 - `docs/PLAN.md` (if plan alignment changes)
 - any downstream analysis scripts expecting stable columns
 
+Poster/DGX script policy:
+- The poster scripts are downstream consumers of collected artifacts, not part
+  of online acquisition or Rust runtime dispatch.
+- They keep CPU fallback as the reproducibility path and use CUDA/CuPy only
+  for offline FFT benchmarks and raw captured-spill array-heavy products.
+- They intentionally exclude Schottky validation for the BPM-only poster phase.
+- `capture_index.csv` rows can enter the dataset manifest for inventory and
+  completeness accounting even when tune-analysis labels are not yet present.
+- Raw captured-spill GPU analysis reads payload bytes directly and keeps its
+  output schema separate from Rust batch records.
+- Spark autosweep scripts run on the raw captured-bundle GPU analyzer outputs
+  and keep their ranking/classification schema separate from Rust batch
+  records. Stage 0 may read enough payload data for health checks, but it does
+  not cache FFT products.
+
 ## Extension Points
 
 ### Split acquisition from offline analysis
@@ -332,3 +432,7 @@ High-value regression targets:
 Future recommended additions:
 - golden-file tests for batch summary and record outputs
 - integration tests against a deterministic Redis fixture
+
+Standalone Python checks:
+- `python3 scripts/gpu_analyze_captured_spills.py --self-test`
+- `python3 scripts/test_autosweep.py`
