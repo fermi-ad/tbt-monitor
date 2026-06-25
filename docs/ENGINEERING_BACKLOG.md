@@ -57,6 +57,17 @@ None.
 
 ## Done
 
+### [ENG-020] Subsystem documentation rework
+- Status: done
+- Owner: codex
+- Type: docs
+- Why: the README and detailed command docs had grown back into a mixed landing page, DAQ guide, analysis guide, Spark runbook, and operations reference.
+- Scope: keep `README.md` concise, add subsystem guides for DAQ, Rust analysis chains, Spark workflows, and operations, and update cross-references so `docs/USAGE.md` remains the exact command reference.
+- Acceptance: README is a short entry point; subsystem docs provide clear ownership for DAQ/capture, analysis chains, Spark/offline mining, and operations; existing detailed docs link to the new structure; markdown links validate locally.
+- Docs: README.md, docs/DAQ.md, docs/ANALYSIS_CHAINS.md, docs/SPARK.md, docs/OPERATIONS.md, docs/USAGE.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/ENGINEERING_BACKLOG.md
+- Validation: python3 /tmp/check_tbt_doc_links.py
+- Notes: docs-only change; no runtime behavior or output schemas changed.
+
 ### [ENG-017] Elite full-data autosweep stage
 - Status: done
 - Owner: codex

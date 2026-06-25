@@ -17,8 +17,11 @@
 
 The program reads Redis stream data from many BPM devices and converts it into synchronized spill-level artifacts and summary records.
 
-User command workflows live in `docs/USAGE.md`; this file focuses on module
-boundaries, data flow, synchronization policy, and artifact contracts.
+User-facing workflows are split by subsystem: DAQ/capture in `docs/DAQ.md`,
+Rust tune analysis in `docs/ANALYSIS_CHAINS.md`, Spark/GPU work in
+`docs/SPARK.md`, and operational commands in `docs/OPERATIONS.md`.
+`docs/USAGE.md` remains the exact command reference. This file focuses on
+module boundaries, data flow, synchronization policy, and artifact contracts.
 
 ## Module Map
 

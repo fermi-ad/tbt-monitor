@@ -1,8 +1,11 @@
 # Usage Guide
 
-This guide covers the command workflows for `tbt-monitor-tui`. Use
-`docs/CONFIG_REFERENCE.md` for config keys and `docs/ARCHITECTURE.md` for data
-flow, synchronization policy, and artifact schema details.
+This is the command reference for `tbt-monitor-tui`. For task-oriented guides,
+start with [DAQ Guide](DAQ.md), [Analysis Chains](ANALYSIS_CHAINS.md),
+[Spark Workflows](SPARK.md), or [Operations](OPERATIONS.md). Use
+[Config Reference](CONFIG_REFERENCE.md) for config keys and
+[Architecture](ARCHITECTURE.md) for data flow, synchronization policy, and
+artifact schema details.
 
 ## Command Matrix
 

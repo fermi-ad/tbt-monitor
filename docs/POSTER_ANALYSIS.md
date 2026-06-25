@@ -5,6 +5,9 @@ standalone tool layer around collected `tbt-monitor` artifacts. It is
 complementary to the Rust acquisition and tune-analysis commands; it does not
 replace live capture, online monitoring, or captured-bundle reanalysis.
 
+For the current subsystem-level Spark entry point, including raw GPU analysis,
+autosweep, Best-BPM mining, and telemetry, see [Spark Workflows](SPARK.md).
+
 This phase is BPM-only. Do not add Schottky comparison, Schottky labels, or
 Schottky validation products to these poster outputs.
 
