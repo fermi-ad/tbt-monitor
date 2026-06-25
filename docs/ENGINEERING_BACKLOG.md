@@ -33,6 +33,17 @@ None.
 
 ## In Progress
 
+### [ENG-019] Autosweep parallel runner and GPU telemetry
+- Status: in_progress
+- Owner: codex
+- Type: perf
+- Why: Spark autosweep and Best-BPM runs need better host/GPU utilization and first-class accounting for GPU wall time, utilized GPU-hours, and power draw.
+- Scope: add `--parallel-jobs` to `scripts/run_autosweep.py`, keep serial default behavior, preserve deterministic run logs and timeout handling, add stdlib `scripts/gpu_run_telemetry.py`, and expose optional telemetry in autosweep and Best-BPM pipeline wrappers.
+- Acceptance: local tests cover parallel dry-run scheduling, timeout handling, and telemetry summaries; a Spark smoke with 2 concurrent autosweep jobs completes cleanly before GitHub issue #30 is closed.
+- Docs: README.md, docs/USAGE.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/ENGINEERING_BACKLOG.md
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/gpu_run_telemetry.py scripts/run_autosweep.py scripts/bpm_mining/pipeline.py scripts/test_autosweep.py scripts/test_best_bpm_mining.py; python3 scripts/test_autosweep.py; python3 scripts/test_best_bpm_mining.py
+- Notes: Spark two-job smoke is intentionally deferred until the current full Best-BPM run releases the GPU.
+
 ### [ENG-018] Best-BPM 2000-spill mining pipeline
 - Status: in_progress
 - Owner: codex

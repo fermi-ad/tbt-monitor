@@ -199,7 +199,8 @@ Implemented pieces:
   range, plane, BPM combination, BPM normalization, detrending, DC handling,
   and H/V ridge-anchor priors.
 - `scripts/run_autosweep.py`: deterministic baseline/factor/pilot/full runner
-  with config hashes, manifest lists, resume/cached detection, and run logs.
+  with config hashes, manifest lists, resume/cached detection, run logs,
+  opt-in parallel config/view execution, and optional GPU telemetry summaries.
 - `scripts/rank_autosweep_results.py`: required weighted scores, spill/config
   labels, ranked spill/config/collection tables, rejected configs, and
   `top_configs_for_full.csv`.

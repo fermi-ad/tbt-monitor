@@ -493,6 +493,8 @@ python3 scripts/run_autosweep.py \
   --spills 200 \
   --max-configs 300 \
   --device cuda \
+  --parallel-jobs 2 \
+  --gpu-telemetry-interval-seconds 30 \
   --out /home/derekste/tbt-spills-2000-autosweep/pilot
 ```
 
@@ -530,6 +532,8 @@ python3 scripts/run_autosweep.py \
   --device cuda \
   --heavy-plots \
   --job-timeout-seconds 900 \
+  --parallel-jobs 2 \
+  --gpu-telemetry-interval-seconds 30 \
   --out /home/derekste/tbt-spills-2000-autosweep/elite-full
 python3 scripts/rank_autosweep_results.py \
   --autosweep-dir /home/derekste/tbt-spills-2000-autosweep/elite-full \
@@ -549,6 +553,26 @@ Autosweep outputs include `dataset_manifest.csv`, `spill_health.csv`,
 `elite_configs_for_full.csv`, `elite_config_sources.csv`,
 `elite_rejected_config_diagnostics.csv`, `elite_full_summary.md`,
 `elite_artifacts_manifest.csv`, and `poster_candidate_gallery/`.
+
+`run_autosweep.py` runs serially by default. Use `--parallel-jobs 2` to start
+conservatively on Spark, then try 3-4 if GPU telemetry shows the device is still
+underused. The scheduler runs independent config/view jobs concurrently while
+keeping each job in its isolated `jobs/<config_hash>/<view>/` directory. It also
+keeps at most one active view per config so a timed-out config can still mark
+later views as `prior_view_too_slow`.
+
+Use `--gpu-telemetry-interval-seconds 30` to record run-level GPU utilization,
+active compute PIDs, and power draw to `logs/gpu_telemetry.csv`. The runner
+writes `logs/gpu_telemetry_summary.json` and
+`logs/gpu_telemetry_summary.md` after the run. The same CSV can be summarized
+later with:
+
+```bash
+python3 scripts/gpu_run_telemetry.py summarize \
+  --input /home/derekste/tbt-spills-2000-autosweep/pilot/logs/gpu_telemetry.csv \
+  --summary-json /home/derekste/tbt-spills-2000-autosweep/pilot/logs/gpu_telemetry_summary.json \
+  --summary-md /home/derekste/tbt-spills-2000-autosweep/pilot/logs/gpu_telemetry_summary.md
+```
 
 `scripts/bootstrap_spark_env.sh` can create a minimal optional venv, but the
 scripts intentionally avoid pandas, scipy, pyarrow, and zarr. NumPy is required;
@@ -572,7 +596,8 @@ selects review artifacts, and writes final reports.
   --out /home/derekste/best_bpm_mining \
   --device cuda \
   --workers 12 \
-  --resume
+  --resume \
+  --gpu-telemetry-interval-seconds 30
 ```
 
 Verify that a completed output directory satisfies the expected artifact
@@ -614,6 +639,8 @@ Main outputs:
   `reports/strong_bpm_analysis_summary.md`
 - `logs/best_bpm_verification.json` and
   `logs/best_bpm_verification_report.md` when the verifier is run
+- `logs/gpu_telemetry.csv`, `logs/gpu_telemetry_summary.json`, and
+  `logs/gpu_telemetry_summary.md` when GPU telemetry is enabled
 
 ## Timing Semantics
 

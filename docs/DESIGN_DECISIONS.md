@@ -380,6 +380,10 @@ Decision:
   0.05 compute_efficiency`.
 - Classify spill/config rows with explicit labels so later strict filters can
   be applied to ranked tables rather than rerunning acquisition.
+- Keep autosweep serial by default, with `--parallel-jobs` as an opt-in Spark
+  throughput control for overlapping independent config/view analyzer jobs.
+- Add lightweight `nvidia-smi` telemetry as an optional wrapper-level concern
+  rather than embedding GPU accounting inside the physics analyzer.
 
 Why:
 - The parameter space is too large for a naive Cartesian sweep over all spills.
@@ -387,6 +391,8 @@ Why:
   and top candidate spills for review, not to exhaustively generate artifacts
   for every combination.
 - Deterministic hashes and CSV logs make Spark jobs restartable and auditable.
+- Isolated config/view job directories make bounded parallel execution safe
+  without introducing shared-writer races.
 - Keeping autosweep as Python scripts avoids adding offline research controls
   to the Rust runtime safety surface.
 
@@ -394,6 +400,11 @@ Tradeoffs:
 - Pilot selection can miss interactions that a full Cartesian search would
   reveal; full-stage reruns should therefore include baseline and top H/V/poster
   configs.
+- Parallel jobs improve host/GPU utilization but can increase contention for a
+  single GPU. Start Spark runs with 2 concurrent jobs and use telemetry before
+  raising that to 3-4.
+- Telemetry-derived GPU-hours and watt-hours are estimates from sampled
+  `nvidia-smi` utilization and power, not scheduler-grade accounting.
 - Full-stage execution uses an explicit elite builder rather than implicit
   baseline injection inside the runner, so the config list is auditable and the
   full run never expands beyond the selected effective configs.

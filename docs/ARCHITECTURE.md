@@ -192,11 +192,17 @@ boundaries, data flow, synchronization policy, and artifact contracts.
    usable-spill manifest.
 6. Each job writes a manifest-list file and invokes the raw captured-spill GPU
    analyzer with explicit turn range, BPM-combination, normalization,
-   detrending, DC-handling, tune-band, and ridge-anchor settings.
+   detrending, DC-handling, tune-band, and ridge-anchor settings. The runner is
+   serial by default, but `--parallel-jobs` can overlap independent config/view
+   jobs while keeping each job in an isolated output directory.
 7. The ranker reads each job's `gpu_spills_summary.csv`, scores spill/config
    rows, assigns stable labels, and writes handoff CSVs for full-stage analysis.
 8. The elite summary writer collates ranked tables and heavy GPU plots for the
    best H, best V, robust H/V, and poster candidates.
+
+`scripts/gpu_run_telemetry.py` is shared by autosweep and Best-BPM wrappers. It
+polls `nvidia-smi` into `logs/gpu_telemetry.csv` and can summarize wall hours,
+utilized GPU-hours, average utilization, average power, and watt-hours.
 
 This workflow is offline and BPM-only. It does not connect to Redis, does not
 use Schottky labels, and does not alter Rust runtime command safety checks.

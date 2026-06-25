@@ -134,6 +134,8 @@ python3 scripts/run_autosweep.py \
   --spills 200 \
   --max-configs 300 \
   --device cuda \
+  --parallel-jobs 2 \
+  --gpu-telemetry-interval-seconds 30 \
   --out /home/derekste/tbt-spills-2000-autosweep/pilot
 python3 scripts/rank_autosweep_results.py \
   --autosweep-dir /home/derekste/tbt-spills-2000-autosweep/pilot
@@ -152,6 +154,8 @@ python3 scripts/run_autosweep.py \
   --device cuda \
   --heavy-plots \
   --job-timeout-seconds 900 \
+  --parallel-jobs 2 \
+  --gpu-telemetry-interval-seconds 30 \
   --out /home/derekste/tbt-spills-2000-autosweep/elite-full
 python3 scripts/rank_autosweep_results.py \
   --autosweep-dir /home/derekste/tbt-spills-2000-autosweep/elite-full \
@@ -168,7 +172,8 @@ Run Best-BPM mining over the same Spark Tier A collections:
   --out /home/derekste/best_bpm_mining \
   --device cuda \
   --workers 12 \
-  --resume
+  --resume \
+  --gpu-telemetry-interval-seconds 30
 /home/derekste/venvs/cupy-spark-cu13/bin/python scripts/verify_best_bpm_outputs.py \
   --root /home/derekste/best_bpm_mining
 ```
@@ -222,6 +227,9 @@ python3 scripts/gpu_analyze_captured_spills.py --self-test
 python3 scripts/test_autosweep.py
 python3 scripts/test_best_bpm_mining.py
 python3 scripts/verify_best_bpm_outputs.py --root /path/to/best_bpm_mining
+python3 scripts/gpu_run_telemetry.py summarize \
+  --input /path/to/gpu_telemetry.csv \
+  --summary-json /tmp/gpu_telemetry_summary.json
 ```
 
 For focused timing/selection checks:

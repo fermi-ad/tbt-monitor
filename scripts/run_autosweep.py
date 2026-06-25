@@ -11,8 +11,11 @@ import random
 import subprocess
 import sys
 import time
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from pathlib import Path
 from typing import Sequence
+
+from gpu_run_telemetry import TelemetryThread, write_summary
 
 
 ROOT = Path(__file__).resolve().parent
@@ -352,15 +355,12 @@ def analyzer_command(config: dict[str, object], manifest_list: Path, out_dir: Pa
     return cmd
 
 
-def run_jobs(args: argparse.Namespace, configs: list[dict[str, object]], dataset: list[dict[str, str]]) -> list[dict[str, object]]:
+def build_job_specs(args: argparse.Namespace, configs: list[dict[str, object]], dataset: list[dict[str, str]]) -> list[dict[str, object]]:
     out = Path(args.out)
     views = sorted({row.get("collection", "") for row in dataset if row.get("collection")})
     views.append("combined")
-    run_rows: list[dict[str, object]] = []
-    config_rows = configs
-    write_csv(out / "autosweep_config_grid.csv", config_rows, CONFIG_FIELDS)
+    specs: list[dict[str, object]] = []
     job_idx = 0
-    too_slow_configs: set[str] = set()
     for config in configs:
         for view in views:
             job_idx += 1
@@ -368,51 +368,156 @@ def run_jobs(args: argparse.Namespace, configs: list[dict[str, object]], dataset
             selected = spill_rows_for_view(dataset, view, args.spills if args.mode == "pilot" else 0)
             manifest_list = out / "manifest_lists" / f"{view}_{config['config_hash']}.txt"
             job_out = out / "jobs" / str(config["config_hash"]) / view
-            reason = "prior_view_too_slow" if config_id in too_slow_configs else skip_reason(config, selected)
+            reason = skip_reason(config, selected)
             status = "skipped" if reason else "pending"
             if not reason:
                 write_manifest_list(manifest_list, selected)
             cmd = analyzer_command(config, manifest_list, job_out, args.device, args.heavy_plots)
-            started = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-            elapsed = 0.0
-            if reason:
-                pass
-            elif args.dry_run:
-                status = "dry_run"
-            elif (job_out / "gpu_spills_summary.csv").exists() and not args.force:
-                status = "cached"
-            else:
-                t0 = time.perf_counter()
-                job_out.mkdir(parents=True, exist_ok=True)
-                timeout = args.job_timeout_seconds if args.job_timeout_seconds > 0 else None
-                try:
-                    proc = subprocess.run(cmd, text=True, timeout=timeout)
-                except subprocess.TimeoutExpired:
-                    elapsed = time.perf_counter() - t0
-                    status = "failed:timeout"
-                    reason = f"job_timeout_seconds={args.job_timeout_seconds}"
-                    too_slow_configs.add(config_id)
-                else:
-                    elapsed = time.perf_counter() - t0
-                    status = "ok" if proc.returncode == 0 else f"failed:{proc.returncode}"
-            run_rows.append(
-                {
+            row = {
                     "job_id": job_idx,
                     "config_hash": config["config_hash"],
                     "collection_view": view,
                     "mode": args.mode,
                     "status": status,
                     "skip_reason": reason,
-                    "started_utc": started,
-                    "elapsed_seconds": f"{elapsed:.3f}",
+                    "started_utc": "",
+                    "elapsed_seconds": "0.000",
                     "spill_count": len(selected),
                     "out_dir": str(job_out),
                     "manifest_list": str(manifest_list),
                     "command": " ".join(cmd),
+            }
+            specs.append(
+                {
+                    "job_id": job_idx,
+                    "config_id": config_id,
+                    "row": row,
+                    "reason": reason,
+                    "command": cmd,
+                    "job_out": job_out,
+                    "timeout": args.job_timeout_seconds if args.job_timeout_seconds > 0 else None,
+                    "dry_run": args.dry_run,
+                    "force": args.force,
                 }
             )
-            write_csv(out / "autosweep_run_log.csv", run_rows, RUN_FIELDS)
-    return run_rows
+    return specs
+
+
+def execute_job(spec: dict[str, object]) -> dict[str, object]:
+    row = dict(spec["row"])  # type: ignore[arg-type]
+    reason = str(spec.get("reason") or "")
+    started = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    row["started_utc"] = started
+    row["elapsed_seconds"] = "0.000"
+    if reason:
+        row["status"] = "skipped"
+        row["skip_reason"] = reason
+        return row
+    if bool(spec.get("dry_run")):
+        row["status"] = "dry_run"
+        return row
+    job_out = Path(spec["job_out"])  # type: ignore[arg-type]
+    if (job_out / "gpu_spills_summary.csv").exists() and not bool(spec.get("force")):
+        row["status"] = "cached"
+        return row
+    t0 = time.perf_counter()
+    job_out.mkdir(parents=True, exist_ok=True)
+    try:
+        proc = subprocess.run(spec["command"], text=True, timeout=spec.get("timeout"))  # type: ignore[arg-type]
+    except subprocess.TimeoutExpired:
+        row["elapsed_seconds"] = f"{time.perf_counter() - t0:.3f}"
+        row["status"] = "failed:timeout"
+        row["skip_reason"] = f"job_timeout_seconds={spec['timeout']}"
+    else:
+        row["elapsed_seconds"] = f"{time.perf_counter() - t0:.3f}"
+        row["status"] = "ok" if proc.returncode == 0 else f"failed:{proc.returncode}"
+    return row
+
+
+def write_run_log(out: Path, rows_by_id: dict[int, dict[str, object]]) -> None:
+    write_csv(out / "autosweep_run_log.csv", [rows_by_id[idx] for idx in sorted(rows_by_id)], RUN_FIELDS)
+
+
+def run_job_specs(args: argparse.Namespace, specs: list[dict[str, object]]) -> list[dict[str, object]]:
+    out = Path(args.out)
+    rows_by_id: dict[int, dict[str, object]] = {int(spec["job_id"]): dict(spec["row"]) for spec in specs}  # type: ignore[arg-type]
+    write_run_log(out, rows_by_id)
+    too_slow_configs: set[str] = set()
+    pending = list(specs)
+    parallel_jobs = max(1, int(args.parallel_jobs))
+    if parallel_jobs == 1:
+        for spec in pending:
+            if str(spec["config_id"]) in too_slow_configs and not spec.get("reason"):
+                spec = dict(spec)
+                spec["reason"] = "prior_view_too_slow"
+            row = execute_job(spec)
+            rows_by_id[int(spec["job_id"])] = row
+            if row["status"] == "failed:timeout":
+                too_slow_configs.add(str(spec["config_id"]))
+            write_run_log(out, rows_by_id)
+        return [rows_by_id[idx] for idx in sorted(rows_by_id)]
+
+    active_configs: set[str] = set()
+    in_flight: dict[object, dict[str, object]] = {}
+    with ThreadPoolExecutor(max_workers=parallel_jobs) as pool:
+        while pending or in_flight:
+            made_progress = False
+            idx = 0
+            while len(in_flight) < parallel_jobs and idx < len(pending):
+                spec = pending[idx]
+                config_id = str(spec["config_id"])
+                if config_id in too_slow_configs and not spec.get("reason"):
+                    skipped = dict(spec)
+                    skipped["reason"] = "prior_view_too_slow"
+                    row = execute_job(skipped)
+                    rows_by_id[int(spec["job_id"])] = row
+                    pending.pop(idx)
+                    write_run_log(out, rows_by_id)
+                    made_progress = True
+                    continue
+                if config_id in active_configs:
+                    idx += 1
+                    continue
+                pending.pop(idx)
+                active_configs.add(config_id)
+                future = pool.submit(execute_job, spec)
+                in_flight[future] = spec
+                made_progress = True
+            if not in_flight:
+                if not made_progress:
+                    raise RuntimeError("parallel autosweep scheduler made no progress")
+                continue
+            done, _ = wait(in_flight, return_when=FIRST_COMPLETED)
+            for future in done:
+                spec = in_flight.pop(future)
+                active_configs.discard(str(spec["config_id"]))
+                row = future.result()
+                rows_by_id[int(spec["job_id"])] = row
+                if row["status"] == "failed:timeout":
+                    too_slow_configs.add(str(spec["config_id"]))
+                write_run_log(out, rows_by_id)
+    return [rows_by_id[idx] for idx in sorted(rows_by_id)]
+
+
+def run_jobs(args: argparse.Namespace, configs: list[dict[str, object]], dataset: list[dict[str, str]]) -> list[dict[str, object]]:
+    out = Path(args.out)
+    write_csv(out / "autosweep_config_grid.csv", configs, CONFIG_FIELDS)
+    specs = build_job_specs(args, configs, dataset)
+    telemetry = None
+    telemetry_interval = float(getattr(args, "gpu_telemetry_interval_seconds", 0.0) or 0.0)
+    if telemetry_interval > 0:
+        telemetry = TelemetryThread(out / "logs" / "gpu_telemetry.csv", telemetry_interval)
+        telemetry.start()
+    try:
+        return run_job_specs(args, specs)
+    finally:
+        if telemetry is not None:
+            telemetry.stop()
+            write_summary(
+                out / "logs" / "gpu_telemetry.csv",
+                out / "logs" / "gpu_telemetry_summary.json",
+                out / "logs" / "gpu_telemetry_summary.md",
+            )
 
 
 def main(argv: Sequence[str] | None = None) -> None:
@@ -428,6 +533,13 @@ def main(argv: Sequence[str] | None = None) -> None:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--heavy-plots", action="store_true")
+    parser.add_argument("--parallel-jobs", type=int, default=1, help="number of independent config/view analyzer jobs to run concurrently")
+    parser.add_argument(
+        "--gpu-telemetry-interval-seconds",
+        type=float,
+        default=0.0,
+        help="poll nvidia-smi into logs/gpu_telemetry.csv during the run; 0 disables telemetry",
+    )
     parser.add_argument(
         "--job-timeout-seconds",
         type=int,

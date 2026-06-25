@@ -24,6 +24,12 @@ from .spectra import build_spectral_cache
 from .statistics import aggregate_statistics
 from .subset_search import search_best_bpm_subsets
 
+try:
+    from gpu_run_telemetry import TelemetryThread, write_summary
+except Exception:  # pragma: no cover - import guard for unusual embedding paths
+    TelemetryThread = None  # type: ignore[assignment]
+    write_summary = None  # type: ignore[assignment]
+
 
 def write_run_manifest(logs: Path, cfg: dict[str, object], pass_name: str, args: argparse.Namespace) -> None:
     ensure_dir(logs)
@@ -254,6 +260,12 @@ def cmd_pipeline(argv: list[str] | None = None) -> None:
     parser.add_argument("--workers", type=int, default=None)
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--subset-sizes", nargs="+", type=int, default=[1, 3, 5, 10])
+    parser.add_argument(
+        "--gpu-telemetry-interval-seconds",
+        type=float,
+        default=0.0,
+        help="poll nvidia-smi into logs/gpu_telemetry.csv during the full pipeline; 0 disables telemetry",
+    )
     args = parser.parse_args(argv)
     cfg = load_config(args.config)
     root = Path(args.out)
@@ -288,4 +300,22 @@ def cmd_pipeline(argv: list[str] | None = None) -> None:
                 raise
             write_progress(logs, step_name, "ok", time.perf_counter() - step_started)
 
-    run_guarded("full_pipeline", cfg, root / "logs", args, run_all)
+    def run_with_optional_telemetry() -> None:
+        telemetry = None
+        if args.gpu_telemetry_interval_seconds > 0:
+            if TelemetryThread is None or write_summary is None:
+                raise RuntimeError("gpu_run_telemetry.py is unavailable")
+            telemetry = TelemetryThread(root / "logs" / "gpu_telemetry.csv", args.gpu_telemetry_interval_seconds)
+            telemetry.start()
+        try:
+            run_all()
+        finally:
+            if telemetry is not None:
+                telemetry.stop()
+                write_summary(
+                    root / "logs" / "gpu_telemetry.csv",
+                    root / "logs" / "gpu_telemetry_summary.json",
+                    root / "logs" / "gpu_telemetry_summary.md",
+                )
+
+    run_guarded("full_pipeline", cfg, root / "logs", args, run_with_optional_telemetry)

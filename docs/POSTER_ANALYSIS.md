@@ -259,6 +259,8 @@ python3 scripts/run_autosweep.py \
   --spills 200 \
   --max-configs 300 \
   --device cuda \
+  --parallel-jobs 2 \
+  --gpu-telemetry-interval-seconds 30 \
   --out /home/derekste/tbt-spills-2000-autosweep/pilot
 ```
 
@@ -290,6 +292,8 @@ python3 scripts/run_autosweep.py \
   --device cuda \
   --heavy-plots \
   --job-timeout-seconds 900 \
+  --parallel-jobs 2 \
+  --gpu-telemetry-interval-seconds 30 \
   --out /home/derekste/tbt-spills-2000-autosweep/elite-full
 python3 scripts/rank_autosweep_results.py \
   --autosweep-dir /home/derekste/tbt-spills-2000-autosweep/elite-full \
@@ -303,6 +307,12 @@ roles (`top_physics`, `top10_robust`, `median_or_trimmed`,
 `baseline_mean`), adds a poster-safe best-poster config, and preserves
 rejected/flagged pilot rows in diagnostics. Full mode consumes the supplied
 config list exactly.
+
+Parallel autosweep execution is opt-in with `--parallel-jobs`; use 2 as the
+initial Spark setting and increase to 3-4 only after telemetry shows remaining
+headroom. Each analyzer job writes into its own config/view directory, and the
+run log remains sorted by deterministic job id. `--gpu-telemetry-interval-seconds`
+records run-level GPU samples and summaries under `logs/`.
 
 The score formula is fixed:
 
@@ -323,6 +333,9 @@ Required autosweep outputs are:
 - `dataset_manifest.csv`, `spill_health.csv`, `spill_cache_index.json`,
   `dataset_summary.md`
 - `autosweep_config_grid.csv`, `autosweep_run_log.csv`
+- optional `logs/gpu_telemetry.csv`,
+  `logs/gpu_telemetry_summary.json`, and
+  `logs/gpu_telemetry_summary.md`
 - `autosweep_spill_scores.csv`, `autosweep_config_scores.csv`,
   `autosweep_collection_scores.csv`
 - `autosweep_ranked_configs.csv`, `autosweep_ranked_spills.csv`,
@@ -410,6 +423,7 @@ python3 scripts/gpu_analyze_captured_spills.py --self-test
 python3 scripts/test_autosweep.py
 python3 scripts/test_best_bpm_mining.py
 python3 scripts/verify_best_bpm_outputs.py --root /path/to/best_bpm_mining
+python3 scripts/gpu_run_telemetry.py summarize --input /path/to/gpu_telemetry.csv --summary-json /tmp/gpu_telemetry_summary.json
 ```
 
 The smoke test uses synthetic ranked artifacts and verifies that the full
