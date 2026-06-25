@@ -217,11 +217,17 @@ config ranking. Its package modules cover:
   with cache-row worker sharding for Spark runs.
 - `subset_score.py` and `subset_search.py`: exact best-1/best-3 enumeration,
   screened-pool best-5/best-10 enumeration, beam/random full-space audits, and
-  row-sharded worker execution with a bounded CUDA worker pool.
+  row-sharded worker execution with a bounded CUDA worker pool. Long runs emit
+  live per-shard JSON progress under `subset_search/progress/` before the final
+  merged CSVs are written.
 - `evolution.py`, `statistics.py`, `clustering.py`, `artifact_selection.py`,
   `plots.py`, and `report.py`: finalist subset re-evaluation with robust
   spectrum aggregators, downstream review tables, plots, morphology clusters,
   and narrative-safe Markdown summaries.
+- `verification.py`: structural output-contract checks for completed or
+  partially completed Best-BPM output directories, including required files,
+  CSV headers, row counts for normal-sized CSVs, and report generation under
+  `logs/`.
 
 Best-1 and best-3 are globally exhaustive over valid BPMs for each spill/plane.
 Best-5 and best-10 are not globally exhaustive; their CSV rows carry

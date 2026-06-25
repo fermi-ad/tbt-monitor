@@ -121,6 +121,9 @@ Notes:
   over valid BPMs. Best-5 and best-10 must be described as screened-pool exact
   searches with beam/random full-space audits unless a true global enumeration
   is ever run.
+- `scripts/verify_best_bpm_outputs.py` is an artifact completeness and schema
+  gate for Best-BPM runs. Passing it means the planned BPM-only outputs exist;
+  it does not establish external tune truth or Schottky agreement.
 
 Deliverables:
 

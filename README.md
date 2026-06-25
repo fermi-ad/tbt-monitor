@@ -45,6 +45,7 @@ Delivery Ring studies.
 | Analyze raw captured spills on Spark/GPU | `scripts/gpu_analyze_captured_spills.py` | [Poster Analysis](docs/POSTER_ANALYSIS.md#raw-captured-spill-gpu-analysis) |
 | Run staged Spark autosweep/ranking over raw BPM bundles | `scripts/run_autosweep.py` | [Poster Analysis](docs/POSTER_ANALYSIS.md#spark-bpm-autosweep) |
 | Mine strongest BPM subsets from the 2000-spill Spark dataset | `scripts/run_best_bpm_pipeline.py` | [Poster Analysis](docs/POSTER_ANALYSIS.md#best-bpm-2000-spill-mining) |
+| Verify a Best-BPM output directory | `scripts/verify_best_bpm_outputs.py` | [Poster Analysis](docs/POSTER_ANALYSIS.md#best-bpm-2000-spill-mining) |
 | Review implementation and rationale | modules, timing, artifacts | [Architecture](docs/ARCHITECTURE.md), [Design Decisions](docs/DESIGN_DECISIONS.md) |
 | Review physics status and remaining validation work | acceptance criteria, open tasks | [Physics](docs/PHYSICS.md), [Analysis Checklist](docs/ANALYSIS_CHECKLIST.md), [Plan](docs/PLAN.md) |
 
@@ -168,6 +169,8 @@ Run Best-BPM mining over the same Spark Tier A collections:
   --device cuda \
   --workers 12 \
   --resume
+/home/derekste/venvs/cupy-spark-cu13/bin/python scripts/verify_best_bpm_outputs.py \
+  --root /home/derekste/best_bpm_mining
 ```
 
 ## Documentation Map
@@ -218,6 +221,7 @@ python3 scripts/bpm_dgx_poster.py --self-test
 python3 scripts/gpu_analyze_captured_spills.py --self-test
 python3 scripts/test_autosweep.py
 python3 scripts/test_best_bpm_mining.py
+python3 scripts/verify_best_bpm_outputs.py --root /path/to/best_bpm_mining
 ```
 
 For focused timing/selection checks:

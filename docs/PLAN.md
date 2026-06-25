@@ -247,10 +247,13 @@ Implemented structure:
   consensus clustering
 - row-sharded exact best-1 and best-3 enumeration over valid BPMs
 - row-sharded screened-pool best-5 and best-10 enumeration with beam/random
-  audit records and a bounded CUDA worker pool
+  audit records, live per-shard progress JSON, and a bounded CUDA worker pool
 - evolution/statistics/clustering/artifact/report outputs matching the plan
   layout, including cache-backed finalist re-evaluation across robust spectrum
   aggregators and paired bootstrap/permutation/FDR subset-size comparisons
+- `verify_best_bpm_outputs.py` checks required output groups, CSV schemas,
+  row counts where practical, global/per-spill artifacts, and final reports
+  before a Spark run is treated as complete
 
 Current documented implementation choice to revisit:
 
@@ -264,7 +267,8 @@ Current documented implementation choice to revisit:
 Post-split analysis refinement:
 
 1. Run the Best-BPM mining pipeline on Spark over the usable Tier A collections
-   and review `reports/strong_bpm_analysis_summary.md`.
+   and verify the output directory with `scripts/verify_best_bpm_outputs.py`
+   before reviewing `reports/strong_bpm_analysis_summary.md`.
 2. Add explicit spectral-coherence and clipping diagnostics to production
    analysis summaries when the autosweep identifies stable criteria.
 3. Export peak-width and uncertainty-oriented metrics in summaries/CSV.

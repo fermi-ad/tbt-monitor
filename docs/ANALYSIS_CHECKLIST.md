@@ -157,7 +157,8 @@ Improve consistency across plot outputs:
 4. FFT resolution metadata fields
 5. optional frequency-axis mode
 6. `physics_summary.md` and `physics_usable` flag integration
-7. Spark Best-BPM full run execution and review of
+7. Spark Best-BPM full run execution, verifier pass with
+   `scripts/verify_best_bpm_outputs.py`, and review of
    `reports/strong_bpm_analysis_summary.md`
 
 SVD/PCA remains deferred for production Rust tune extraction. The standalone
@@ -190,8 +191,9 @@ Optional but useful:
   `bpm_leaderboard.csv`, `bpm_leaderboard_h/v.png`, and elite poster candidate
   plots/artifacts
 - Best-BPM mining `reports/strong_bpm_analysis_summary.md`,
+  `logs/best_bpm_verification_report.md`,
   `statistics/bpm_global_statistics.csv`, `subset_search/best*/best*_results.csv`,
-  and selected `artifacts/global/*.png`
+  `subset_search/progress/*.json`, and selected `artifacts/global/*.png`
 
 ## 6. Related Acquisition/Analysis Split
 

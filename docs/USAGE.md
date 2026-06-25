@@ -575,11 +575,22 @@ selects review artifacts, and writes final reports.
   --resume
 ```
 
+Verify that a completed output directory satisfies the expected artifact
+contract:
+
+```bash
+/home/derekste/venvs/cupy-spark-cu13/bin/python scripts/verify_best_bpm_outputs.py \
+  --root /home/derekste/best_bpm_mining
+```
+
 Use `--limit` for a Spark smoke test and `--workers` to fan out per-spill
 manifest/integrity checks, sharded per-BPM peak extraction, and cache-backed
 consensus clustering. Subset search can also shard spill/plane rows, with the
 CUDA path capped by `subset_search.cuda_workers` to avoid oversubscribing one
-GPU. Single-GPU
+GPU. During subset search, each worker writes
+`subset_search/progress/shard_*.json` and parent merge status in
+`subset_search/progress/parent_status.json`; these files are live progress
+telemetry, not physics outputs. Single-GPU
 FFT/cache construction intentionally uses one CuPy worker to avoid multiple
 independent CUDA contexts, and subset scoring still uses the CUDA path. The
 default config is JSON-compatible YAML so the Spark runtime only needs stdlib
@@ -594,12 +605,15 @@ Main outputs:
 - `consensus/spill_consensus_*.csv`
 - `subset_search/best1`, `best3`, `best5`, `best10`, and
   `subset_search/audit_results.csv`
+- `subset_search/progress/*.json` for long-run progress/merge visibility
 - `evolution/subset_evolution_*.csv` and
   `evolution/finalist_reevaluation.csv`
 - `statistics/*.csv`, `clustering/*.csv`,
   `artifact_selection/artifact_manifest.csv`
 - `artifacts/global/*.png`, selected per-spill plots, and
   `reports/strong_bpm_analysis_summary.md`
+- `logs/best_bpm_verification.json` and
+  `logs/best_bpm_verification_report.md` when the verifier is run
 
 ## Timing Semantics
 

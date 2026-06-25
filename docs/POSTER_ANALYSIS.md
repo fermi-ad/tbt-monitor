@@ -368,6 +368,7 @@ python3 scripts/cluster_spill_morphologies.py --config config/best_bpm_mining.ya
 python3 scripts/select_best_bpm_artifacts.py --config config/best_bpm_mining.yaml --inputs best_bpm_mining --out best_bpm_mining/artifact_selection
 python3 scripts/make_best_bpm_artifacts.py --config config/best_bpm_mining.yaml --inputs best_bpm_mining --manifest best_bpm_mining/artifact_selection/artifact_manifest.csv --out best_bpm_mining/artifacts
 python3 scripts/make_best_bpm_report.py --config config/best_bpm_mining.yaml --inputs best_bpm_mining --out best_bpm_mining/reports
+python3 scripts/verify_best_bpm_outputs.py --root best_bpm_mining
 ```
 
 The scope statement in the final report is intentional:
@@ -386,6 +387,12 @@ The scope statement in the final report is intentional:
 Required outputs are grouped under `best_bpm_mining/manifest`, `cache`,
 `per_bpm`, `consensus`, `subset_search`, `evolution`, `statistics`,
 `clustering`, `artifact_selection`, `artifacts`, `logs`, and `reports`.
+Long subset-search runs also write `subset_search/progress/shard_*.json` and
+`subset_search/progress/parent_status.json` so a monitor can distinguish
+normal compute from a stall before final merged CSVs appear. The verifier
+writes `logs/best_bpm_verification.json` and
+`logs/best_bpm_verification_report.md` and exits nonzero when required outputs
+are missing or structurally invalid.
 `statistics/paired_method_tests.csv` includes paired bootstrap confidence
 intervals, sign-flip permutation p-values, Benjamini-Hochberg q-values, and
 rank-biserial effect sizes for subset-size comparisons.
@@ -402,6 +409,7 @@ python3 scripts/bpm_dgx_poster.py --self-test
 python3 scripts/gpu_analyze_captured_spills.py --self-test
 python3 scripts/test_autosweep.py
 python3 scripts/test_best_bpm_mining.py
+python3 scripts/verify_best_bpm_outputs.py --root /path/to/best_bpm_mining
 ```
 
 The smoke test uses synthetic ranked artifacts and verifies that the full

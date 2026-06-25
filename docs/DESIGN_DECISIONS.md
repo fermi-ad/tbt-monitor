@@ -436,6 +436,13 @@ Tradeoffs:
   config; the v1 implementation keeps the schema and visibility classes in
   place while using cached early rolling spectra and a finalist re-evaluation
   table for mean, median, trimmed-mean, and static-quality-weighted aggregators.
+- Long subset-search passes write per-shard JSON progress rather than
+  provisional science CSVs. The progress files are operational telemetry for
+  stall/ETA assessment; the merged `best*/` CSVs remain the authoritative
+  analysis outputs.
+- The verifier checks structural completeness without forcing line counts over
+  very large CSVs by default. Large tables are checked for existence, size, and
+  headers unless `--count-large-csv` is requested.
 - The per-BPM feature pass writes shard CSVs and merges them deterministically;
   this uses more scratch disk during the pass but avoids leaving Spark mostly
   idle on one Python process.

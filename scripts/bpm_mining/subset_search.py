@@ -5,6 +5,8 @@ from __future__ import annotations
 import math
 import random
 import hashlib
+import json
+import time
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
@@ -78,6 +80,55 @@ def merge_results(
         target_candidates.setdefault(size, []).extend(rows)
     target_pools.extend(pools)
     target_audits.extend(audits)
+
+
+def progress_counts(
+    results: dict[int, list[dict[str, object]]],
+    candidates: dict[int, list[dict[str, object]]],
+    pools: list[dict[str, object]],
+    audits: list[dict[str, object]],
+) -> dict[str, int]:
+    return {
+        "result_rows": sum(len(rows) for rows in results.values()),
+        "candidate_rows": sum(len(rows) for rows in candidates.values()),
+        "pool_rows": len(pools),
+        "audit_rows": len(audits),
+    }
+
+
+def write_shard_progress(
+    progress_dir: Path | None,
+    shard_id: int,
+    total_shards: int,
+    rows_total: int,
+    rows_completed: int,
+    started: float,
+    status: str,
+    current: dict[str, str] | None,
+    counts: dict[str, int],
+) -> None:
+    if progress_dir is None:
+        return
+    payload = {
+        "shard_id": shard_id,
+        "total_shards": total_shards,
+        "status": status,
+        "rows_total": rows_total,
+        "rows_completed": rows_completed,
+        "fraction_complete": rows_completed / max(1, rows_total),
+        "elapsed_seconds": time.perf_counter() - started,
+        "updated_unix": time.time(),
+        **counts,
+    }
+    if current:
+        payload.update(
+            {
+                "current_collection": current.get("collection", ""),
+                "current_spill_id": current.get("spill_id", ""),
+                "current_plane": current.get("plane", ""),
+            }
+        )
+    atomic_write_text(progress_dir / f"shard_{shard_id:03d}.json", json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
 
 def candidate_tunes_for(
@@ -312,14 +363,20 @@ def process_cache_rows(
     consensus_dir: Path,
     subset_sizes: Sequence[int],
     device: str,
+    progress_dir: Path | None = None,
+    shard_id: int = 0,
+    total_shards: int = 1,
 ) -> tuple[dict[int, list[dict[str, object]]], dict[int, list[dict[str, object]]], list[dict[str, object]], list[dict[str, object]]]:
     search_cfg = cfg["subset_search"]
     chunk_size = int(search_cfg.get("subset_chunk_size", 512))
     max_windows = int(search_cfg.get("max_search_windows", 16))
+    progress_every = max(1, int(search_cfg.get("progress_every_rows", 1)))
     consensus_map = consensus_lookup(consensus_dir)
     tune_index = candidate_tune_index(features_dir)
     results, top_candidates, pools, audits = empty_results()
-    for cache in cache_rows:
+    started = time.perf_counter()
+    write_shard_progress(progress_dir, shard_id, total_shards, len(cache_rows), 0, started, "running", None, progress_counts(results, top_candidates, pools, audits))
+    for row_index, cache in enumerate(cache_rows, start=1):
         collection, spill_id, plane = cache["collection"], cache["spill_id"], cache["plane"]
         bpm_meta = metadata_for_bpms(manifest_dir, plane)
         spectra = np.asarray(np.load(cache["spectra_path"], mmap_mode="r")[:, :max_windows, :], dtype=np.float32)
@@ -395,14 +452,48 @@ def process_cache_rows(
                     results[10].append(result_row(collection, spill_id, plane, best10[0], bpm_indices, bpm_meta, len(pool), "SCREENED_POOL", True, audited, consensus, "POOL_EXPANDED_BY_AUDIT" if expanded_by_audit else ""))
                     for score in best10[: int(search_cfg.get("best10_keep", 64))]:
                         top_candidates[10].append(result_row(collection, spill_id, plane, score, bpm_indices, bpm_meta, len(pool), "SCREENED_POOL", True, audited, consensus))
+        if row_index % progress_every == 0 or row_index == len(cache_rows):
+            write_shard_progress(
+                progress_dir,
+                shard_id,
+                total_shards,
+                len(cache_rows),
+                row_index,
+                started,
+                "running",
+                cache,
+                progress_counts(results, top_candidates, pools, audits),
+            )
+    write_shard_progress(
+        progress_dir,
+        shard_id,
+        total_shards,
+        len(cache_rows),
+        len(cache_rows),
+        started,
+        "complete",
+        cache_rows[-1] if cache_rows else None,
+        progress_counts(results, top_candidates, pools, audits),
+    )
     return results, top_candidates, pools, audits
 
 
 def _process_cache_chunk(
-    args: tuple[int, list[dict[str, str]], dict[str, object], str, str, str, list[int], str],
+    args: tuple[int, int, list[dict[str, str]], dict[str, object], str, str, str, list[int], str, str | None],
 ) -> tuple[int, tuple[dict[int, list[dict[str, object]]], dict[int, list[dict[str, object]]], list[dict[str, object]], list[dict[str, object]]]]:
-    index, rows, cfg, manifest_dir, features_dir, consensus_dir, subset_sizes, device = args
-    return index, process_cache_rows(cfg, rows, Path(manifest_dir), Path(features_dir), Path(consensus_dir), subset_sizes, device)
+    index, total_shards, rows, cfg, manifest_dir, features_dir, consensus_dir, subset_sizes, device, progress_dir = args
+    return index, process_cache_rows(
+        cfg,
+        rows,
+        Path(manifest_dir),
+        Path(features_dir),
+        Path(consensus_dir),
+        subset_sizes,
+        device,
+        Path(progress_dir) if progress_dir else None,
+        index,
+        total_shards,
+    )
 
 
 def split_chunks(rows: Sequence[dict[str, str]], chunks: int) -> list[list[dict[str, str]]]:
@@ -437,20 +528,40 @@ def search_best_bpm_subsets(
     worker_count = min(requested_workers, cuda_cap) if device == "cuda" else requested_workers
     worker_count = max(1, min(worker_count, len(cache_rows) if cache_rows else 1))
     results, top_candidates, pools, audits = empty_results()
+    progress_dir = out / "progress"
     if worker_count > 1:
         chunks = split_chunks(cache_rows, worker_count)
         tasks = [
-            (idx, chunk, cfg, str(manifest_dir), str(features_dir), str(consensus_dir), list(subset_sizes), device)
+            (idx, len(chunks), chunk, cfg, str(manifest_dir), str(features_dir), str(consensus_dir), list(subset_sizes), device, str(progress_dir))
             for idx, chunk in enumerate(chunks)
         ]
         chunk_results = []
         with ProcessPoolExecutor(max_workers=worker_count) as pool:
             for future in as_completed(pool.submit(_process_cache_chunk, task) for task in tasks):
                 chunk_results.append(future.result())
+                completed = len(chunk_results)
+                atomic_write_text(
+                    progress_dir / "parent_status.json",
+                    json.dumps(
+                        {
+                            "status": "running",
+                            "worker_count": worker_count,
+                            "shards_total": len(chunks),
+                            "shards_merged": completed,
+                            "fraction_merged": completed / max(1, len(chunks)),
+                            "updated_unix": time.time(),
+                        },
+                        indent=2,
+                        sort_keys=True,
+                    )
+                    + "\n",
+                )
         for _, partial in sorted(chunk_results, key=lambda item: item[0]):
             merge_results(results, top_candidates, pools, audits, partial)
     else:
-        results, top_candidates, pools, audits = process_cache_rows(cfg, cache_rows, manifest_dir, features_dir, consensus_dir, subset_sizes, device)
+        results, top_candidates, pools, audits = process_cache_rows(
+            cfg, cache_rows, manifest_dir, features_dir, consensus_dir, subset_sizes, device, progress_dir, 0, 1
+        )
     for size, rows in results.items():
         if size in subset_sizes:
             write_csv(out / f"best{size}" / f"best{size}_results.csv", rows, BEST_SUBSET_FIELDS)
@@ -463,6 +574,24 @@ def search_best_bpm_subsets(
         write_csv(out / "best10" / "best10_pool.csv", [row for row in pools if row["subset_size"] == 10], POOL_FIELDS)
     write_csv(out / "audit_results.csv", audits, AUDIT_FIELDS)
     total = sum(len(rows) for rows in results.values())
+    atomic_write_text(
+        progress_dir / "parent_status.json",
+        json.dumps(
+            {
+                "status": "complete",
+                "worker_count": worker_count,
+                "shards_total": worker_count,
+                "shards_merged": worker_count,
+                "fraction_merged": 1.0,
+                "result_rows": total,
+                "audit_rows": len(audits),
+                "updated_unix": time.time(),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+    )
     atomic_write_text(out / "subset_search_summary.md", f"# Subset Search Summary\n\n- best result rows: `{total}`\n- audit rows: `{len(audits)}`\n")
 
 

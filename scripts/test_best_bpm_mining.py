@@ -30,6 +30,7 @@ from bpm_mining.clustering import cluster_spills
 from bpm_mining.artifact_selection import select_artifacts
 from bpm_mining.plots import make_artifacts
 from bpm_mining.report import make_report
+from bpm_mining.verification import verify_best_bpm_outputs
 
 
 def synthetic_collection(root: Path, spills: int = 3, bpms: int = 8, turns: int = 1024) -> None:
@@ -268,6 +269,16 @@ class BestBpmMiningTests(unittest.TestCase):
             serial = (out / "subset_serial" / name).read_text(encoding="utf-8")
             parallel = (out / "subset_parallel" / name).read_text(encoding="utf-8")
             self.assertEqual(serial, parallel)
+        progress = out / "subset_parallel" / "progress"
+        self.assertTrue((progress / "parent_status.json").exists())
+        self.assertTrue(list(progress.glob("shard_*.json")))
+
+    def test_best_bpm_verifier_reports_missing_outputs(self) -> None:
+        out = self.root / "incomplete_best_bpm"
+        out.mkdir()
+        report = verify_best_bpm_outputs(out, subset_sizes=[1, 3], write_outputs=False)
+        self.assertEqual(report["status"], "fail")
+        self.assertGreater(report["fail_count"], 0)
 
     def test_end_to_end_small_pipeline(self) -> None:
         collection = self.root / "synthetic-positiononly"
@@ -304,6 +315,8 @@ class BestBpmMiningTests(unittest.TestCase):
         report = (out / "reports" / "strong_bpm_analysis_summary.md").read_text(encoding="utf-8")
         self.assertIn("The machine tune may vary freely between spills", report)
         self.assertIn("Best-5 and best-10 are not globally exhaustive", report)
+        verification = verify_best_bpm_outputs(out, subset_sizes=[1, 3, 5], write_outputs=False)
+        self.assertEqual(verification["status"], "ok")
 
 
 if __name__ == "__main__":
