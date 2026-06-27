@@ -118,15 +118,25 @@ Deliverables:
 - residual statistics and trend plots for matched samples
 - tolerance definition for acceptable BPM-vs-reference disagreement
 
-## 4. Expected Operational Tune Region
+## 4. Current Dataset Tune Priors
 
-Working expectations (subject to machine state and optics settings):
+For the current 2000-spill Spark Tier A Best-BPM study, the most recent
+analysis configuration and mining results use early-injection tune priors:
 
-- `Qx ~ 0.69`
-- `Qy ~ 0.71`
+- H near `0.65`
+- V near `0.72`
 
-Operationally large unexplained shifts should trigger data-quality and
-machine-state review before interpretation.
+These values are dataset-specific soft priors for discovery, candidate
+weighting, and ranking. They are not external truth labels, and they should not
+be used to force interpretation when the spectral evidence is weak,
+multimodal, or inconsistent across BPMs.
+
+Older operational expectations near `Qx ~ 0.69` and `Qy ~ 0.71` should be
+treated as historical machine-context notes unless they are tied to an
+independent reference measurement for the data being reviewed. Machine settings
+changed during the 2000-spill collection, so large tune shifts should trigger
+data-quality and machine-state review before interpretation rather than being
+scored purely by closeness to a fixed global expectation.
 
 ## 5. Canonical Quality Signals
 

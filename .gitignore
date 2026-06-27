@@ -13,6 +13,7 @@ __pycache__/
 # Runtime outputs
 /out/
 /poster-artifacts/
+/.devspace-local/
 *.png
 *.csv
 *.jsonl
