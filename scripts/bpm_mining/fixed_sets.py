@@ -395,7 +395,7 @@ def evaluate_fixed_sets(
     spectral_config = spectral_config or str(cfg.get("subset_search", {}).get("search_spectral_config", "early_4096_256"))
     cache = cache_rows(root / "cache", spectral_config, limit)
     specs = choose_fixed_members(root, root / "manifest", subset_sizes)
-    progress_dir = out / "progress"
+    progress_dir = out / "statistics" / "fixed_set_progress"
     runtime = cfg.get("runtime", {})
     worker_count = max(1, int(workers if workers is not None else runtime.get("workers", 1) if isinstance(runtime, dict) else 1))
     worker_count = min(worker_count, len(cache) if cache else 1)

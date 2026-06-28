@@ -323,7 +323,7 @@ class BestBpmMiningTests(unittest.TestCase):
         evaluate_fixed_sets(cfg, out, out / "fixed_parallel", workers=2, subset_sizes=[1, 3])
         for name in ("statistics/fixed_set_direct_evaluation.csv", "statistics/fixed_vs_dynamic_direct_summary.csv"):
             self.assertEqual((out / "fixed_serial" / name).read_text(encoding="utf-8"), (out / "fixed_parallel" / name).read_text(encoding="utf-8"))
-        self.assertTrue((out / "fixed_parallel" / "progress" / "parent_status.json").exists())
+        self.assertTrue((out / "fixed_parallel" / "statistics" / "fixed_set_progress" / "parent_status.json").exists())
 
     def test_parallel_heldout_matches_serial(self) -> None:
         try:
