@@ -130,6 +130,19 @@ Keep existing `status` and `quality_label`, and add optional:
 
 - `physics_usable` flag (stricter than generic analysis success)
 
+### 2.8 Intensity-assisted quality study
+
+Use newly captured auxiliary `TBT_INTENSITY_RAW` payloads to test whether
+intensity helps identify usable spills or bad BPM/digitizer data.
+
+Questions:
+
+- whether intensity RAW is more useful than SCALED for quality metrics
+- whether sample index 0 should be treated as metadata rather than waveform
+- whether intensity dropouts correlate with bad position traces or tune failures
+- whether the observed 5000-sample payload depth is sufficient for the intended
+  physics review or points to another acquisition-depth setting
+
 Current autosweep note:
 
 - `scripts/rank_autosweep_results.py` emits BPM-only `GOOD`, `MARGINAL`,
@@ -156,8 +169,11 @@ Improve consistency across plot outputs:
 3. best-BPM vs all-BPM spectrum comparison
 4. FFT resolution metadata fields
 5. optional frequency-axis mode
-6. `physics_summary.md` and `physics_usable` flag integration
-7. Spark Best-BPM full run execution, verifier pass with
+6. intensity-assisted quality study
+7. `physics_summary.md` and `physics_usable` flag integration
+8. Spark autosweep elite full-data execution and review of top-ranked
+   H/V/robust/poster configurations
+9. Spark Best-BPM full run execution, verifier pass with
    `scripts/verify_best_bpm_outputs.py`, and review of
    `reports/strong_bpm_analysis_summary.md`
 
@@ -210,7 +226,9 @@ Current split status:
 
 The split is implemented for live capture, DAQ diagnostics, offline
 single/batch captured-bundle analysis, and a minimal online/offline parity
-guardrail. See `docs/USAGE.md` for command usage and
+guardrail. The checked-in capture config now preserves RAW position payloads
+and derived RAW intensity payloads; intensity remains auxiliary until quality
+metrics are defined. See `docs/USAGE.md` for command usage and
 `docs/ISSUE_MAP_DAQ_SPLIT.md` for issue history.
 
 The split guardrail is not a physics-quality acceptance criterion. It only

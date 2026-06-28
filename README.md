@@ -20,6 +20,10 @@ produce physically credible `Qx/Qy` evidence for Delivery Ring studies.
 | Understand module boundaries and data contracts | [Architecture](docs/ARCHITECTURE.md) |
 | Review physics status and open analysis questions | [Physics](docs/PHYSICS.md), [Analysis Checklist](docs/ANALYSIS_CHECKLIST.md) |
 
+Current capture defaults preserve `TBT_POSITION_RAW` and can derive matching
+`TBT_INTENSITY_RAW` payloads for offline study. Spark/GPU workflows include raw
+captured-spill analysis, staged autosweep ranking, and Best-BPM subset mining.
+
 ## Quick Start
 
 Build or inspect the CLI:

@@ -33,9 +33,9 @@ None.
 
 ## In Progress
 
-### [ENG-019] Autosweep parallel runner and GPU telemetry
+### [ENG-021] Autosweep parallel runner and GPU telemetry
 - Status: in_progress
-- Owner: codex
+- Owner: project
 - Type: perf
 - Why: Spark autosweep and Best-BPM runs need better host/GPU utilization and first-class accounting for GPU wall time, utilized GPU-hours, and power draw.
 - Scope: add `--parallel-jobs` to `scripts/run_autosweep.py`, keep serial default behavior, preserve deterministic run logs and timeout handling, add stdlib `scripts/gpu_run_telemetry.py`, and expose optional telemetry in autosweep and Best-BPM pipeline wrappers.
@@ -44,22 +44,11 @@ None.
 - Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/gpu_run_telemetry.py scripts/run_autosweep.py scripts/bpm_mining/pipeline.py scripts/test_autosweep.py scripts/test_best_bpm_mining.py; python3 scripts/test_autosweep.py; python3 scripts/test_best_bpm_mining.py
 - Notes: Spark two-job smoke is intentionally deferred until the current full Best-BPM run releases the GPU.
 
-### [ENG-018] Best-BPM 2000-spill mining pipeline
-- Status: in_progress
-- Owner: codex
-- Type: feature
-- Why: the poster narrative needs a defensible BPM-only study of which individual and small BPM subsets most consistently recover tune information in the 2000 unlabeled Spark spills.
-- Scope: add `scripts/bpm_mining/`, pass wrappers, default config, exact best-1/best-3 search, screened audited best-5/best-10 search, per-BPM consensus/features, global statistics, clustering, artifact selection, plots, final reports, Spark parallel worker controls, live subset-search progress files, and output verification.
-- Acceptance: the pipeline writes every required output group from `BEST_BPM_2000_SPILL_MINING_IMPLEMENTATION_PLAN.md`, passes synthetic unit/smoke tests, completes a Spark run over the two Tier A collections using parallel workers, and passes `scripts/verify_best_bpm_outputs.py`.
-- Docs: README.md, docs/USAGE.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
-- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/*.py scripts/verify_best_bpm_outputs.py scripts/test_best_bpm_mining.py; python3 scripts/test_best_bpm_mining.py (11 tests, parallel worker regressions skipped locally when process pools are sandbox-blocked); Spark smoke passed; full Spark run active at `/home/derekste/best_bpm_mining_20260624_full_v2`
-- Notes: v1 keeps the full-buffer evolution schema but uses cached early rolling spectra unless a longer spectral-cache config is added.
-
 ## Done
 
-### [ENG-021] Best-BPM follow-up validation sidecar stack
+### [ENG-024] Best-BPM follow-up validation sidecar stack
 - Status: done
-- Owner: codex
+- Owner: project
 - Type: feature
 - Why: the verifier-clean best1/3/5 Spark run needed direct fixed-set validation, stronger held-out spectral support, poster-grade cache-backed artifacts, and tune-visibility handoff analysis without mutating canonical outputs.
 - Scope: add fixed-set, held-out, selected-artifact, and handoff passes with shared progress files, sidecar verification, Spark commands, and docs.
@@ -68,9 +57,9 @@ None.
 - Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/*.py scripts/evaluate_fixed_bpm_sets.py scripts/evaluate_heldout_spectral_support.py scripts/run_bpm_handoff_analysis.py scripts/test_best_bpm_mining.py; PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; Spark follow-up verifier passed for `/home/derekste/best_bpm_mining_20260627_best135_from_v2/followups/next_steps_20260628`
 - Notes: canonical Spark run outputs stayed read-only; follow-up outputs were written sidecar-first.
 
-### [ENG-020] Subsystem documentation rework
+### [ENG-023] Subsystem documentation rework
 - Status: done
-- Owner: codex
+- Owner: project
 - Type: docs
 - Why: the README and detailed command docs had grown back into a mixed landing page, DAQ guide, analysis guide, Spark runbook, and operations reference.
 - Scope: keep `README.md` concise, add subsystem guides for DAQ, Rust analysis chains, Spark workflows, and operations, and update cross-references so `docs/USAGE.md` remains the exact command reference.
@@ -78,6 +67,39 @@ None.
 - Docs: README.md, docs/DAQ.md, docs/ANALYSIS_CHAINS.md, docs/SPARK.md, docs/OPERATIONS.md, docs/USAGE.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/ENGINEERING_BACKLOG.md
 - Validation: python3 /tmp/check_tbt_doc_links.py
 - Notes: docs-only change; no runtime behavior or output schemas changed.
+
+### [ENG-022] Best-BPM 2000-spill mining pipeline
+- Status: done
+- Owner: project
+- Type: feature
+- Why: the poster narrative needs a defensible BPM-only study of which individual and small BPM subsets most consistently recover tune information in the 2000 unlabeled Spark spills.
+- Scope: add `scripts/bpm_mining/`, pass wrappers, default config, exact best-1/best-3 search, screened audited best-5 search, per-BPM consensus/features, global statistics, clustering, artifact selection, plots, final reports, Spark parallel worker controls, live subset-search progress files, and output verification.
+- Acceptance: the pipeline writes every required output group from `BEST_BPM_2000_SPILL_MINING_IMPLEMENTATION_PLAN.md`, passes synthetic unit/smoke tests, completes the focused best1/3/5 Spark run over the two Tier A collections using parallel workers, and passes `scripts/verify_best_bpm_outputs.py`.
+- Docs: README.md, docs/USAGE.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/*.py scripts/verify_best_bpm_outputs.py scripts/test_best_bpm_mining.py; PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; Spark verifier passed for `/home/derekste/best_bpm_mining_20260627_best135_from_v2`
+- Notes: best-10 remains deferred; completed reports must not imply it was run.
+
+### [ENG-019] Make captured-artifact quality the primary capture UX
+- Status: done
+- Owner: codex
+- Type: qol
+- Why: operators care first about complete same-spill acquisitions and bad digitizers in captured payloads; latest-poll snapshot staleness was too prominent in console and run reports.
+- Scope: update capture summaries and quality reports to lead with artifact completeness and capture suspect digitizers, while keeping latest-poll-only suspects as explicitly advisory diagnostics.
+- Acceptance: complete captures with stale latest-poll snapshots read as complete acquisitions; bad-digitizer alerts are tied to captured payload missing/stale/ahead/malformed reasons; latest-poll diagnostics remain available for troubleshooting.
+- Docs: docs/USAGE.md, docs/DESIGN_DECISIONS.md, docs/ENGINEERING_BACKLOG.md
+- Validation: cargo fmt --all; cargo test -- --nocapture
+- Notes: this is a reporting/triage priority change, not a captured bundle schema change.
+
+### [ENG-018] RAW position plus auxiliary RAW intensity capture
+- Status: done
+- Owner: codex
+- Type: feature
+- Why: the next acquisition run should preserve least-transformed position payloads and collect matching intensity artifacts before analysis semantics are refined.
+- Scope: switch checked-in monitor config to `TBT_POSITION_RAW`, add `capture_intensity_variant=raw`, derive matching `TBT_INTENSITY_RAW` streams during capture/assess, keep position streams as target-selection and tune-analysis inputs, and skip auxiliary intensity during offline tune analysis.
+- Acceptance: default config captures 120 RAW position streams plus 120 derived RAW intensity streams; RAW position streams classify as H/V analysis inputs; intensity streams are captured as auxiliary payloads without being analyzed as position traces; docs describe the 240-stream default capture.
+- Docs: README.md, docs/USAGE.md, docs/CONFIG_REFERENCE.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/ENGINEERING_BACKLOG.md
+- Validation: cargo fmt --all; cargo test -- --nocapture
+- Notes: follows the RAW-vs-SCALED findings tracked in GitHub issue #25; intensity remains auxiliary until a later curation/analysis contract promotes it.
 
 ### [ENG-017] Elite full-data autosweep stage
 - Status: done

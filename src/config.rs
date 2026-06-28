@@ -42,6 +42,7 @@ pub struct MonitorConfig {
     pub align_tolerance_ms: u64,
     pub same_spill_tolerance_ms: u64,
     pub min_aligned_fraction: f64,
+    pub capture_intensity_variant: Option<String>,
     pub devices: Vec<DeviceConfig>,
 }
 
@@ -129,6 +130,9 @@ impl MonitorConfig {
         if !(0.0..=1.0).contains(&self.min_aligned_fraction) || self.min_aligned_fraction == 0.0 {
             bail!("min_aligned_fraction must be > 0 and <= 1");
         }
+        if let Some(variant) = self.capture_intensity_variant.as_deref() {
+            validate_intensity_variant(variant)?;
+        }
 
         for device in &self.devices {
             if device.stream_keys.is_empty() {
@@ -175,6 +179,7 @@ pub fn load_monitor_config(path: &Path) -> Result<MonitorConfig> {
     let mut align_tolerance_ms = 1u64;
     let mut same_spill_tolerance_ms = 25u64;
     let mut min_aligned_fraction = 0.70f64;
+    let mut capture_intensity_variant: Option<String> = None;
 
     let mut devices: Vec<DeviceConfig> = Vec::new();
     let mut current: Option<DeviceConfig> = None;
@@ -377,6 +382,21 @@ pub fn load_monitor_config(path: &Path) -> Result<MonitorConfig> {
                         format!("invalid min_aligned_fraction on line {}", line_no + 1)
                     })?
                 }
+                "capture_intensity_variant" => {
+                    let normalized = value.trim().to_ascii_lowercase();
+                    capture_intensity_variant = if normalized.is_empty()
+                        || normalized == "none"
+                        || normalized == "false"
+                        || normalized == "off"
+                    {
+                        None
+                    } else {
+                        validate_intensity_variant(&normalized).with_context(|| {
+                            format!("invalid capture_intensity_variant on line {}", line_no + 1)
+                        })?;
+                        Some(normalized)
+                    };
+                }
                 _ => {
                     bail!("unknown top-level key '{}' on line {}", key, line_no + 1);
                 }
@@ -414,6 +434,7 @@ pub fn load_monitor_config(path: &Path) -> Result<MonitorConfig> {
         align_tolerance_ms,
         same_spill_tolerance_ms,
         min_aligned_fraction,
+        capture_intensity_variant,
         devices,
     };
 
@@ -497,6 +518,9 @@ pub fn save_monitor_config(path: &Path, config: &MonitorConfig) -> Result<()> {
         "min_aligned_fraction={}\n",
         config.min_aligned_fraction
     ));
+    if let Some(variant) = config.capture_intensity_variant.as_deref() {
+        out.push_str(&format!("capture_intensity_variant={variant}\n"));
+    }
 
     for device in &config.devices {
         out.push_str("\n[[device]]\n");
@@ -577,6 +601,15 @@ fn validate_peak_confidence(value: f64) -> Result<()> {
     Ok(())
 }
 
+fn validate_intensity_variant(value: &str) -> Result<()> {
+    match value {
+        "raw" | "scaled" | "scaled_9a" | "downsampled" => Ok(()),
+        _ => bail!(
+            "capture_intensity_variant must be one of raw, scaled, scaled_9a, downsampled, or none"
+        ),
+    }
+}
+
 fn parse_bool(value: &str) -> Result<bool> {
     match value.trim().to_ascii_lowercase().as_str() {
         "true" | "1" | "yes" | "on" => Ok(true),
@@ -607,7 +640,7 @@ label=test
 bpm_ip=10.0.0.1
 redis_host=127.0.0.1
 trigger_key={MUON:BPM:10.0.0.1}:LAST_TRIGGER_TIME
-stream_key={MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_SCALED
+stream_key={MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_RAW
 "#
         .to_string()
     }
@@ -631,6 +664,7 @@ stream_key={MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_SCALED
         assert!((config.qy_track_half_width - 0.005).abs() < 1e-12);
         assert!((config.max_tune_step_per_window - 0.005).abs() < 1e-12);
         assert_eq!(config.same_spill_tolerance_ms, 25);
+        assert_eq!(config.capture_intensity_variant, None);
     }
 
     #[test]
@@ -647,6 +681,7 @@ stream_key={MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_SCALED
         text.push_str("tune_plot_y_max=0.74\n");
         text.push_str("tune_plot_y_tick_step=0.02\n");
         text.push_str("same_spill_tolerance_ms=50\n");
+        text.push_str("capture_intensity_variant=raw\n");
         text.push_str(&base_config_text());
         let path = write_temp_config(&text);
         let config = load_monitor_config(&path).expect("load config");
@@ -663,6 +698,22 @@ stream_key={MUON:BPM:10.0.0.1}:HP101:TBT_POSITION_SCALED
         assert!((config.tune_plot_y_max - 0.74).abs() < 1e-12);
         assert!((config.tune_plot_y_tick_step - 0.02).abs() < 1e-12);
         assert_eq!(config.same_spill_tolerance_ms, 50);
+        assert_eq!(config.capture_intensity_variant.as_deref(), Some("raw"));
+    }
+
+    #[test]
+    fn intensity_capture_variant_rejects_unknown_values() {
+        let mut text = String::new();
+        text.push_str("capture_intensity_variant=banana\n");
+        text.push_str(&base_config_text());
+        let path = write_temp_config(&text);
+        let err = load_monitor_config(&path).expect_err("unknown variant should fail");
+        let _ = fs::remove_file(path);
+
+        assert!(
+            err.to_string()
+                .contains("invalid capture_intensity_variant")
+        );
     }
 
     #[test]

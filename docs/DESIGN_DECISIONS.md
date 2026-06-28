@@ -287,6 +287,9 @@ Decision:
   captured payload for the same target is complete.
 - Separate captured artifact quality from latest-poll timing diagnostics.
   `LATEST_STALE_BUT_CAPTURED_OK` is diagnostic context, not a partial capture.
+- Make operator-facing summaries lead with captured artifact completeness and
+  capture suspect digitizers. Latest-poll-only suspects remain available for
+  troubleshooting, but are explicitly secondary to captured payload quality.
 - Add `assess` as a non-capturing preflight and `diagnose-captures` as an
   offline report regenerator.
 
@@ -413,7 +416,34 @@ Tradeoffs:
 - The ranking schema is a downstream analysis contract and must be versioned
   through docs/tests when field meanings change.
 
-## DD-020: Best-BPM mining uses within-spill evidence, not global tune labels
+## DD-020: RAW position plus auxiliary RAW intensity capture
+
+Decision:
+- Use `TBT_POSITION_RAW` as the checked-in position capture stream variant for
+  the next preservation run.
+- Add `capture_intensity_variant` as an optional config-level derived capture
+  control. `capture_intensity_variant=raw` derives one `TBT_INTENSITY_RAW`
+  stream from each configured position stream.
+- Keep position streams responsible for free-run wake watching, target
+  selection, and offline tune analysis.
+- Capture and diagnose derived intensity streams as auxiliary raw payloads, but
+  do not promote them into tune-analysis semantics yet.
+
+Why:
+- RAW position preserves the least-transformed position artifact while RAW vs
+  SCALED conventions are still being investigated.
+- RAW intensity appears available at the same 5000-sample full-resolution shape
+  and may help later quality/beam-present studies.
+- Keeping intensity auxiliary avoids accidentally treating intensity waveforms as
+  H/V position traces in the proof-of-concept tune chain.
+
+Tradeoffs:
+- A complete default capture now expects 240 streams instead of 120, roughly
+  doubling full-resolution payload bytes per spill.
+- Offline tune analysis must intentionally skip auxiliary intensity entries
+  until an intensity analysis or quality-gating contract is defined.
+
+## DD-021: Best-BPM mining uses within-spill evidence, not global tune labels
 
 Decision:
 - Add a separate Best-BPM mining pipeline for the 2000-spill Spark Tier A

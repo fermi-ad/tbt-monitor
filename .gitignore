@@ -14,6 +14,7 @@ __pycache__/
 /out/
 /poster-artifacts/
 /best_bpm_mining/
+/.devspace-local/
 *.png
 *.csv
 *.jsonl

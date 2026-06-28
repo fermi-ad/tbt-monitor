@@ -16,6 +16,8 @@ capabilities rather than re-track them as new software tasks:
 - per-spill and batch plots, CSV/JSONL records, markdown summaries, quality
   labels, explicit warnings, and timeliness metrics
 - optional external reference matching in batch mode
+- acquisition of RAW position payloads plus auxiliary RAW intensity payloads
+  for later data-quality studies
 - standalone BPM-only poster artifact synthesis through
   `scripts/bpm_dgx_poster.py`
 - raw captured-spill GPU flash analysis through
@@ -130,21 +132,25 @@ Deliverables:
 - residual statistics and trend plots for matched samples
 - tolerance definition for acceptable BPM-vs-reference disagreement
 
-## 4. Expected Operational Tune Region
+## 4. Current Dataset Tune Priors
 
-For the current 2000-spill Spark Tier A Best-BPM study, early-injection BPM
-spectra are evaluated with dataset-specific soft priors:
+For the current 2000-spill Spark Tier A Best-BPM study, the most recent
+analysis configuration and mining results use early-injection tune priors:
 
-- horizontal: near `0.65`
-- vertical: near `0.72`
+- H near `0.65`
+- V near `0.72`
 
-Older operational expectations such as `Qx ~ 0.69` and `Qy ~ 0.71` should be
-treated as historical or machine-state-dependent context unless they are tied
-to an independent reference for the reviewed data. The BPM-only analysis must
-not use either set of values as truth labels.
+These values are dataset-specific soft priors for discovery, candidate
+weighting, and ranking. They are not external truth labels, and they should not
+be used to force interpretation when the spectral evidence is weak,
+multimodal, or inconsistent across BPMs.
 
-Operationally large unexplained shifts should trigger data-quality and
-machine-state review before interpretation.
+Older operational expectations near `Qx ~ 0.69` and `Qy ~ 0.71` should be
+treated as historical machine-context notes unless they are tied to an
+independent reference measurement for the data being reviewed. Machine settings
+changed during the 2000-spill collection, so large tune shifts should trigger
+data-quality and machine-state review before interpretation rather than being
+scored purely by closeness to a fixed global expectation.
 
 ## 5. Canonical Quality Signals
 
@@ -161,6 +167,12 @@ Use repository field names when reviewing outputs:
 - no direct Schottky ingestion/auto-sync path in this repository
 - no dedicated cross-BPM coherence metric exported as first-class batch field
 - no dedicated clipping/saturation diagnostic exported yet
+- no physics-quality contract yet for auxiliary intensity payloads; RAW
+  intensity is currently preserved for offline study, not used in tune
+  extraction
+- current full-resolution Redis payloads observed so far contain 5000 `f32`
+  samples; any expectation of a longer turn window still needs to be reconciled
+  with front-end acquisition settings or stream variant semantics
 - no SVD/PCA tune path in the Rust production flow yet; the standalone poster
   analyzer has opt-in SVD/PCA comparison plots that still need physics review
 - autosweep scoring uses pragmatic proxy metrics until independent tune labels

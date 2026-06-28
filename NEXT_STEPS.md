@@ -205,7 +205,8 @@ Recommended priority order:
 
 Do not run another broad search yet.
 
-Use the current Spark status command from `docs/CURRENT_STATUS.md` if checking again. Keep checks bounded and read-only.
+If checking Spark again, keep probes bounded and read-only and verify the live
+host state directly.
 
 ## Repo State Summary
 
@@ -213,7 +214,6 @@ Important files/docs already reviewed:
 
 ```text
 README.md
-docs/CURRENT_STATUS.md
 docs/PHYSICS.md
 docs/ANALYSIS_CHECKLIST.md
 docs/SPARK.md
@@ -629,7 +629,8 @@ Work:
 - keep this `NEXT_STEPS.md` file on the active Best-BPM branch with Task F included,
 - reconcile `docs/PHYSICS.md` so the current 2000-spill H ≈ 0.65 / V ≈ 0.72 anchors are dataset-specific soft priors, while older `Qx ~ 0.69`, `Qy ~ 0.71` language is explicitly historical or operational-context dependent,
 - update `docs/SPARK.md` after new commands exist,
-- keep `docs/CURRENT_STATUS.md` as operational handoff, not permanent design truth.
+- keep local operational handoffs out of permanent design truth unless they are
+  scrubbed and intentionally promoted into tracked docs.
 
 Validation:
 

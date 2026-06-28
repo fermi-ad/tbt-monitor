@@ -325,7 +325,9 @@ Captured-spill bundle schema:
 - target/alignment metadata: `target_ms`, `align_tolerance_ms`,
   `same_spill_tolerance_ms`, `min_aligned_fraction`, latest-observation counts,
   captured stream counts
-- stream inventory for all configured `TBT_POSITION_SCALED` streams
+- stream inventory for all effective capture streams. In the current checked-in
+  config this is 120 configured `TBT_POSITION_RAW` streams plus 120 derived
+  `TBT_INTENSITY_RAW` streams.
 - captured stream entries with BPM/device identity, plane, stream ID,
   stream-ID millisecond, payload file path, byte count, sample count, and
   `fnv1a64` checksum
@@ -339,6 +341,9 @@ Raw payload policy:
 - Payload files store Redis stream `_` field bytes exactly as captured.
 - Current TbT payload interpretation is little-endian `f32`; capture does not
   run FFT/tune analysis or otherwise transform samples.
+- Position streams choose the capture target and feed offline tune analysis.
+  Derived intensity streams are auxiliary preservation payloads and are skipped
+  by offline tune analysis until intensity semantics are promoted explicitly.
 - `capture-spills` writes `capture_index.csv` as the run-level bundle index,
   keyed by `redis_timestamp_ms` / `target_ms`, and also writes
   `capture_spill_diagnostics.csv`, `capture_stream_diagnostics.csv`,
