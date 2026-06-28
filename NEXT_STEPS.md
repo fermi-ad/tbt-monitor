@@ -47,30 +47,163 @@ Do not delete, overwrite, or broadly mutate Spark run outputs without explicit u
 
 ## Current Spark Completion Check
 
-A bounded read-only Spark check on 2026-06-27 showed that the focused run completed and passed verification:
+A bounded read-only Spark check on 2026-06-27 21:04 CDT showed that the focused run completed and passed verification.
+
+Run root:
 
 ```text
-logs/best_bpm_verification.json: status ok, fail_count 0, warn_count 0
-subset_search/best1/best1_results.csv: 4001 lines
-subset_search/best3/best3_results.csv: 4001 lines
-subset_search/best5/best5_results.csv: 4001 lines
-evolution/finalist_reevaluation.csv: 799989 lines
-statistics/paired_method_tests.csv: 5 lines
-statistics/bpm_global_statistics.csv: 61 lines
-statistics/bpm_rank_stability.csv: 7 lines
-artifact_selection/artifact_manifest.csv: 80 lines
-reports/strong_bpm_analysis_summary.md: 107 lines
-reports/strong_bpm_executive_summary.md: 7 lines
+/home/derekste/best_bpm_mining_20260627_best135_from_v2
 ```
 
-The run log tail ended with:
+Progress summary:
 
 ```text
-artifact_selection ok
-artifacts ok
-report ok
-verify ok
+subset_search: ok, about 33908 s
+shard progress: 4000 / 4000 rows complete
+evolution: ok, about 727 s
+statistics: ok
+clustering: ok
+artifact_selection: ok
+artifacts: ok
+report: ok
+verify: ok
 ```
+
+Verification summary:
+
+```text
+status: ok
+failures: 0
+warnings: 0
+subset sizes: 1, 3, 5
+spills inventoried: 2000
+usable spills: 2000
+BPM index rows: 120
+subset rows: best1=4000, best3=4000, best5=4000
+finalist reevaluation rows: 799988
+selected poster-review spill-plane artifacts: 79
+run root size: about 1.1 GiB
+```
+
+Important output locations:
+
+```text
+reports/strong_bpm_executive_summary.md
+reports/strong_bpm_analysis_summary.md
+logs/best_bpm_verification_report.md
+statistics/paired_method_tests.csv
+statistics/bpm_global_statistics.csv
+statistics/bpm_rank_stability.csv
+statistics/subset_size_pareto.csv
+evolution/finalist_reevaluation.csv
+artifact_selection/artifact_manifest.csv
+artifacts/global/
+artifacts/spills/
+```
+
+The run is no longer the bottleneck. The next phase is interpretation, physics validation, and poster-grade figure generation.
+
+## Latest Results Interpretation
+
+The completed best1/3/5 run gives a clear direction.
+
+### Subset size result
+
+Paired method tests show strong improvements from adding BPMs:
+
+```text
+H best1 → best3: median score improvement ≈ 0.0392, effect size ≈ 0.999
+H best3 → best5: median score improvement ≈ 0.0101, effect size ≈ 0.753
+V best1 → best3: median score improvement ≈ 0.0542, effect size ≈ 1.000
+V best3 → best5: median score improvement ≈ 0.0285, effect size ≈ 0.930
+```
+
+Interpretation:
+
+- best3 clearly beats best1 in both planes,
+- best5 still improves over best3, especially in V,
+- the poster should emphasize **small tune-sensitive BPM ensembles**, not just one magic BPM,
+- best10 should remain deferred until best5 results are understood and properly visualized.
+
+### Plane asymmetry
+
+The subset-size Pareto table shows:
+
+```text
+H median visible_fraction: 0.0 for best1, best3, best5
+V median visible_fraction: 0.0 for best1, 0.3125 for best3, 0.625 for best5
+```
+
+Interpretation:
+
+- V is much more ready for a strong physics/poster claim,
+- H still has useful ranking structure but weak visibility under the current thresholds,
+- do not force H and V into the same conclusion,
+- H likely needs better visibility thresholds, stronger held-out spectral validation, or tuned deconstruction review.
+
+### BPM rank stability
+
+Collection-to-collection rank stability is encouraging:
+
+```text
+H Spearman ≈ 0.752, Kendall ≈ 0.582
+V Spearman ≈ 0.904, Kendall ≈ 0.763
+```
+
+Interpretation:
+
+- BPM quality is not random,
+- V BPM ranking is especially stable,
+- fixed or semi-fixed tune-sensitive BPM sets are plausible,
+- direct fixed-set spectral evaluation is now the highest-value follow-up.
+
+### Leading BPMs
+
+The same BPM appears near the top for both planes:
+
+```text
+acsys_DeliveryRingBPM 10.200.22.62
+```
+
+Top-1 frequency is modest, roughly 6%, which means no single BPM dominates the full dataset. That supports the ensemble story: tune visibility appears distributed across a population of useful BPMs, not controlled by one channel.
+
+### Consensus quality
+
+Within-spill consensus class counts were:
+
+```text
+CLEAN_CONSENSUS: 1606
+MULTIMODAL: 2101
+WEAK_CONSENSUS: 252
+NO_CONSENSUS: 41
+```
+
+Interpretation:
+
+- there is substantial BPM tune structure, but many spill-plane/window cases are multimodal,
+- this supports the need for deconstruction plots, handoff analysis, and selected artifact review,
+- avoid any claim that every spill has a single simple tune ridge.
+
+### Artifact caveat
+
+The verifier passed, but the existing generated artifacts are mostly contract/smoke artifacts. Several per-spill artifacts are `.txt` fallbacks rather than poster-quality plots.
+
+Do not treat the current `artifacts/` tree as the final poster figure set.
+
+## Updated Immediate Direction
+
+The project should now move from computation to review-quality interpretation.
+
+Recommended priority order:
+
+1. Package the completed summary/report/artifact tree from Spark for local review.
+2. Build a compact human-review table of the top H and V results from the completed run.
+3. Implement direct fixed-set evaluation from cached spectra.
+4. Generate real poster-grade deconstruction and subset spectrum overlay plots for selected spills.
+5. Add the BPM handoff / tune-visibility migration pass using current early-window cache.
+6. Only then decide whether best10 is worth a follow-up run.
+
+Do not run another broad search yet.
 
 Use the current Spark status command from `docs/CURRENT_STATUS.md` if checking again. Keep checks bounded and read-only.
 
@@ -614,23 +747,136 @@ Parallelism:
 Goal:
 
 ```text
-Replace placeholder-style plots with physics-review figures for only selected spill-plane rows.
+Replace placeholder-style plots with physics-review figures for only the best selected spill-plane rows.
+```
+
+This phase should generate a small number of colorful, visually strong artifacts for the poster and beam-physics discussion. Do not make hundreds of plots. The target is a curated figure set that explains the result quickly.
+
+Selection rule:
+
+```text
+Use artifact_selection/artifact_manifest.csv plus ranking tables to select roughly:
+  - 2 best V clean-consensus examples
+  - 1 best H clean-consensus or H-improvement example
+  - 1 best3/best5 improvement example
+  - 1 dynamic/fixed disagreement or multimodal caution example
+```
+
+Hard cap:
+
+```text
+no more than 8 spill-plane examples for poster-grade rendering unless the user asks
 ```
 
 Implementation:
 
 - extend `scripts/bpm_mining/plots.py` or add `scripts/bpm_mining/poster_plots.py`,
+- add wrapper `scripts/make_best_bpm_poster_artifacts.py`,
+- read cached spectra directly rather than relying on placeholder artifact rows,
 - generate real BPM-vs-tune spectral heatmaps for selected rows,
 - generate overlaid subset spectra for best1, best3, best5, all-BPM mean, all-BPM median, and fixed top-N when Phase 1 exists,
-- preserve existing artifact names where possible and add explicit `_overlay` files when replacing would risk confusion.
+- generate one or two global summary plots from statistics tables,
+- preserve existing artifact names where possible and add explicit `_poster` or `_overlay` files when replacing would risk confusion,
+- write a small poster figure index with caption drafts and suggested poster placement.
 
-Outputs:
+Color/artifact ideas:
+
+1. **BPM tune deconstruction heatmap**
+
+   ```text
+   x-axis: tune
+   y-axis: BPM index or ring order
+   color: row-normalized log spectral power
+   overlays: per-BPM peak markers, consensus tune line, best1/best3/best5 membership badges
+   ```
+
+   This should be the main “convince the physicist” plot. Use a perceptually strong colormap such as `viridis`, `magma`, or `turbo` if acceptable. Keep H and V panels separate unless both are clean.
+
+2. **Subset spectrum overlay**
+
+   ```text
+   x-axis: tune
+   y-axis: normalized spectral power or log power
+   curves: best1, best3, best5, all-BPM mean, all-BPM median
+   overlays: q_hat, consensus tune, expected tune anchor
+   ```
+
+   This plot should show why small ensembles beat all-BPM averaging. Use distinct line styles and a compact legend. This is likely a poster panel.
+
+3. **Top-N performance curve**
+
+   ```text
+   x-axis: subset size, 1/3/5
+   y-axis: median subset score or held-out support
+   markers: H and V separately
+   optional second y/panel: visible fraction
+   ```
+
+   This should be one clean global result plot. It can be built from `statistics/paired_method_tests.csv`, `statistics/subset_size_pareto.csv`, and `evolution/subset_size_comparison.csv`.
+
+4. **BPM inclusion/rank stability map**
+
+   ```text
+   x-axis: BPM/ring order
+   y-axis or stacked bars: top1/top3/top5 inclusion frequency
+   color/group: plane or collection
+   ```
+
+   This plot should show that BPM quality is not random and that V rankings are especially stable.
+
+5. **Visibility / handoff preview plot**
+
+   ```text
+   x-axis: turn window
+   y-axis: BPM index/ring order
+   color: visibility score or support at consensus tune
+   overlays: top1/top3/top5 membership through time
+   ```
+
+   Only generate this for the best one or two selected spills at first. Treat it as exploratory unless the handoff pass is implemented.
+
+6. **Poster contact sheet**
+
+   Create one image or markdown index showing thumbnails of the curated artifacts with one-line captions. This helps quickly choose final poster panels.
+
+Required outputs:
+
+```text
+artifacts/poster/selected_poster_artifacts.csv
+artifacts/poster/poster_artifact_index.md
+artifacts/poster/poster_contact_sheet.png
+artifacts/poster/global_topn_performance_hv.png
+artifacts/poster/global_bpm_inclusion_h.png
+artifacts/poster/global_bpm_inclusion_v.png
+artifacts/poster/spill_<id>_<plane>_bpm_tune_deconstruction_poster.png
+artifacts/poster/spill_<id>_<plane>_subset_spectra_overlay_poster.png
+artifacts/poster/spill_<id>_<plane>_visible_window_tune_evolution_poster.png
+```
+
+Existing or compatibility outputs:
 
 ```text
 artifacts/spills/spill_<id>_<plane>_bpm_tune_deconstruction.png
 artifacts/spills/spill_<id>_<plane>_subset_spectra_overlay.png
 artifacts/spills/spill_<id>_<plane>_visible_window_tune_evolution.png
 artifacts/global/poster_artifact_index.md
+```
+
+Poster artifact style requirements:
+
+- large labels readable on a poster,
+- explicit plane, spill ID, window length, stride, and tune band in subtitle or caption,
+- colorbar labels with clear units such as `row-normalized log power` or `visibility score`,
+- H/V color distinction should be consistent across global plots,
+- do not overplot 2000 spills,
+- do not use rainbow clutter for line plots; use color primarily for heatmaps and density plots,
+- every poster artifact should have a caption draft in `poster_artifact_index.md`,
+- no more than 4–6 final figure candidates should be recommended.
+
+Recommended caption angle:
+
+```text
+Small BPM ensembles improve tune-visible evidence relative to single-BPM and all-BPM summaries. The selected BPMs are supported by a broader within-spill consensus, not merely by one isolated channel.
 ```
 
 Progress:

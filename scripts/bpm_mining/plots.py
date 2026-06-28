@@ -15,6 +15,7 @@ from .progress import write_parent_status, write_shard_status
 
 
 MEMBERSHIP_FIELDS = ["collection", "spill_id", "plane", "subset_size", "bpm_members", "subset_score", "q_hat"]
+POSTER_FIELDS = ["collection", "spill_id", "plane", "category", "score", "reason", "caption", "recommended_files"]
 
 
 def _matplotlib():
@@ -84,6 +85,63 @@ def _positions(row: dict[str, str], pos_by_index: dict[int, int], name_index: di
     return out
 
 
+def _artifact_score(row: dict[str, str]) -> float:
+    return _f(row.get("score"))
+
+
+def _poster_priority(row: dict[str, str]) -> tuple[int, float, str, str, str]:
+    category = row.get("category", "")
+    plane = row.get("plane", "")
+    priority = {
+        ("V", "best5_improvement"): 0,
+        ("V", "best3_improvement"): 1,
+        ("V", "best1"): 2,
+        ("H", "best5_improvement"): 3,
+        ("H", "best3_improvement"): 4,
+        ("H", "best1"): 5,
+    }.get((plane, category), 6)
+    return (priority, -(_artifact_score(row) if math.isfinite(_artifact_score(row)) else -math.inf), row.get("collection", ""), row.get("spill_id", ""), plane)
+
+
+def _poster_caption(row: dict[str, str]) -> str:
+    plane = row.get("plane", "")
+    category = row.get("category", "selected")
+    score = row.get("score", "")
+    spill = row.get("spill_id", "")
+    return f"{plane} {category} example for {spill}; selection score {score}. Cached spectra show BPM-vs-tune structure, subset overlays, and visible-window tune evolution where reliable."
+
+
+def _select_poster_rows(rows: list[dict[str, str]], max_examples: int) -> list[dict[str, str]]:
+    selected: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for row in sorted(rows, key=_poster_priority):
+        key = (row.get("collection", ""), row.get("spill_id", ""), row.get("plane", ""))
+        if key in seen:
+            continue
+        selected.append(row)
+        seen.add(key)
+        if len(selected) >= max_examples:
+            break
+    return selected
+
+
+def _poster_file_list(stem: str) -> list[str]:
+    return [
+        f"{stem}_bpm_tune_deconstruction_poster.png",
+        f"{stem}_subset_spectra_overlay_poster.png",
+        f"{stem}_visible_window_tune_evolution_poster.png",
+    ]
+
+
+def _finite(values: list[float]) -> list[float]:
+    return [value for value in values if math.isfinite(value)]
+
+
+def _mean(values: list[float]) -> float:
+    vals = _finite(values)
+    return sum(vals) / len(vals) if vals else math.nan
+
+
 def save_bar(path: Path, title: str, labels: list[str], values: list[float], ylabel: str) -> None:
     plt = _matplotlib()
     ensure_dir(path.parent)
@@ -98,6 +156,124 @@ def save_bar(path: Path, title: str, labels: list[str], values: list[float], yla
     ax.set_xticklabels(labels, rotation=70, ha="right", fontsize=7)
     fig.tight_layout()
     fig.savefig(path, dpi=160)
+    plt.close(fig)
+
+
+def _save_global_topn_poster(path: Path, inputs: Path, rows: list[dict[str, str]]) -> None:
+    plt = _matplotlib()
+    ensure_dir(path.parent)
+    pareto = read_csv(inputs / "statistics" / "subset_size_pareto.csv") if (inputs / "statistics" / "subset_size_pareto.csv").exists() else []
+    if pareto:
+        by_plane = {
+            plane: sorted(
+                [row for row in pareto if row.get("plane") == plane],
+                key=lambda row: int(float(row.get("subset_size") or 0)),
+            )
+            for plane in ("H", "V")
+        }
+    else:
+        by_plane = {}
+        for plane in ("H", "V"):
+            plane_rows = [row for row in rows if row.get("plane") == plane]
+            sizes = sorted({int(float(row.get("subset_size") or 0)) for row in plane_rows})
+            by_plane[plane] = [
+                {
+                    "subset_size": str(size),
+                    "median_score": str(_mean([_f(row.get("subset_score")) for row in plane_rows if row.get("subset_size") == str(size)])),
+                    "median_visible_fraction": str(_mean([_f(row.get("visible_fraction")) for row in plane_rows if row.get("subset_size") == str(size)])),
+                }
+                for size in sizes
+            ]
+    if plt is None:
+        lines = ["Top-N poster performance"]
+        for plane, plane_rows in by_plane.items():
+            for row in plane_rows:
+                lines.append(f"{plane},{row.get('subset_size','')},{row.get('median_score','')},{row.get('median_visible_fraction','')}")
+        atomic_write_text(path.with_suffix(".txt"), "\n".join(lines) + "\n")
+        return
+    fig, (score_ax, visible_ax) = plt.subplots(2, 1, figsize=(8.5, 7), sharex=True)
+    colors = {"H": "#1f77b4", "V": "#d62728"}
+    for plane, plane_rows in by_plane.items():
+        xs = [int(float(row.get("subset_size") or 0)) for row in plane_rows]
+        scores = [_f(row.get("median_score")) for row in plane_rows]
+        visible = [_f(row.get("median_visible_fraction")) for row in plane_rows]
+        if xs:
+            score_ax.plot(xs, scores, marker="o", linewidth=1.8, color=colors[plane], label=f"{plane} score")
+            visible_ax.plot(xs, visible, marker="s", linewidth=1.8, color=colors[plane], label=f"{plane} visible fraction")
+    score_ax.set_title("Subset-size performance for poster review")
+    score_ax.set_ylabel("median subset score")
+    score_ax.grid(alpha=0.25)
+    score_ax.legend(fontsize=8)
+    visible_ax.set_xlabel("subset size")
+    visible_ax.set_ylabel("median visible fraction")
+    visible_ax.grid(alpha=0.25)
+    visible_ax.legend(fontsize=8)
+    visible_ax.set_xticks(sorted({int(float(row.get("subset_size") or 0)) for rows_for_plane in by_plane.values() for row in rows_for_plane}))
+    fig.tight_layout()
+    fig.savefig(path, dpi=180)
+    plt.close(fig)
+
+
+def _save_bpm_inclusion_poster(path: Path, inputs: Path, plane: str, rows: list[dict[str, str]]) -> None:
+    plt = _matplotlib()
+    ensure_dir(path.parent)
+    stats = read_csv(inputs / "statistics" / "bpm_global_statistics.csv") if (inputs / "statistics" / "bpm_global_statistics.csv").exists() else []
+    plane_stats = [row for row in stats if row.get("plane") == plane]
+    if not plane_stats:
+        counts: dict[str, dict[str, float]] = defaultdict(lambda: {"top1": 0.0, "top3": 0.0, "top5": 0.0})
+        totals = Counter(row.get("subset_size") for row in rows if row.get("plane") == plane)
+        for row in rows:
+            if row.get("plane") != plane:
+                continue
+            size = row.get("subset_size", "")
+            field = f"top{size}" if size in {"1", "3", "5"} else ""
+            if not field:
+                continue
+            for member in row.get("bpm_members", "").split(","):
+                if member:
+                    counts[member][field] += 1.0 / max(1, totals[size])
+        plane_stats = [
+            {
+                "bpm_name": name,
+                "top1_frequency": values["top1"],
+                "top3_inclusion_frequency": values["top3"],
+                "top5_inclusion_frequency": values["top5"],
+            }
+            for name, values in counts.items()
+        ]
+    ranked = sorted(
+        plane_stats,
+        key=lambda row: sum(
+            value if math.isfinite(value) else 0.0
+            for value in (_f(row.get(field)) for field in ("top1_frequency", "top3_inclusion_frequency", "top5_inclusion_frequency"))
+        ),
+        reverse=True,
+    )[:24]
+    labels = [row.get("bpm_name", "") for row in ranked]
+    series = [
+        ("top1", [value if math.isfinite(value := _f(row.get("top1_frequency"))) else 0.0 for row in ranked], "#2f6f9f"),
+        ("top3", [value if math.isfinite(value := _f(row.get("top3_inclusion_frequency"))) else 0.0 for row in ranked], "#7aa974"),
+        ("top5", [value if math.isfinite(value := _f(row.get("top5_inclusion_frequency"))) else 0.0 for row in ranked], "#f2b134"),
+    ]
+    if plt is None:
+        lines = [f"{plane} BPM inclusion"]
+        for idx, label in enumerate(labels):
+            lines.append(",".join([label] + [str(values[idx]) for _, values, _ in series]))
+        atomic_write_text(path.with_suffix(".txt"), "\n".join(lines) + "\n")
+        return
+    fig, ax = plt.subplots(figsize=(12, 5.5))
+    x = np.arange(len(labels))
+    width = 0.26
+    for offset, (label, values, color) in zip((-width, 0.0, width), series):
+        ax.bar(x + offset, values, width=width, label=label, color=color)
+    ax.set_title(f"{plane} BPM inclusion frequency")
+    ax.set_ylabel("selection frequency")
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=70, ha="right", fontsize=7)
+    ax.legend(fontsize=8)
+    ax.grid(axis="y", alpha=0.25)
+    fig.tight_layout()
+    fig.savefig(path, dpi=180)
     plt.close(fig)
 
 
@@ -236,17 +412,55 @@ def _save_visible_evolution(path: Path, title: str, combined: np.ndarray, tune_a
     plt.close(fig)
 
 
+def _write_poster_contact_sheet(path: Path, image_paths: list[Path]) -> None:
+    plt = _matplotlib()
+    ensure_dir(path.parent)
+    if plt is None or not image_paths:
+        atomic_write_text(path.with_suffix(".txt"), "\n".join(str(item) for item in image_paths) + "\n")
+        return
+    images = []
+    for item in image_paths[:8]:
+        try:
+            images.append((item, plt.imread(item)))
+        except Exception:
+            continue
+    if not images:
+        atomic_write_text(path.with_suffix(".txt"), "\n".join(str(item) for item in image_paths) + "\n")
+        return
+    cols = min(2, len(images))
+    rows = int(math.ceil(len(images) / cols))
+    fig, axes = plt.subplots(rows, cols, figsize=(cols * 6, rows * 4))
+    flat_axes = np.asarray(axes).reshape(-1)
+    for ax, (item, image) in zip(flat_axes, images):
+        ax.imshow(image)
+        ax.set_title(item.stem.replace("_", " "), fontsize=8)
+        ax.axis("off")
+    for ax in flat_axes[len(images) :]:
+        ax.axis("off")
+    fig.tight_layout()
+    fig.savefig(path, dpi=140)
+    plt.close(fig)
+
+
 def make_artifacts(cfg: dict[str, object], inputs: Path, artifact_manifest: Path, out: Path, workers: int | None = None, limit: int = 0) -> None:
     ensure_dir(out / "global")
     ensure_dir(out / "spills")
+    ensure_dir(out / "poster")
     rows = subset_rows(inputs)
     artifact_rows = read_csv(artifact_manifest) if artifact_manifest.exists() else []
     if limit:
         artifact_rows = artifact_rows[:limit]
+    artifact_cfg = cfg.get("artifacts", {}) if isinstance(cfg.get("artifacts"), dict) else {}
+    poster_max_examples = max(0, int(artifact_cfg.get("poster_max_examples", 8)))
+    poster_rows = _select_poster_rows(artifact_rows, poster_max_examples)
+    poster_keys = {(row["collection"], row["spill_id"], row["plane"]) for row in poster_rows}
     spectral_config = str(cfg.get("subset_search", {}).get("search_spectral_config", "early_4096_256") if isinstance(cfg.get("subset_search"), dict) else "early_4096_256")
     caches = cache_lookup(inputs, spectral_config)
     name_index = bpm_name_to_index(inputs)
     consensus = consensus_lookup(inputs)
+    _save_global_topn_poster(out / "poster" / "global_topn_performance_hv.png", inputs, rows)
+    for poster_plane in ("H", "V"):
+        _save_bpm_inclusion_poster(out / "poster" / f"global_bpm_inclusion_{poster_plane.lower()}.png", inputs, poster_plane, rows)
     for plane in ("H", "V"):
         top1 = [row for row in rows if row["plane"] == plane and row["subset_size"] == "1"]
         counts = Counter(member for row in top1 for member in row.get("bpm_members", "").split(",") if member)
@@ -303,6 +517,7 @@ def make_artifacts(cfg: dict[str, object], inputs: Path, artifact_manifest: Path
     keys = sorted(rows_by_key_size)
     write_parent_status(progress_dir, "running", 0, len(keys), 0, len(keys), 0, started)
     output_files = 0
+    poster_output_files: list[Path] = []
     for idx, key in enumerate(keys):
         shard_started = time.time()
         write_shard_status(progress_dir, idx, len(keys), "running", 0, 1, 0, shard_started)
@@ -344,17 +559,78 @@ def make_artifacts(cfg: dict[str, object], inputs: Path, artifact_manifest: Path
             if combined is not None:
                 _save_visible_evolution(out / "spills" / f"{stem}_visible_window_tune_evolution.png", f"{stem} visible tune evolution", combined, tune_axis, centers)
             output_files += 3
+            if key in poster_keys:
+                poster_deconstruction = out / "poster" / f"{stem}_bpm_tune_deconstruction_poster.png"
+                poster_overlay = out / "poster" / f"{stem}_subset_spectra_overlay_poster.png"
+                poster_evolution = out / "poster" / f"{stem}_visible_window_tune_evolution_poster.png"
+                _save_deconstruction(
+                    poster_deconstruction,
+                    f"{stem} poster BPM tune deconstruction",
+                    spectra,
+                    tune_axis,
+                    bpm_indices,
+                    selected_positions,
+                    q_hat,
+                    c_tune,
+                )
+                _save_subset_overlay(
+                    poster_overlay,
+                    f"{stem} poster subset spectra overlay",
+                    spectra,
+                    tune_axis,
+                    by_size,
+                    pos_by_index,
+                    name_index,
+                    q_hat,
+                    c_tune,
+                )
+                if combined is not None:
+                    _save_visible_evolution(poster_evolution, f"{stem} poster visible tune evolution", combined, tune_axis, centers)
+                poster_output_files.extend([poster_deconstruction, poster_overlay, poster_evolution])
         write_shard_status(progress_dir, idx, len(keys), "complete", 1, 1, output_files, shard_started)
         write_parent_status(progress_dir, "running", idx + 1, len(keys), idx + 1, len(keys), output_files, started)
     write_csv(out / "spills" / "selected_subset_membership.csv", membership_rows, MEMBERSHIP_FIELDS)
     for row in membership_rows:
         write_csv(out / "spills" / f"spill_{row['spill_id']}_{row['plane'].lower()}_subset_membership.csv", [row], MEMBERSHIP_FIELDS)
+    poster_manifest_rows = []
+    for row in poster_rows:
+        stem = f"spill_{row['spill_id']}_{row['plane'].lower()}"
+        poster_manifest_rows.append(
+            {
+                "collection": row["collection"],
+                "spill_id": row["spill_id"],
+                "plane": row["plane"],
+                "category": row.get("category", ""),
+                "score": row.get("score", ""),
+                "reason": row.get("reason", ""),
+                "caption": _poster_caption(row),
+                "recommended_files": ";".join(_poster_file_list(stem)),
+            }
+        )
+    write_csv(out / "poster" / "selected_poster_artifacts.csv", poster_manifest_rows, POSTER_FIELDS)
+    index_lines = [
+        "# Poster Artifact Index",
+        "",
+        f"- selected poster examples: `{len(poster_manifest_rows)}`",
+        f"- poster example cap: `{poster_max_examples}`",
+        "- poster plots are cache-backed review candidates, not external tune truth.",
+        "",
+        "| Spill | Plane | Category | Score | Caption | Files |",
+        "| --- | --- | --- | ---: | --- | --- |",
+    ]
+    for row in poster_manifest_rows:
+        index_lines.append(
+            f"| `{row['spill_id']}` | `{row['plane']}` | `{row['category']}` | {row['score']} | {row['caption']} | `{row['recommended_files']}` |"
+        )
+    atomic_write_text(out / "poster" / "poster_artifact_index.md", "\n".join(index_lines) + "\n")
+    _write_poster_contact_sheet(out / "poster" / "poster_contact_sheet.png", poster_output_files[::3])
     atomic_write_text(
         out / "artifact_generation_summary.md",
         "# Artifact Generation Summary\n\n"
         f"- selected membership rows: `{len(membership_rows)}`\n"
         f"- selected spill-plane keys: `{len(keys)}`\n"
-        f"- cache-backed artifact files: `{output_files}`\n",
+        f"- cache-backed artifact files: `{output_files}`\n"
+        f"- curated poster examples: `{len(poster_manifest_rows)}`\n",
     )
     atomic_write_text(
         out / "global" / "poster_artifact_index.md",

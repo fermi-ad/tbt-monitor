@@ -8,6 +8,36 @@ from pathlib import Path
 from .io import atomic_write_text, read_csv
 
 
+def _completed_subset_sizes(inputs: Path) -> list[int]:
+    sizes = []
+    for size in (1, 3, 5, 10):
+        if (inputs / "subset_search" / f"best{size}" / f"best{size}_results.csv").exists():
+            sizes.append(size)
+    return sizes
+
+
+def _subset_label(sizes: list[int]) -> str:
+    return ", ".join(f"best-{size}" for size in sizes) if sizes else "none"
+
+
+def _claim_discipline(sizes: list[int]) -> str:
+    exhaustive = [size for size in sizes if size in {1, 3}]
+    screened = [size for size in sizes if size not in {1, 3}]
+    clauses = []
+    if exhaustive:
+        clauses.append(f"{_subset_label(exhaustive)} are globally exhaustive over valid BPMs")
+    if screened:
+        clauses.append(f"{_subset_label(screened)} are screened-pool exact searches with beam/random full-space audits")
+    return "; ".join(clauses) + "." if clauses else "No subset-search outputs were found."
+
+
+def _screened_caveat(sizes: list[int]) -> str:
+    screened = [size for size in sizes if size not in {1, 3}]
+    if not screened:
+        return ""
+    return f"- {_subset_label(screened)} are not globally exhaustive over all BPMs; they are exact within screened pools with audit metadata."
+
+
 def _top(rows, plane, n=10):
     picked = [row for row in rows if row.get("plane") == plane]
     picked.sort(key=lambda row: float(row.get("top1_frequency") or 0.0), reverse=True)
@@ -15,6 +45,7 @@ def _top(rows, plane, n=10):
 
 
 def make_report(cfg: dict[str, object], inputs: Path, out: Path) -> None:
+    completed_sizes = _completed_subset_sizes(inputs)
     manifest = read_csv(inputs / "manifest" / "spills.csv") if (inputs / "manifest" / "spills.csv").exists() else []
     consensus = read_csv(inputs / "consensus" / "spill_consensus_summary.csv") if (inputs / "consensus" / "spill_consensus_summary.csv").exists() else []
     bpm_stats = read_csv(inputs / "statistics" / "bpm_global_statistics.csv") if (inputs / "statistics" / "bpm_global_statistics.csv").exists() else []
@@ -42,16 +73,55 @@ def make_report(cfg: dict[str, object], inputs: Path, out: Path) -> None:
     for label, count in sorted(class_counts.items()):
         lines.append(f"- `{label}`: `{count}`")
     for plane in ("H", "V"):
-        lines.extend(["", f"## Globally Strongest {plane} BPMs", "", "| BPM | top1 frequency | top3/5/10 inclusion |", "| --- | ---: | ---: |"])
+        inclusion_sizes = [size for size in completed_sizes if size > 1]
+        header = ["BPM", "top1 frequency"] + [f"top{size} inclusion" for size in inclusion_sizes]
+        lines.extend(["", f"## Globally Strongest {plane} BPMs", "", "| " + " | ".join(header) + " |", "| " + " | ".join(["---"] + ["---:"] * (len(header) - 1)) + " |"])
         for row in _top(bpm_stats, plane):
-            topk = sum(float(row.get(key) or 0.0) for key in ("top3_inclusion_frequency", "top5_inclusion_frequency", "top10_inclusion_frequency"))
-            lines.append(f"| `{row.get('bpm_name','')}` | {row.get('top1_frequency','')} | {topk:.3f} |")
-    lines.extend(
+            values = [f"`{row.get('bpm_name','')}`", row.get("top1_frequency", "")]
+            for size in inclusion_sizes:
+                values.append(row.get(f"top{size}_inclusion_frequency", ""))
+            lines.append("| " + " | ".join(values) + " |")
+    fixed_lines = [
+        "",
+        "## Best Fixed Subsets",
+        "",
+    ]
+    if fixed_direct:
+        fixed_lines.extend(
+            [
+                f"Direct fixed-set spectral evaluation rows are available: `{len(fixed_direct)}` summary rows.",
+                "Use `statistics/fixed_vs_dynamic_direct_summary.csv` for operational fixed-set candidates.",
+                "Legacy `statistics/fixed_sets_*` tables are overlap-filtered dynamic-winner proxy summaries, not held-out fixed-set validation.",
+            ]
+        )
+    else:
+        fixed_lines.extend(
+            [
+                "Direct fixed-set spectral evaluation is not present in this output tree.",
+                "Legacy `statistics/fixed_sets_*` tables are overlap-filtered dynamic-winner proxy summaries and should not be treated as held-out fixed-set validation.",
+            ]
+        )
+    caveats = [
+        "- The machine tune may vary freely between spills.",
+        "- No chronological tune trend is assumed.",
+        "- The per-spill consensus is an internal unsupervised reference, not ground truth.",
+        "- Dynamic best-BPM selection has look-elsewhere bias.",
+        "- Held-out BPM support is used to reduce that bias.",
+    ]
+    screened_caveat = _screened_caveat(completed_sizes)
+    if screened_caveat:
+        caveats.append(screened_caveat)
+    caveats.extend(
         [
-            "",
-            "## Best Fixed Subsets",
-            "",
-            "Fixed-set cross-fitting outputs are in `statistics/fixed_sets_*`. Use those rows for operational subset candidates.",
+            "- Absolute p-values are not sufficient; use effect sizes and confidence intervals.",
+            "- A smooth tune ridge without spectral visibility is not accepted as a measurement.",
+            "- No tune value is reported in `NO_RELIABLE_TUNE` windows.",
+            "- Expected H near 0.65 and V near 0.72 are soft priors only.",
+        ]
+    )
+    lines.extend(
+        fixed_lines
+        + [
             "",
             "## Dynamic Per-Spill Subset Performance",
             "",
@@ -60,8 +130,8 @@ def make_report(cfg: dict[str, object], inputs: Path, out: Path) -> None:
             "",
             "## Fixed-Vs-Dynamic Performance",
             "",
-            "Cross-fit summaries compare collection-trained fixed sets against dynamic per-spill winners.",
-            f"Direct fixed-set spectral evaluation rows are available: `{len(fixed_direct)}` summary rows.",
+            "Direct fixed-set summaries compare frozen trained member sets against dynamic per-spill winners when follow-up outputs are present.",
+            "The older cross-fit summaries only describe dynamic winners that overlap trained member lists.",
             "",
             "## Subset-Size Effect Sizes",
             "",
@@ -87,16 +157,7 @@ def make_report(cfg: dict[str, object], inputs: Path, out: Path) -> None:
             "",
             "## Statistical Caveats",
             "",
-            "- The machine tune may vary freely between spills.",
-            "- No chronological tune trend is assumed.",
-            "- The per-spill consensus is an internal unsupervised reference, not ground truth.",
-            "- Dynamic best-BPM selection has look-elsewhere bias.",
-            "- Held-out BPM support is used to reduce that bias.",
-            "- Best-5 and best-10 are not globally exhaustive over all BPMs.",
-            "- Absolute p-values are not sufficient; use effect sizes and confidence intervals.",
-            "- A smooth tune ridge without spectral visibility is not accepted as a measurement.",
-            "- No tune value is reported in `NO_RELIABLE_TUNE` windows.",
-            "- Expected H near 0.65 and V near 0.72 are soft priors only.",
+            *caveats,
             "",
             "## Best Poster Artifacts",
             "",
@@ -107,7 +168,7 @@ def make_report(cfg: dict[str, object], inputs: Path, out: Path) -> None:
             "",
             "## Recommended Operational Subset",
             "",
-            "Prefer the fixed cross-fit subset with the best held-out collection score unless the dynamic-vs-fixed gain is large and stable.",
+            "Prefer directly re-evaluated fixed subsets when their held-out spectral scores are competitive; otherwise treat dynamic per-spill winners as review examples.",
             "",
             "## Recommended Next Beam Study",
             "",
@@ -121,9 +182,11 @@ def make_report(cfg: dict[str, object], inputs: Path, out: Path) -> None:
         "",
         f"This BPM-only mining run inventoried `{len(manifest)}` spills and selected `{len(artifacts)}` poster-review spill-plane artifacts.",
         "",
-        "Primary claim discipline: best-1 and best-3 are globally exhaustive over valid BPMs; best-5 and best-10 are screened-pool exact searches with full-space beam/random audits.",
+        f"Completed subset sizes: `{','.join(str(size) for size in completed_sizes)}`.",
         "",
-        "Use the global BPM statistics and fixed-set cross-fit tables for the poster narrative; use per-spill dynamic winners as examples, not as external truth labels.",
+        f"Primary claim discipline: {_claim_discipline(completed_sizes)}",
+        "",
+        "Use direct fixed-set spectral evaluation for operational fixed-set claims when present; use per-spill dynamic winners as examples, not as external truth labels.",
         "",
     ]
     atomic_write_text(out / "strong_bpm_executive_summary.md", "\n".join(exec_lines))

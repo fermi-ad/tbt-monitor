@@ -263,6 +263,12 @@ follow-up stack. The fixed-set and held-out passes write shard progress under
 their output directories, while `logs/progress.csv` records top-level command
 status when launched through the wrappers.
 
+The artifact pass keeps compatibility outputs under `artifacts/global/` and
+`artifacts/spills/`, and writes the curated poster-review set under
+`artifacts/poster/` with `selected_poster_artifacts.csv`,
+`poster_artifact_index.md`, `poster_contact_sheet.png`,
+`global_topn_performance_hv.png`, and `global_bpm_inclusion_{h,v}.png`.
+
 ## GPU Telemetry
 
 Enable telemetry on autosweep or Best-BPM runs:

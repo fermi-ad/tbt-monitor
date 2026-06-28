@@ -396,7 +396,24 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertTrue(read_csv(out / "evolution" / "finalist_reevaluation.csv"))
         report = (out / "reports" / "strong_bpm_analysis_summary.md").read_text(encoding="utf-8")
         self.assertIn("The machine tune may vary freely between spills", report)
-        self.assertIn("Best-5 and best-10 are not globally exhaustive", report)
+        self.assertIn("best-5 are not globally exhaustive", report)
+        self.assertNotIn("best-10 are not globally exhaustive", report)
+        exec_report = (out / "reports" / "strong_bpm_executive_summary.md").read_text(encoding="utf-8")
+        self.assertIn("Completed subset sizes: `1,3,5`", exec_report)
+        self.assertNotIn("best-10", exec_report)
+        self.assertTrue((out / "artifacts" / "poster" / "selected_poster_artifacts.csv").exists())
+        self.assertTrue((out / "artifacts" / "poster" / "poster_artifact_index.md").exists())
+        for artifact_name in (
+            "global_topn_performance_hv.png",
+            "global_bpm_inclusion_h.png",
+            "global_bpm_inclusion_v.png",
+            "poster_contact_sheet.png",
+        ):
+            artifact_path = out / "artifacts" / "poster" / artifact_name
+            self.assertTrue(artifact_path.exists() or artifact_path.with_suffix(".txt").exists())
+        poster_rows = read_csv(out / "artifacts" / "poster" / "selected_poster_artifacts.csv")
+        self.assertLessEqual(len(poster_rows), 8)
+        self.assertTrue((follow / "artifacts" / "poster" / "selected_poster_artifacts.csv").exists())
         verification = verify_best_bpm_outputs(out, subset_sizes=[1, 3, 5], write_outputs=False)
         self.assertEqual(verification["status"], "ok")
         followup_verification = verify_best_bpm_followups(follow, write_outputs=False)
