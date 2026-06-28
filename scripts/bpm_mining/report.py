@@ -20,6 +20,9 @@ def make_report(cfg: dict[str, object], inputs: Path, out: Path) -> None:
     bpm_stats = read_csv(inputs / "statistics" / "bpm_global_statistics.csv") if (inputs / "statistics" / "bpm_global_statistics.csv").exists() else []
     artifacts = read_csv(inputs / "artifact_selection" / "artifact_manifest.csv") if (inputs / "artifact_selection" / "artifact_manifest.csv").exists() else []
     finalists = read_csv(inputs / "evolution" / "finalist_reevaluation.csv") if (inputs / "evolution" / "finalist_reevaluation.csv").exists() else []
+    fixed_direct = read_csv(inputs / "statistics" / "fixed_vs_dynamic_direct_summary.csv") if (inputs / "statistics" / "fixed_vs_dynamic_direct_summary.csv").exists() else []
+    heldout = read_csv(inputs / "evolution" / "heldout_spectral_support_summary.csv") if (inputs / "evolution" / "heldout_spectral_support_summary.csv").exists() else []
+    handoff = read_csv(inputs / "handoff" / "bpm_handoff_events.csv") if (inputs / "handoff" / "bpm_handoff_events.csv").exists() else []
     class_counts = Counter(row.get("consensus_label", "") for row in consensus)
     lines = [
         "# Strong BPM Analysis Summary",
@@ -58,6 +61,7 @@ def make_report(cfg: dict[str, object], inputs: Path, out: Path) -> None:
             "## Fixed-Vs-Dynamic Performance",
             "",
             "Cross-fit summaries compare collection-trained fixed sets against dynamic per-spill winners.",
+            f"Direct fixed-set spectral evaluation rows are available: `{len(fixed_direct)}` summary rows.",
             "",
             "## Subset-Size Effect Sizes",
             "",
@@ -74,6 +78,8 @@ def make_report(cfg: dict[str, object], inputs: Path, out: Path) -> None:
             "## Visibility Duration Conclusions",
             "",
             "`evolution/subset_evolution_summary.csv` records visible fractions and duration proxies without forcing tunes in unreliable windows.",
+            f"`evolution/heldout_spectral_support_summary.csv` rows: `{len(heldout)}`.",
+            f"`handoff/bpm_handoff_events.csv` rows: `{len(handoff)}`.",
             "",
             "## Digitizer/Ring-Location Findings",
             "",
@@ -97,6 +103,7 @@ def make_report(cfg: dict[str, object], inputs: Path, out: Path) -> None:
             f"- selected artifact spill-plane rows: `{len(artifacts)}`",
             "- global plots: `artifacts/global/`",
             "- per-spill plots: `artifacts/spills/`",
+            "- cache-backed deconstruction and subset-overlay plots supersede older placeholder-style plots when present.",
             "",
             "## Recommended Operational Subset",
             "",

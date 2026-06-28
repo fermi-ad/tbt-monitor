@@ -132,10 +132,16 @@ Deliverables:
 
 ## 4. Expected Operational Tune Region
 
-Working expectations (subject to machine state and optics settings):
+For the current 2000-spill Spark Tier A Best-BPM study, early-injection BPM
+spectra are evaluated with dataset-specific soft priors:
 
-- `Qx ~ 0.69`
-- `Qy ~ 0.71`
+- horizontal: near `0.65`
+- vertical: near `0.72`
+
+Older operational expectations such as `Qx ~ 0.69` and `Qy ~ 0.71` should be
+treated as historical or machine-state-dependent context unless they are tied
+to an independent reference for the reviewed data. The BPM-only analysis must
+not use either set of values as truth labels.
 
 Operationally large unexplained shifts should trigger data-quality and
 machine-state review before interpretation.

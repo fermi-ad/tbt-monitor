@@ -11,6 +11,9 @@ from typing import Iterable, Sequence
 from .artifact_selection import FIELDS as ARTIFACT_SELECTION_FIELDS
 from .clustering import CLUSTER_FIELDS, RANK_FIELDS as CLUSTER_RANK_FIELDS, SUMMARY_FIELDS as CLUSTER_SUMMARY_FIELDS
 from .evolution import FINALIST_FIELDS, SIZE_FIELDS, SUMMARY_FIELDS as EVOLUTION_SUMMARY_FIELDS, WINDOW_FIELDS as EVOLUTION_WINDOW_FIELDS
+from .fixed_sets import FIXED_EVAL_FIELDS, FIXED_SUMMARY_FIELDS
+from .heldout import HELDOUT_FIELDS, HELDOUT_SUMMARY_FIELDS
+from .handoff import HANDOFF_EVENT_FIELDS, VISIBILITY_SUMMARY_FIELDS, WINDOW_VISIBILITY_FIELDS
 from .io import atomic_write_text
 from .schema import (
     BEST_SUBSET_FIELDS,
@@ -52,6 +55,22 @@ STATISTICS_SCHEMAS: dict[str, Sequence[str]] = {
     "bpm_pair_synergy.csv": ["plane", "bpm_a", "bpm_b", "pair_count", "median_pair_score"],
     "bpm_coselection.csv": ["plane", "bpm_a", "bpm_b", "pair_count", "median_pair_score"],
 }
+
+FOLLOWUP_CSV_SCHEMAS: list[tuple[str, Sequence[str], int]] = [
+    ("statistics/fixed_set_direct_evaluation.csv", FIXED_EVAL_FIELDS, 1),
+    ("statistics/fixed_vs_dynamic_direct_summary.csv", FIXED_SUMMARY_FIELDS, 1),
+    ("evolution/finalist_heldout_spectral_support.csv", HELDOUT_FIELDS, 1),
+    ("evolution/heldout_spectral_support_summary.csv", HELDOUT_SUMMARY_FIELDS, 1),
+    ("handoff/bpm_window_visibility.csv", WINDOW_VISIBILITY_FIELDS, 1),
+    ("handoff/bpm_handoff_events.csv", HANDOFF_EVENT_FIELDS, 1),
+    ("handoff/bpm_visibility_summary.csv", VISIBILITY_SUMMARY_FIELDS, 1),
+]
+
+FOLLOWUP_FILES = [
+    "statistics/fixed_set_direct_summary.md",
+    "evolution/heldout_spectral_support_summary.md",
+    "handoff/handoff_summary.md",
+]
 
 
 def _csv_header(path: Path) -> list[str]:
@@ -181,6 +200,7 @@ def verify_best_bpm_outputs(
     max_count_bytes: int = 1_000_000_000,
     count_large_csv: bool = False,
     write_outputs: bool = True,
+    include_followups: bool = False,
 ) -> dict[str, object]:
     root = Path(root)
     if not root.exists():
@@ -250,6 +270,8 @@ def verify_best_bpm_outputs(
     checks.append(_directory_has_artifacts(root, "artifacts/global"))
     checks.append(_directory_has_artifacts(root, "artifacts/spills"))
     checks.append(_optional_progress_check(root))
+    if include_followups or any((root / rel).exists() for rel, _fields, _min_rows in FOLLOWUP_CSV_SCHEMAS):
+        checks.extend(_followup_checks(root, max_count_bytes, count_large_csv))
 
     fail_count = sum(1 for check in checks if check["status"] == "fail")
     warn_count = sum(1 for check in checks if check["status"] == "warn")
@@ -265,6 +287,46 @@ def verify_best_bpm_outputs(
     if write_outputs:
         atomic_write_text(root / "logs" / "best_bpm_verification.json", json.dumps(payload, indent=2, sort_keys=True) + "\n")
         atomic_write_text(root / "logs" / "best_bpm_verification_report.md", render_verification_report(payload))
+    return payload
+
+
+def _followup_checks(root: Path, max_count_bytes: int, count_large_csv: bool) -> list[dict[str, object]]:
+    checks = [_csv_check(root, rel, fields, min_rows, max_count_bytes, count_large_csv) for rel, fields, min_rows in FOLLOWUP_CSV_SCHEMAS]
+    checks.extend(_file_check(root, rel) for rel in FOLLOWUP_FILES)
+    if (root / "artifacts").exists():
+        checks.append(_directory_has_artifacts(root, "artifacts/spills"))
+        checks.append(_directory_has_artifacts(root, "artifacts/global"))
+    if (root / "handoff").exists():
+        checks.append(_directory_has_artifacts(root, "handoff"))
+    return checks
+
+
+def verify_best_bpm_followups(
+    root: Path,
+    max_count_bytes: int = 1_000_000_000,
+    count_large_csv: bool = False,
+    write_outputs: bool = True,
+) -> dict[str, object]:
+    root = Path(root)
+    checks: list[dict[str, object]]
+    if not root.exists():
+        checks = [{"path": ".", "kind": "directory", "required": True, "status": "fail", "messages": ["root directory missing"]}]
+    else:
+        checks = _followup_checks(root, max_count_bytes, count_large_csv)
+    fail_count = sum(1 for check in checks if check["status"] == "fail")
+    warn_count = sum(1 for check in checks if check["status"] == "warn")
+    payload: dict[str, object] = {
+        "status": "ok" if fail_count == 0 else "fail",
+        "root": str(root),
+        "checks": checks,
+        "fail_count": fail_count,
+        "warn_count": warn_count,
+        "subset_sizes": [],
+        "followups_only": True,
+    }
+    if write_outputs:
+        atomic_write_text(root / "logs" / "best_bpm_followup_verification.json", json.dumps(payload, indent=2, sort_keys=True) + "\n")
+        atomic_write_text(root / "logs" / "best_bpm_followup_verification_report.md", render_verification_report(payload))
     return payload
 
 
@@ -301,7 +363,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--subset-sizes", nargs="+", type=int, default=[1, 3, 5, 10])
     parser.add_argument("--max-count-bytes", type=int, default=1_000_000_000)
     parser.add_argument("--count-large-csv", action="store_true")
+    parser.add_argument("--include-followups", action="store_true", help="also require follow-up output groups when verifying a full run")
+    parser.add_argument("--followups-only", action="store_true", help="verify a sidecar follow-up output root instead of a full Best-BPM run")
     args = parser.parse_args(argv)
-    payload = verify_best_bpm_outputs(Path(args.root), args.subset_sizes, args.max_count_bytes, args.count_large_csv, True)
+    if args.followups_only:
+        payload = verify_best_bpm_followups(Path(args.root), args.max_count_bytes, args.count_large_csv, True)
+    else:
+        payload = verify_best_bpm_outputs(Path(args.root), args.subset_sizes, args.max_count_bytes, args.count_large_csv, True, args.include_followups)
     print(render_verification_report(payload))
     return 0 if payload["status"] == "ok" else 1

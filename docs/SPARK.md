@@ -211,6 +211,53 @@ search outputs:
   --out /home/derekste/best_bpm_mining/evolution
 ```
 
+### Best-BPM Follow-Up Sidecar Passes
+
+Run follow-up validation and poster-review passes against a completed Best-BPM
+run without overwriting the canonical output tree:
+
+```bash
+ROOT=/home/derekste/best_bpm_mining_20260627_best135_from_v2
+OUT="$ROOT/followups/next_steps_20260628"
+PY=/home/derekste/venvs/cupy-spark-cu13/bin/python
+
+"$PY" scripts/evaluate_fixed_bpm_sets.py \
+  --config config/best_bpm_mining.yaml \
+  --inputs "$ROOT" \
+  --out "$OUT" \
+  --workers 4 \
+  --subset-sizes 1 3 5
+
+"$PY" scripts/evaluate_heldout_spectral_support.py \
+  --config config/best_bpm_mining.yaml \
+  --inputs "$ROOT" \
+  --out "$OUT" \
+  --workers 4 \
+  --tune-half-width 0.0025
+
+"$PY" scripts/make_best_bpm_artifacts.py \
+  --config config/best_bpm_mining.yaml \
+  --inputs "$ROOT" \
+  --manifest "$ROOT/artifact_selection/artifact_manifest.csv" \
+  --out "$OUT/artifacts" \
+  --workers 4
+
+"$PY" scripts/run_bpm_handoff_analysis.py \
+  --config config/best_bpm_mining.yaml \
+  --inputs "$ROOT" \
+  --out "$OUT" \
+  --workers 4
+
+"$PY" scripts/verify_best_bpm_outputs.py \
+  --root "$OUT" \
+  --followups-only
+```
+
+Smoke-test the sidecar commands first with `--limit` before running the full
+follow-up stack. The fixed-set and held-out passes write shard progress under
+their output directories, while `logs/progress.csv` records top-level command
+status when launched through the wrappers.
+
 ## GPU Telemetry
 
 Enable telemetry on autosweep or Best-BPM runs:

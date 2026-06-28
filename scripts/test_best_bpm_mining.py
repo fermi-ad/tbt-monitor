@@ -24,13 +24,16 @@ from bpm_mining.peaks import extract_per_bpm_features
 from bpm_mining.consensus import build_consensus
 from bpm_mining.subset_search import search_best_bpm_subsets
 from bpm_mining.evolution import evaluate_evolution
+from bpm_mining.fixed_sets import evaluate_fixed_sets
+from bpm_mining.heldout import evaluate_heldout_support
+from bpm_mining.handoff import run_handoff_analysis
 from bpm_mining.statistics import aggregate_statistics
 from bpm_mining.statistics import spearman, kendall_tau, paired_tests
 from bpm_mining.clustering import cluster_spills
 from bpm_mining.artifact_selection import select_artifacts
 from bpm_mining.plots import make_artifacts
 from bpm_mining.report import make_report
-from bpm_mining.verification import verify_best_bpm_outputs
+from bpm_mining.verification import verify_best_bpm_followups, verify_best_bpm_outputs
 
 
 def synthetic_collection(root: Path, spills: int = 3, bpms: int = 8, turns: int = 1024) -> None:
@@ -300,6 +303,53 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertTrue((progress / "parent_status.json").exists())
         self.assertTrue(list(progress.glob("shard_*.json")))
 
+    def test_parallel_fixed_sets_match_serial(self) -> None:
+        try:
+            with ProcessPoolExecutor(max_workers=1) as pool:
+                list(pool.map(int, ["1"]))
+        except PermissionError as exc:
+            self.skipTest(f"process pools unavailable in this sandbox: {exc}")
+        collection = self.root / "parallel-fixed-positiononly"
+        synthetic_collection(collection, spills=2, bpms=5)
+        cfg = small_config(collection)
+        cfg["subset_search"]["random_audit_samples"] = 16
+        out = self.root / "parallel_fixed"
+        build_manifest_outputs(cfg, out / "manifest")
+        build_spectral_cache(cfg, out / "manifest", out / "cache", "cpu", 1, False)
+        extract_per_bpm_features(cfg, out / "cache", out / "manifest", out / "per_bpm", workers=1)
+        build_consensus(cfg, out / "per_bpm", out / "consensus", out / "cache", workers=1)
+        search_best_bpm_subsets(cfg, out / "cache", out / "manifest", out / "per_bpm", out / "consensus", out / "subset_search", [1, 3], "cpu", 0, 1)
+        evaluate_fixed_sets(cfg, out, out / "fixed_serial", workers=1, subset_sizes=[1, 3])
+        evaluate_fixed_sets(cfg, out, out / "fixed_parallel", workers=2, subset_sizes=[1, 3])
+        for name in ("statistics/fixed_set_direct_evaluation.csv", "statistics/fixed_vs_dynamic_direct_summary.csv"):
+            self.assertEqual((out / "fixed_serial" / name).read_text(encoding="utf-8"), (out / "fixed_parallel" / name).read_text(encoding="utf-8"))
+        self.assertTrue((out / "fixed_parallel" / "progress" / "parent_status.json").exists())
+
+    def test_parallel_heldout_matches_serial(self) -> None:
+        try:
+            with ProcessPoolExecutor(max_workers=1) as pool:
+                list(pool.map(int, ["1"]))
+        except PermissionError as exc:
+            self.skipTest(f"process pools unavailable in this sandbox: {exc}")
+        collection = self.root / "parallel-heldout-positiononly"
+        synthetic_collection(collection, spills=2, bpms=5)
+        cfg = small_config(collection)
+        cfg["subset_search"]["random_audit_samples"] = 16
+        cfg["evolution"] = {"finalist_chunk_rows": 4}
+        cfg["heldout"] = {"chunk_rows": 4}
+        out = self.root / "parallel_heldout"
+        build_manifest_outputs(cfg, out / "manifest")
+        build_spectral_cache(cfg, out / "manifest", out / "cache", "cpu", 1, False)
+        extract_per_bpm_features(cfg, out / "cache", out / "manifest", out / "per_bpm", workers=1)
+        build_consensus(cfg, out / "per_bpm", out / "consensus", out / "cache", workers=1)
+        search_best_bpm_subsets(cfg, out / "cache", out / "manifest", out / "per_bpm", out / "consensus", out / "subset_search", [1, 3], "cpu", 0, 1)
+        evaluate_evolution(cfg, out / "subset_search", out / "evolution", out / "cache", out / "per_bpm", out / "manifest", workers=1)
+        evaluate_heldout_support(cfg, out, out / "heldout_serial", workers=1)
+        evaluate_heldout_support(cfg, out, out / "heldout_parallel", workers=2)
+        for name in ("evolution/finalist_heldout_spectral_support.csv", "evolution/heldout_spectral_support_summary.csv"):
+            self.assertEqual((out / "heldout_serial" / name).read_text(encoding="utf-8"), (out / "heldout_parallel" / name).read_text(encoding="utf-8"))
+        self.assertTrue((out / "heldout_parallel" / "evolution" / "heldout_progress" / "parent_status.json").exists())
+
     def test_best_bpm_verifier_reports_missing_outputs(self) -> None:
         out = self.root / "incomplete_best_bpm"
         out.mkdir()
@@ -323,6 +373,11 @@ class BestBpmMiningTests(unittest.TestCase):
         select_artifacts(cfg, out, out / "artifact_selection")
         make_artifacts(cfg, out, out / "artifact_selection" / "artifact_manifest.csv", out / "artifacts")
         make_report(cfg, out, out / "reports")
+        follow = out / "followups"
+        evaluate_fixed_sets(cfg, out, follow, workers=1, subset_sizes=[1, 3, 5])
+        evaluate_heldout_support(cfg, out, follow, workers=1, limit=16)
+        make_artifacts(cfg, out, out / "artifact_selection" / "artifact_manifest.csv", follow / "artifacts", workers=1)
+        run_handoff_analysis(cfg, out, follow, workers=1, limit=2)
 
         self.assertEqual(len(read_csv(out / "manifest" / "spills.csv")), 3)
         best1 = read_csv(out / "subset_search" / "best1" / "best1_results.csv")
@@ -344,6 +399,8 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertIn("Best-5 and best-10 are not globally exhaustive", report)
         verification = verify_best_bpm_outputs(out, subset_sizes=[1, 3, 5], write_outputs=False)
         self.assertEqual(verification["status"], "ok")
+        followup_verification = verify_best_bpm_followups(follow, write_outputs=False)
+        self.assertEqual(followup_verification["status"], "ok")
 
 
 if __name__ == "__main__":

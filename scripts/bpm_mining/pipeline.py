@@ -16,6 +16,9 @@ from .clustering import cluster_spills
 from .config import config_hash, load_config
 from .consensus import build_consensus
 from .evolution import evaluate_evolution
+from .fixed_sets import evaluate_fixed_sets
+from .heldout import evaluate_heldout_support
+from .handoff import run_handoff_analysis
 from .io import atomic_write_text, build_manifest_outputs, ensure_dir, write_csv
 from .peaks import extract_per_bpm_features
 from .plots import make_artifacts
@@ -240,9 +243,70 @@ def cmd_make_artifacts(argv: list[str] | None = None) -> None:
     parser.add_argument("--inputs", required=True)
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--out", required=True)
+    parser.add_argument("--workers", type=int, default=None)
     args = parser.parse_args(argv)
     cfg = load_config(args.config)
-    run_guarded("artifacts", cfg, Path(args.out).parent / "logs", args, lambda: make_artifacts(cfg, Path(args.inputs), Path(args.manifest), Path(args.out)))
+    workers = args.workers if args.workers is not None else int(cfg["runtime"].get("workers", 1))
+    run_guarded("artifacts", cfg, Path(args.out).parent / "logs", args, lambda: make_artifacts(cfg, Path(args.inputs), Path(args.manifest), Path(args.out), workers))
+
+
+def cmd_fixed_sets(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description="Evaluate fixed BPM sets directly from cached spectra")
+    add_common(parser)
+    parser.add_argument("--inputs", required=True, help="canonical Best-BPM run root")
+    parser.add_argument("--out", required=True, help="sidecar output root")
+    parser.add_argument("--workers", type=int, default=None)
+    parser.add_argument("--spectral-config", default=None)
+    parser.add_argument("--subset-sizes", nargs="+", type=int, default=[1, 3, 5])
+    args = parser.parse_args(argv)
+    cfg = load_config(args.config)
+    workers = args.workers if args.workers is not None else int(cfg["runtime"].get("workers", 1))
+    run_guarded(
+        "fixed_set_direct_evaluation",
+        cfg,
+        Path(args.out) / "logs",
+        args,
+        lambda: evaluate_fixed_sets(cfg, Path(args.inputs), Path(args.out), workers, args.limit, args.spectral_config, args.subset_sizes),
+    )
+
+
+def cmd_heldout(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description="Evaluate held-out spectral support for finalist rows")
+    add_common(parser)
+    parser.add_argument("--inputs", required=True, help="canonical Best-BPM run root")
+    parser.add_argument("--out", required=True, help="sidecar output root")
+    parser.add_argument("--workers", type=int, default=None)
+    parser.add_argument("--spectral-config", default=None)
+    parser.add_argument("--tune-half-width", type=float, default=0.0025)
+    args = parser.parse_args(argv)
+    cfg = load_config(args.config)
+    workers = args.workers if args.workers is not None else int(cfg["runtime"].get("workers", 1))
+    run_guarded(
+        "heldout_spectral_support",
+        cfg,
+        Path(args.out) / "logs",
+        args,
+        lambda: evaluate_heldout_support(cfg, Path(args.inputs), Path(args.out), workers, args.limit, args.spectral_config, args.tune_half_width),
+    )
+
+
+def cmd_handoff(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description="Analyze BPM tune-visibility handoff over turn windows")
+    add_common(parser)
+    parser.add_argument("--inputs", required=True, help="canonical Best-BPM run root")
+    parser.add_argument("--out", required=True, help="sidecar output root")
+    parser.add_argument("--workers", type=int, default=None)
+    parser.add_argument("--spectral-config", default=None)
+    args = parser.parse_args(argv)
+    cfg = load_config(args.config)
+    workers = args.workers if args.workers is not None else int(cfg["runtime"].get("workers", 1))
+    run_guarded(
+        "bpm_handoff",
+        cfg,
+        Path(args.out) / "logs",
+        args,
+        lambda: run_handoff_analysis(cfg, Path(args.inputs), Path(args.out), workers, args.limit, args.spectral_config),
+    )
 
 
 def cmd_report(argv: list[str] | None = None) -> None:
@@ -289,7 +353,7 @@ def cmd_pipeline(argv: list[str] | None = None) -> None:
             ("statistics", lambda: aggregate_statistics(cfg, root, root / "manifest", root / "statistics")),
             ("clustering", lambda: cluster_spills(cfg, root, root / "clustering")),
             ("artifact_selection", lambda: select_artifacts(cfg, root, root / "artifact_selection")),
-            ("artifacts", lambda: make_artifacts(cfg, root, root / "artifact_selection" / "artifact_manifest.csv", root / "artifacts")),
+            ("artifacts", lambda: make_artifacts(cfg, root, root / "artifact_selection" / "artifact_manifest.csv", root / "artifacts", workers)),
             ("report", lambda: make_report(cfg, root, root / "reports")),
         ]
         for step_name, step_fn in steps:
