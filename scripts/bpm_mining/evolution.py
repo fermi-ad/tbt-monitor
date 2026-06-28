@@ -8,7 +8,10 @@ the schema and visibility logic are already in place for that rerun.
 from __future__ import annotations
 
 import csv
+import json
 import math
+import time
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 import numpy as np
@@ -69,6 +72,8 @@ FINALIST_FIELDS = [
     "ridge_jump_fraction",
     "finite_fraction_visible_only",
 ]
+
+_EVOLUTION_WORKER_STATE: dict[str, object] = {}
 
 
 def result_files(subsets_dir: Path) -> list[Path]:
@@ -136,6 +141,63 @@ def finalist_candidates(subsets_dir: Path) -> list[dict[str, str]]:
     return [row for key in sorted(selected) for row in selected[key]]
 
 
+def chunked(rows: list[dict[str, str]], chunk_size: int) -> list[list[dict[str, str]]]:
+    size = max(1, int(chunk_size))
+    return [rows[idx : idx + size] for idx in range(0, len(rows), size)]
+
+
+def write_evolution_progress(
+    progress_dir: Path | None,
+    shard_id: int,
+    total_shards: int,
+    rows_total: int,
+    rows_completed: int,
+    started_unix: float,
+    status: str,
+    output_rows: int,
+    error: str | None = None,
+) -> None:
+    if progress_dir is None:
+        return
+    progress_dir.mkdir(parents=True, exist_ok=True)
+    now = time.time()
+    payload = {
+        "shard_id": shard_id,
+        "total_shards": total_shards,
+        "status": status,
+        "rows_total": rows_total,
+        "rows_completed": rows_completed,
+        "fraction_complete": rows_completed / max(1, rows_total),
+        "output_rows": output_rows,
+        "started_unix": started_unix,
+        "updated_unix": now,
+        "elapsed_seconds": now - started_unix,
+    }
+    if error:
+        payload["error"] = error
+    atomic_write_text(progress_dir / f"shard_{shard_id:03d}.json", json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+
+def write_parent_progress(progress_dir: Path | None, status: str, chunks_completed: int, chunks_total: int, rows_completed: int, rows_total: int, output_rows: int, started_unix: float) -> None:
+    if progress_dir is None:
+        return
+    progress_dir.mkdir(parents=True, exist_ok=True)
+    now = time.time()
+    payload = {
+        "status": status,
+        "chunks_completed": chunks_completed,
+        "chunks_total": chunks_total,
+        "rows_completed": rows_completed,
+        "rows_total": rows_total,
+        "fraction_complete": rows_completed / max(1, rows_total),
+        "output_rows": output_rows,
+        "started_unix": started_unix,
+        "updated_unix": now,
+        "elapsed_seconds": now - started_unix,
+    }
+    atomic_write_text(progress_dir / "parent_status.json", json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+
 def cache_lookup(cache_dir: Path, spectral_config: str) -> dict[tuple[str, str, str], dict[str, str]]:
     path = cache_dir / "index" / "spectral_cache.csv"
     if not path.exists():
@@ -165,6 +227,19 @@ def quality_weights(features_dir: Path) -> dict[tuple[str, str, str, int], float
             score = 0.05
         out[(row["collection"], row["spill_id"], row["plane"], int(row["bpm_index"]))] = math.sqrt(max(0.05, min(1.0, score)))
     return out
+
+
+def init_evolution_worker(spectral_config: str, cache_dir: str, features_dir: str, manifest_dir: str) -> None:
+    global _EVOLUTION_WORKER_STATE
+    cache_path = Path(cache_dir)
+    feature_path = Path(features_dir)
+    manifest_path = Path(manifest_dir)
+    _EVOLUTION_WORKER_STATE = {
+        "spectral_config": spectral_config,
+        "caches": cache_lookup(cache_path, spectral_config),
+        "name_index": bpm_name_to_index(manifest_path),
+        "weights_by_bpm": quality_weights(feature_path),
+    }
 
 
 def combine_spectra(selected: np.ndarray, aggregator: str, weights: np.ndarray | None = None) -> np.ndarray:
@@ -209,30 +284,37 @@ def score_evolution_windows(power: np.ndarray, tune_axis: np.ndarray, centers: n
     }
 
 
-def reevaluate_finalists(cfg: dict[str, object], subsets_dir: Path, cache_dir: Path, features_dir: Path, manifest_dir: Path) -> list[dict[str, object]]:
-    spectral_config = str(cfg.get("subset_search", {}).get("search_spectral_config", "early_4096_256"))
-    caches = cache_lookup(cache_dir, spectral_config)
-    name_index = bpm_name_to_index(manifest_dir)
-    weights_by_bpm = quality_weights(features_dir)
-    rows = []
-    for row in finalist_candidates(subsets_dir):
-        cache = caches.get((row["collection"], row["spill_id"], row["plane"]))
+def reevaluate_finalist_rows(
+    rows: list[dict[str, str]],
+    caches: dict[tuple[str, str, str], dict[str, str]],
+    name_index: dict[tuple[str, str], int],
+    weights_by_bpm: dict[tuple[str, str, str, int], float],
+) -> list[dict[str, object]]:
+    output_rows: list[dict[str, object]] = []
+    loaded: dict[tuple[str, str, str], tuple[np.ndarray, dict[int, int], np.ndarray, np.ndarray]] = {}
+    for row in rows:
+        cache_key = (row["collection"], row["spill_id"], row["plane"])
+        cache = caches.get(cache_key)
         if not cache:
             continue
-        bpm_indices = np.load(cache["bpm_indices_path"])
-        pos_by_index = {int(idx): pos for pos, idx in enumerate(bpm_indices)}
+        if cache_key not in loaded:
+            bpm_indices = np.load(cache["bpm_indices_path"])
+            pos_by_index = {int(idx): pos for pos, idx in enumerate(bpm_indices)}
+            spectra = np.load(cache["spectra_path"], mmap_mode="r")
+            tune_axis = np.load(cache["tune_axis_path"])
+            centers = np.load(cache["window_centers_path"])
+            loaded[cache_key] = (spectra, pos_by_index, tune_axis, centers)
+        spectra_all, pos_by_index, tune_axis, centers = loaded[cache_key]
         wanted = [name_index.get((row["plane"], name)) for name in row.get("bpm_members", "").split(",") if name]
         positions = [pos_by_index[idx] for idx in wanted if idx is not None and idx in pos_by_index]
         if not positions:
             continue
-        spectra = np.asarray(np.load(cache["spectra_path"], mmap_mode="r")[positions], dtype=np.float32)
-        tune_axis = np.load(cache["tune_axis_path"])
-        centers = np.load(cache["window_centers_path"])
+        spectra = np.asarray(spectra_all[positions], dtype=np.float32)
         w = np.asarray([weights_by_bpm.get((row["collection"], row["spill_id"], row["plane"], int(idx)), 1.0) for idx in wanted if idx is not None and idx in pos_by_index], dtype=np.float32)
         for aggregator in ("mean_power", "median_power", "trimmed_mean_10pct", "static_quality_weighted_mean"):
             combined = combine_spectra(spectra, aggregator, w)
             metrics = score_evolution_windows(combined, tune_axis, centers)
-            rows.append(
+            output_rows.append(
                 {
                     "collection": row["collection"],
                     "spill_id": row["spill_id"],
@@ -245,10 +327,98 @@ def reevaluate_finalists(cfg: dict[str, object], subsets_dir: Path, cache_dir: P
                     **{key: ("" if not math.isfinite(value) else f"{value:.9g}") for key, value in metrics.items()},
                 }
             )
-    return rows
+    return output_rows
 
 
-def evaluate_evolution(cfg: dict[str, object], subsets_dir: Path, out: Path, cache_dir: Path | None = None, features_dir: Path | None = None, manifest_dir: Path | None = None) -> None:
+def reevaluate_finalist_chunk(args: tuple[int, int, list[dict[str, str]], str | None]) -> tuple[int, int, list[dict[str, object]]]:
+    shard_id, total_shards, rows, progress_dir = args
+    started = time.time()
+    progress_path = Path(progress_dir) if progress_dir else None
+    write_evolution_progress(progress_path, shard_id, total_shards, len(rows), 0, started, "running", 0)
+    try:
+        output = reevaluate_finalist_rows(
+            rows,
+            _EVOLUTION_WORKER_STATE["caches"],  # type: ignore[arg-type]
+            _EVOLUTION_WORKER_STATE["name_index"],  # type: ignore[arg-type]
+            _EVOLUTION_WORKER_STATE["weights_by_bpm"],  # type: ignore[arg-type]
+        )
+    except BaseException as exc:
+        write_evolution_progress(progress_path, shard_id, total_shards, len(rows), 0, started, "failed", 0, repr(exc))
+        raise
+    write_evolution_progress(progress_path, shard_id, total_shards, len(rows), len(rows), started, "complete", len(output))
+    return shard_id, len(rows), output
+
+
+def reevaluate_finalists(
+    cfg: dict[str, object],
+    subsets_dir: Path,
+    cache_dir: Path,
+    features_dir: Path,
+    manifest_dir: Path,
+    workers: int | None = None,
+    progress_dir: Path | None = None,
+) -> list[dict[str, object]]:
+    spectral_config = str(cfg.get("subset_search", {}).get("search_spectral_config", "early_4096_256"))
+    candidates = finalist_candidates(subsets_dir)
+    runtime = cfg.get("runtime", {})
+    worker_count = max(1, int(workers if workers is not None else runtime.get("workers", 1) if isinstance(runtime, dict) else 1))
+    chunk_size = max(1, int(cfg.get("evolution", {}).get("finalist_chunk_rows", 512) if isinstance(cfg.get("evolution"), dict) else 512))
+    chunks = chunked(candidates, chunk_size)
+    started = time.time()
+    write_parent_progress(progress_dir, "running", 0, len(chunks), 0, len(candidates), 0, started)
+    if not candidates:
+        write_parent_progress(progress_dir, "complete", 0, 0, 0, 0, 0, started)
+        return []
+    if worker_count <= 1 or len(chunks) <= 1:
+        init_evolution_worker(spectral_config, str(cache_dir), str(features_dir), str(manifest_dir))
+        output = []
+        completed = 0
+        output_rows = 0
+        for idx, chunk in enumerate(chunks):
+            _, row_count, chunk_rows = reevaluate_finalist_chunk((idx, len(chunks), chunk, str(progress_dir) if progress_dir else None))
+            completed += row_count
+            output_rows += len(chunk_rows)
+            output.extend(chunk_rows)
+            write_parent_progress(progress_dir, "running", idx + 1, len(chunks), completed, len(candidates), output_rows, started)
+        write_parent_progress(progress_dir, "complete", len(chunks), len(chunks), completed, len(candidates), output_rows, started)
+        return output
+
+    tasks = [(idx, len(chunks), chunk, str(progress_dir) if progress_dir else None) for idx, chunk in enumerate(chunks)]
+    results_by_chunk: dict[int, list[dict[str, object]]] = {}
+    rows_by_chunk: dict[int, int] = {}
+    chunks_completed = 0
+    rows_completed = 0
+    output_rows = 0
+    with ProcessPoolExecutor(
+        max_workers=min(worker_count, len(chunks)),
+        initializer=init_evolution_worker,
+        initargs=(spectral_config, str(cache_dir), str(features_dir), str(manifest_dir)),
+    ) as pool:
+        futures = [pool.submit(reevaluate_finalist_chunk, task) for task in tasks]
+        for future in as_completed(futures):
+            shard_id, row_count, chunk_rows = future.result()
+            results_by_chunk[shard_id] = chunk_rows
+            rows_by_chunk[shard_id] = row_count
+            chunks_completed += 1
+            rows_completed += row_count
+            output_rows += len(chunk_rows)
+            write_parent_progress(progress_dir, "running", chunks_completed, len(chunks), rows_completed, len(candidates), output_rows, started)
+    write_parent_progress(progress_dir, "complete", len(chunks), len(chunks), sum(rows_by_chunk.values()), len(candidates), output_rows, started)
+    output: list[dict[str, object]] = []
+    for idx in sorted(results_by_chunk):
+        output.extend(results_by_chunk[idx])
+    return output
+
+
+def evaluate_evolution(
+    cfg: dict[str, object],
+    subsets_dir: Path,
+    out: Path,
+    cache_dir: Path | None = None,
+    features_dir: Path | None = None,
+    manifest_dir: Path | None = None,
+    workers: int | None = None,
+) -> None:
     rows = []
     for path in result_files(subsets_dir):
         if path.exists():
@@ -311,13 +481,16 @@ def evaluate_evolution(cfg: dict[str, object], subsets_dir: Path, out: Path, cac
     write_csv(out / "subset_size_comparison.csv", comparison_rows, SIZE_FIELDS)
     finalist_rows = []
     if cache_dir is not None and features_dir is not None and manifest_dir is not None:
-        finalist_rows = reevaluate_finalists(cfg, subsets_dir, cache_dir, features_dir, manifest_dir)
+        finalist_rows = reevaluate_finalists(cfg, subsets_dir, cache_dir, features_dir, manifest_dir, workers, out / "progress")
         write_csv(out / "finalist_reevaluation.csv", finalist_rows, FINALIST_FIELDS)
+    runtime = cfg.get("runtime", {})
+    worker_count = max(1, int(workers if workers is not None else runtime.get("workers", 1) if isinstance(runtime, dict) else 1))
     atomic_write_text(
         out / "evolution_summary.md",
         "# Subset Evolution Summary\n\n"
         f"- subset rows: `{len(summary_rows)}`\n"
         f"- finalist re-evaluation rows: `{len(finalist_rows)}`\n"
+        f"- workers: `{worker_count}`\n"
         "- finalist re-evaluation uses cached rolling spectra with mean, median, trimmed-mean, and static-quality-weighted aggregators.\n"
         "- full raw-buffer evolution remains a heavier follow-up path if the poster narrative needs windows beyond the cached early interval.\n",
     )

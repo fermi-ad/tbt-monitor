@@ -195,6 +195,22 @@ Output groups:
 Best-1 and best-3 are globally exhaustive over valid BPMs. Best-5 and best-10
 are exact searches inside screened pools with independent audit metadata.
 
+The finalist re-evaluation part of `evolution/` can run in parallel. The full
+pipeline passes `--workers` through to this stage and writes progress under
+`evolution/progress/`. To rerun only the evolution stage from existing subset
+search outputs:
+
+```bash
+/home/derekste/venvs/cupy-spark-cu13/bin/python scripts/evaluate_best_subset_evolution.py \
+  --config config/best_bpm_mining.yaml \
+  --subsets /home/derekste/best_bpm_mining/subset_search \
+  --cache /home/derekste/best_bpm_mining/cache \
+  --features /home/derekste/best_bpm_mining/per_bpm \
+  --manifest /home/derekste/best_bpm_mining/manifest \
+  --workers 4 \
+  --out /home/derekste/best_bpm_mining/evolution
+```
+
 ## GPU Telemetry
 
 Enable telemetry on autosweep or Best-BPM runs:

@@ -190,12 +190,15 @@ def cmd_evolution(argv: list[str] | None = None) -> None:
     parser.add_argument("--cache", default=None)
     parser.add_argument("--features", default=None)
     parser.add_argument("--manifest", default=None)
+    parser.add_argument("--workers", type=int, default=None)
     args = parser.parse_args(argv)
     cfg = load_config(args.config)
+    workers = args.workers if args.workers is not None else int(cfg["runtime"].get("workers", 1))
+    cfg.setdefault("runtime", {})["workers"] = workers
     cache_dir = Path(args.cache) if args.cache else None
     features_dir = Path(args.features) if args.features else None
     manifest_dir = Path(args.manifest) if args.manifest else None
-    run_guarded("evolution", cfg, Path(args.out).parent / "logs", args, lambda: evaluate_evolution(cfg, Path(args.subsets), Path(args.out), cache_dir, features_dir, manifest_dir))
+    run_guarded("evolution", cfg, Path(args.out).parent / "logs", args, lambda: evaluate_evolution(cfg, Path(args.subsets), Path(args.out), cache_dir, features_dir, manifest_dir, workers))
 
 
 def cmd_statistics(argv: list[str] | None = None) -> None:
@@ -282,7 +285,7 @@ def cmd_pipeline(argv: list[str] | None = None) -> None:
             ("per_bpm_features", lambda: extract_per_bpm_features(cfg, root / "cache", root / "manifest", root / "per_bpm", workers)),
             ("consensus", lambda: build_consensus(cfg, root / "per_bpm", root / "consensus", root / "cache", workers)),
             ("subset_search", lambda: search_best_bpm_subsets(cfg, root / "cache", root / "manifest", root / "per_bpm", root / "consensus", root / "subset_search", args.subset_sizes, device, args.limit, workers)),
-            ("evolution", lambda: evaluate_evolution(cfg, root / "subset_search", root / "evolution", root / "cache", root / "per_bpm", root / "manifest")),
+            ("evolution", lambda: evaluate_evolution(cfg, root / "subset_search", root / "evolution", root / "cache", root / "per_bpm", root / "manifest", workers)),
             ("statistics", lambda: aggregate_statistics(cfg, root, root / "manifest", root / "statistics")),
             ("clustering", lambda: cluster_spills(cfg, root, root / "clustering")),
             ("artifact_selection", lambda: select_artifacts(cfg, root, root / "artifact_selection")),

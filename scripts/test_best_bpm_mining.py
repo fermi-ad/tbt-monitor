@@ -273,6 +273,33 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertTrue((progress / "parent_status.json").exists())
         self.assertTrue(list(progress.glob("shard_*.json")))
 
+    def test_parallel_evolution_matches_serial(self) -> None:
+        try:
+            with ProcessPoolExecutor(max_workers=1) as pool:
+                list(pool.map(int, ["1"]))
+        except PermissionError as exc:
+            self.skipTest(f"process pools unavailable in this sandbox: {exc}")
+        collection = self.root / "parallel-evolution-positiononly"
+        synthetic_collection(collection, spills=2, bpms=4)
+        cfg = small_config(collection)
+        cfg["subset_search"]["random_audit_samples"] = 16
+        cfg["evolution"] = {"finalist_chunk_rows": 4}
+        out = self.root / "parallel_evolution"
+        build_manifest_outputs(cfg, out / "manifest")
+        build_spectral_cache(cfg, out / "manifest", out / "cache", "cpu", 1, False)
+        extract_per_bpm_features(cfg, out / "cache", out / "manifest", out / "per_bpm", workers=1)
+        build_consensus(cfg, out / "per_bpm", out / "consensus", out / "cache", workers=1)
+        search_best_bpm_subsets(cfg, out / "cache", out / "manifest", out / "per_bpm", out / "consensus", out / "subset_search", [1, 3], "cpu", 0, 1)
+        evaluate_evolution(cfg, out / "subset_search", out / "evolution_serial", out / "cache", out / "per_bpm", out / "manifest", workers=1)
+        evaluate_evolution(cfg, out / "subset_search", out / "evolution_parallel", out / "cache", out / "per_bpm", out / "manifest", workers=2)
+        for name in ("subset_evolution_windows.csv", "subset_evolution_summary.csv", "subset_size_comparison.csv", "finalist_reevaluation.csv"):
+            serial = (out / "evolution_serial" / name).read_text(encoding="utf-8")
+            parallel = (out / "evolution_parallel" / name).read_text(encoding="utf-8")
+            self.assertEqual(serial, parallel)
+        progress = out / "evolution_parallel" / "progress"
+        self.assertTrue((progress / "parent_status.json").exists())
+        self.assertTrue(list(progress.glob("shard_*.json")))
+
     def test_best_bpm_verifier_reports_missing_outputs(self) -> None:
         out = self.root / "incomplete_best_bpm"
         out.mkdir()
