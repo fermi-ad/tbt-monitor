@@ -33,9 +33,51 @@ None.
 
 ## In Progress
 
-None.
+### [ENG-021] Autosweep parallel runner and GPU telemetry
+- Status: in_progress
+- Owner: project
+- Type: perf
+- Why: Spark autosweep and Best-BPM runs need better host/GPU utilization and first-class accounting for GPU wall time, utilized GPU-hours, and power draw.
+- Scope: add `--parallel-jobs` to `scripts/run_autosweep.py`, keep serial default behavior, preserve deterministic run logs and timeout handling, add stdlib `scripts/gpu_run_telemetry.py`, and expose optional telemetry in autosweep and Best-BPM pipeline wrappers.
+- Acceptance: local tests cover parallel dry-run scheduling, timeout handling, and telemetry summaries; a Spark smoke with 2 concurrent autosweep jobs completes cleanly before GitHub issue #30 is closed.
+- Docs: README.md, docs/USAGE.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/ENGINEERING_BACKLOG.md
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/gpu_run_telemetry.py scripts/run_autosweep.py scripts/bpm_mining/pipeline.py scripts/test_autosweep.py scripts/test_best_bpm_mining.py; python3 scripts/test_autosweep.py; python3 scripts/test_best_bpm_mining.py
+- Notes: Spark two-job smoke is intentionally deferred until the current full Best-BPM run releases the GPU.
 
 ## Done
+
+### [ENG-024] Best-BPM follow-up validation sidecar stack
+- Status: done
+- Owner: project
+- Type: feature
+- Why: the verifier-clean best1/3/5 Spark run needed direct fixed-set validation, stronger held-out spectral support, poster-grade cache-backed artifacts, and tune-visibility handoff analysis without mutating canonical outputs.
+- Scope: add fixed-set, held-out, selected-artifact, and handoff passes with shared progress files, sidecar verification, Spark commands, and docs.
+- Acceptance: local tests cover serial/parallel equality and sidecar verification; Spark smoke and full sidecar runs complete under `/home/derekste/best_bpm_mining_20260627_best135_from_v2/followups/next_steps_20260628`.
+- Docs: NEXT_STEPS.md, docs/SPARK.md, docs/PHYSICS.md, docs/ENGINEERING_BACKLOG.md
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/*.py scripts/evaluate_fixed_bpm_sets.py scripts/evaluate_heldout_spectral_support.py scripts/run_bpm_handoff_analysis.py scripts/test_best_bpm_mining.py; PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; Spark follow-up verifier passed for `/home/derekste/best_bpm_mining_20260627_best135_from_v2/followups/next_steps_20260628`
+- Notes: canonical Spark run outputs stayed read-only; follow-up outputs were written sidecar-first.
+
+### [ENG-023] Subsystem documentation rework
+- Status: done
+- Owner: project
+- Type: docs
+- Why: the README and detailed command docs had grown back into a mixed landing page, DAQ guide, analysis guide, Spark runbook, and operations reference.
+- Scope: keep `README.md` concise, add subsystem guides for DAQ, Rust analysis chains, Spark workflows, and operations, and update cross-references so `docs/USAGE.md` remains the exact command reference.
+- Acceptance: README is a short entry point; subsystem docs provide clear ownership for DAQ/capture, analysis chains, Spark/offline mining, and operations; existing detailed docs link to the new structure; markdown links validate locally.
+- Docs: README.md, docs/DAQ.md, docs/ANALYSIS_CHAINS.md, docs/SPARK.md, docs/OPERATIONS.md, docs/USAGE.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/ENGINEERING_BACKLOG.md
+- Validation: python3 /tmp/check_tbt_doc_links.py
+- Notes: docs-only change; no runtime behavior or output schemas changed.
+
+### [ENG-022] Best-BPM 2000-spill mining pipeline
+- Status: done
+- Owner: project
+- Type: feature
+- Why: the poster narrative needs a defensible BPM-only study of which individual and small BPM subsets most consistently recover tune information in the 2000 unlabeled Spark spills.
+- Scope: add `scripts/bpm_mining/`, pass wrappers, default config, exact best-1/best-3 search, screened audited best-5 search, per-BPM consensus/features, global statistics, clustering, artifact selection, plots, final reports, Spark parallel worker controls, live subset-search progress files, and output verification.
+- Acceptance: the pipeline writes every required output group from `BEST_BPM_2000_SPILL_MINING_IMPLEMENTATION_PLAN.md`, passes synthetic unit/smoke tests, completes the focused best1/3/5 Spark run over the two Tier A collections using parallel workers, and passes `scripts/verify_best_bpm_outputs.py`.
+- Docs: README.md, docs/USAGE.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/*.py scripts/verify_best_bpm_outputs.py scripts/test_best_bpm_mining.py; PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; Spark verifier passed for `/home/derekste/best_bpm_mining_20260627_best135_from_v2`
+- Notes: best-10 remains deferred; completed reports must not imply it was run.
 
 ### [ENG-019] Make captured-artifact quality the primary capture UX
 - Status: done

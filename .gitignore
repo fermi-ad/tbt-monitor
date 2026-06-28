@@ -13,6 +13,7 @@ __pycache__/
 # Runtime outputs
 /out/
 /poster-artifacts/
+/best_bpm_mining/
 /.devspace-local/
 *.png
 *.csv

@@ -5,6 +5,9 @@ standalone tool layer around collected `tbt-monitor` artifacts. It is
 complementary to the Rust acquisition and tune-analysis commands; it does not
 replace live capture, online monitoring, or captured-bundle reanalysis.
 
+For the current subsystem-level Spark entry point, including raw GPU analysis,
+autosweep, Best-BPM mining, and telemetry, see [Spark Workflows](SPARK.md).
+
 This phase is BPM-only. Do not add Schottky comparison, Schottky labels, or
 Schottky validation products to these poster outputs.
 
@@ -259,6 +262,8 @@ python3 scripts/run_autosweep.py \
   --spills 200 \
   --max-configs 300 \
   --device cuda \
+  --parallel-jobs 2 \
+  --gpu-telemetry-interval-seconds 30 \
   --out /home/derekste/tbt-spills-2000-autosweep/pilot
 ```
 
@@ -290,6 +295,8 @@ python3 scripts/run_autosweep.py \
   --device cuda \
   --heavy-plots \
   --job-timeout-seconds 900 \
+  --parallel-jobs 2 \
+  --gpu-telemetry-interval-seconds 30 \
   --out /home/derekste/tbt-spills-2000-autosweep/elite-full
 python3 scripts/rank_autosweep_results.py \
   --autosweep-dir /home/derekste/tbt-spills-2000-autosweep/elite-full \
@@ -303,6 +310,12 @@ roles (`top_physics`, `top10_robust`, `median_or_trimmed`,
 `baseline_mean`), adds a poster-safe best-poster config, and preserves
 rejected/flagged pilot rows in diagnostics. Full mode consumes the supplied
 config list exactly.
+
+Parallel autosweep execution is opt-in with `--parallel-jobs`; use 2 as the
+initial Spark setting and increase to 3-4 only after telemetry shows remaining
+headroom. Each analyzer job writes into its own config/view directory, and the
+run log remains sorted by deterministic job id. `--gpu-telemetry-interval-seconds`
+records run-level GPU samples and summaries under `logs/`.
 
 The score formula is fixed:
 
@@ -323,6 +336,9 @@ Required autosweep outputs are:
 - `dataset_manifest.csv`, `spill_health.csv`, `spill_cache_index.json`,
   `dataset_summary.md`
 - `autosweep_config_grid.csv`, `autosweep_run_log.csv`
+- optional `logs/gpu_telemetry.csv`,
+  `logs/gpu_telemetry_summary.json`, and
+  `logs/gpu_telemetry_summary.md`
 - `autosweep_spill_scores.csv`, `autosweep_config_scores.csv`,
   `autosweep_collection_scores.csv`
 - `autosweep_ranked_configs.csv`, `autosweep_ranked_spills.csv`,
@@ -335,6 +351,71 @@ Required autosweep outputs are:
   `elite_rejected_config_diagnostics.csv`, `elite_full_summary.md`,
   `elite_artifacts_manifest.csv`, and `poster_candidate_gallery/`
 
+## Best-BPM 2000-Spill Mining
+
+`BEST_BPM_2000_SPILL_MINING_IMPLEMENTATION_PLAN.md` is implemented as a
+separate BPM-only mining layer under `scripts/bpm_mining/` with thin pass
+wrappers. It is designed for the same two Tier A Spark position-only
+collections and does not assume constant tune, chronological tune trend, or an
+external truth label.
+
+Run the full pipeline on Spark:
+
+```bash
+/home/derekste/venvs/cupy-spark-cu13/bin/python scripts/run_best_bpm_pipeline.py \
+  --config config/best_bpm_mining.yaml \
+  --out /home/derekste/best_bpm_mining \
+  --device cuda \
+  --workers 12 \
+  --resume
+```
+
+Individual passes are also available:
+
+```bash
+python3 scripts/build_best_bpm_manifest.py --config config/best_bpm_mining.yaml --out best_bpm_mining/manifest
+python3 scripts/build_bpm_spectral_cache.py --config config/best_bpm_mining.yaml --manifest best_bpm_mining/manifest/spills.csv --out best_bpm_mining/cache --device cuda --workers 4 --resume
+python3 scripts/extract_per_bpm_features.py --config config/best_bpm_mining.yaml --cache best_bpm_mining/cache --manifest best_bpm_mining/manifest --out best_bpm_mining/per_bpm --workers 12
+python3 scripts/build_spill_tune_consensus.py --config config/best_bpm_mining.yaml --features best_bpm_mining/per_bpm --cache best_bpm_mining/cache --out best_bpm_mining/consensus --workers 12
+python3 scripts/search_best_bpm_subsets.py --config config/best_bpm_mining.yaml --cache best_bpm_mining/cache --manifest best_bpm_mining/manifest --features best_bpm_mining/per_bpm --consensus best_bpm_mining/consensus --subset-sizes 1 3 5 10 --out best_bpm_mining/subset_search --workers 12 --resume
+python3 scripts/evaluate_best_subset_evolution.py --config config/best_bpm_mining.yaml --subsets best_bpm_mining/subset_search --cache best_bpm_mining/cache --features best_bpm_mining/per_bpm --manifest best_bpm_mining/manifest --out best_bpm_mining/evolution
+python3 scripts/aggregate_best_bpm_statistics.py --config config/best_bpm_mining.yaml --inputs best_bpm_mining --out best_bpm_mining/statistics
+python3 scripts/cluster_spill_morphologies.py --config config/best_bpm_mining.yaml --inputs best_bpm_mining --out best_bpm_mining/clustering
+python3 scripts/select_best_bpm_artifacts.py --config config/best_bpm_mining.yaml --inputs best_bpm_mining --out best_bpm_mining/artifact_selection
+python3 scripts/make_best_bpm_artifacts.py --config config/best_bpm_mining.yaml --inputs best_bpm_mining --manifest best_bpm_mining/artifact_selection/artifact_manifest.csv --out best_bpm_mining/artifacts
+python3 scripts/make_best_bpm_report.py --config config/best_bpm_mining.yaml --inputs best_bpm_mining --out best_bpm_mining/reports
+python3 scripts/verify_best_bpm_outputs.py --root best_bpm_mining
+```
+
+The scope statement in the final report is intentional:
+
+- best-1 and best-3 are globally exhaustive over valid BPMs in each
+  spill/plane.
+- best-5 and best-10 are exact searches within data-driven screened pools.
+- best-5 and best-10 also run independent beam/random full-space audits and
+  report whether the pool was expanded.
+- per-spill consensus is an internal unsupervised reference, not ground truth.
+- expected H near `0.65` and V near `0.72` are soft priors only.
+- finalist re-evaluation compares mean power, median power, trimmed mean, and
+  static-quality-weighted mean on cached rolling spectra before report
+  generation.
+
+Required outputs are grouped under `best_bpm_mining/manifest`, `cache`,
+`per_bpm`, `consensus`, `subset_search`, `evolution`, `statistics`,
+`clustering`, `artifact_selection`, `artifacts`, `logs`, and `reports`.
+Long subset-search runs also write `subset_search/progress/shard_*.json` and
+`subset_search/progress/parent_status.json` so a monitor can distinguish
+normal compute from a stall before final merged CSVs appear. The verifier
+writes `logs/best_bpm_verification.json` and
+`logs/best_bpm_verification_report.md` and exits nonzero when required outputs
+are missing or structurally invalid.
+`statistics/paired_method_tests.csv` includes paired bootstrap confidence
+intervals, sign-flip permutation p-values, Benjamini-Hochberg q-values, and
+rank-biserial effect sizes for subset-size comparisons.
+Artifact selection is capped by plane and includes clean consensus, best-subset
+improvement, fixed/dynamic agreement and disagreement, multimodal, low-signal,
+and cluster-representative spill-plane examples.
+
 ## Validation
 
 Run the built-in smoke test:
@@ -343,6 +424,9 @@ Run the built-in smoke test:
 python3 scripts/bpm_dgx_poster.py --self-test
 python3 scripts/gpu_analyze_captured_spills.py --self-test
 python3 scripts/test_autosweep.py
+python3 scripts/test_best_bpm_mining.py
+python3 scripts/verify_best_bpm_outputs.py --root /path/to/best_bpm_mining
+python3 scripts/gpu_run_telemetry.py summarize --input /path/to/gpu_telemetry.csv --summary-json /tmp/gpu_telemetry_summary.json
 ```
 
 The smoke test uses synthetic ranked artifacts and verifies that the full

@@ -1,0 +1,85 @@
+{
+  "data": {
+    "collections": [
+      "/home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-183119",
+      "/home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-231330"
+    ]
+  },
+  "physics": {
+    "expected_tune_h": 0.65,
+    "expected_tune_v": 0.72,
+    "discovery_band_h": [0.60, 0.70],
+    "discovery_band_v": [0.67, 0.75]
+  },
+  "integrity": {
+    "minimum_turns": 2048,
+    "constant_epsilon": 1e-9,
+    "clip_fraction": 0.02,
+    "extreme_rms": 1000000.0
+  },
+  "spectra": {
+    "nfft_padding_factor": 2,
+    "primary_method": "hann",
+    "cache_dtype": "float16",
+    "configs": [
+      {"name": "injection_2048", "turn_start": 0, "window_turns": 2048},
+      {"name": "injection_4096", "turn_start": 0, "window_turns": 4096},
+      {"name": "early_2048_256", "turn_start": 0, "turn_end": 10000, "window_turns": 2048, "stride_turns": 256},
+      {"name": "early_4096_256", "turn_start": 0, "turn_end": 15000, "window_turns": 4096, "stride_turns": 256}
+    ]
+  },
+  "peak_finding": {
+    "max_peaks": 3,
+    "min_peak_distance_bins": 3,
+    "local_background_half_width_bins": 15,
+    "exclude_peak_half_width_bins": 3
+  },
+  "consensus": {
+    "min_unique_bpms": 3,
+    "bootstrap_samples": 200,
+    "cluster_eps_min": 0.0015
+  },
+  "subset_search": {
+    "search_spectral_config": "early_4096_256",
+    "max_search_turn": 10000,
+    "max_search_windows": 16,
+    "best3_keep": 256,
+    "best5_pool_size": 20,
+    "best5_keep": 128,
+    "best10_pool_size": 18,
+    "best10_keep": 64,
+    "subset_chunk_size": 4096,
+    "cuda_workers": 4,
+    "beam_width": 512,
+    "random_audit_samples": 10000,
+    "audit_improvement_threshold": 0.01
+  },
+  "evolution": {
+    "window_turns": 4096,
+    "stride_turns": 256,
+    "secondary_window_turns": 2048,
+    "secondary_stride_turns": 128
+  },
+  "statistics": {
+    "bootstrap_samples": 2000,
+    "permutation_samples": 10000,
+    "fdr_alpha": 0.05,
+    "shapley_like_permutations": 5000
+  },
+  "artifacts": {
+    "max_spills_per_plane": 40
+  },
+  "gpu": {
+    "spill_batch_size": 8,
+    "window_batch_size": 64,
+    "dtype_input": "float32",
+    "dtype_cache": "float16"
+  },
+  "runtime": {
+    "device": "cuda",
+    "spill_batch_size": 8,
+    "workers": 4,
+    "random_seed": 20260614,
+    "resume": true
+  }
+}

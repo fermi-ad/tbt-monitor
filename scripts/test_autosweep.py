@@ -11,6 +11,7 @@ from pathlib import Path
 import build_collection_manifest
 import build_elite_full_stage
 import build_spill_cache
+import gpu_run_telemetry
 import gpu_analyze_captured_spills
 import make_elite_full_summary
 import make_initial_analysis_summary
@@ -95,12 +96,51 @@ class AutosweepScriptTests(unittest.TestCase):
                 "--out",
                 str(run_out),
                 "--dry-run",
+                "--parallel-jobs",
+                "2",
             ]
         )
         rows = read_csv(run_out / "autosweep_run_log.csv")
         self.assertTrue(rows)
         self.assertTrue(any(row["status"] in {"dry_run", "skipped"} for row in rows))
         self.assertTrue((run_out / "autosweep_config_grid.csv").exists())
+
+    def test_gpu_telemetry_summary(self) -> None:
+        telemetry = self.root / "gpu_telemetry.csv"
+        with telemetry.open("w", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=gpu_run_telemetry.GPU_TELEMETRY_FIELDS)
+            writer.writeheader()
+            writer.writerow(
+                {
+                    "epoch": "100",
+                    "iso_time": "1970-01-01T00:01:40+0000",
+                    "gpu_timestamp": "1970/01/01 00:01:40",
+                    "gpu_index": "0",
+                    "gpu_name": "TEST",
+                    "utilization_gpu_pct": "50",
+                    "utilization_memory_pct": "10",
+                    "power_draw_w": "100",
+                    "compute_apps": "1, python, 100",
+                }
+            )
+            writer.writerow(
+                {
+                    "epoch": "130",
+                    "iso_time": "1970-01-01T00:02:10+0000",
+                    "gpu_timestamp": "1970/01/01 00:02:10",
+                    "gpu_index": "0",
+                    "gpu_name": "TEST",
+                    "utilization_gpu_pct": "100",
+                    "utilization_memory_pct": "20",
+                    "power_draw_w": "200",
+                    "compute_apps": "1, python, 100",
+                }
+            )
+        summary = gpu_run_telemetry.write_summary(telemetry, self.root / "gpu_summary.json", self.root / "gpu_summary.md")
+        self.assertEqual(summary.sample_count, 2)
+        self.assertAlmostEqual(summary.average_gpu_utilization_pct, 75.0)
+        self.assertTrue((self.root / "gpu_summary.json").exists())
+        self.assertTrue((self.root / "gpu_summary.md").exists())
 
     def test_full_mode_uses_exact_config_list(self) -> None:
         out = self.root / "stage0"

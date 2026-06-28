@@ -1,8 +1,11 @@
 # Usage Guide
 
-This guide covers the command workflows for `tbt-monitor-tui`. Use
-`docs/CONFIG_REFERENCE.md` for config keys and `docs/ARCHITECTURE.md` for data
-flow, synchronization policy, and artifact schema details.
+This is the command reference for `tbt-monitor-tui`. For task-oriented guides,
+start with [DAQ Guide](DAQ.md), [Analysis Chains](ANALYSIS_CHAINS.md),
+[Spark Workflows](SPARK.md), or [Operations](OPERATIONS.md). Use
+[Config Reference](CONFIG_REFERENCE.md) for config keys and
+[Architecture](ARCHITECTURE.md) for data flow, synchronization policy, and
+artifact schema details.
 
 ## Command Matrix
 
@@ -508,6 +511,8 @@ python3 scripts/run_autosweep.py \
   --spills 200 \
   --max-configs 300 \
   --device cuda \
+  --parallel-jobs 2 \
+  --gpu-telemetry-interval-seconds 30 \
   --out /home/derekste/tbt-spills-2000-autosweep/pilot
 ```
 
@@ -545,6 +550,8 @@ python3 scripts/run_autosweep.py \
   --device cuda \
   --heavy-plots \
   --job-timeout-seconds 900 \
+  --parallel-jobs 2 \
+  --gpu-telemetry-interval-seconds 30 \
   --out /home/derekste/tbt-spills-2000-autosweep/elite-full
 python3 scripts/rank_autosweep_results.py \
   --autosweep-dir /home/derekste/tbt-spills-2000-autosweep/elite-full \
@@ -565,12 +572,93 @@ Autosweep outputs include `dataset_manifest.csv`, `spill_health.csv`,
 `elite_rejected_config_diagnostics.csv`, `elite_full_summary.md`,
 `elite_artifacts_manifest.csv`, and `poster_candidate_gallery/`.
 
+`run_autosweep.py` runs serially by default. Use `--parallel-jobs 2` to start
+conservatively on Spark, then try 3-4 if GPU telemetry shows the device is still
+underused. The scheduler runs independent config/view jobs concurrently while
+keeping each job in its isolated `jobs/<config_hash>/<view>/` directory. It also
+keeps at most one active view per config so a timed-out config can still mark
+later views as `prior_view_too_slow`.
+
+Use `--gpu-telemetry-interval-seconds 30` to record run-level GPU utilization,
+active compute PIDs, and power draw to `logs/gpu_telemetry.csv`. The runner
+writes `logs/gpu_telemetry_summary.json` and
+`logs/gpu_telemetry_summary.md` after the run. The same CSV can be summarized
+later with:
+
+```bash
+python3 scripts/gpu_run_telemetry.py summarize \
+  --input /home/derekste/tbt-spills-2000-autosweep/pilot/logs/gpu_telemetry.csv \
+  --summary-json /home/derekste/tbt-spills-2000-autosweep/pilot/logs/gpu_telemetry_summary.json \
+  --summary-md /home/derekste/tbt-spills-2000-autosweep/pilot/logs/gpu_telemetry_summary.md
+```
+
 `scripts/bootstrap_spark_env.sh` can create a minimal optional venv, but the
 scripts intentionally avoid pandas, scipy, pyarrow, and zarr. NumPy is required;
 CuPy is optional for GPU execution.
 
 See `docs/POSTER_ANALYSIS.md` for the phase-by-phase script layout and output
 inventory.
+
+## Best-BPM Mining
+
+Use the Best-BPM mining pipeline when the question is not which analyzer config
+is best, but which BPM subsets carry the most defensible within-spill tune
+evidence. The pipeline consumes raw captured position bundles, caches per-BPM
+spectra, builds within-spill consensus clusters, searches best 1/3/5/10 BPM
+subsets, computes global/fixed/dynamic statistics, clusters spill morphologies,
+selects review artifacts, and writes final reports.
+
+```bash
+/home/derekste/venvs/cupy-spark-cu13/bin/python scripts/run_best_bpm_pipeline.py \
+  --config config/best_bpm_mining.yaml \
+  --out /home/derekste/best_bpm_mining \
+  --device cuda \
+  --workers 12 \
+  --resume \
+  --gpu-telemetry-interval-seconds 30
+```
+
+Verify that a completed output directory satisfies the expected artifact
+contract:
+
+```bash
+/home/derekste/venvs/cupy-spark-cu13/bin/python scripts/verify_best_bpm_outputs.py \
+  --root /home/derekste/best_bpm_mining
+```
+
+Use `--limit` for a Spark smoke test and `--workers` to fan out per-spill
+manifest/integrity checks, sharded per-BPM peak extraction, and cache-backed
+consensus clustering. Subset search can also shard spill/plane rows, with the
+CUDA path capped by `subset_search.cuda_workers` to avoid oversubscribing one
+GPU. During subset search, each worker writes
+`subset_search/progress/shard_*.json` and parent merge status in
+`subset_search/progress/parent_status.json`; these files are live progress
+telemetry, not physics outputs. Single-GPU
+FFT/cache construction intentionally uses one CuPy worker to avoid multiple
+independent CUDA contexts, and subset scoring still uses the CUDA path. The
+default config is JSON-compatible YAML so the Spark runtime only needs stdlib
+plus NumPy/CuPy.
+
+Main outputs:
+
+- `manifest/spills.csv`, `manifest/bpm_index.csv`,
+  `manifest/channels.csv`, `manifest/rejections.csv`
+- `cache/index/spectral_cache.csv` and per-spill `.npy` spectra
+- `per_bpm/per_bpm_*features.csv`
+- `consensus/spill_consensus_*.csv`
+- `subset_search/best1`, `best3`, `best5`, `best10`, and
+  `subset_search/audit_results.csv`
+- `subset_search/progress/*.json` for long-run progress/merge visibility
+- `evolution/subset_evolution_*.csv` and
+  `evolution/finalist_reevaluation.csv`
+- `statistics/*.csv`, `clustering/*.csv`,
+  `artifact_selection/artifact_manifest.csv`
+- `artifacts/global/*.png`, selected per-spill plots, and
+  `reports/strong_bpm_analysis_summary.md`
+- `logs/best_bpm_verification.json` and
+  `logs/best_bpm_verification_report.md` when the verifier is run
+- `logs/gpu_telemetry.csv`, `logs/gpu_telemetry_summary.json`, and
+  `logs/gpu_telemetry_summary.md` when GPU telemetry is enabled
 
 ## Timing Semantics
 

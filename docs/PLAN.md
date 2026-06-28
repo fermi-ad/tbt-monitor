@@ -202,7 +202,8 @@ Implemented pieces:
   range, plane, BPM combination, BPM normalization, detrending, DC handling,
   and H/V ridge-anchor priors.
 - `scripts/run_autosweep.py`: deterministic baseline/factor/pilot/full runner
-  with config hashes, manifest lists, resume/cached detection, and run logs.
+  with config hashes, manifest lists, resume/cached detection, run logs,
+  opt-in parallel config/view execution, and optional GPU telemetry summaries.
 - `scripts/rank_autosweep_results.py`: required weighted scores, spill/config
   labels, ranked spill/config/collection tables, rejected configs, and
   `top_configs_for_full.csv`.
@@ -231,12 +232,47 @@ Spill labels are `GOOD`, `MARGINAL`, `BAD`, `NO_SIGNAL`,
 `PROMISING`, `EXPLORATORY`, `REJECTED`, `TOO_SLOW`, `OVERFITS_BAND`,
 `UNSTABLE_H`, and `UNSTABLE_V`.
 
+## Best-BPM 2000-Spill Mining
+
+Status: `In Progress`
+
+`BEST_BPM_2000_SPILL_MINING_IMPLEMENTATION_PLAN.md` is being implemented as
+`scripts/bpm_mining/` plus pass wrappers. The pipeline mines the two Tier A
+Spark position-only collections without assuming a fixed tune, monotonic
+chronological trend, or external tune truth.
+
+Implemented structure:
+
+- manifest/integrity pass with stable plane-local BPM indices and explicit
+  channel rejection flags
+- GPU/CPU spectral-cache pass with resumable per-spill `.npy` products and
+  parallel workers
+- sharded per-BPM peak feature extraction and cache-backed within-spill tune
+  consensus clustering
+- row-sharded exact best-1 and best-3 enumeration over valid BPMs
+- row-sharded screened-pool best-5 and best-10 enumeration with beam/random
+  audit records, live per-shard progress JSON, and a bounded CUDA worker pool
+- evolution/statistics/clustering/artifact/report outputs matching the plan
+  layout, including cache-backed finalist re-evaluation across robust spectrum
+  aggregators and paired bootstrap/permutation/FDR subset-size comparisons
+- `verify_best_bpm_outputs.py` checks required output groups, CSV schemas,
+  row counts where practical, global/per-spill artifacts, and final reports
+  before a Spark run is treated as complete
+
+Current documented implementation choice to revisit:
+
+- Full-buffer rolling evolution is represented by the same output schema, but
+  v1 uses cached early rolling spectra unless a longer raw/full-buffer path is
+  explicitly run. This keeps the pass runnable on Spark while preserving a clear
+  path to the more expensive full-buffer rerun.
+
 ## Next Milestones
 
 Post-split analysis refinement:
 
-1. Run the elite full-data autosweep package on Spark over the usable Tier A
-   manifest and review `elite_full_summary.md`.
+1. Run the Best-BPM mining pipeline on Spark over the usable Tier A collections
+   and verify the output directory with `scripts/verify_best_bpm_outputs.py`
+   before reviewing `reports/strong_bpm_analysis_summary.md`.
 2. Add explicit spectral-coherence and clipping diagnostics to production
    analysis summaries when the autosweep identifies stable criteria.
 3. Export peak-width and uncertainty-oriented metrics in summaries/CSV.

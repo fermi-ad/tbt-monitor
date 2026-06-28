@@ -18,7 +18,7 @@ Redis BPM streams
 → physics review and poster figures
 ```
 
-The immediate active work is the focused Spark Best-BPM mining run over the 2000-spill Tier A position-only dataset. This is not a generic autosweep anymore. It is a targeted search for tune-sensitive BPMs and small BPM subsets.
+The immediate active data product is the focused Spark Best-BPM mining run over the 2000-spill Tier A position-only dataset. This is not a generic autosweep anymore. It is a targeted search for tune-sensitive BPMs and small BPM subsets.
 
 Current run root:
 
@@ -43,28 +43,170 @@ The restart reuses expensive outputs from the earlier run:
 /home/derekste/best_bpm_mining_20260624_full_v2/consensus
 ```
 
-Do not kill, restart, or mutate the Spark run without explicit user approval.
+Do not delete, overwrite, or broadly mutate Spark run outputs without explicit user approval. Follow-up passes should write sidecar outputs first unless the user asks to update the canonical run tree.
 
-## Current Spark Status Check
+## Current Spark Completion Check
 
-A lightweight status check at approximately 2026-06-27 11:31 CDT showed:
+A bounded read-only Spark check on 2026-06-27 21:04 CDT showed that the focused run completed and passed verification.
 
-```text
-phase: subset_search
-progress: 531 / 4000 shard rows
-fraction complete: 0.13275
-GPU: NVIDIA GB10, ~96% utilization
-workers: 4 active workers at ~100% CPU each
-run root disk usage: 56K at this phase
-```
-
-The run looked healthy. Progress is tracked in:
+Run root:
 
 ```text
-/home/derekste/best_bpm_mining_20260627_best135_from_v2/subset_search/progress/shard_*.json
+/home/derekste/best_bpm_mining_20260627_best135_from_v2
 ```
 
-Use the current Spark status command from `docs/CURRENT_STATUS.md` if checking again. Keep checks bounded and read-only.
+Progress summary:
+
+```text
+subset_search: ok, about 33908 s
+shard progress: 4000 / 4000 rows complete
+evolution: ok, about 727 s
+statistics: ok
+clustering: ok
+artifact_selection: ok
+artifacts: ok
+report: ok
+verify: ok
+```
+
+Verification summary:
+
+```text
+status: ok
+failures: 0
+warnings: 0
+subset sizes: 1, 3, 5
+spills inventoried: 2000
+usable spills: 2000
+BPM index rows: 120
+subset rows: best1=4000, best3=4000, best5=4000
+finalist reevaluation rows: 799988
+selected poster-review spill-plane artifacts: 79
+run root size: about 1.1 GiB
+```
+
+Important output locations:
+
+```text
+reports/strong_bpm_executive_summary.md
+reports/strong_bpm_analysis_summary.md
+logs/best_bpm_verification_report.md
+statistics/paired_method_tests.csv
+statistics/bpm_global_statistics.csv
+statistics/bpm_rank_stability.csv
+statistics/subset_size_pareto.csv
+evolution/finalist_reevaluation.csv
+artifact_selection/artifact_manifest.csv
+artifacts/global/
+artifacts/spills/
+```
+
+The run is no longer the bottleneck. The next phase is interpretation, physics validation, and poster-grade figure generation.
+
+## Latest Results Interpretation
+
+The completed best1/3/5 run gives a clear direction.
+
+### Subset size result
+
+Paired method tests show strong improvements from adding BPMs:
+
+```text
+H best1 → best3: median score improvement ≈ 0.0392, effect size ≈ 0.999
+H best3 → best5: median score improvement ≈ 0.0101, effect size ≈ 0.753
+V best1 → best3: median score improvement ≈ 0.0542, effect size ≈ 1.000
+V best3 → best5: median score improvement ≈ 0.0285, effect size ≈ 0.930
+```
+
+Interpretation:
+
+- best3 clearly beats best1 in both planes,
+- best5 still improves over best3, especially in V,
+- the poster should emphasize **small tune-sensitive BPM ensembles**, not just one magic BPM,
+- best10 should remain deferred until best5 results are understood and properly visualized.
+
+### Plane asymmetry
+
+The subset-size Pareto table shows:
+
+```text
+H median visible_fraction: 0.0 for best1, best3, best5
+V median visible_fraction: 0.0 for best1, 0.3125 for best3, 0.625 for best5
+```
+
+Interpretation:
+
+- V is much more ready for a strong physics/poster claim,
+- H still has useful ranking structure but weak visibility under the current thresholds,
+- do not force H and V into the same conclusion,
+- H likely needs better visibility thresholds, stronger held-out spectral validation, or tuned deconstruction review.
+
+### BPM rank stability
+
+Collection-to-collection rank stability is encouraging:
+
+```text
+H Spearman ≈ 0.752, Kendall ≈ 0.582
+V Spearman ≈ 0.904, Kendall ≈ 0.763
+```
+
+Interpretation:
+
+- BPM quality is not random,
+- V BPM ranking is especially stable,
+- fixed or semi-fixed tune-sensitive BPM sets are plausible,
+- direct fixed-set spectral evaluation is now the highest-value follow-up.
+
+### Leading BPMs
+
+The same BPM appears near the top for both planes:
+
+```text
+acsys_DeliveryRingBPM 10.200.22.62
+```
+
+Top-1 frequency is modest, roughly 6%, which means no single BPM dominates the full dataset. That supports the ensemble story: tune visibility appears distributed across a population of useful BPMs, not controlled by one channel.
+
+### Consensus quality
+
+Within-spill consensus class counts were:
+
+```text
+CLEAN_CONSENSUS: 1606
+MULTIMODAL: 2101
+WEAK_CONSENSUS: 252
+NO_CONSENSUS: 41
+```
+
+Interpretation:
+
+- there is substantial BPM tune structure, but many spill-plane/window cases are multimodal,
+- this supports the need for deconstruction plots, handoff analysis, and selected artifact review,
+- avoid any claim that every spill has a single simple tune ridge.
+
+### Artifact caveat
+
+The verifier passed, but the existing generated artifacts are mostly contract/smoke artifacts. Several per-spill artifacts are `.txt` fallbacks rather than poster-quality plots.
+
+Do not treat the current `artifacts/` tree as the final poster figure set.
+
+## Updated Immediate Direction
+
+The project should now move from computation to review-quality interpretation.
+
+Recommended priority order:
+
+1. Package the completed summary/report/artifact tree from Spark for local review.
+2. Build a compact human-review table of the top H and V results from the completed run.
+3. Implement direct fixed-set evaluation from cached spectra.
+4. Generate real poster-grade deconstruction and subset spectrum overlay plots for selected spills.
+5. Add the BPM handoff / tune-visibility migration pass using current early-window cache.
+6. Only then decide whether best10 is worth a follow-up run.
+
+Do not run another broad search yet.
+
+If checking Spark again, keep probes bounded and read-only and verify the live
+host state directly.
 
 ## Repo State Summary
 
@@ -72,7 +214,6 @@ Important files/docs already reviewed:
 
 ```text
 README.md
-docs/CURRENT_STATUS.md
 docs/PHYSICS.md
 docs/ANALYSIS_CHECKLIST.md
 docs/SPARK.md
@@ -405,14 +546,14 @@ This is likely more valuable than immediately running best10.
 
 ## IBIC Poster Readiness
 
-Current estimated readiness after repo inspection:
+Current estimated readiness after repo inspection and focused-run completion:
 
 ```text
 Platform / repo maturity:        85–90%
 Data capture story:              90%
-Spark mining implementation:     75–85%
-Current best1/3/5 run:           in progress and healthy
-Physics validation evidence:     55–70%
+Spark mining implementation:     80–90%
+Current best1/3/5 run:           complete and verifier-clean
+Physics validation evidence:     65–75%
 Poster-quality figures:          40–60%
 Poster narrative:                80%
 ```
@@ -420,8 +561,7 @@ Poster narrative:                80%
 Overall:
 
 ```text
-Current state: 70–80% poster-ready
-If best1/3/5 results are sane: 80–85%
+Current state: 80–85% poster-ready
 If true fixed-set evaluation and real deconstruction plots are added: 90%+
 ```
 
@@ -445,14 +585,12 @@ The method quantifies when BPM tune evidence is visible and avoids forcing tune 
 
 Do not frame this yet as a completed replacement tune monitor.
 
-## First Actions When Current Run Completes
+## First Actions After Focused Run Completion
 
-1. Verify output contract for the focused run:
+1. Keep the completed run immutable until review artifacts are copied or sidecar passes are verified:
 
-```bash
-/home/derekste/venvs/cupy-spark-cu13/bin/python scripts/verify_best_bpm_outputs.py \
-  --root /home/derekste/best_bpm_mining_20260627_best135_from_v2 \
-  --subset-sizes 1 3 5
+```text
+/home/derekste/best_bpm_mining_20260627_best135_from_v2
 ```
 
 2. Inspect these first:
@@ -468,20 +606,389 @@ artifact_selection/artifact_manifest.csv
 logs/best_bpm_verification_report.md
 ```
 
-3. Decide if best5 saturates performance before considering best10.
+3. Treat best-3 and best-5 paired improvements as the starting point for poster interpretation, but do not overstate best-5 search completeness.
 
 4. Run or implement direct fixed-set evaluation from cached spectra.
 
 5. Generate poster-grade figures from selected finalists.
 
+## Implementation, Progress, Parallelism, And Deployment Plan
+
+The follow-up work should be split into small passes that can be run against the completed Spark output without rerunning expensive cache or subset-search stages. Each pass should support serial mode, deterministic parallel mode, resume, bounded selected-spill mode, and sidecar output directories.
+
+### Phase 0: Normalize handoff and docs
+
+Goal:
+
+```text
+Make the repo branch, NEXT_STEPS.md, physics docs, and PR branch tell the same story.
+```
+
+Work:
+
+- keep this `NEXT_STEPS.md` file on the active Best-BPM branch with Task F included,
+- reconcile `docs/PHYSICS.md` so the current 2000-spill H ≈ 0.65 / V ≈ 0.72 anchors are dataset-specific soft priors, while older `Qx ~ 0.69`, `Qy ~ 0.71` language is explicitly historical or operational-context dependent,
+- update `docs/SPARK.md` after new commands exist,
+- keep local operational handoffs out of permanent design truth unless they are
+  scrubbed and intentionally promoted into tracked docs.
+
+Validation:
+
+```bash
+git diff --check
+```
+
+### Phase 1: Direct fixed-set evaluation
+
+Goal:
+
+```text
+Replace dynamic/fixed overlap proxies with actual frozen BPM-set spectral evaluation.
+```
+
+Implementation:
+
+- add `scripts/bpm_mining/fixed_sets.py`,
+- add wrapper `scripts/evaluate_fixed_bpm_sets.py`,
+- optionally add pipeline command `fixed-sets`,
+- train fixed top-N sets on collection A and test exact frozen members on collection B, then reverse,
+- compare dynamic best1/best3/best5, fixed top1/top3/top5, all-BPM mean, and all-BPM median.
+
+Inputs:
+
+```text
+cache/index/spectral_cache.csv
+manifest/bpm_index.csv
+statistics/bpm_global_statistics.csv
+subset_search/best1/best1_results.csv
+subset_search/best3/best3_results.csv
+subset_search/best5/best5_results.csv
+```
+
+Outputs:
+
+```text
+statistics/fixed_set_direct_evaluation.csv
+statistics/fixed_vs_dynamic_direct_summary.csv
+artifacts/global/fixed_vs_dynamic_direct_h.png
+artifacts/global/fixed_vs_dynamic_direct_v.png
+```
+
+Progress:
+
+```text
+statistics/fixed_set_progress/parent_status.json
+statistics/fixed_set_progress/shard_<n>.json
+logs/progress.csv pass=fixed_set_direct_evaluation
+```
+
+Parallelism:
+
+- shard by `(train_collection, test_collection, plane, subset_size, method, spill_chunk)`,
+- load spectral arrays with `np.load(..., mmap_mode="r")`,
+- have workers write chunk CSV fragments or return rows, then merge in stable sorted order,
+- prove serial and parallel output equality in tests.
+
+Spark deploy:
+
+```text
+deploy code to a new scratch directory on Spark
+run sidecar output first, e.g. /home/derekste/best_bpm_mining_20260627_best135_from_v2/fixed_set_eval_probe
+promote or copy into canonical statistics/artifacts only after review
+```
+
+### Phase 2: Stronger held-out spectral support
+
+Goal:
+
+```text
+Defend dynamic subset winners against look-elsewhere bias using actual non-selected BPM spectra at q_hat.
+```
+
+Implementation:
+
+- add `scripts/bpm_mining/heldout.py`,
+- add wrapper `scripts/evaluate_heldout_spectral_support.py`,
+- for finalist rows, compute held-out support near the selected q_hat from the same cached spectra and windows,
+- keep H/V separate.
+
+Output:
+
+```text
+evolution/finalist_heldout_spectral_support.csv
+```
+
+Fields:
+
+```text
+heldout_candidate_fraction
+heldout_power_support
+heldout_prominence_at_qhat
+selected_vs_heldout_delta
+heldout_bpm_count
+quality_flags
+```
+
+Progress:
+
+```text
+evolution/heldout_progress/parent_status.json
+evolution/heldout_progress/shard_<n>.json
+logs/progress.csv pass=heldout_spectral_support
+```
+
+Parallelism:
+
+- shard by finalist-row chunks,
+- group cache loads by `(collection, spill_id, plane, spectral_config)` where possible,
+- merge output deterministically by source finalist order plus aggregator.
+
+### Phase 3: Poster-grade selected artifacts
+
+Goal:
+
+```text
+Replace placeholder-style plots with physics-review figures for only the best selected spill-plane rows.
+```
+
+This phase should generate a small number of colorful, visually strong artifacts for the poster and beam-physics discussion. Do not make hundreds of plots. The target is a curated figure set that explains the result quickly.
+
+Selection rule:
+
+```text
+Use artifact_selection/artifact_manifest.csv plus ranking tables to select roughly:
+  - 2 best V clean-consensus examples
+  - 1 best H clean-consensus or H-improvement example
+  - 1 best3/best5 improvement example
+  - 1 dynamic/fixed disagreement or multimodal caution example
+```
+
+Hard cap:
+
+```text
+no more than 8 spill-plane examples for poster-grade rendering unless the user asks
+```
+
+Implementation:
+
+- extend `scripts/bpm_mining/plots.py` or add `scripts/bpm_mining/poster_plots.py`,
+- add wrapper `scripts/make_best_bpm_poster_artifacts.py`,
+- read cached spectra directly rather than relying on placeholder artifact rows,
+- generate real BPM-vs-tune spectral heatmaps for selected rows,
+- generate overlaid subset spectra for best1, best3, best5, all-BPM mean, all-BPM median, and fixed top-N when Phase 1 exists,
+- generate one or two global summary plots from statistics tables,
+- preserve existing artifact names where possible and add explicit `_poster` or `_overlay` files when replacing would risk confusion,
+- write a small poster figure index with caption drafts and suggested poster placement.
+
+Color/artifact ideas:
+
+1. **BPM tune deconstruction heatmap**
+
+   ```text
+   x-axis: tune
+   y-axis: BPM index or ring order
+   color: row-normalized log spectral power
+   overlays: per-BPM peak markers, consensus tune line, best1/best3/best5 membership badges
+   ```
+
+   This should be the main “convince the physicist” plot. Use a perceptually strong colormap such as `viridis`, `magma`, or `turbo` if acceptable. Keep H and V panels separate unless both are clean.
+
+2. **Subset spectrum overlay**
+
+   ```text
+   x-axis: tune
+   y-axis: normalized spectral power or log power
+   curves: best1, best3, best5, all-BPM mean, all-BPM median
+   overlays: q_hat, consensus tune, expected tune anchor
+   ```
+
+   This plot should show why small ensembles beat all-BPM averaging. Use distinct line styles and a compact legend. This is likely a poster panel.
+
+3. **Top-N performance curve**
+
+   ```text
+   x-axis: subset size, 1/3/5
+   y-axis: median subset score or held-out support
+   markers: H and V separately
+   optional second y/panel: visible fraction
+   ```
+
+   This should be one clean global result plot. It can be built from `statistics/paired_method_tests.csv`, `statistics/subset_size_pareto.csv`, and `evolution/subset_size_comparison.csv`.
+
+4. **BPM inclusion/rank stability map**
+
+   ```text
+   x-axis: BPM/ring order
+   y-axis or stacked bars: top1/top3/top5 inclusion frequency
+   color/group: plane or collection
+   ```
+
+   This plot should show that BPM quality is not random and that V rankings are especially stable.
+
+5. **Visibility / handoff preview plot**
+
+   ```text
+   x-axis: turn window
+   y-axis: BPM index/ring order
+   color: visibility score or support at consensus tune
+   overlays: top1/top3/top5 membership through time
+   ```
+
+   Only generate this for the best one or two selected spills at first. Treat it as exploratory unless the handoff pass is implemented.
+
+6. **Poster contact sheet**
+
+   Create one image or markdown index showing thumbnails of the curated artifacts with one-line captions. This helps quickly choose final poster panels.
+
+Required outputs:
+
+```text
+artifacts/poster/selected_poster_artifacts.csv
+artifacts/poster/poster_artifact_index.md
+artifacts/poster/poster_contact_sheet.png
+artifacts/poster/global_topn_performance_hv.png
+artifacts/poster/global_bpm_inclusion_h.png
+artifacts/poster/global_bpm_inclusion_v.png
+artifacts/poster/spill_<id>_<plane>_bpm_tune_deconstruction_poster.png
+artifacts/poster/spill_<id>_<plane>_subset_spectra_overlay_poster.png
+artifacts/poster/spill_<id>_<plane>_visible_window_tune_evolution_poster.png
+```
+
+Existing or compatibility outputs:
+
+```text
+artifacts/spills/spill_<id>_<plane>_bpm_tune_deconstruction.png
+artifacts/spills/spill_<id>_<plane>_subset_spectra_overlay.png
+artifacts/spills/spill_<id>_<plane>_visible_window_tune_evolution.png
+artifacts/global/poster_artifact_index.md
+```
+
+Poster artifact style requirements:
+
+- large labels readable on a poster,
+- explicit plane, spill ID, window length, stride, and tune band in subtitle or caption,
+- colorbar labels with clear units such as `row-normalized log power` or `visibility score`,
+- H/V color distinction should be consistent across global plots,
+- do not overplot 2000 spills,
+- do not use rainbow clutter for line plots; use color primarily for heatmaps and density plots,
+- every poster artifact should have a caption draft in `poster_artifact_index.md`,
+- no more than 4–6 final figure candidates should be recommended.
+
+Recommended caption angle:
+
+```text
+Small BPM ensembles improve tune-visible evidence relative to single-BPM and all-BPM summaries. The selected BPMs are supported by a broader within-spill consensus, not merely by one isolated channel.
+```
+
+Progress:
+
+```text
+artifacts/progress/parent_status.json
+artifacts/progress/shard_<n>.json
+logs/progress.csv pass=poster_artifacts
+```
+
+Parallelism:
+
+- shard by artifact manifest rows,
+- workers generate files into per-shard temporary directories,
+- parent writes final manifest and summary after all files exist.
+
+### Phase 4: BPM handoff / tune-visibility migration analysis
+
+Goal:
+
+```text
+Test whether tune observability migrates across BPMs or BPM ensembles over turn windows.
+```
+
+Implementation:
+
+- add `scripts/bpm_mining/handoff.py`,
+- add wrapper `scripts/run_bpm_handoff_analysis.py`,
+- start standalone before pipeline integration,
+- use existing `early_4096_256` cache and selected artifact rows first,
+- keep intensity as optional future covariate; do not block position-only v1.
+
+Outputs:
+
+```text
+handoff/bpm_window_visibility.csv
+handoff/bpm_handoff_events.csv
+handoff/bpm_visibility_summary.csv
+handoff/handoff_summary.md
+handoff/handoff_rate_vs_turn_h.png
+handoff/handoff_rate_vs_turn_v.png
+handoff/visible_bpm_fraction_vs_turn_h.png
+handoff/visible_bpm_fraction_vs_turn_v.png
+handoff/bpm_visibility_cluster_map_h.png
+handoff/bpm_visibility_cluster_map_v.png
+handoff/top_bpm_membership_vs_turn_h.png
+handoff/top_bpm_membership_vs_turn_v.png
+handoff/spill_<id>_<plane>_bpm_visibility_handoff.png
+handoff/spill_<id>_<plane>_top_sets_vs_turn.png
+```
+
+Progress:
+
+```text
+handoff/progress/parent_status.json
+handoff/progress/shard_<n>.json
+logs/progress.csv pass=bpm_handoff
+```
+
+Parallelism:
+
+- shard by selected `(collection, spill_id, plane)` groups,
+- compute window/BPM visibility independently,
+- aggregate global handoff-rate and visibility-fraction plots after worker merge.
+
+### Phase 5: Report and verifier integration
+
+Goal:
+
+```text
+Make new outputs first-class enough to rerun and review without private chat context.
+```
+
+Implementation:
+
+- update `scripts/bpm_mining/report.py` to mention fixed-set direct evaluation, held-out spectral support, and handoff outputs when present,
+- update `scripts/bpm_mining/verification.py` to treat new passes as optional sections unless the corresponding output directory exists,
+- add concise doc commands in `docs/SPARK.md`.
+
+Validation:
+
+```bash
+python3 -m py_compile scripts/bpm_mining/*.py scripts/evaluate_fixed_bpm_sets.py scripts/evaluate_heldout_spectral_support.py scripts/run_bpm_handoff_analysis.py scripts/test_best_bpm_mining.py
+python3 scripts/test_best_bpm_mining.py
+python3 scripts/verify_best_bpm_outputs.py --root /path/to/smoke --subset-sizes 1 3 5
+```
+
+Spark validation sequence:
+
+1. deploy changed files to a new scratch code directory,
+2. run fixed-set direct evaluation on 20 selected spills,
+3. run held-out spectral support on 1000 finalist rows,
+4. run poster artifact generation on 4 artifact-manifest rows,
+5. run handoff on 4 selected spill-plane rows,
+6. then run the full sidecar passes against `/home/derekste/best_bpm_mining_20260627_best135_from_v2`.
+
+Priority order:
+
+```text
+1. Direct fixed-set evaluation
+2. Stronger held-out spectral support
+3. Poster-grade selected artifacts
+4. BPM handoff / tune-visibility migration analysis
+5. Optional full-buffer handoff cache only if selected-spill handoff is promising
+```
+
 ## Suggested Follow-Up Implementation Tasks
 
 ### Task A: Reconcile tune anchors in docs
 
-Status: addressed in `docs/PHYSICS.md` on 2026-06-27. The current 2000-spill
-Best-BPM anchors H ≈ 0.65 and V ≈ 0.72 are now documented as dataset-specific
-soft priors, and the older Qx/Qy values are explicitly historical unless tied
-to an independent reference for the reviewed data.
+Status: still needed on this branch. A prior main-branch note said this was addressed, but the active `dev/best-bpm-2000-mining` branch still carries older `Qx ~ 0.69`, `Qy ~ 0.71` operational tune wording in `docs/PHYSICS.md`.
 
 Update `docs/PHYSICS.md` so the expected tune region matches current dataset assumptions or clearly distinguishes older operational expectations from current observed early-injection clusters.
 
@@ -569,6 +1076,432 @@ heldout_power_support
 heldout_prominence_at_qhat
 selected_vs_heldout_delta
 ```
+
+### Task F: Add BPM handoff / tune-visibility migration analysis
+
+#### Motivation
+
+A physicist suggested that the intensity waxing/waning seen on BPM channels may reflect bunch decoherence/recoherence. If coherent transverse signal evolves during the spill, the BPMs that provide the clearest tune evidence may also change with turn number.
+
+The tune itself is not moving from BPM to BPM. The hypothesis is that the **observability of the tune line** migrates between BPMs or BPM ensembles as coherent beam motion damps, recoheres, changes phase-space structure, or changes relative to local BPM noise/electronics.
+
+This could explain several observed behaviors:
+
+- all-BPM averaging can wash out useful tune evidence,
+- dynamic best-BPM methods can outperform all-BPM methods,
+- different BPMs may dominate at different turn ranges,
+- intensity-envelope features may correlate with tune visibility,
+- a static “best BPM” set may be insufficient if the useful ensemble changes through the spill.
+
+The analysis question is:
+
+```text
+Which BPMs provide usable spectral evidence for the common tune at each turn/window, and does that set change coherently over time?
+```
+
+#### Conceptual output
+
+For each spill, plane, BPM, and rolling window, compute:
+
+```text
+peak_tune
+peak_prominence
+power at within-spill consensus tune
+local spectral background
+second_peak_ratio
+visibility_flag
+optional intensity metrics
+```
+
+Then build a matrix:
+
+```text
+BPM × turn-window
+```
+
+where color represents tune visibility or support for the consensus tune.
+
+This should produce a new class of diagnostic plot:
+
+```text
+x-axis: turn or time
+y-axis: BPM index / ring order
+color: tune visibility or spectral support
+markers: best1 / best3 / best5 membership
+overlay: consensus tune visibility / intensity envelope where available
+```
+
+Potential filenames:
+
+```text
+handoff/spill_<id>_h_bpm_visibility_handoff.png
+handoff/spill_<id>_v_bpm_visibility_handoff.png
+handoff/handoff_rate_vs_turn_h.png
+handoff/handoff_rate_vs_turn_v.png
+handoff/bpm_visibility_cluster_map_h.png
+handoff/bpm_visibility_cluster_map_v.png
+```
+
+#### Proposed implementation location
+
+Add a new module:
+
+```text
+scripts/bpm_mining/handoff.py
+```
+
+and an entry point:
+
+```text
+scripts/run_bpm_handoff_analysis.py
+```
+
+The handoff pass should also be callable from the Best-BPM pipeline after `evolution` and before `artifact_selection`, but it can start as a standalone script.
+
+#### Inputs
+
+Use existing Best-BPM mining outputs where possible:
+
+```text
+cache/index/spectral_cache.csv
+per_bpm/per_bpm_window_features.csv
+consensus/spill_consensus_windows.csv
+consensus/spill_consensus_summary.csv
+subset_search/best1/best1_results.csv
+subset_search/best3/best3_results.csv
+subset_search/best5/best5_results.csv
+artifact_selection/artifact_manifest.csv
+```
+
+Optional future inputs:
+
+```text
+intensity feature tables
+position+intensity captured bundles
+```
+
+Do not block the first implementation on intensity. Start with position-derived tune visibility.
+
+#### Per-window BPM visibility metric
+
+For each BPM/window, compute a score such as:
+
+```text
+visibility_score =
+    0.40 * normalized_peak_prominence
+  + 0.25 * support_at_consensus_tune
+  + 0.15 * inverse_second_peak_ratio
+  + 0.10 * inverse_spectral_entropy
+  + 0.10 * band_edge_safety
+```
+
+where:
+
+```text
+support_at_consensus_tune =
+  spectral power near q_consensus relative to local background
+```
+
+Use the within-spill consensus tune from `spill_consensus_windows.csv`.
+
+Visibility classes:
+
+```text
+VISIBLE_TUNE
+WEAK_TUNE
+NO_RELIABLE_TUNE
+```
+
+Suggested initial thresholds:
+
+```text
+VISIBLE_TUNE:
+  visibility_score >= 0.65
+  and peak_prominence_z >= 4.0
+  and distance_to_band_edge >= 0.003
+
+WEAK_TUNE:
+  visibility_score >= 0.35
+  or peak_prominence_z >= 3.0
+
+NO_RELIABLE_TUNE:
+  otherwise
+```
+
+Keep thresholds configurable.
+
+#### Handoff metrics
+
+For each spill/plane/window, determine:
+
+```text
+top1_visible_bpm
+top3_visible_set
+top5_visible_set
+top10_visible_set
+visible_bpm_fraction
+visible_bpm_count
+dominant_digitizer
+dominant_ring_sector
+consensus_tune
+consensus_label
+```
+
+Track changes over windows:
+
+```text
+top3_jaccard_vs_previous
+top5_jaccard_vs_previous
+top3_jaccard_vs_injection
+top5_jaccard_vs_injection
+handoff_score = 1 - Jaccard(topK_current, topK_previous)
+```
+
+Add persistence:
+
+```text
+handoff_persistence =
+  number of consecutive windows for which the new dominant set remains stable
+```
+
+Flag likely real handoffs:
+
+```text
+PERSISTENT_HANDOFF:
+  handoff_score >= 0.6
+  and handoff_persistence >= 3 windows
+  and consensus tune remains continuous
+```
+
+Flag likely noise flicker:
+
+```text
+FLICKER:
+  high handoff_score
+  but low persistence
+  or consensus tune jumps
+  or visibility is weak
+```
+
+#### Intensity-aware extension
+
+Use intensity only as a covariate or quality metric.
+
+Do not multiply position waveforms by intensity:
+
+```text
+do not use: position(t) *= intensity(t)
+```
+
+For intensity-capable captures, compute per BPM/window:
+
+```text
+intensity_median
+intensity_rms
+intensity_std_over_mean
+intensity_envelope
+intensity_drop_flag
+```
+
+Then compare to tune visibility:
+
+```text
+corr(intensity_median, visibility_score)
+corr(intensity_envelope, visibility_score)
+lagged_corr(intensity_envelope, visibility_score)
+```
+
+Outputs:
+
+```text
+handoff/intensity_visibility_correlation.csv
+handoff/intensity_visibility_correlation_by_bpm.png
+handoff/spill_<id>_<plane>_intensity_visibility_overlay.png
+```
+
+Keep intensity weighting only if it improves visibility/held-out support without shifting the selected tune.
+
+#### Required output tables
+
+Create:
+
+```text
+handoff/bpm_window_visibility.csv
+handoff/bpm_handoff_events.csv
+handoff/bpm_visibility_summary.csv
+handoff/handoff_summary.md
+```
+
+`bpm_window_visibility.csv` schema:
+
+```text
+collection
+spill_id
+plane
+spectral_config
+window_index
+center_turn
+bpm_index
+bpm_name
+digitizer
+consensus_tune
+consensus_label
+peak_tune
+peak_prominence_z
+power_at_consensus
+local_background_at_consensus
+support_at_consensus
+second_peak_ratio
+spectral_entropy
+visibility_score
+visibility_class
+is_top1_visible
+is_top3_visible
+is_top5_visible
+quality_flags
+```
+
+`bpm_handoff_events.csv` schema:
+
+```text
+collection
+spill_id
+plane
+subset_size
+window_index
+center_turn
+previous_members
+current_members
+jaccard_vs_previous
+handoff_score
+handoff_persistence
+consensus_tune
+consensus_delta
+event_label
+quality_flags
+```
+
+`bpm_visibility_summary.csv` schema:
+
+```text
+collection
+spill_id
+plane
+bpm_index
+bpm_name
+digitizer
+visible_window_fraction
+first_visible_turn
+last_visible_turn
+visibility_duration_turns
+median_visibility_score
+median_support_at_consensus
+top1_window_fraction
+top3_window_fraction
+top5_window_fraction
+handoff_event_count
+```
+
+#### Required plots
+
+Global plots:
+
+```text
+handoff/handoff_rate_vs_turn_h.png
+handoff/handoff_rate_vs_turn_v.png
+handoff/visible_bpm_fraction_vs_turn_h.png
+handoff/visible_bpm_fraction_vs_turn_v.png
+handoff/bpm_visibility_cluster_map_h.png
+handoff/bpm_visibility_cluster_map_v.png
+handoff/top_bpm_membership_vs_turn_h.png
+handoff/top_bpm_membership_vs_turn_v.png
+```
+
+Selected per-spill plots:
+
+```text
+handoff/spill_<id>_h_bpm_visibility_handoff.png
+handoff/spill_<id>_v_bpm_visibility_handoff.png
+handoff/spill_<id>_h_top_sets_vs_turn.png
+handoff/spill_<id>_v_top_sets_vs_turn.png
+```
+
+Per-spill handoff plot should show:
+
+1. BPM/ring order vs turn heatmap of visibility score.
+2. Top1/top3/top5 membership markers.
+3. Consensus tune and consensus quality as a lower panel.
+4. Optional intensity envelope overlay when intensity data exists.
+
+#### Interpretation rules
+
+Strong evidence for real BPM handoff requires:
+
+1. A stable within-spill consensus tune exists.
+2. One BPM group supports that tune early.
+3. A different BPM group supports the same or smoothly evolving consensus tune later.
+4. The transition persists across multiple adjacent windows.
+5. The transition is not dominated by band-edge locking.
+6. The phenomenon repeats across multiple spills or morphology clusters.
+7. Optional: visibility changes correlate with intensity-envelope changes.
+
+Weak evidence / likely artifact:
+
+```text
+best BPM jumps randomly
+q_hat jumps with the selected BPM set
+no clean consensus tune exists
+handoff disappears under different window/stride
+handoff is dominated by one noisy BPM
+visibility is weak or band-edge locked
+```
+
+#### Recommended initial scope
+
+Do not run this over every possible artifact immediately.
+
+First pass:
+
+```text
+use current early_4096_256 cache
+turn range: 0–15000
+subset sizes: 1, 3, 5
+planes: H, V
+selected spills only:
+  - clean consensus examples
+  - best3/best5 improvement examples
+  - dynamic/fixed disagreement examples
+  - multimodal/failure examples
+```
+
+Second pass, only if first pass is promising:
+
+```text
+add full-buffer cache config:
+  name: handoff_4096_256
+  turn_start: 0
+  turn_end: 50000
+  window_turns: 4096
+  stride_turns: 256
+```
+
+Optional high-time-resolution pass:
+
+```text
+handoff_2048_128
+```
+
+Use 4096/256 first because it is more spectrally stable.
+
+#### Poster relevance
+
+This analysis could become a strong poster result if it shows:
+
+```text
+Tune evidence is not uniformly distributed across BPMs. As coherent beam motion evolves, different BPM ensembles provide the strongest tune visibility. Dynamic or visibility-weighted BPM subset selection can recover tune evidence more reliably than all-BPM averaging.
+```
+
+This would explain why Best-BPM mining is physically meaningful rather than merely a numerical optimization.
 
 ## Guardrails
 

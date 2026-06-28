@@ -12,11 +12,16 @@
 - multi-spill batch analysis
 - standalone BPM-only poster/DGX artifact processing scripts
 - staged BPM-only Spark autosweep, ranking, and classification scripts
+- Best-BPM mining scripts for unsupervised per-spill BPM subset selection and
+  poster narrative statistics
 
 The program reads Redis stream data from many BPM devices and converts it into synchronized spill-level artifacts and summary records.
 
-User command workflows live in `docs/USAGE.md`; this file focuses on module
-boundaries, data flow, synchronization policy, and artifact contracts.
+User-facing workflows are split by subsystem: DAQ/capture in `docs/DAQ.md`,
+Rust tune analysis in `docs/ANALYSIS_CHAINS.md`, Spark/GPU work in
+`docs/SPARK.md`, and operational commands in `docs/OPERATIONS.md`.
+`docs/USAGE.md` remains the exact command reference. This file focuses on
+module boundaries, data flow, synchronization policy, and artifact contracts.
 
 ## Module Map
 
@@ -190,14 +195,53 @@ boundaries, data flow, synchronization policy, and artifact contracts.
    usable-spill manifest.
 6. Each job writes a manifest-list file and invokes the raw captured-spill GPU
    analyzer with explicit turn range, BPM-combination, normalization,
-   detrending, DC-handling, tune-band, and ridge-anchor settings.
+   detrending, DC-handling, tune-band, and ridge-anchor settings. The runner is
+   serial by default, but `--parallel-jobs` can overlap independent config/view
+   jobs while keeping each job in an isolated output directory.
 7. The ranker reads each job's `gpu_spills_summary.csv`, scores spill/config
    rows, assigns stable labels, and writes handoff CSVs for full-stage analysis.
 8. The elite summary writer collates ranked tables and heavy GPU plots for the
    best H, best V, robust H/V, and poster candidates.
 
+`scripts/gpu_run_telemetry.py` is shared by autosweep and Best-BPM wrappers. It
+polls `nvidia-smi` into `logs/gpu_telemetry.csv` and can summarize wall hours,
+utilized GPU-hours, average utilization, average power, and watt-hours.
+
 This workflow is offline and BPM-only. It does not connect to Redis, does not
 use Schottky labels, and does not alter Rust runtime command safety checks.
+
+### Best-BPM Mining (`scripts/bpm_mining/`)
+
+The Best-BPM mining layer is a downstream raw-bundle study for the 2000-spill
+Spark Tier A dataset. It is separate from the Rust analyzer and from autosweep
+config ranking. Its package modules cover:
+
+- `io.py`: captured-bundle discovery, little-endian `f32` payload loading,
+  channel integrity checks, stable plane-local BPM indexing, and manifest CSVs.
+- `spectra.py` and `gpu.py`: Hann-window spectral cache generation with a
+  NumPy/CuPy backend and parallel per-spill workers.
+- `peaks.py`: sharded per-BPM peak candidates, robust prominence, entropy,
+  width, and visibility summaries with CPU worker fan-out.
+- `consensus.py`: deterministic weighted 1D tune clustering per spill/plane
+  with cache-row worker sharding for Spark runs.
+- `subset_score.py` and `subset_search.py`: exact best-1/best-3 enumeration,
+  screened-pool best-5/best-10 enumeration, beam/random full-space audits, and
+  row-sharded worker execution with a bounded CUDA worker pool. Long runs emit
+  live per-shard JSON progress under `subset_search/progress/` before the final
+  merged CSVs are written.
+- `evolution.py`, `statistics.py`, `clustering.py`, `artifact_selection.py`,
+  `plots.py`, and `report.py`: finalist subset re-evaluation with robust
+  spectrum aggregators, downstream review tables, plots, morphology clusters,
+  and narrative-safe Markdown summaries.
+- `verification.py`: structural output-contract checks for completed or
+  partially completed Best-BPM output directories, including required files,
+  CSV headers, row counts for normal-sized CSVs, and report generation under
+  `logs/`.
+
+Best-1 and best-3 are globally exhaustive over valid BPMs for each spill/plane.
+Best-5 and best-10 are not globally exhaustive; their CSV rows carry
+`search_scope`, `search_exact`, and `audit_performed` fields so downstream
+claims cannot overstate the search.
 
 ### Analyze Phase (`analyze-phase`)
 
