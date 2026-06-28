@@ -251,6 +251,11 @@ PY=/home/derekste/venvs/cupy-spark-cu13/bin/python
 "$PY" scripts/verify_best_bpm_outputs.py \
   --root "$OUT" \
   --followups-only
+
+"$PY" scripts/analyze_next_steps_outputs.py \
+  --root "$ROOT" \
+  --followup "$OUT" \
+  --out "$OUT/analysis/next_steps_output_analysis.md"
 ```
 
 Smoke-test the sidecar commands first with `--limit` before running the full
