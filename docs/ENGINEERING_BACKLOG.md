@@ -33,17 +33,6 @@ None.
 
 ## In Progress
 
-### [ENG-021] Best-BPM follow-up validation sidecar stack
-- Status: in_progress
-- Owner: codex
-- Type: feature
-- Why: the verifier-clean best1/3/5 Spark run needs direct fixed-set validation, stronger held-out spectral support, poster-grade cache-backed artifacts, and tune-visibility handoff analysis without mutating canonical outputs.
-- Scope: add fixed-set, held-out, selected-artifact, and handoff passes with shared progress files, sidecar verification, Spark commands, and docs.
-- Acceptance: local tests cover serial/parallel equality and sidecar verification; Spark smoke and full sidecar runs complete under `/home/derekste/best_bpm_mining_20260627_best135_from_v2/followups/next_steps_20260628`.
-- Docs: NEXT_STEPS.md, docs/SPARK.md, docs/PHYSICS.md, docs/ENGINEERING_BACKLOG.md
-- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/*.py scripts/evaluate_fixed_bpm_sets.py scripts/evaluate_heldout_spectral_support.py scripts/run_bpm_handoff_analysis.py scripts/test_best_bpm_mining.py; python3 scripts/test_best_bpm_mining.py; Spark sidecar verifier
-- Notes: canonical Spark run outputs stay read-only until sidecar outputs are reviewed.
-
 ### [ENG-019] Autosweep parallel runner and GPU telemetry
 - Status: in_progress
 - Owner: codex
@@ -67,6 +56,17 @@ None.
 - Notes: v1 keeps the full-buffer evolution schema but uses cached early rolling spectra unless a longer spectral-cache config is added.
 
 ## Done
+
+### [ENG-021] Best-BPM follow-up validation sidecar stack
+- Status: done
+- Owner: codex
+- Type: feature
+- Why: the verifier-clean best1/3/5 Spark run needed direct fixed-set validation, stronger held-out spectral support, poster-grade cache-backed artifacts, and tune-visibility handoff analysis without mutating canonical outputs.
+- Scope: add fixed-set, held-out, selected-artifact, and handoff passes with shared progress files, sidecar verification, Spark commands, and docs.
+- Acceptance: local tests cover serial/parallel equality and sidecar verification; Spark smoke and full sidecar runs complete under `/home/derekste/best_bpm_mining_20260627_best135_from_v2/followups/next_steps_20260628`.
+- Docs: NEXT_STEPS.md, docs/SPARK.md, docs/PHYSICS.md, docs/ENGINEERING_BACKLOG.md
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/*.py scripts/evaluate_fixed_bpm_sets.py scripts/evaluate_heldout_spectral_support.py scripts/run_bpm_handoff_analysis.py scripts/test_best_bpm_mining.py; PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; Spark follow-up verifier passed for `/home/derekste/best_bpm_mining_20260627_best135_from_v2/followups/next_steps_20260628`
+- Notes: canonical Spark run outputs stayed read-only; follow-up outputs were written sidecar-first.
 
 ### [ENG-020] Subsystem documentation rework
 - Status: done
