@@ -236,11 +236,13 @@ def _save_visible_evolution(path: Path, title: str, combined: np.ndarray, tune_a
     plt.close(fig)
 
 
-def make_artifacts(cfg: dict[str, object], inputs: Path, artifact_manifest: Path, out: Path, workers: int | None = None) -> None:
+def make_artifacts(cfg: dict[str, object], inputs: Path, artifact_manifest: Path, out: Path, workers: int | None = None, limit: int = 0) -> None:
     ensure_dir(out / "global")
     ensure_dir(out / "spills")
     rows = subset_rows(inputs)
     artifact_rows = read_csv(artifact_manifest) if artifact_manifest.exists() else []
+    if limit:
+        artifact_rows = artifact_rows[:limit]
     spectral_config = str(cfg.get("subset_search", {}).get("search_spectral_config", "early_4096_256") if isinstance(cfg.get("subset_search"), dict) else "early_4096_256")
     caches = cache_lookup(inputs, spectral_config)
     name_index = bpm_name_to_index(inputs)

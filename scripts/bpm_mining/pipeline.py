@@ -247,7 +247,7 @@ def cmd_make_artifacts(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
     cfg = load_config(args.config)
     workers = args.workers if args.workers is not None else int(cfg["runtime"].get("workers", 1))
-    run_guarded("artifacts", cfg, Path(args.out).parent / "logs", args, lambda: make_artifacts(cfg, Path(args.inputs), Path(args.manifest), Path(args.out), workers))
+    run_guarded("artifacts", cfg, Path(args.out).parent / "logs", args, lambda: make_artifacts(cfg, Path(args.inputs), Path(args.manifest), Path(args.out), workers, args.limit))
 
 
 def cmd_fixed_sets(argv: list[str] | None = None) -> None:
@@ -353,7 +353,7 @@ def cmd_pipeline(argv: list[str] | None = None) -> None:
             ("statistics", lambda: aggregate_statistics(cfg, root, root / "manifest", root / "statistics")),
             ("clustering", lambda: cluster_spills(cfg, root, root / "clustering")),
             ("artifact_selection", lambda: select_artifacts(cfg, root, root / "artifact_selection")),
-            ("artifacts", lambda: make_artifacts(cfg, root, root / "artifact_selection" / "artifact_manifest.csv", root / "artifacts", workers)),
+            ("artifacts", lambda: make_artifacts(cfg, root, root / "artifact_selection" / "artifact_manifest.csv", root / "artifacts", workers, args.limit)),
             ("report", lambda: make_report(cfg, root, root / "reports")),
         ]
         for step_name, step_fn in steps:
