@@ -873,6 +873,7 @@ python3 scripts/analyze_intensity_assisted_tune.py \
   --window-turns 4096 \
   --stride-turns 512 \
   --fit-windows 8 \
+  --subset-sizes 1,3,5,7,10,12,15,20 \
   --shard-index 0 \
   --shard-count 4
 
@@ -895,6 +896,14 @@ python3 scripts/verify_intensity_outputs.py \
   --minimum-spills-per-group 199 \
   --expected-block-spills 20
 ```
+
+Pass the canonical `1,3,5,7,10,12,15,20` grid explicitly to every waveform
+shard. If the accepted horizontal or vertical Best-N recommendation is outside
+that grid, append each distinct selected N to the comma-separated analysis
+list and pass the same union as space-separated values to the verifier. The
+expected spill-row count is `200 manifests x 2 planes x 4 methods x number of
+distinct N values` (12,800 rows for the canonical eight-size grid); do not
+verify an expanded run with the canonical count.
 
 `scripts/resummarize_intensity_study.py` can recompute block-aware inference
 from an existing merged study without rereading waveforms. Retain a weighting

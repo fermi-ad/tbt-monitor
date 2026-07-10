@@ -409,6 +409,12 @@ The 200-spill intensity study is independent of the position-only primary run.
 Use `scripts/analyze_intensity_assisted_tune.py` in shards, merge with
 `scripts/merge_intensity_study.py --bootstrap-block-spills 20`, and generate
 the broad review gallery with `scripts/make_intensity_study_plots.py`.
+Every waveform shard must receive the same explicit comma-separated canonical
+grid `--subset-sizes 1,3,5,7,10,12,15,20`. Append each distinct accepted H/V
+Best-N recommendation when it falls outside that grid, and use the identical
+union for the block re-summaries, gallery, and verifier. The verifier takes
+space-separated N values; its expected spill rows are
+`200 x 2 planes x 4 methods x number of distinct N values`.
 `scripts/resummarize_intensity_study.py` can apply corrected block-aware
 statistics to an existing merged run without repeating GPU waveform work.
 Run it at 10, 20, and 40-spill block lengths and require the retain/reject
