@@ -308,6 +308,9 @@ Current publication interpretation:
   Every requested N receives a shared-scale H/V-by-method composite in addition
   to its single-plane and subtractive diagnostics; no composite is interpreted
   without exact paired counts and sample-fraction checks.
+  Plane-selected review also includes corrected Best-1 versus selected Best-N
+  and a legacy/corrected-Best-1/selected three-column control. This prevents the
+  historical selector defect from being presented as an ensemble-size gain.
   If H and V select different N, an additional contract-bound mixed composite
   uses the corresponding membership for each row and selected-N concentration
   panels keep the H-loss view legible.

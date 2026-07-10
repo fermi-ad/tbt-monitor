@@ -124,6 +124,12 @@ the publication audit:
     keeps four logical shards for deterministic coverage but executes at most
     two CUDA evaluators at once, anchors the workload to one monitored process
     group, and serializes every later sensitivity, intensity, and ridge stage.
+20. A legacy-versus-selected Best-N density panel alone would combine two
+    effects: repair of the flawed normalized-single selector and the benefit of
+    using more than one corrected adaptive BPM. The final ridge gallery now
+    requires an exact-paired corrected Best-1-versus-selected H/V panel and a
+    legacy/corrected-Best-1/selected-Best-N three-column panel on one probability
+    scale. Only the Best-1-to-selected transition isolates ensemble-size gain.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;
@@ -1265,6 +1271,8 @@ Color/artifact ideas:
    followups/next_steps_20260628/ridge_density_best_ensemble/ridge_density_best3_v.png
    followups/next_steps_20260628/ridge_density_best_ensemble/ridge_density_best5_v.png
    followups/next_steps_20260628/ridge_density_best_ensemble/ridge_density_legacy_single_vs_best{N}_hv.png
+   followups/next_steps_20260628/ridge_density_best_ensemble/ridge_density_best1_vs_selected_h{H}_v{V}_hv.png
+   followups/next_steps_20260628/ridge_density_best_ensemble/ridge_density_legacy_vs_best1_vs_selected_h{H}_v{V}_hv.png
    followups/next_steps_20260628/ridge_density_best_ensemble/ridge_density_best{3,5}_minus_best1_{h,v}.png
    followups/next_steps_20260628/ridge_density_best_ensemble/ridge_concentration_vs_turn_{h,v}.png
    followups/next_steps_20260628/ridge_density_best_ensemble/ridge_{iqr,p10_p90,entropy}_delta_vs_turn_{h,v}.png

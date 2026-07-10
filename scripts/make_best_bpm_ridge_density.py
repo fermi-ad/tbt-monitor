@@ -449,6 +449,24 @@ def exact_paired_density_results(
     )
 
 
+def exact_paired_density_results_many(
+    point_sets: Mapping[str, dict[tuple[str, str, int], float]],
+    band: tuple[float, float],
+    tune_bins: int,
+) -> dict[str, dict[str, object]]:
+    if not point_sets:
+        return {}
+    common = set.intersection(*(set(points) for points in point_sets.values()))
+    return {
+        label: density_from_keyed_points(
+            {key: points[key] for key in common},
+            band,
+            tune_bins,
+        )
+        for label, points in point_sets.items()
+    }
+
+
 def normalized_columns(density: np.ndarray) -> np.ndarray:
     if density.size == 0:
         return density.copy()
@@ -961,6 +979,102 @@ def draw_legacy_pair_hv_selected(
         )
     poster.draw_text(pixels, width, height, 22, 430, "TUNE", poster.MUTED, 2)
     poster.draw_text(pixels, width, height, 1130, height - 34, "TURN", poster.MUTED, 2)
+    poster.write_png(path, width, height, pixels)
+
+
+def draw_paired_density_grid_hv(
+    path: Path,
+    title: str,
+    columns: Sequence[tuple[str, str]],
+    paired: Mapping[str, tuple[Mapping[str, dict[str, object]], tuple[float, float]]],
+) -> None:
+    required_planes = {"H", "V"}
+    column_keys = [key for key, _label in columns]
+    if set(paired) != required_planes or len(columns) < 2:
+        poster.no_data_png(path, title, "MISSING PLANE OR METHOD")
+        return
+    if any(set(results) != set(column_keys) for results, _band in paired.values()):
+        poster.no_data_png(path, title, "MISSING PAIRED METHOD")
+        return
+
+    aligned: dict[tuple[str, str], tuple[list[int], np.ndarray]] = {}
+    positives: list[np.ndarray] = []
+    for plane in ("H", "V"):
+        results, _band = paired[plane]
+        centers = sorted({center for result in results.values() for center in result["centers"]})
+        if not centers:
+            poster.no_data_png(path, title, f"NO COMMON {plane} DENSITY")
+            return
+        for key in column_keys:
+            density = aligned_density(results[key], centers)
+            aligned[(plane, key)] = (centers, density)
+            if np.any(density > 0):
+                positives.append(density[density > 0])
+    positive = np.concatenate(positives) if positives else np.empty(0)
+    vmax = max(float(np.percentile(positive, 98)) if positive.size else 1.0, 1e-6)
+
+    width = 2400 if len(columns) == 2 else 3000
+    height = 900
+    left_margin = 110
+    right_margin = 90
+    gap = 80
+    panel_width = (width - left_margin - right_margin - gap * (len(columns) - 1)) // len(columns)
+    pixels = poster.new_canvas(width, height)
+    poster.draw_text(pixels, width, height, 34, 24, title, poster.INK, 3)
+    poster.draw_text(
+        pixels,
+        width,
+        height,
+        left_margin,
+        68,
+        "ROWS H/V; EXACT COMMON POINTS; COLUMN PICK PROBABILITY; SHARED P98 CLIP; WHITE P10 MED P90",
+        poster.MUTED,
+        2,
+    )
+
+    areas: dict[tuple[str, str], tuple[int, int, int, int]] = {}
+    for column_index, (key, label) in enumerate(columns):
+        x0 = left_margin + column_index * (panel_width + gap)
+        x1 = x0 + panel_width
+        poster.draw_text(pixels, width, height, x0, 96, label, poster.MUTED, 2)
+        areas[("H", key)] = (x0, 140, x1, 400)
+        areas[("V", key)] = (x0, 500, x1, 760)
+    for area in areas.values():
+        draw_panel_axes(pixels, width, height, area)
+
+    for plane in ("H", "V"):
+        results, band = paired[plane]
+        for key in column_keys:
+            centers, density = aligned[(plane, key)]
+            result = results[key]
+            area = areas[(plane, key)]
+            draw_density_in_area(pixels, width, height, area, density, vmax)
+            x_range = (float(min(centers)), float(max(centers) or min(centers) + 1))
+            draw_scaled_polyline(pixels, width, height, median_points(result["grouped"], 0.10), x_range, band, area, poster.WHITE, 1)
+            draw_scaled_polyline(pixels, width, height, median_points(result["grouped"], 0.90), x_range, band, area, poster.WHITE, 1)
+            draw_scaled_polyline(pixels, width, height, median_points(result["grouped"], 0.50), x_range, band, area, poster.WHITE, 3)
+            x0, y0, x1, y1 = area
+            poster.draw_text(pixels, width, height, x0, y0 - 24, f"{band[1]:.3f}", poster.MUTED, 2)
+            poster.draw_text(pixels, width, height, x0, y1 + 7, f"{band[0]:.3f}", poster.MUTED, 2)
+            poster.draw_text(pixels, width, height, x0, y1 + 31, str(min(centers)), poster.MUTED, 2)
+            poster.draw_text(pixels, width, height, x1 - 95, y1 + 31, str(max(centers)), poster.MUTED, 2)
+        point_sets = [set(results[key].get("point_keys", set())) for key in column_keys]
+        spill_sets = [set(results[key].get("spill_keys", set())) for key in column_keys]
+        common_points = len(set.intersection(*point_sets)) if point_sets else 0
+        common_spills = len(set.intersection(*spill_sets)) if spill_sets else 0
+        poster.draw_text(pixels, width, height, 22, 250 if plane == "H" else 610, plane, poster.INK, 4)
+        poster.draw_text(
+            pixels,
+            width,
+            height,
+            left_margin,
+            450 if plane == "H" else 810,
+            f"{plane} PAIRED: {common_points} RIDGE PICKS / {common_spills} SPILLS",
+            poster.MUTED,
+            2,
+        )
+    poster.draw_text(pixels, width, height, 22, 430, "TUNE", poster.MUTED, 2)
+    poster.draw_text(pixels, width, height, width // 2 - 40, height - 34, "TURN", poster.MUTED, 2)
     poster.write_png(path, width, height, pixels)
 
 
@@ -1863,6 +1977,63 @@ def caption_for_legacy_pair_hv_selected(
     return "\n".join(lines)
 
 
+def paired_grid_counts(
+    paired: Mapping[str, tuple[Mapping[str, dict[str, object]], tuple[float, float]]],
+) -> list[str]:
+    lines = [
+        "| Plane | Exact paired spills | Exact paired ridge points |",
+        "| --- | ---: | ---: |",
+    ]
+    for plane in ("H", "V"):
+        results, _band = paired[plane]
+        point_sets = [set(result.get("point_keys", set())) for result in results.values()]
+        spill_sets = [set(result.get("spill_keys", set())) for result in results.values()]
+        common_points = len(set.intersection(*point_sets)) if point_sets else 0
+        common_spills = len(set.intersection(*spill_sets)) if spill_sets else 0
+        lines.append(f"| {plane} | {common_spills} | {common_points} |")
+    return lines
+
+
+def caption_for_best1_vs_selected_hv(
+    subset_sizes: Mapping[str, str],
+    paired: Mapping[str, tuple[Mapping[str, dict[str, object]], tuple[float, float]]],
+    image_name: str,
+) -> str:
+    lines = [
+        "# Corrected Adaptive Best-1 Versus Plane-Selected Best-N",
+        "",
+        f"Image: `{image_name}`",
+        "",
+        f"Rows are horizontal and vertical. The left column is corrected adaptive Best-1; the right is H Best-{subset_sizes['H']} / V Best-{subset_sizes['V']}. Both methods use exact source-key memberships selected from the same early fit-window prefix and the same 4096/256-turn full-buffer tracking protocol. Every row is restricted to exact common spill/window points, both columns share one probability scale, and white curves are cross-spill P10, median, and P90 tracks.",
+        "",
+        *paired_grid_counts(paired),
+        "",
+        "This is the clean ensemble-size comparison: it does not use the flawed historical normalized-single selector. Greater concentration in the selected Best-N column may be attributed to the adaptive ensemble-size choice under this protocol, subject to the leakage-controlled later-window validation. It is still BPM-only internal consistency, not absolute tune truth or measured physical noise removal.",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def caption_for_legacy_best1_selected_hv(
+    subset_sizes: Mapping[str, str],
+    paired: Mapping[str, tuple[Mapping[str, dict[str, object]], tuple[float, float]]],
+    image_name: str,
+) -> str:
+    lines = [
+        "# Legacy Selector, Corrected Best-1, And Plane-Selected Best-N",
+        "",
+        f"Image: `{image_name}`",
+        "",
+        f"Rows are horizontal and vertical. Columns separate the audited legacy normalized-single selector, corrected adaptive Best-1, and H Best-{subset_sizes['H']} / V Best-{subset_sizes['V']}. All three columns use exact common spill/window points, column-normalized pick probability, one shared color scale, and the same tune bands and 4096/256-turn visual grammar.",
+        "",
+        *paired_grid_counts(paired),
+        "",
+        "Interpret the two transitions separately. Legacy to corrected Best-1 includes recovery from the legacy post-normalization selector defect. Corrected Best-1 to the plane-selected Best-N isolates the ensemble-size effect. The total legacy-to-Best-N contrast must not be attributed solely to adding BPMs. None of the columns establishes absolute tune accuracy, physical noise removal, or extraction timing.",
+        "",
+    ]
+    return "\n".join(lines)
+
+
 def caption_for_legacy_difference(
     plane: str,
     subset_size: str,
@@ -2643,6 +2814,101 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "plane": "H/V",
                     "subset_size": f"H={selected_sizes['H']};V={selected_sizes['V']}",
                     "role": "plane-selected paired legacy H/V comparison",
+                    "source": str(args.legacy_sliding_csv),
+                }
+            )
+        if "1" in args.subset_sizes and all(plane in legacy_points for plane in ("H", "V")):
+            best1_vs_selected: dict[
+                str,
+                tuple[dict[str, dict[str, object]], tuple[float, float]],
+            ] = {}
+            legacy_best1_selected: dict[
+                str,
+                tuple[dict[str, dict[str, object]], tuple[float, float]],
+            ] = {}
+            for plane in ("H", "V"):
+                band = (args.qx_min, args.qx_max) if plane == "H" else (args.qy_min, args.qy_max)
+                best1_points = keyed_ensemble_points(sliding_by_subset["1"], plane, band)
+                selected_points = keyed_ensemble_points(
+                    sliding_by_subset[selected_sizes[plane]],
+                    plane,
+                    band,
+                )
+                direct_results = exact_paired_density_results_many(
+                    {"best1": best1_points, "selected": selected_points},
+                    band,
+                    args.ridge_density_tune_bins,
+                )
+                triple_results = exact_paired_density_results_many(
+                    {
+                        "legacy": keyed_legacy_points(legacy_points[plane], band),
+                        "best1": best1_points,
+                        "selected": selected_points,
+                    },
+                    band,
+                    args.ridge_density_tune_bins,
+                )
+                best1_vs_selected[plane] = (direct_results, band)
+                legacy_best1_selected[plane] = (triple_results, band)
+
+            selected_label = f"SELECTED H BEST{selected_sizes['H']} / V BEST{selected_sizes['V']}"
+            direct_img = (
+                f"ridge_density_best1_vs_selected_h{selected_sizes['H']}_v{selected_sizes['V']}_hv.png"
+            )
+            direct_cap = direct_img.replace(".png", "_caption.md")
+            draw_paired_density_grid_hv(
+                out / direct_img,
+                "FULL-SPILL RIDGE DENSITY: CORRECTED BEST1 VS PLANE-SELECTED BEST-N",
+                (
+                    ("best1", "CORRECTED ADAPTIVE BEST1"),
+                    ("selected", selected_label),
+                ),
+                best1_vs_selected,
+            )
+            write_text(
+                out / direct_cap,
+                caption_for_best1_vs_selected_hv(selected_sizes, best1_vs_selected, direct_img),
+            )
+            figure_rows.append(
+                {
+                    "figure": direct_img,
+                    "caption_file": direct_cap,
+                    "plane": "H/V",
+                    "subset_size": f"H={selected_sizes['H']};V={selected_sizes['V']}",
+                    "role": "plane-selected corrected Best-1 H/V comparison",
+                    "source": "ridge_density_best1_sliding_tune.csv and plane-selected sliding tune CSVs",
+                }
+            )
+
+            triple_img = (
+                f"ridge_density_legacy_vs_best1_vs_selected_h{selected_sizes['H']}_v{selected_sizes['V']}_hv.png"
+            )
+            triple_cap = triple_img.replace(".png", "_caption.md")
+            draw_paired_density_grid_hv(
+                out / triple_img,
+                "FULL-SPILL RIDGE DENSITY: LEGACY, CORRECTED BEST1, SELECTED BEST-N",
+                (
+                    ("legacy", "LEGACY NORMALIZED-SINGLE"),
+                    ("best1", "CORRECTED ADAPTIVE BEST1"),
+                    ("selected", selected_label),
+                ),
+                legacy_best1_selected,
+            )
+            write_text(
+                out / triple_cap,
+                caption_for_legacy_best1_selected_hv(
+                    selected_sizes,
+                    legacy_best1_selected,
+                    triple_img,
+                ),
+            )
+            figure_rows.append(
+                {
+                    "figure": triple_img,
+                    "caption_file": triple_cap,
+                    "plane": "H/V",
+                    "subset_size": f"H={selected_sizes['H']};V={selected_sizes['V']}",
+                    "role": "plane-selected legacy/corrected Best-1/Best-N H/V comparison",
                     "source": str(args.legacy_sliding_csv),
                 }
             )

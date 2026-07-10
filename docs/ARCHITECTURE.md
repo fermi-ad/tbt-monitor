@@ -289,6 +289,9 @@ config ranking. Its package modules cover:
   captured spills, applies exact corrected Best-N memberships, recomputes
   0-50000 turn sliding spectra, and renders old-gallery-style ridge-density
   heatmaps plus per-N and plane-selected shared-scale H/V legacy/adaptive composites,
+  a direct corrected Best-1-versus-selected composite and a three-column
+  legacy/corrected-Best-1/selected control that separate selector repair from
+  ensemble-size gain,
   exact-point-paired density differences, concentration and H-loss diagnostics,
   unsmoothed per-turn legacy contrast tables with smoothed width/entropy/peak/
   shared-mass review plots, shared-scale selected-H/V composites, and moving-
@@ -303,7 +306,8 @@ config ranking. Its package modules cover:
   caption coverage checks for the full-buffer ridge gallery, tied to exact
   membership, legacy-table, manifest-inventory, and window-geometry hashes.
   Turn-contrast closure additionally requires one finite exact-paired row per
-  contracted center and every global and plane-selected metric figure role.
+  contracted center, every global and plane-selected metric figure role, and
+  both selector-defect control composites.
   The publication contract additionally binds the adaptive pass to the archived
   `18d321dbd4fe` 4096/256 tracking protocol and exact 2000/1988 source coverage.
 - `scripts/prepare_ibic2026_publication.py`: accepts only verifier-clean primary,

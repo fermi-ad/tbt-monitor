@@ -152,6 +152,9 @@ Notes:
   diffuse ridge picks, not physical noise removal or absolute tune accuracy.
   The shared-scale H/V composite uses column-normalized pick probability, so
   exact paired counts and sample-fraction diagnostics must accompany it.
+  Because the legacy normalized-single selector was defective, corrected
+  Best-1 must appear beside the selected Best-N before a visual change is
+  attributed to ensemble size.
 - `scripts/verify_best_bpm_outputs.py` is an artifact completeness and schema
   gate for Best-BPM runs. The associated semantic verifier also reconstructs
   identities, masks, fixed/held-out controls, handoff states, and poster PNGs.

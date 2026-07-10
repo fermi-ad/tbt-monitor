@@ -491,6 +491,11 @@ broad extraction-review marker;
 separately named context variants may show it. The method applies members chosen
 from early fit windows through the 0-50000-turn buffer. It tests persistence and
 does not perform same-window dynamic reselection.
+The plane-selected outputs also include a corrected Best-1-versus-selected H/V
+comparison and a legacy/corrected-Best-1/selected-Best-N three-column control,
+both exact-paired with one probability scale. The first isolates ensemble-size
+gain; the second makes selector repair visible rather than folding it into the
+legacy-to-selected contrast.
 Set `H_N` and `V_N` from the accepted block-20 Best-N recommendations. The
 additional mixed H/V composite uses the selected membership for each plane,
 and selected-N concentration panels avoid presenting every requested N in the
