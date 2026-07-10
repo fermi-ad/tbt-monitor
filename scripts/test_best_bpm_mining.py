@@ -858,6 +858,9 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertIn("P10-P90 width minus legacy", content["ridgeContrastCaption"])
         self.assertIn("0/240", content["quantitativeBody"])
         self.assertIn("4,000 H/V curve cases", content["quantitativeBody"])
+        self.assertIn("1,000 stratified validation cases", content["quantitativeBody"])
+        self.assertIn("5 held-out-digitizer folds", content["quantitativeBody"])
+        self.assertNotIn("cases x5", content["quantitativeBody"])
         self.assertIn("1,000 stratified spill-plane", content["methodBody"])
 
     def test_publication_numeric_macros_are_generated_from_accepted_rows(self) -> None:
