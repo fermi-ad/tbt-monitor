@@ -38,6 +38,8 @@ Treat these as baseline rather than open TODOs:
 - exact-cache visibility-duration repair plus semantic verification of result
   identities, fixed/held-out controls, handoff transitions, poster balance,
   and recommended PNG payloads
+- explicit no-visible/no-q quality states plus held-out evaluable-row coverage;
+  unavailable support must never be encoded as a zero effect
 - corrected exact-channel identity and ring-order reconstruction across the
   primary and every downstream sidecar
 - contiguous leakage-controlled Best-N curves with purged later-window and

@@ -129,7 +129,12 @@ def fixed_score_contract_mismatches(rows: list[dict[str, str]]) -> list[dict[str
         score = fnum(row.get("score"))
         visible = fnum(row.get("visible_fraction"))
         prominence = fnum(row.get("median_prominence"))
-        if score is None or visible is None or prominence is None:
+        if score is None or visible is None:
+            mismatches.append(row)
+            continue
+        if prominence is None:
+            if visible == 0.0 and score == 0.0 and "NO_VISIBLE_TUNE" in row.get("quality_flags", ""):
+                continue
             mismatches.append(row)
             continue
         expected = visible * max(0.0, min(1.0, prominence / 12.0))
@@ -337,7 +342,8 @@ def main() -> int:
                 f"- **{plane} strongest held-out summary:** Best-{best_heldout.get('subset_size', '')} "
                 f"`{best_heldout.get('aggregator', '')}` candidate fraction "
                 f"{fmt(fnum(best_heldout.get('median_heldout_candidate_fraction')), 5)}, power support "
-                f"{fmt(fnum(best_heldout.get('median_heldout_power_support')), 5)}."
+                f"{fmt(fnum(best_heldout.get('median_heldout_power_support')), 5)} over "
+                f"{best_heldout.get('evaluable_row_count', '')}/{best_heldout.get('row_count', '')} evaluable rows."
             )
 
         top_rows = top_bpm_table(root, plane)
@@ -456,13 +462,14 @@ def main() -> int:
     lines.append("`selected_vs_heldout_delta` is selected-subset power at q_hat minus non-selected BPM power at the same q_hat. Positive values mean the selected subset is stronger; negative values mean the non-selected BPMs are stronger.")
     lines.extend(
         md_table(
-            ["Plane", "N", "Aggregator", "Rows", "Median held-out candidate fraction", "Median held-out power support", "Median selected-heldout delta"],
+            ["Plane", "N", "Aggregator", "Rows", "Evaluable", "Median held-out candidate fraction", "Median held-out power support", "Median selected-heldout delta"],
             [
                 [
                     row["plane"],
                     row["subset_size"],
                     row["aggregator"],
                     row["row_count"],
+                    row.get("evaluable_row_count", ""),
                     fnum(row["median_heldout_candidate_fraction"]),
                     fnum(row["median_heldout_power_support"]),
                     fnum(row["median_selected_vs_heldout_delta"]),

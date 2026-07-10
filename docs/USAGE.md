@@ -704,6 +704,12 @@ controls from the same spectral cache with one evolution score. It fails on a
 cardinality mismatch. This comparison is descriptive because the original
 dynamic memberships reuse selection windows; use the leakage-controlled
 Best-N study for inferential claims.
+Rows with no visible tune retain score zero and explicit `NO_VISIBLE_TUNE` /
+`NO_VALID_Q` flags; an unavailable prominence is not fabricated as zero.
+Held-out rows likewise preserve exact selected membership when the finalist has
+no finite `q_hat`, leave every support metric blank, and report evaluable row
+counts/fractions in the summary. A finite `q_hat` still requires every support
+metric to be finite for verification.
 The handoff sidecar ranks channels but places only strict `VISIBLE_TUNE`
 channels in Top-1/3/5/10 sets. Empty-to-empty windows are `NO_VISIBLE_SET` with
 Jaccard one; transitions are labeled `VISIBILITY_LOSS`,

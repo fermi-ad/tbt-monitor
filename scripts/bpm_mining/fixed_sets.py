@@ -225,7 +225,17 @@ def _score_row(
     centers: np.ndarray,
 ) -> dict[str, object]:
     metrics = score_evolution_windows(combined, tune_axis, centers)
-    score = metrics["visible_fraction"] * max(0.0, min(1.0, metrics["median_prominence"] / 12.0 if math.isfinite(metrics["median_prominence"]) else 0.0))
+    visible_fraction = metrics["visible_fraction"]
+    median_prominence = metrics["median_prominence"]
+    score = visible_fraction * max(
+        0.0,
+        min(1.0, median_prominence / 12.0 if math.isfinite(median_prominence) else 0.0),
+    )
+    flags: list[str] = []
+    if not math.isfinite(metrics["q_hat"]):
+        flags.append("NO_VALID_Q")
+    if not math.isfinite(median_prominence):
+        flags.append("NO_VISIBLE_TUNE" if visible_fraction == 0.0 else "INVALID_PROMINENCE")
     return {
         "collection": cache["collection"],
         "spill_id": cache["spill_id"],
@@ -241,14 +251,14 @@ def _score_row(
         "bpm_digitizers": bpm_digitizers,
         "q_hat": _fmt(metrics["q_hat"]),
         "score": _fmt(score),
-        "visible_fraction": _fmt(metrics["visible_fraction"]),
+        "visible_fraction": _fmt(visible_fraction),
         "visibility_duration_turns": _fmt(metrics["visibility_duration_turns"]),
         "last_visible_turn": _fmt(metrics["last_visible_turn"]),
-        "median_prominence": _fmt(metrics["median_prominence"]),
+        "median_prominence": _fmt(median_prominence),
         "median_abs_step_visible": _fmt(metrics["median_abs_step_visible"]),
         "p95_step_visible": _fmt(metrics["p95_step_visible"]),
         "ridge_jump_fraction": _fmt(metrics["ridge_jump_fraction"]),
-        "quality_flags": "",
+        "quality_flags": "|".join(flags),
     }
 
 

@@ -246,6 +246,10 @@ config ranking. Its package modules cover:
   sidecar rescores dynamic memberships, frozen memberships, and all-BPM
   controls from the same cache with one metric; it is descriptive because the
   original dynamic memberships reuse selection windows.
+  No-visible controls retain zero score with an explicit state instead of a
+  fabricated prominence. Held-out rows without a finalist tune retain exact
+  identity but blank support metrics, and summaries expose their evaluable
+  fraction.
   Handoff membership sets contain only strict visible channels; empty, loss,
   recovery, flicker, stable, and persistent-replacement states are distinct.
   Top-1/3/5/10 transitions, global per-turn membership frequency, and every

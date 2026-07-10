@@ -30,7 +30,7 @@ from bpm_mining.consensus import build_consensus
 from bpm_mining.subset_search import search_best_bpm_subsets
 from bpm_mining.evolution import evaluate_evolution
 from bpm_mining.fixed_sets import evaluate_fixed_sets
-from bpm_mining.heldout import evaluate_heldout_support
+from bpm_mining.heldout import evaluate_group as evaluate_heldout_group, evaluate_heldout_support
 from bpm_mining.handoff import _jaccard, run_handoff_analysis
 from bpm_mining.statistics import aggregate_statistics
 from bpm_mining.statistics import (
@@ -1128,6 +1128,61 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertTrue(all(int(row["selected_bpm_count"]) == int(row["subset_size"]) for row in heldout_rows))
         self.assertTrue(all("SELECTED_CHANNEL_COUNT_MISMATCH" not in row["quality_flags"] for row in heldout_rows))
         self.assertTrue((out / "heldout_parallel" / "evolution" / "heldout_progress" / "parent_status.json").exists())
+
+    def test_heldout_no_q_is_explicitly_unevaluable(self) -> None:
+        spectra_path = self.root / "heldout_no_q_spectra.npy"
+        tune_path = self.root / "heldout_no_q_tune.npy"
+        indices_path = self.root / "heldout_no_q_indices.npy"
+        np.save(spectra_path, np.ones((3, 2, 16), dtype=np.float32))
+        np.save(tune_path, np.linspace(0.60, 0.70, 16, dtype=np.float32))
+        np.save(indices_path, np.asarray([0, 1, 2], dtype=np.int64))
+        cache = {
+            "spectra_path": str(spectra_path),
+            "tune_axis_path": str(tune_path),
+            "bpm_indices_path": str(indices_path),
+        }
+        meta = {
+            ("H", index): {
+                "bpm_index": str(index),
+                "bpm_name": f"HP{index:03d}",
+                "digitizer": f"digitizer-{index}",
+                "source_key": f"{{TEST}}:HP{index:03d}:TBT_POSITION_RAW",
+                "plane": "H",
+            }
+            for index in range(3)
+        }
+        rows = [{
+            "collection": "collection",
+            "spill_id": "spill_1",
+            "plane": "H",
+            "subset_size": "1",
+            "subset_mask": "1",
+            "bpm_indices": "0",
+            "aggregator": "mean_power",
+            "source_rank": "1",
+            "q_hat": "",
+        }]
+        result = evaluate_heldout_group(cache, rows, meta, 0.0025)[0]
+        self.assertIn("NO_VALID_Q", result["quality_flags"])
+        for field in (
+            "heldout_candidate_fraction",
+            "heldout_power_support",
+            "heldout_prominence_at_qhat",
+            "selected_power_support",
+            "selected_prominence_at_qhat",
+            "selected_vs_heldout_delta",
+        ):
+            self.assertEqual(result[field], "")
+
+    def test_fixed_score_contract_accepts_flagged_no_visible_state(self) -> None:
+        row = {
+            "visible_fraction": "0",
+            "median_prominence": "",
+            "score": "0",
+            "quality_flags": "NO_VALID_Q|NO_VISIBLE_TUNE",
+        }
+        self.assertFalse(fixed_score_contract_mismatches([row]))
+        self.assertTrue(fixed_score_contract_mismatches([{**row, "quality_flags": ""}]))
 
     def test_best_bpm_verifier_reports_missing_outputs(self) -> None:
         out = self.root / "incomplete_best_bpm"

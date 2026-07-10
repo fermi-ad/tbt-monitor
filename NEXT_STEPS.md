@@ -68,6 +68,16 @@ the publication audit:
     used the full axis. Paired H/V panels already used proportional cell bounds;
     the corrected renderer now applies those bounds to every density panel and
     a regression test requires complete, gap-free axis coverage.
+12. The first strict follow-up verifier treated an unavailable tune as corrupt
+    even when the row correctly represented no visible tune: 19,004 fixed or
+    dynamic control rows had `visible_fraction=0`, `score=0`, and no finite
+    prominence, while 504,074 held-out rows had exact selected cardinality but
+    no finite finalist `q_hat`. The held-out producer also converted an empty
+    comparison (`NaN >= 3`) into a misleading candidate fraction of zero.
+    Corrected rows retain explicit `NO_VISIBLE_TUNE`/`NO_VALID_Q` flags, leave
+    every unavailable metric blank, and report evaluable counts/fractions.
+    Verification still requires exact identities and finite support metrics
+    whenever `q_hat` exists.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;

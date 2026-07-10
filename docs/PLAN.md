@@ -285,6 +285,9 @@ Implemented structure:
   result cardinalities, masks, fixed-set controls, held-out rows, handoff state
   transitions, plane-balanced poster selection, and every recommended PNG;
   file existence alone is not publication closure
+- fixed and held-out sidecars preserve explicitly flagged no-visible/no-q rows
+  as unavailable rather than zero-valued evidence, while summaries expose the
+  fraction that is actually evaluable
 - the handoff review renders strict Top-1/3/5/10 state changes, global per-turn
   membership maps, and every selected spill-plane score/rank/consensus
   composite without imposing an extraction onset

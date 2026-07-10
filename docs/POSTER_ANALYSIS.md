@@ -464,6 +464,10 @@ The intensity gallery is held to the same closure standard: the audited capture
 counts, first-50000-turn integrity, complete method grids, exact Best-1
 zero-effect control, all statistical/practical/tune-shift gates, and every PNG
 with its claim guardrail must pass before an intensity panel is considered.
+Held-out support captions and tables must state their evaluable numerator and
+denominator. A finalist row without finite `q_hat` is retained as an explicitly
+flagged unavailable observation; it contributes neither a zero candidate
+fraction nor a finite support value.
 
 Key poster candidates use the repository's deterministic native PNG renderer,
 including BPM/tune deconstruction, selected-spectrum overlays, visibility
