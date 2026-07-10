@@ -1026,7 +1026,8 @@ python3 scripts/prepare_ibic2026_publication.py \
 ```
 
 This command requires accepted 10/20/40-block Best-N outputs, four OK
-cross-collection transfer rows, seven verified beam/fit/fold sensitivity runs,
+cross-collection transfer rows, seven verified beam/fit/fold sensitivity runs
+with an eligible H and V recommendation in every run,
 an accepted mixed-N ridge contract, zero retained intensity effects, and the
 exact corpus-bound raw-payload audit. It
 writes `poster/content.json`, `paper/results_table.tex`, verifier-derived

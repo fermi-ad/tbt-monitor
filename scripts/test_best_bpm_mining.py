@@ -113,6 +113,7 @@ from prepare_ibic2026_publication import (
     publication_numeric_summary,
     render_results_macros,
     render_results_table,
+    sensitivity_summary,
 )
 from repair_best_bpm_visibility_duration import repair_visibility_durations
 from analyze_next_steps_outputs import fixed_score_contract_mismatches
@@ -903,6 +904,44 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertIn(r"\newcommand{\BestNDigitizerFoldCount}{5}", macros)
         with self.assertRaisesRegex(ValueError, "definitive study design"):
             best_n_design_summary({"curve_cache_key_count": 4000})
+
+    def test_publication_rejects_unresolved_best_n_sensitivity(self) -> None:
+        root = self.root / "best-n-sensitivity"
+        manifest = []
+        for index in range(7):
+            run_root = root / "runs" / f"run-{index}"
+            run_root.mkdir(parents=True)
+            rows = [
+                {
+                    "plane": plane,
+                    "subset_size": 1,
+                    "validation_row_count": 20 if plane == "H" else 0,
+                    "blind_q_agreement_rate": 0.9,
+                    "median_blind_selected_heldout_abs_q_delta": 0.001,
+                    "median_test_peak_prominence": 5,
+                    "median_test_power_support": 5,
+                    "median_heldout_prominence": 5,
+                    "median_heldout_power_support": 5,
+                }
+                for plane in ("H", "V")
+            ]
+            write_csv(run_root / "best_n_summary.csv", rows, list(rows[0]))
+            (run_root / "run_contract.json").write_text(
+                json.dumps({"tune_half_width": 0.0025}), encoding="utf-8"
+            )
+            manifest.append(
+                {
+                    "run": f"run-{index}",
+                    "output": str(run_root),
+                    "beam_width": 16 + index,
+                    "fit_windows": 4 + index,
+                    "fold_seed": index,
+                    "status": "verified",
+                }
+            )
+        write_csv(root / "sensitivity_run_manifest.csv", manifest, list(manifest[0]))
+        with self.assertRaisesRegex(ValueError, "unresolved recommendations: V=7/7"):
+            sensitivity_summary(root, 0.0025)
 
     def test_publication_materialization_binds_reports_numbers_and_figures(self) -> None:
         primary = self.root / "primary"

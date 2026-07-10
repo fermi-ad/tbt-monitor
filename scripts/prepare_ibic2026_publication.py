@@ -218,6 +218,15 @@ def sensitivity_summary(root: Path, tune_half_width: float) -> dict[str, object]
                 unavailable[plane] += 1
             else:
                 recommendations[plane].append(int(selected["subset_size"]))
+    if any(unavailable.values()):
+        detail = ", ".join(
+            f"{plane}={unavailable[plane]}/{len(manifest)}"
+            for plane in ("H", "V")
+            if unavailable[plane]
+        )
+        raise ValueError(
+            "Best-N sensitivity matrix contains unresolved recommendations: " + detail
+        )
     return {
         "run_count": len(manifest),
         "recommendations": recommendations,

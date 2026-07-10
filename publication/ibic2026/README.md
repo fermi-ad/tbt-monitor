@@ -29,6 +29,10 @@ SHA-256
 materialization gate. It accepts only verifier-clean analysis roots and writes
 the exact poster JSON, paper table/figures, results payload, preparation report,
 and source manifest used by the two build pipelines.
+All seven declared beam/fit/fold sensitivity runs must also produce eligible H
+and V recommendations. A structurally valid run with no recommendation remains
+a reportable analysis result, but it blocks this selected-N publication layout
+rather than being hidden by the full-data recommendation.
 It also requires a passing first-50000-turn audit over the exact 2200-manifest,
 263999-position-row, and 23999-paired-row publication corpus.
 The paper figure set includes the selected-plane turn-resolved P10-P90 ridge-
