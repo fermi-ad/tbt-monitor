@@ -413,7 +413,7 @@ def publication_content(
     loss_parts.append("No extraction timestamp or cause is inferred.")
     return {
         "title": "Turn-by-turn tune analysis using adaptive BPM ensembles in the Fermilab Mu2e Delivery Ring",
-        "author": "D. Steinkamp | Fermi National Accelerator Laboratory",
+        "author": "Derek Steinkamp | Fermi National Accelerator Laboratory",
         "methodHeading": "ADAPTIVE, LEAKAGE-CONTROLLED BPM ENSEMBLES",
         "methodBody": (
             "Synchronized 2,000-spill snapshots provide 60 H and 60 V channels.\n"
