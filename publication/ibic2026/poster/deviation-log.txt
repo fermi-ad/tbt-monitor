@@ -6,6 +6,9 @@ Output slide 1
 - Delete four unrelated sample-logo images while preserving master branding.
 - Delete mapped authoring arrows, instructions, and clearance callouts.
 - Rewrite inherited text and captions while retaining source type styles.
+- Use the upper-right scientific frame for the all-spill selected-H/V width
+  contrast instead of an anecdotal selected-spill panel; selected-spill plots
+  remain in the review gallery.
 - Reposition only the two mapped caption objects that share an inspector name.
 - Fit the accepted two-line title and author within the inherited header; no
   header or footer geometry changes are authorized.

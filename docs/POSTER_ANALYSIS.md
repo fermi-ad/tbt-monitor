@@ -444,6 +444,21 @@ tracks. Keep its quantitative caption and the separate sample-fraction and
 subtractive diagnostics in the review package; the composite alone cannot
 distinguish true persistence from missing observations or establish physical
 noise removal.
+The turn-resolved legacy contrast must also retain its unsmoothed exact-paired
+CSV. Review the adaptive-minus-legacy IQR and P10-P90 widths together with
+peak-bin-fraction, normalized-entropy, and shared-center-mass changes. The
+five-window-smoothed PNGs can locate intervals of diffuse-pick suppression,
+but neither their sign nor a visual change point establishes beam noise,
+absolute tune accuracy, or extraction onset.
+The selected-H/V versions use stacked panels and one shared y scale. This is
+the publication treatment for P10-P90 width because two half-column native
+PNGs would make their labels unreadable.
+Use that all-spill contrast in the poster's upper-right evidence frame instead
+of an anecdotal selected-spill panel. Keep every selected-spill example in the
+separate exhaustive review gallery.
+Use the generated 800x1250 portrait twin for that frame; contain-fitting the
+landscape paper image would waste most of the inherited portrait area and make
+its axes too small.
 If leakage-controlled model selection chooses different H and V ensemble
 sizes, use `--selected-h-n` and `--selected-v-n` to add a plane-selected H/V
 composite and one clean concentration panel per selected plane. This is not a
@@ -463,7 +478,9 @@ all-row primary curve.
 requires accepted primary/follow-up, Best-N 10/20/40-block, intensity, and
 ridge reports; checks cross-collection transfer and the seven-run matrix; and
 copies the exact figures while writing the poster JSON, paper table, results
-payload, and source manifest.
+payload, and source manifest. The paper copy additionally binds the selected-H
+and selected-V exact-paired P10-P90 width-contrast plots so the time-resolved
+method comparison cannot drift from the ridge contract.
 Every subtractive ridge caption must say that color represents probability-mass
 redistribution, not measured physical noise. The primary density figures do not
 show a fixed extraction onset; a broad 10000--20000-turn context band may appear

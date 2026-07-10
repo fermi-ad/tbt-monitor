@@ -11,6 +11,10 @@ PDFFONTS=${PDFFONTS:-pdffonts}
 SHASUM=${SHASUM:-shasum}
 OUT=${OUT:-"$HERE/build"}
 SOURCE=${SOURCE:-"$HERE/ABSTRACT54.tex"}
+TECTONIC_ARGS=()
+if [[ -n "${TECTONIC_FLAGS:-}" ]]; then
+  read -r -a TECTONIC_ARGS <<<"$TECTONIC_FLAGS"
+fi
 
 for command in "$TECTONIC" "$PDFINFO" "$PDFTOPPM" "$PDFFONTS" "$SHASUM"; do
   command -v "$command" >/dev/null 2>&1 || test -x "$command" || {
@@ -23,6 +27,7 @@ for figure in \
   "$HERE/figures/best_n_validation_h.png" \
   "$HERE/figures/best_n_validation_v.png" \
   "$HERE/figures/ridge_density_comparison.png" \
+  "$HERE/figures/ridge_width_contrast_hv.png" \
   "$HERE/figures/horizontal_loss_diagnostic.png"; do
   test -s "$figure" || {
     echo "missing required publication figure: $figure" >&2
@@ -33,8 +38,12 @@ test -s "$HERE/results_table.tex" || {
   echo "missing verifier-derived results table: $HERE/results_table.tex" >&2
   exit 1
 }
+test -s "$HERE/results_macros.tex" || {
+  echo "missing verifier-derived results macros: $HERE/results_macros.tex" >&2
+  exit 1
+}
 
-for text_source in "$SOURCE" "$HERE/results_table.tex"; do
+for text_source in "$SOURCE" "$HERE/results_table.tex" "$HERE/results_macros.tex"; do
   if grep -Eiq 'final manuscript will report|(^|[^[:alnum:]_])(pending|provisional|tbd|todo)([^[:alnum:]_]|$)|\[[[:space:]]+\]' "$text_source"; then
     echo "paper source still contains unresolved or provisional copy: $text_source" >&2
     exit 1
@@ -46,7 +55,7 @@ grep -q '89243024CSC000002' "$SOURCE" || {
 }
 
 mkdir -p "$OUT" "$OUT/rendered"
-"$TECTONIC" --keep-logs --keep-intermediates --outdir "$OUT" "$SOURCE"
+"$TECTONIC" "${TECTONIC_ARGS[@]}" --keep-logs --keep-intermediates --outdir "$OUT" "$SOURCE"
 
 PDF="$OUT/$(basename "${SOURCE%.tex}").pdf"
 test -s "$PDF"
@@ -68,7 +77,7 @@ if grep -Eq 'Overfull \\[hv]box|undefined references|Citation .* undefined' "$OU
   exit 1
 fi
 "$PDFFONTS" "$PDF" >"$OUT/pdffonts.txt"
-if awk 'NR > 2 && ($4 != "yes" || $5 != "yes" || $6 != "yes") {bad=1} END {exit bad}' "$OUT/pdffonts.txt"; then
+if awk 'NR > 2 && ($(NF-4) != "yes" || $(NF-3) != "yes" || $(NF-2) != "yes") {bad=1} END {exit bad}' "$OUT/pdffonts.txt"; then
   :
 else
   echo "paper PDF contains a non-embedded or non-subset font" >&2
@@ -79,9 +88,11 @@ fi
   "$SOURCE" \
   "$HERE/jacow.cls" \
   "$HERE/results_table.tex" \
+  "$HERE/results_macros.tex" \
   "$HERE/figures/best_n_validation_h.png" \
   "$HERE/figures/best_n_validation_v.png" \
   "$HERE/figures/ridge_density_comparison.png" \
+  "$HERE/figures/ridge_width_contrast_hv.png" \
   "$HERE/figures/horizontal_loss_diagnostic.png" \
   "$PDF" >"$OUT/source_manifest.sha256"
 printf 'paper=%s\npages=%s\npage_size=%sx%s\n' "$PDF" "$pages" "$page_width" "$page_height"

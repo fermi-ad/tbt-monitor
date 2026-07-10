@@ -942,6 +942,18 @@ comparison whose four panels use column-normalized pick probability and one
 shared P98-clipped color scale. Its caption reports exact paired counts and
 warns that visual narrowing must agree with sample-fraction, width, entropy,
 and shared-ridge-mass diagnostics.
+The exact-paired turn table
+`ridge_density_legacy_comparison_by_turn.csv` preserves the unsmoothed values
+behind five additional contrast families: adaptive-minus-legacy IQR and
+P10-P90 width, peak-bin-fraction gain, normalized-entropy delta, and gain in
+mass within `+/-0.0025` tune of the shared method center. Global and selected-N
+PNGs use five-window visual smoothing and a zero reference; they describe
+where the adaptive picks become more or less concentrated, not a physical
+noise spectrum or an extraction-time measurement.
+When selected H/V sizes are present, each metric also receives a full-width
+stacked H/V composite with one shared y scale plus an 800x1250 portrait twin.
+The landscape form avoids unreadable half-width paper panels; the portrait form
+fills the inherited A0 evidence frame without cropping.
 After the Best-N verifier selects H and V, pass both `--selected-h-n` and
 `--selected-v-n` and include both values in `--subset-sizes`. The run then
 writes `ridge_density_legacy_single_vs_best_h<H>_v<V>_hv.png` plus one clean
@@ -991,8 +1003,11 @@ python3 scripts/prepare_ibic2026_publication.py \
 This command requires accepted 10/20/40-block Best-N outputs, four OK
 cross-collection transfer rows, seven verified beam/fit/fold sensitivity runs,
 an accepted mixed-N ridge contract, and zero retained intensity effects. It
-writes `poster/content.json`, `paper/results_table.tex`, exact figure copies,
-`results_payload.json`, `PREPARATION_REPORT.md`, and `source_manifest.csv`.
+writes `poster/content.json`, `paper/results_table.tex`, verifier-derived
+`paper/results_macros.tex`, exact figure copies, `results_payload.json`,
+`PREPARATION_REPORT.md`, and `source_manifest.csv`. The macros bind primary
+Best-1/3/5 scores and intensity effect counts to the accepted tables instead of
+preserving literals from an earlier run.
 
 Package final publication sources, rendered deliverables, reports, and broad
 review galleries into one local handoff directory:
@@ -1011,6 +1026,25 @@ Each `LABEL=PATH` component is copied. `MANIFEST.csv` records every packaged
 file's original path, byte size, and SHA-256 checksum, while
 `PACKAGE_INDEX.md` summarizes the package. The output must be new or empty so
 an older review bundle cannot be silently overwritten.
+
+After visually inspecting the final poster and all four paper pages, close the
+publication directory with the explicit human-QA gate:
+
+```bash
+python3 scripts/finalize_ibic2026_publication.py \
+  --root publication/ibic2026 \
+  --abstract /path/to/abstract-54.pdf \
+  --poster-template /path/to/FNAL_Scientific_Poster_A0_VRT_May25.potx \
+  --poster-visual-qa pass \
+  --paper-visual-qa pass
+```
+
+The finalizer verifies immutable reference hashes, required source and render
+files, A0 poster and four-page paper geometry, PNG dimensions, the selected H/V
+payload, seven sensitivity runs, four OK transfer rows, zero retained intensity
+effects, and unresolved-copy gates. It writes `compliance_report.md` and
+`publication_manifest.csv`; the manifest inventories every publication file
+except itself.
 
 ## Timing Semantics
 

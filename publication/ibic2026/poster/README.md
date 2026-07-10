@@ -60,6 +60,9 @@ Before delivery:
 5. render the PPTX to PDF and confirm one A0 portrait page with all fonts and
    authentic Fermilab branding preserved.
 
-The complete review gallery is packaged separately. The poster itself uses five
-evidence panels: H Best-N, V Best-N, the wide H/V ridge comparison, one selected
-spill, and the data-derived H-loss diagnostic.
+The complete review gallery, including selected-spill examples, is packaged
+separately. The poster itself uses five population-level or leakage-controlled
+evidence panels: H Best-N, V Best-N, the wide H/V ridge comparison, the stacked
+selected-H/V P10-P90 width contrast, and the data-derived H-loss diagnostic.
+The ridge pipeline emits a dedicated 800x1250 portrait contrast for the
+upper-right inherited frame; the paper uses the corresponding landscape image.

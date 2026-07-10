@@ -103,7 +103,7 @@ if ! grep -Eq '^Page size:.*\(A0\)$' <<<"$pdf_info"; then
 fi
 
 "$PDFFONTS" "$PDF" >"$OUT_DIR/pdffonts.txt"
-if awk 'NR > 2 && ($4 != "yes" || $5 != "yes" || $6 != "yes") {bad=1} END {exit bad}' \
+if awk 'NR > 2 && ($(NF-4) != "yes" || $(NF-3) != "yes" || $(NF-2) != "yes") {bad=1} END {exit bad}' \
   "$OUT_DIR/pdffonts.txt"; then
   :
 else

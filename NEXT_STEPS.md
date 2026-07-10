@@ -90,6 +90,32 @@ the publication audit:
     LaTeX option list as a placeholder. The corrected gate still rejects
     bracket placeholders containing whitespace but permits syntactically valid
     empty option lists.
+15. Tectonic's default client attempted network initialization even with a
+    complete local TeX bundle and could fail in macOS system configuration.
+    The paper build now accepts `TECTONIC_FLAGS`, including `--only-cached`, so
+    resource-download policy is explicit. In a permitted context, Tectonic
+    0.16.9 using its coherent cached bundle passed the complete layout smoke:
+    exactly four `595 x 792 bp` JACoW pages, no overfull boxes or unresolved
+    references, and every font embedded, subset, and Unicode-mapped. The final
+    compile remains pending only because it must consume the accepted real-data
+    outputs; the synthetic smoke is layout proof, not a scientific deliverable.
+16. The manuscript prose still embedded corrected primary-score values and the
+    first intensity-study row count as literals. Expanding the final intensity
+    N grid could therefore leave a verifier-clean table beside stale prose.
+    Publication materialization now generates `results_macros.tex` directly
+    from the accepted primary and intensity rows, and the paper build requires
+    and hashes that file together with the table and five bound figures.
+17. The publication README promised a complete manifest and compliance report,
+    but no command generated them or required a human visual-QA disposition.
+    `finalize_ibic2026_publication.py` now verifies the immutable references,
+    page geometry, render sizes, required sources, selected-N/sensitivity/
+    transfer payload, zero retained intensity effects, and unresolved copy;
+    only explicit poster and paper visual-QA passes can produce final closure.
+18. The PDF font gate read fixed whitespace columns from `pdffonts`. A valid
+    embedded `CID Type 0C` font contains spaces in its type name, shifting the
+    `emb/sub/uni` fields and causing a false failure. Both paper and poster gates
+    now read those three status fields relative to the right edge, where the
+    trailing object and generation numbers have stable positions.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;
@@ -172,7 +198,7 @@ Completion status:
 
 | Deliverable | Status | Completion evidence |
 | --- | --- | --- |
-| Exact identity/ring-order implementation and regression tests | complete | local 54-test Best-BPM suite and 9 autosweep tests pass; all 62 previously committed tests plus byte compilation pass on Spark |
+| Exact identity/ring-order implementation and regression tests | complete | local 57-test Best-BPM suite and 9 autosweep tests pass; all 62 previously committed tests plus byte compilation pass on Spark |
 | Corrected Best-1/3/5 primary and downstream rerun | complete | primary and follow-up strict verifiers both report zero failures and zero warnings; every required fixed, held-out, artifact, and handoff product is present |
 | Best-N curve through at least N=20 | in progress | bounded N=30 trial put V at the boundary; definitive four-shard N=40 curve is active, followed by block and seven-run beam/fit/fold sensitivity |
 | 200-spill intensity hypothesis test | in progress | initial 199-spill pass and block-aware re-summary found 0 FDR-significant/0 practical effects; corrected all-zero gate fallback, exact N=1 contract, and strict payload/window/effect/gallery verifier pass locally; 200-spill gate-refresh merge/gallery pending |
@@ -1207,6 +1233,20 @@ Color/artifact ideas:
    panels. Do not use the vertical recommendation as an unlabeled horizontal
    default.
 
+   Export the exact-paired legacy/adaptive contrast at every turn center in
+   `ridge_density_legacy_comparison_by_turn.csv`. Render IQR and P10-P90 width
+   deltas, peak-bin-fraction gain, normalized-entropy delta, and shared-ridge-
+   mass gain for all requested N and for each selected plane. The CSV remains
+   unsmoothed; the review curves use only five-window visual smoothing and a
+   labeled zero reference. These plots characterize cross-spill ridge-pick
+   concentration and probability redistribution. They are not measurements of
+   physical noise removal, extraction onset, or absolute tune accuracy.
+   For every metric, also render one stacked selected-H/V composite with a
+   shared y scale in both landscape and template-matched portrait forms. The
+   P10-P90 landscape composite is a bound paper figure and its portrait twin
+   fills the poster evidence frame; the remaining variants stay in the review
+   gallery.
+
    Actual completed outputs:
 
    ```text
@@ -1219,6 +1259,9 @@ Color/artifact ideas:
    followups/next_steps_20260628/ridge_density_best_ensemble/ridge_density_legacy_single_vs_best{N}_hv.png
    followups/next_steps_20260628/ridge_density_best_ensemble/ridge_density_best{3,5}_minus_best1_{h,v}.png
    followups/next_steps_20260628/ridge_density_best_ensemble/ridge_concentration_vs_turn_{h,v}.png
+   followups/next_steps_20260628/ridge_density_best_ensemble/ridge_{iqr,p10_p90,entropy}_delta_vs_turn_{h,v}.png
+   followups/next_steps_20260628/ridge_density_best_ensemble/ridge_{peak_bin,shared_mass}_gain_vs_turn_{h,v}.png
+   followups/next_steps_20260628/ridge_density_best_ensemble/ridge_density_legacy_comparison_by_turn.csv
    followups/next_steps_20260628/ridge_density_best_ensemble/ridge_density_best_ensemble_index.md
    followups/next_steps_20260628/ridge_density_best_ensemble/ridge_density_*_caption.md
    ```

@@ -16,7 +16,7 @@ import random
 import time
 from collections import defaultdict
 from pathlib import Path
-from typing import Sequence
+from typing import Mapping, Sequence
 
 import numpy as np
 
@@ -139,6 +139,29 @@ LEGACY_COMPARISON_FIELDS = [
     "median_shared_ridge_mass_gain_ci_high",
     "turn_block_windows",
     "turn_block_bootstrap_samples",
+]
+
+LEGACY_TURN_COMPARISON_FIELDS = [
+    "plane",
+    "subset_size",
+    "center_turn",
+    "paired_ridge_count",
+    "shared_ridge_center",
+    "legacy_iqr_width",
+    "ensemble_iqr_width",
+    "iqr_delta_ensemble_minus_legacy",
+    "legacy_p10_p90_width",
+    "ensemble_p10_p90_width",
+    "p10_p90_delta_ensemble_minus_legacy",
+    "legacy_peak_bin_fraction",
+    "ensemble_peak_bin_fraction",
+    "peak_bin_fraction_gain",
+    "legacy_density_entropy",
+    "ensemble_density_entropy",
+    "density_entropy_delta",
+    "legacy_shared_ridge_mass",
+    "ensemble_shared_ridge_mass",
+    "shared_ridge_mass_gain",
 ]
 
 
@@ -960,6 +983,52 @@ def distribution_metrics(values: Sequence[float], band: tuple[float, float], tun
     }
 
 
+def legacy_comparison_by_turn_rows(
+    plane: str,
+    subset_size: str,
+    legacy: dict[str, object],
+    ensemble: dict[str, object],
+    band: tuple[float, float],
+    tune_bins: int,
+    ridge_half_width: float = 0.0025,
+) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    centers = sorted(set(legacy["grouped"]) & set(ensemble["grouped"]))
+    for center in centers:
+        legacy_values = legacy["grouped"][center]
+        ensemble_values = ensemble["grouped"][center]
+        old = distribution_metrics(legacy_values, band, tune_bins)
+        new = distribution_metrics(ensemble_values, band, tune_bins)
+        shared_center = percentile([*legacy_values, *ensemble_values], 0.50)
+        old_mass = mean([float(abs(value - shared_center) <= ridge_half_width) for value in legacy_values])
+        new_mass = mean([float(abs(value - shared_center) <= ridge_half_width) for value in ensemble_values])
+        rows.append(
+            {
+                "plane": plane,
+                "subset_size": subset_size,
+                "center_turn": int(center),
+                "paired_ridge_count": len(legacy_values),
+                "shared_ridge_center": fmt(shared_center),
+                "legacy_iqr_width": fmt(old["iqr"]),
+                "ensemble_iqr_width": fmt(new["iqr"]),
+                "iqr_delta_ensemble_minus_legacy": fmt(new["iqr"] - old["iqr"]),
+                "legacy_p10_p90_width": fmt(old["p80"]),
+                "ensemble_p10_p90_width": fmt(new["p80"]),
+                "p10_p90_delta_ensemble_minus_legacy": fmt(new["p80"] - old["p80"]),
+                "legacy_peak_bin_fraction": fmt(old["peak"]),
+                "ensemble_peak_bin_fraction": fmt(new["peak"]),
+                "peak_bin_fraction_gain": fmt(new["peak"] - old["peak"]),
+                "legacy_density_entropy": fmt(old["entropy"]),
+                "ensemble_density_entropy": fmt(new["entropy"]),
+                "density_entropy_delta": fmt(new["entropy"] - old["entropy"]),
+                "legacy_shared_ridge_mass": fmt(old_mass),
+                "ensemble_shared_ridge_mass": fmt(new_mass),
+                "shared_ridge_mass_gain": fmt(new_mass - old_mass),
+            }
+        )
+    return rows
+
+
 def legacy_comparison_metrics(
     plane: str,
     subset_size: str,
@@ -1227,6 +1296,7 @@ def draw_turn_metric_plot(
     title: str,
     y_label: str,
     fraction_scale: bool = False,
+    zero_reference: bool = False,
 ) -> None:
     rows = [row for row in center_rows if row.get("plane") == plane]
     values = [f(row.get(metric)) for row in rows]
@@ -1243,7 +1313,7 @@ def draw_turn_metric_plot(
         ymin, ymax = 0.0, 1.0
     else:
         ymin = min(0.0, min(finite))
-        ymax = max(finite)
+        ymax = max(0.0, max(finite)) if zero_reference else max(finite)
         if ymax <= ymin:
             ymax = ymin + 1.0
         else:
@@ -1258,6 +1328,9 @@ def draw_turn_metric_plot(
         ]
         points.sort()
         draw_scaled_polyline(pixels, width, height, smooth_pairs(points), (xmin, xmax), (ymin, ymax), area, colors[size], 3)
+    if zero_reference and ymin < 0.0 < ymax:
+        zero_y = poster.scale_value(0.0, ymin, ymax, y1, y0)
+        poster.line(pixels, width, height, x0, zero_y, x1, zero_y, poster.MUTED)
     draw_subset_legend(pixels, width, height, area, subset_sizes, colors)
     poster.draw_numeric_axis_labels(
         pixels,
@@ -1269,6 +1342,141 @@ def draw_turn_metric_plot(
         x_ticks=2,
     )
     poster.draw_text(pixels, width, height, x0, y0 - 28, "SMOOTHED 5-WINDOW DESCRIPTIVE DIAGNOSTIC", poster.MUTED, 2)
+    poster.write_png(path, width, height, pixels)
+
+
+def draw_selected_turn_contrast_hv(
+    path: Path,
+    center_rows: Sequence[dict[str, object]],
+    selected_sizes: Mapping[str, str],
+    metric: str,
+    title: str,
+    y_label: str,
+    portrait: bool = False,
+) -> None:
+    selected_rows = {
+        plane: [
+            row
+            for row in center_rows
+            if row.get("plane") == plane
+            and str(row.get("subset_size")) == str(selected_sizes[plane])
+        ]
+        for plane in ("H", "V")
+    }
+    finite = [
+        f(row.get(metric))
+        for rows in selected_rows.values()
+        for row in rows
+        if math.isfinite(f(row.get(metric)))
+    ]
+    if not finite or any(not selected_rows[plane] for plane in ("H", "V")):
+        poster.no_data_png(path, title, "NO SELECTED H/V TURN CONTRAST")
+        return
+    turns = [f(row.get("center_turn")) for rows in selected_rows.values() for row in rows]
+    xmin, xmax = min(turns), max(turns)
+    raw_min, raw_max = min(0.0, min(finite)), max(0.0, max(finite))
+    span = raw_max - raw_min
+    if span <= 0.0:
+        span = max(1e-6, abs(raw_min), abs(raw_max), 1.0)
+    pad = 0.08 * span
+    ymin, ymax = raw_min - pad, raw_max + pad
+
+    if portrait:
+        width, height = 800, 1250
+        title_position = (20, 18)
+        subtitle_position = (65, 50)
+        panels = {"H": (100, 115, 770, 555), "V": (100, 680, 770, 1120)}
+        turn_position = (375, 1205)
+    else:
+        width, height = 1000, 625
+        title_position = (24, 12)
+        subtitle_position = (105, 42)
+        panels = {"H": (105, 98, 970, 280), "V": (105, 355, 970, 537)}
+        turn_position = (475, 590)
+    pixels = poster.new_canvas(width, height)
+    poster.draw_text(
+        pixels,
+        width,
+        height,
+        title_position[0],
+        title_position[1],
+        title,
+        poster.INK,
+        3,
+    )
+    poster.draw_text(
+        pixels,
+        width,
+        height,
+        subtitle_position[0],
+        subtitle_position[1],
+        "EXACT-PAIRED; SHARED Y SCALE; CURVES SMOOTHED 5 WINDOWS; ZERO = NO METHOD DIFFERENCE",
+        poster.MUTED,
+        2,
+    )
+    colors = {"H": poster.BLUE, "V": poster.GREEN}
+    for plane in ("H", "V"):
+        area = panels[plane]
+        draw_panel_axes(pixels, width, height, area)
+        points = sorted(
+            (f(row.get("center_turn")), f(row.get(metric)))
+            for row in selected_rows[plane]
+        )
+        draw_scaled_polyline(
+            pixels,
+            width,
+            height,
+            smooth_pairs(points),
+            (xmin, xmax),
+            (ymin, ymax),
+            area,
+            colors[plane],
+            3,
+        )
+        x0, y0, x1, y1 = area
+        zero_y = poster.scale_value(0.0, ymin, ymax, y1, y0)
+        poster.line(pixels, width, height, x0, zero_y, x1, zero_y, poster.MUTED)
+        x_span = xmax - xmin
+        y_span = ymax - ymin
+        for fraction, value in ((0.0, xmin), (1.0, xmax)):
+            label = poster.format_axis_value(value, x_span)
+            label_width = len(label) * 12
+            x = x0 + int(round((x1 - x0) * fraction)) - label_width // 2
+            x = max(2, min(width - label_width - 2, x))
+            poster.draw_text(pixels, width, height, x, y1 + 7, label, poster.MUTED, 3)
+        for value, y in ((ymax, y0 - 10), (ymin, y1 - 10)):
+            label = poster.format_axis_value(value, y_span)
+            label_width = len(label) * 12
+            poster.draw_text(
+                pixels,
+                width,
+                height,
+                max(2, x0 - label_width - 8),
+                y,
+                label,
+                poster.MUTED,
+                3,
+            )
+        poster.draw_text(
+            pixels,
+            width,
+            height,
+            x0,
+            y0 - 27,
+            f"{plane} BEST{selected_sizes[plane]} | {y_label}",
+            colors[plane],
+            3,
+        )
+    poster.draw_text(
+        pixels,
+        width,
+        height,
+        turn_position[0],
+        turn_position[1],
+        "TURN",
+        poster.MUTED,
+        3,
+    )
     poster.write_png(path, width, height, pixels)
 
 
@@ -1542,6 +1750,43 @@ This descriptive diagnostic compares Best-{", Best-".join(subset_sizes)} over th
 {interpretation}
 
 It is a BPM-only tracking diagnostic. A change can reflect beam dynamics, reduced signal, tune-band mismatch, or ridge-tracker behavior and is not assigned to extraction without independent timing evidence.
+"""
+
+
+def caption_for_legacy_turn_contrast(
+    plane: str,
+    subset_sizes: Sequence[str],
+    image_name: str,
+    metric_name: str,
+    interpretation: str,
+) -> str:
+    return f"""# Exact-Paired Legacy Contrast Vs Turn {plane}: {metric_name}
+
+Image: `{image_name}`
+
+This plot compares the audited legacy normalized-single ridge picks with adaptive Best-{", Best-".join(subset_sizes)} on exactly common spill/window points. The exported values in `ridge_density_legacy_comparison_by_turn.csv` are unsmoothed; curves use a five-window visual smoothing, and the horizontal zero line means no method difference.
+
+{interpretation}
+
+These are changes in the cross-spill distribution of tracked ridge picks. They can characterize concentration or suppression of diffuse picks under fixed binning, but they do not measure physical noise removal, absolute tune accuracy, or an extraction mechanism.
+"""
+
+
+def caption_for_selected_turn_contrast_hv(
+    selected_sizes: Mapping[str, str],
+    image_name: str,
+    metric_name: str,
+    interpretation: str,
+) -> str:
+    return f"""# Selected H/V Exact-Paired Legacy Contrast: {metric_name}
+
+Image: `{image_name}`
+
+The two panels show H Best-{selected_sizes['H']} and V Best-{selected_sizes['V']} against the audited legacy normalized-single picks on exactly common spill/window points. Both panels use the same y scale and zero reference. Exported values in `ridge_density_legacy_comparison_by_turn.csv` are unsmoothed; curves use five-window visual smoothing.
+
+{interpretation}
+
+This is a cross-spill ridge-pick distribution contrast. It does not measure physical noise removal, absolute tune accuracy, extraction timing, or a causal loss mechanism.
 """
 
 
@@ -2010,6 +2255,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     write_csv(out / "ridge_density_best_ensemble_metrics.csv", metric_rows, RIDGE_METRIC_FIELDS)
     write_csv(out / "ridge_density_turn_concentration.csv", center_rows, CENTER_METRIC_FIELDS)
     legacy_metric_rows: list[dict[str, object]] = []
+    legacy_turn_rows: list[dict[str, object]] = []
     paired_legacy_results: dict[
         tuple[str, str],
         tuple[dict[str, object], dict[str, object], tuple[float, float]],
@@ -2104,6 +2350,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                     bootstrap_samples=args.comparison_bootstrap_samples,
                 )
                 legacy_metric_rows.append(comparison_metrics)
+                legacy_turn_rows.extend(
+                    legacy_comparison_by_turn_rows(
+                        plane,
+                        size,
+                        paired_legacy,
+                        paired_ensemble,
+                        band,
+                        args.ridge_density_tune_bins,
+                    )
+                )
                 paired_legacy_results[(size, plane)] = (paired_legacy, paired_ensemble, band)
                 pair_img = f"ridge_density_legacy_single_vs_best{size}_{plane.lower()}.png"
                 draw_legacy_pair(out / pair_img, plane, size, paired_legacy, paired_ensemble, band)
@@ -2156,6 +2412,179 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "subset_size": "/".join(args.subset_sizes),
                     "role": "exploratory extraction-context concentration",
                     "source": "ridge_density_turn_concentration.csv",
+                }
+            )
+    write_csv(
+        out / "ridge_density_legacy_comparison_by_turn.csv",
+        legacy_turn_rows,
+        LEGACY_TURN_COMPARISON_FIELDS,
+    )
+    contrast_specs = (
+        (
+            "ridge_iqr_delta_vs_turn",
+            "iqr_delta_ensemble_minus_legacy",
+            "ADAPTIVE MINUS LEGACY IQR",
+            "DELTA TUNE IQR",
+            "Negative values mean adaptive ridge picks are narrower across spills at that turn.",
+        ),
+        (
+            "ridge_p10_p90_delta_vs_turn",
+            "p10_p90_delta_ensemble_minus_legacy",
+            "ADAPTIVE MINUS LEGACY P10-P90",
+            "DELTA TUNE P10-P90",
+            "Negative values mean adaptive selection suppresses the outer diffuse pick population.",
+        ),
+        (
+            "ridge_peak_bin_gain_vs_turn",
+            "peak_bin_fraction_gain",
+            "ADAPTIVE PEAK-BIN GAIN",
+            "DELTA PEAK FRACTION",
+            "Positive values mean more adaptive picks occupy the most populated tune bin.",
+        ),
+        (
+            "ridge_entropy_delta_vs_turn",
+            "density_entropy_delta",
+            "ADAPTIVE MINUS LEGACY ENTROPY",
+            "DELTA NORMALIZED ENTROPY",
+            "Negative values mean the adaptive cross-spill pick distribution is less diffuse.",
+        ),
+        (
+            "ridge_shared_mass_gain_vs_turn",
+            "shared_ridge_mass_gain",
+            "ADAPTIVE SHARED-RIDGE MASS GAIN",
+            "DELTA RIDGE MASS",
+            "Positive values mean more adaptive picks lie within +/-0.0025 tune of the shared legacy/adaptive center.",
+        ),
+    )
+    for plane in ("H", "V"):
+        for stem, metric, title, y_label, interpretation in contrast_specs:
+            image_name = f"{stem}_{plane.lower()}.png"
+            draw_turn_metric_plot(
+                out / image_name,
+                plane,
+                legacy_turn_rows,
+                args.subset_sizes,
+                metric,
+                title,
+                y_label,
+                zero_reference=True,
+            )
+            caption_name = image_name.replace(".png", "_caption.md")
+            write_text(
+                out / caption_name,
+                caption_for_legacy_turn_contrast(
+                    plane,
+                    args.subset_sizes,
+                    image_name,
+                    title.title(),
+                    interpretation,
+                ),
+            )
+            figure_rows.append(
+                {
+                    "figure": image_name,
+                    "caption_file": caption_name,
+                    "plane": plane,
+                    "subset_size": "/".join(args.subset_sizes),
+                    "role": f"paired legacy turn contrast: {metric}",
+                    "source": "ridge_density_legacy_comparison_by_turn.csv",
+                }
+            )
+            if selected_sizes:
+                selected_size = selected_sizes[plane]
+                selected_image = f"{stem}_selected_best{selected_size}_{plane.lower()}.png"
+                draw_turn_metric_plot(
+                    out / selected_image,
+                    plane,
+                    legacy_turn_rows,
+                    [selected_size],
+                    metric,
+                    title,
+                    y_label,
+                    zero_reference=True,
+                )
+                selected_caption = selected_image.replace(".png", "_caption.md")
+                write_text(
+                    out / selected_caption,
+                    caption_for_legacy_turn_contrast(
+                        plane,
+                        [selected_size],
+                        selected_image,
+                        title.title(),
+                        interpretation,
+                    ),
+                )
+                figure_rows.append(
+                    {
+                        "figure": selected_image,
+                        "caption_file": selected_caption,
+                        "plane": plane,
+                        "subset_size": selected_size,
+                        "role": f"plane-selected paired legacy turn contrast: {metric}",
+                        "source": "ridge_density_legacy_comparison_by_turn.csv",
+                    }
+                )
+    if selected_sizes:
+        for stem, metric, title, y_label, interpretation in contrast_specs:
+            image_name = (
+                f"{stem}_selected_h{selected_sizes['H']}_v{selected_sizes['V']}_hv.png"
+            )
+            draw_selected_turn_contrast_hv(
+                out / image_name,
+                legacy_turn_rows,
+                selected_sizes,
+                metric,
+                title,
+                y_label,
+            )
+            caption_name = image_name.replace(".png", "_caption.md")
+            write_text(
+                out / caption_name,
+                caption_for_selected_turn_contrast_hv(
+                    selected_sizes,
+                    image_name,
+                    title.title(),
+                    interpretation,
+                ),
+            )
+            figure_rows.append(
+                {
+                    "figure": image_name,
+                    "caption_file": caption_name,
+                    "plane": "H/V",
+                    "subset_size": f"H{selected_sizes['H']}/V{selected_sizes['V']}",
+                    "role": f"plane-selected H/V paired legacy turn contrast: {metric}",
+                    "source": "ridge_density_legacy_comparison_by_turn.csv",
+                }
+            )
+            poster_image_name = image_name.replace(".png", "_poster.png")
+            draw_selected_turn_contrast_hv(
+                out / poster_image_name,
+                legacy_turn_rows,
+                selected_sizes,
+                metric,
+                title,
+                y_label,
+                portrait=True,
+            )
+            poster_caption_name = poster_image_name.replace(".png", "_caption.md")
+            write_text(
+                out / poster_caption_name,
+                caption_for_selected_turn_contrast_hv(
+                    selected_sizes,
+                    poster_image_name,
+                    title.title(),
+                    interpretation,
+                ),
+            )
+            figure_rows.append(
+                {
+                    "figure": poster_image_name,
+                    "caption_file": poster_caption_name,
+                    "plane": "H/V",
+                    "subset_size": f"H{selected_sizes['H']}/V{selected_sizes['V']}",
+                    "role": f"plane-selected H/V paired legacy turn contrast poster: {metric}",
+                    "source": "ridge_density_legacy_comparison_by_turn.csv",
                 }
             )
     legacy_metrics_by_key = {

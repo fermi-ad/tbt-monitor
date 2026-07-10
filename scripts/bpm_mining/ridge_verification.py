@@ -19,6 +19,7 @@ CORE_FILES = (
     "ridge_density_best_ensemble_metrics.csv",
     "ridge_density_turn_concentration.csv",
     "ridge_density_legacy_comparison_metrics.csv",
+    "ridge_density_legacy_comparison_by_turn.csv",
     "ridge_density_loss_candidates.csv",
     "ridge_density_h_plane_loss_summary.md",
     "ridge_density_warnings.csv",
@@ -47,6 +48,25 @@ LEGACY_NUMERIC_FIELDS = (
     "median_shared_ridge_mass_gain",
     "median_shared_ridge_mass_gain_ci_low",
     "median_shared_ridge_mass_gain_ci_high",
+)
+
+LEGACY_TURN_NUMERIC_FIELDS = (
+    "shared_ridge_center",
+    "legacy_iqr_width",
+    "ensemble_iqr_width",
+    "iqr_delta_ensemble_minus_legacy",
+    "legacy_p10_p90_width",
+    "ensemble_p10_p90_width",
+    "p10_p90_delta_ensemble_minus_legacy",
+    "legacy_peak_bin_fraction",
+    "ensemble_peak_bin_fraction",
+    "peak_bin_fraction_gain",
+    "legacy_density_entropy",
+    "ensemble_density_entropy",
+    "density_entropy_delta",
+    "legacy_shared_ridge_mass",
+    "ensemble_shared_ridge_mass",
+    "shared_ridge_mass_gain",
 )
 
 CRITICAL_WARNING_PARTS = (
@@ -354,6 +374,7 @@ def verify_ridge_density_outputs(
     metrics = read_csv(root / "ridge_density_best_ensemble_metrics.csv") if (root / "ridge_density_best_ensemble_metrics.csv").is_file() else []
     centers = read_csv(root / "ridge_density_turn_concentration.csv") if (root / "ridge_density_turn_concentration.csv").is_file() else []
     legacy = read_csv(root / "ridge_density_legacy_comparison_metrics.csv") if (root / "ridge_density_legacy_comparison_metrics.csv").is_file() else []
+    legacy_turns = read_csv(root / "ridge_density_legacy_comparison_by_turn.csv") if (root / "ridge_density_legacy_comparison_by_turn.csv").is_file() else []
     losses = read_csv(root / "ridge_density_loss_candidates.csv") if (root / "ridge_density_loss_candidates.csv").is_file() else []
     figures = read_csv(root / "ridge_density_best_ensemble_manifest.csv") if (root / "ridge_density_best_ensemble_manifest.csv").is_file() else []
     warnings = read_csv(root / "ridge_density_warnings.csv") if (root / "ridge_density_warnings.csv").is_file() else []
@@ -379,6 +400,16 @@ def verify_ridge_density_outputs(
     center_groups: dict[tuple[str, int], list[dict[str, str]]] = defaultdict(list)
     for row in centers:
         center_groups[(row.get("plane", ""), int(row.get("subset_size") or 0))].append(row)
+    legacy_turn_groups: dict[tuple[str, int], list[dict[str, str]]] = defaultdict(list)
+    for row in legacy_turns:
+        legacy_turn_groups[(row.get("plane", ""), int(row.get("subset_size") or 0))].append(row)
+    if set(legacy_turn_groups) != expected_keys:
+        _issue(
+            issues,
+            "error",
+            "legacy_turn_coverage",
+            "legacy turn-contrast table does not cover every requested H/V N",
+        )
     sliding_audits: dict[int, dict[str, object]] = {}
     for size in sizes:
         path = root / f"ridge_density_best{size}_sliding_tune.csv"
@@ -443,6 +474,34 @@ def verify_ridge_density_outputs(
         missing_numeric = [field for field in LEGACY_NUMERIC_FIELDS if not math.isfinite(_finite(legacy_row.get(field)))]
         if missing_numeric:
             _issue(issues, "error", "legacy_metric_nonfinite", f"{plane} Best-{size} has incomplete paired legacy metrics", len(missing_numeric), missing_numeric)
+        turn_rows = legacy_turn_groups.get((plane, size), [])
+        turn_centers = [int(float(row.get("center_turn") or 0)) for row in turn_rows]
+        if (
+            len(turn_rows) != expected_centers
+            or len(set(turn_centers)) != expected_centers
+            or tuple(sorted(turn_centers)) != expected_center_grid
+        ):
+            _issue(
+                issues,
+                "error",
+                "legacy_turn_center_coverage",
+                f"{plane} Best-{size} lacks the exact paired turn-contrast grid",
+            )
+        bad_turn_rows = [
+            row.get("center_turn", "")
+            for row in turn_rows
+            if int(row.get("paired_ridge_count") or 0) != expected_legacy_spills.get(plane, 0)
+            or any(not math.isfinite(_finite(row.get(field))) for field in LEGACY_TURN_NUMERIC_FIELDS)
+        ]
+        if bad_turn_rows:
+            _issue(
+                issues,
+                "error",
+                "legacy_turn_metrics",
+                f"{plane} Best-{size} has incomplete or nonfinite paired turn contrasts",
+                len(bad_turn_rows),
+                bad_turn_rows,
+            )
 
         audit = sliding_audits[size]
         row_count = audit["row_counts"][plane]
@@ -500,12 +559,31 @@ def verify_ridge_density_outputs(
         "turn diagnostic: median_selected_confidence": 2,
         "turn diagnostic: global_fallback_fraction": 2,
         "turn diagnostic: suspicious_step_fraction": 2,
+        "paired legacy turn contrast: iqr_delta_ensemble_minus_legacy": 2,
+        "paired legacy turn contrast: p10_p90_delta_ensemble_minus_legacy": 2,
+        "paired legacy turn contrast: peak_bin_fraction_gain": 2,
+        "paired legacy turn contrast: density_entropy_delta": 2,
+        "paired legacy turn contrast: shared_ridge_mass_gain": 2,
     }
     if require_context_variants:
         expected_role_minimums["exploratory extraction-context concentration"] = 2
     if selected_plane_sizes:
         expected_role_minimums["plane-selected paired legacy H/V comparison"] = 1
         expected_role_minimums["plane-selected turn concentration"] = 2
+        for metric in (
+            "iqr_delta_ensemble_minus_legacy",
+            "p10_p90_delta_ensemble_minus_legacy",
+            "peak_bin_fraction_gain",
+            "density_entropy_delta",
+            "shared_ridge_mass_gain",
+        ):
+            expected_role_minimums[f"plane-selected paired legacy turn contrast: {metric}"] = 2
+            expected_role_minimums[
+                f"plane-selected H/V paired legacy turn contrast: {metric}"
+            ] = 1
+            expected_role_minimums[
+                f"plane-selected H/V paired legacy turn contrast poster: {metric}"
+            ] = 1
     for role, minimum in expected_role_minimums.items():
         if roles[role] < minimum:
             _issue(issues, "error", "figure_role_coverage", f"figure role '{role}' has {roles[role]} rows; expected at least {minimum}")

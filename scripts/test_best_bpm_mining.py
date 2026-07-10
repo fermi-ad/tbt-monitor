@@ -84,9 +84,12 @@ from audit_intensity_capture import audit as audit_intensity_capture
 from make_best_bpm_ridge_density import (
     draw_legacy_pair_hv,
     draw_legacy_pair_hv_selected,
+    draw_selected_turn_contrast_hv,
+    draw_turn_metric_plot,
     exact_paired_density_results,
     keyed_ensemble_points,
     keyed_legacy_points,
+    legacy_comparison_by_turn_rows,
     legacy_comparison_metrics,
     load_memberships,
     raster_cell_bounds,
@@ -95,7 +98,13 @@ from make_best_bpm_ridge_density import (
 from gpu_analyze_captured_spills import preprocess_traces, select_trace_subset
 from audit_legacy_single_bpm_selection import selection_row as legacy_selection_row
 from package_publication_review import package_review
-from prepare_ibic2026_publication import publication_content, render_results_table
+from prepare_ibic2026_publication import (
+    prepare_publication,
+    publication_content,
+    publication_numeric_summary,
+    render_results_macros,
+    render_results_table,
+)
 from repair_best_bpm_visibility_duration import repair_visibility_durations
 from analyze_next_steps_outputs import fixed_score_contract_mismatches
 from compare_intensity_block_sensitivity import (
@@ -104,6 +113,7 @@ from compare_intensity_block_sensitivity import (
 )
 from compare_best_n_beam_widths import compare_table as compare_best_n_beam_table
 from compare_best_n_sensitivity import comparison_rows as compare_best_n_sensitivity_rows
+from finalize_ibic2026_publication import parse_pdfinfo
 
 
 def synthetic_collection(root: Path, spills: int = 3, bpms: int = 8, turns: int = 1024) -> None:
@@ -727,6 +737,16 @@ class BestBpmMiningTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "not empty"):
             package_review((("source", source),), occupied)
 
+    def test_publication_pdfinfo_parser_requires_geometry(self) -> None:
+        info = parse_pdfinfo(
+            "Title: test\nPages:          4\nPage size:      595 x 792 pts\n"
+        )
+        self.assertEqual(info["pages"], 4)
+        self.assertEqual(info["width_points"], 595.0)
+        self.assertEqual(info["height_points"], 792.0)
+        with self.assertRaisesRegex(ValueError, "missing page count"):
+            parse_pdfinfo("Title: no geometry\n")
+
     def test_publication_copy_and_table_are_plane_specific(self) -> None:
         best = {
             plane: {
@@ -760,13 +780,213 @@ class BestBpmMiningTests(unittest.TestCase):
             best,
             ridge,
             {"first_sustained_half_peak_loss_turn": "12000", "most_likely_change_turn": "14000"},
-            {"plane": "V", "category": "best5_improvement", "spill_id": "spill_1", "score": "0.8"},
             240,
             0,
         )
         self.assertIn("H Best-7", content["ridgeCaption"])
         self.assertIn("V Best-11", content["ridgeCaption"])
+        self.assertIn("P10-P90 width minus legacy", content["ridgeContrastCaption"])
         self.assertIn("0/240", content["quantitativeBody"])
+
+    def test_publication_numeric_macros_are_generated_from_accepted_rows(self) -> None:
+        primary = [
+            {"plane": plane, "subset_size": str(size), "subset_score": str(value + offset)}
+            for plane, offset in (("H", 0.0), ("V", 0.1))
+            for size, value in ((1, 0.3), (3, 0.4), (5, 0.5))
+        ]
+        paired = [
+            {"plane": plane, "comparison": comparison, "median_paired_difference": str(value)}
+            for plane, offset in (("H", 0.0), ("V", 0.01))
+            for comparison, value in (("best1 vs best3", 0.05 + offset), ("best3 vs best5", 0.02 + offset))
+        ]
+        intensity = [
+            {
+                "statistical_benefit_pass": "true" if index == 0 else "false",
+                "fdr_q_value": "0.01" if index == 0 else "1",
+                "practical_effect_pass": "false",
+                "retain_method_for_tune_analysis": "false",
+            }
+            for index in range(3)
+        ]
+        summary = publication_numeric_summary(primary, paired, intensity)
+        macros = render_results_macros(summary)
+        self.assertIn(r"\newcommand{\PrimaryHBestOneScore}{0.300}", macros)
+        self.assertIn(r"\newcommand{\PrimaryVThreeToFiveGain}{0.0300}", macros)
+        self.assertIn(r"\newcommand{\IntensityEffectCount}{3}", macros)
+        self.assertIn(r"\newcommand{\IntensityFdrCount}{1}", macros)
+        self.assertIn(r"\newcommand{\IntensityRetainedCount}{0}", macros)
+
+    def test_publication_materialization_binds_reports_numbers_and_figures(self) -> None:
+        primary = self.root / "primary"
+        followup = self.root / "followup"
+        best_n = self.root / "best-n"
+        ridge = self.root / "ridge"
+        intensity = self.root / "intensity"
+        publication = self.root / "publication"
+
+        def json_file(path: Path, value: dict[str, object]) -> None:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(value), encoding="utf-8")
+
+        def csv_file(path: Path, rows: list[dict[str, object]]) -> None:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            write_csv(path, rows, list(rows[0]))
+
+        for report in (
+            primary / "logs" / "best_bpm_verification.json",
+            followup / "logs" / "best_bpm_followup_verification.json",
+            *(best_n / f"merged_block{block}" / "best_n_verification.json" for block in (10, 20, 40)),
+            ridge / "ridge_density_verification.json",
+            intensity / "merged_block20" / "intensity_verification.json",
+        ):
+            json_file(report, {"status": "pass", "error_count": 0})
+
+        best_rows = []
+        for plane in ("H", "V"):
+            best_rows.append(
+                {
+                    "plane": plane,
+                    "subset_size": 1,
+                    "validation_row_count": 20,
+                    "validation_spill_count": 20,
+                    "blind_q_agreement_rate": 0.9,
+                    "blind_q_agreement_ci_low": 0.85,
+                    "blind_q_agreement_ci_high": 0.95,
+                    "median_blind_selected_heldout_abs_q_delta": 0.001,
+                    "blind_selected_heldout_abs_q_delta_ci_low": 0.0008,
+                    "blind_selected_heldout_abs_q_delta_ci_high": 0.0012,
+                    "median_test_peak_prominence": 5,
+                    "median_test_power_support": 5,
+                    "median_heldout_prominence": 5,
+                    "median_heldout_power_support": 5,
+                }
+            )
+        block20 = best_n / "merged_block20"
+        json_file(block20 / "run_contract.json", {"tune_half_width": 0.0025})
+        csv_file(block20 / "best_n_summary.csv", best_rows)
+        csv_file(
+            block20 / "best_n_cross_collection_transfer.csv",
+            [
+                {"train_collection": train, "test_collection": test, "plane": plane, "status": "OK"}
+                for train, test in (("A", "B"), ("B", "A"))
+                for plane in ("H", "V")
+            ],
+        )
+        csv_file(
+            best_n / "block_sensitivity" / "best_n_bootstrap_block_spills_recommendations.csv",
+            [{"plane": plane, "status": "OK"} for plane in ("H", "V")],
+        )
+        sensitivity_manifest = []
+        for index in range(7):
+            run_root = best_n / "sensitivity" / "runs" / f"run-{index}"
+            csv_file(run_root / "best_n_summary.csv", best_rows)
+            json_file(run_root / "run_contract.json", {"tune_half_width": 0.0025})
+            sensitivity_manifest.append(
+                {
+                    "run": f"run-{index}",
+                    "output": str(run_root),
+                    "beam_width": 16 + index,
+                    "fit_windows": 4 + index,
+                    "fold_seed": index,
+                    "status": "verified",
+                }
+            )
+        csv_file(best_n / "sensitivity" / "sensitivity_run_manifest.csv", sensitivity_manifest)
+
+        json_file(ridge / "run_contract.json", {"selected_plane_sizes": {"H": 1, "V": 1}})
+        ridge_rows = [
+            {
+                "plane": plane,
+                "subset_size": 1,
+                "median_iqr_delta_ensemble_minus_legacy": -0.002,
+                "median_iqr_delta_ci_low": -0.0025,
+                "median_iqr_delta_ci_high": -0.0015,
+                "median_shared_ridge_mass_gain": 0.1,
+                "median_shared_ridge_mass_gain_ci_low": 0.08,
+                "median_shared_ridge_mass_gain_ci_high": 0.12,
+            }
+            for plane in ("H", "V")
+        ]
+        csv_file(ridge / "ridge_density_legacy_comparison_metrics.csv", ridge_rows)
+        csv_file(
+            ridge / "ridge_density_loss_candidates.csv",
+            [
+                {
+                    "plane": plane,
+                    "subset_size": 1,
+                    "first_sustained_half_peak_loss_turn": 12000 if plane == "H" else "",
+                    "most_likely_change_turn": 14000 if plane == "H" else "",
+                }
+                for plane in ("H", "V")
+            ],
+        )
+        figure_paths = (
+            block20 / "best_n_validation_h.png",
+            block20 / "best_n_validation_v.png",
+            ridge / "ridge_density_legacy_single_vs_best_h1_v1_hv.png",
+            ridge / "ridge_concentration_selected_best1_h.png",
+            ridge / "ridge_p10_p90_delta_vs_turn_selected_h1_v1_hv.png",
+            ridge / "ridge_p10_p90_delta_vs_turn_selected_h1_v1_hv_poster.png",
+        )
+        for path in figure_paths:
+            draw_turn_metric_plot(
+                path,
+                "H",
+                [
+                    {"plane": "H", "subset_size": "1", "center_turn": 100, "value": -0.1},
+                    {"plane": "H", "subset_size": "1", "center_turn": 200, "value": 0.1},
+                ],
+                ["1"],
+                "value",
+                "TEST FIGURE",
+                "VALUE",
+                zero_reference=True,
+            )
+
+        csv_file(
+            primary / "evolution" / "subset_size_comparison.csv",
+            [
+                {"plane": plane, "subset_size": size, "subset_score": value + offset}
+                for plane, offset in (("H", 0.0), ("V", 0.1))
+                for size, value in ((1, 0.3), (3, 0.4), (5, 0.5))
+            ],
+        )
+        csv_file(
+            primary / "statistics" / "paired_method_tests.csv",
+            [
+                {"plane": plane, "comparison": comparison, "median_paired_difference": value + offset}
+                for plane, offset in (("H", 0.0), ("V", 0.01))
+                for comparison, value in (("best1 vs best3", 0.05), ("best3 vs best5", 0.02))
+            ],
+        )
+        csv_file(
+            intensity / "merged_block20" / "intensity_method_effects.csv",
+            [
+                {
+                    "statistical_benefit_pass": "false",
+                    "fdr_q_value": 1,
+                    "practical_effect_pass": "false",
+                    "retain_method_for_tune_analysis": "false",
+                }
+            ],
+        )
+        csv_file(
+            intensity / "block_sensitivity" / "intensity_block_sensitivity.csv",
+            [{"label": "block20", "retained_effects": 0}],
+        )
+
+        payload = prepare_publication(primary, followup, best_n, ridge, intensity, publication)
+        self.assertEqual(payload["selected_sizes"], {"H": 1, "V": 1})
+        self.assertEqual(payload["numeric_summary"]["intensity_effect_count"], 1)
+        content = json.loads((publication / "poster" / "content.json").read_text(encoding="utf-8"))
+        self.assertEqual(content["assets"]["ridgeContrast"], "assets/ridge_width_contrast_hv.png")
+        self.assertNotIn("selectedSpill", content["assets"])
+        self.assertTrue((publication / "poster" / "assets" / "ridge_width_contrast_hv.png").is_file())
+        self.assertTrue((publication / "paper" / "figures" / "ridge_width_contrast_hv.png").is_file())
+        self.assertIn("IntensityEffectCount}{1}", (publication / "paper" / "results_macros.tex").read_text())
+        manifest = read_csv(publication / "source_manifest.csv")
+        self.assertTrue(any(row["role"] == "poster:ridge_width_hv_poster" for row in manifest))
+        self.assertTrue(any(row["role"] == "paper:ridge_width_hv" for row in manifest))
 
     def test_intensity_block_sensitivity_separates_statistical_and_practical_passes(self) -> None:
         root = self.root / "intensity-block"
@@ -844,6 +1064,69 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertEqual(len(paired_baseline["point_keys"]), 2)
         self.assertEqual(paired_baseline["point_keys"], paired_ensemble["point_keys"])
         self.assertEqual(paired_baseline["spill_keys"], {("run", "1"), ("run", "2")})
+        turn_rows = legacy_comparison_by_turn_rows(
+            "H",
+            "5",
+            paired_baseline,
+            paired_ensemble,
+            (0.62, 0.68),
+            60,
+        )
+        self.assertEqual(len(turn_rows), 1)
+        self.assertEqual(int(turn_rows[0]["center_turn"]), 100)
+        self.assertEqual(int(turn_rows[0]["paired_ridge_count"]), 2)
+        self.assertLess(float(turn_rows[0]["iqr_delta_ensemble_minus_legacy"]), 0.0)
+        self.assertLess(float(turn_rows[0]["p10_p90_delta_ensemble_minus_legacy"]), 0.0)
+        for field in (
+            "peak_bin_fraction_gain",
+            "density_entropy_delta",
+            "shared_ridge_mass_gain",
+        ):
+            self.assertTrue(math.isfinite(float(turn_rows[0][field])))
+        contrast_path = self.root / "ridge_turn_contrast.png"
+        draw_turn_metric_plot(
+            contrast_path,
+            "H",
+            [
+                {"plane": "H", "subset_size": "5", "center_turn": 100, "delta": -0.001},
+                {"plane": "H", "subset_size": "5", "center_turn": 200, "delta": 0.001},
+            ],
+            ["5"],
+            "delta",
+            "PAIRED TURN CONTRAST",
+            "DELTA TUNE WIDTH",
+            zero_reference=True,
+        )
+        self.assertEqual(png_dimensions(contrast_path), (1400, 780))
+        combined_contrast_path = self.root / "ridge_turn_contrast_hv.png"
+        draw_selected_turn_contrast_hv(
+            combined_contrast_path,
+            [
+                {"plane": plane, "subset_size": size, "center_turn": turn, "delta": value}
+                for plane, size, offset in (("H", "5", 0.0), ("V", "3", 0.0002))
+                for turn, value in ((100, -0.001 + offset), (200, 0.001 + offset))
+            ],
+            {"H": "5", "V": "3"},
+            "delta",
+            "SELECTED PAIRED TURN CONTRAST",
+            "DELTA TUNE WIDTH",
+        )
+        self.assertEqual(png_dimensions(combined_contrast_path), (1000, 625))
+        portrait_contrast_path = self.root / "ridge_turn_contrast_hv_poster.png"
+        draw_selected_turn_contrast_hv(
+            portrait_contrast_path,
+            [
+                {"plane": plane, "subset_size": size, "center_turn": turn, "delta": value}
+                for plane, size, offset in (("H", "5", 0.0), ("V", "3", 0.0002))
+                for turn, value in ((100, -0.001 + offset), (200, 0.001 + offset))
+            ],
+            {"H": "5", "V": "3"},
+            "delta",
+            "SELECTED PAIRED TURN CONTRAST",
+            "DELTA TUNE WIDTH",
+            portrait=True,
+        )
+        self.assertEqual(png_dimensions(portrait_contrast_path), (800, 1250))
         v_baseline = keyed_legacy_points(
             [("run", "1", 100, 0.720), ("run", "2", 100, 0.722)],
             (0.69, 0.74),

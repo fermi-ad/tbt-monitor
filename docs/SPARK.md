@@ -474,8 +474,15 @@ Best-N memberships, run the full-buffer ridge-density sidecar:
 This writes H/V ridge-density heatmaps, all pairwise requested-N difference
 maps, exact-point-paired legacy comparisons, a shared-scale four-panel H/V
 legacy-versus-adaptive comparison for every requested N, turn-concentration and
-H-loss diagnostics, moving-turn-block contrast intervals, metrics, captions,
-and an indexed gallery. Primary figures omit the broad extraction-review marker;
+H-loss diagnostics, exact-paired per-turn width/entropy/peak/shared-mass
+contrasts, moving-turn-block contrast intervals, metrics, captions, and an
+indexed gallery. The per-turn CSV is unsmoothed; its PNGs use five-window
+visual smoothing and a zero reference. They diagnose ridge-pick probability
+redistribution rather than physical noise or extraction timing. Selected-H/V
+composites stack the two planes on one shared y scale; the P10-P90-width
+landscape composite is copied into the paper source and its portrait twin into
+the poster source. Primary density figures omit the
+broad extraction-review marker;
 separately named context variants may show it. The method applies members chosen
 from early fit windows through the 0-50000-turn buffer. It tests persistence and
 does not perform same-window dynamic reselection.
@@ -500,6 +507,9 @@ After the intensity refresh and ridge verifier pass, run
 Best-N parent, ridge, and intensity parent roots. Run it on Spark before
 copy-back when the large ridge CSVs remain in place; only the generated
 publication tree and review galleries need transfer to the local checkout.
+The generated paper tree includes `results_table.tex`, `results_macros.tex`,
+the selected-H/V turn-width contrast, and the other four contract-bound PNGs;
+the final paper build rejects a missing macro or figure file.
 
 If an original artifact must be revisited, Spark can reach the acquisition host
 with forwarded credentials via `ssh -K drbpm1`; copy or package the smallest
