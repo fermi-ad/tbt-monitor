@@ -266,7 +266,10 @@ config ranking. Its package modules cover:
   replaced.
 - `best_n_sensitivity.py` and `run_best_n_sensitivity_matrix.py`: deterministic
   one-factor-at-a-time beam/fit/fold matrix construction, shared-baseline reuse,
-  resumable execution, comparison plots, and command/run manifests.
+  resumable execution, comparison plots, and command/run manifests. Execution
+  is serial by default; the explicit two-run Spark mode reads Linux
+  `MemAvailable`, stops all active evaluators after a sustained floor breach,
+  and records those operational controls separately from scientific contracts.
 - `best_n_verification.py` and `verify_best_n_outputs.py`: fail-closed coverage,
   identity, timing, metric, summary, recommendation-boundary, transfer, and plot
   checks for every full or sensitivity Best-N run, including the input and

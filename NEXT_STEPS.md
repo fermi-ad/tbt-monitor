@@ -121,10 +121,17 @@ the publication audit:
     climbed above roughly 115 GiB of unified memory, making the host
     unresponsive after only 10/1000 curve keys per shard and forcing a reboot.
     Those partial rows are resume checkpoints, not accepted evidence. Recovery
-    keeps four logical shards for deterministic coverage but executes one CUDA
-    evaluator at a time, anchors the workload to one monitored process group,
-    and serializes every later sensitivity, intensity, and ridge stage. Two-way
-    max-N=40 concurrency remains unproven and is not used for the definitive run.
+    keeps four logical shards for deterministic coverage and began with one CUDA
+    evaluator at a time. A later controlled two-evaluator qualification held
+    GPU utilization mostly near 70-96%, peaked near 83 GB (77 GiB) host use
+    with about 44 GiB still available, and never crossed its 32 GiB
+    `MemAvailable` floor.
+    The definitive recovery therefore permits at most two max-N=40 evaluators
+    in one process group with three-sample/5-second memory-watchdog termination
+    and resumable checkpoints. Four-way execution remains prohibited. The same
+    bounded mode may run two independent Best-N sensitivity evaluators; the
+    intensity and ridge stages remain serialized because their memory profiles
+    have not been qualified for overlap.
 20. A legacy-versus-selected Best-N density panel alone would combine two
     effects: repair of the flawed normalized-single selector and the benefit of
     using more than one corrected adaptive BPM. The final ridge gallery now
@@ -236,7 +243,7 @@ Completion status:
 | --- | --- | --- |
 | Exact identity/ring-order implementation and regression tests | complete | local 57-test Best-BPM suite and 9 autosweep tests pass; all 62 previously committed tests plus byte compilation pass on Spark |
 | Corrected Best-1/3/5 primary and downstream rerun | complete | primary and follow-up strict verifiers both report zero failures and zero warnings; every required fixed, held-out, artifact, and handoff product is present |
-| Best-N curve through at least N=20 | in progress | bounded N=30 trial put V at the boundary; the first four-concurrent-shard N=40 launch exceeded unified memory and forced a Spark reboot, so checkpoint recovery proceeds strictly serially before block and seven-run beam/fit/fold sensitivity |
+| Best-N curve through at least N=20 | in progress | bounded N=30 trial put V at the boundary; four-way N=40 exceeded unified memory and forced a reboot, while the watchdog-bounded two-way recovery has completed shards 0/1 and is advancing shards 2/3 before block and seven-run beam/fit/fold sensitivity |
 | 200-spill intensity hypothesis test | in progress | initial 199-spill pass and block-aware re-summary found 0 FDR-significant/0 practical effects; corrected all-zero gate fallback, exact N=1 contract, and strict payload/window/effect/gallery verifier pass locally; 200-spill gate-refresh merge/gallery pending |
 | Delivery Ring producer and raw-payload integrity audit | in progress | live raw/scaled separation and HP303/VP304 roll behavior confirmed read-only on drbpm2; exhaustive first-50000-turn scan over all three publication collections pending on Spark |
 | Corrected 50000-turn ridge/difference/concentration gallery | pending | exact-source-key full-buffer sidecar plus strict spill/window/pair/metric/PNG/caption verifier |

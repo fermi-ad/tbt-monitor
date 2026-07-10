@@ -347,14 +347,17 @@ BESTN=/home/derekste/best_n_20260709
 ```
 
 Repeat the evaluator for shard indices 1 through 3 before merging. Four
-logical shards are required for deterministic coverage, but execute exactly
-one max-N=40 evaluator at a time on Spark's single GB10. A measured four-process,
-max-N=40 launch rose from about 105 GiB to more than 115 GiB of unified memory and made
-the host unresponsive; four-way CUDA concurrency is therefore prohibited for
-this workload, and two-way execution has not been qualified. Keep the
-foreground coordinator and workers in one process group, preserve per-shard
-resume files, and do not overlap Best-N with
-sensitivity, intensity, or ridge jobs. Positive curve/validation limits are
+logical shards are required for deterministic coverage, while execution
+concurrency is an independent operational control. A measured four-process,
+max-N=40 launch rose from about 105 GiB to more than 115 GiB of unified memory
+and made the host unresponsive; four-way CUDA concurrency is prohibited. A
+subsequent two-process run was qualified under the same max-N=40 contract: GPU
+utilization was mostly 70-96%, host use peaked near 83 GB (77 GiB), and
+approximately 44 GiB remained available. Permit at most two evaluators, keep them and their
+coordinator in one process group, and terminate the group after three
+consecutive five-second samples below 32 GiB `MemAvailable`. Preserve per-shard
+resume files, and do not overlap the full Best-N run with sensitivity,
+intensity, or ridge jobs. Positive curve/validation limits are
 evenly stratified across collection and plane. Record any limit in the report
 and use the full curve for the final global-N recommendation.
 Every shard must contain `run_contract.json`. A resume with changed scientific
@@ -392,6 +395,10 @@ The reproducible sample sensitivity matrix is:
   --beam-widths 16 32 64 \
   --fit-windows 4 8 16 \
   --fold-seeds 20260709 20260710 20260711 \
+  --parallel-runs 2 \
+  --minimum-available-memory-gib 32 \
+  --memory-check-seconds 5 \
+  --low-memory-samples 3 \
   --resume
 ```
 
@@ -399,6 +406,12 @@ It runs seven unique configurations because the beam-32/fit-8/seed-20260709
 baseline is shared. Each run is verified before comparison. Keep this sample
 matrix separate from the all-4000-row primary curve; it tests numerical and
 hyperparameter stability rather than replacing full-run inference.
+Serial execution remains the default. `--parallel-runs 2` is the maximum
+qualified Spark setting and requires readable Linux `MemAvailable`; a sustained
+floor breach terminates both evaluators and leaves their ten-case checkpoints
+resumable. A trip writes `memory_guard_abort.json`; the active controls are
+written to `execution_controls.json` and do not alter any per-run scientific
+contract.
 The generated sensitivity gallery includes confidence-interval endpoints, so
 10/20/40-spill block comparisons expose uncertainty changes even when central
 curves are identical.

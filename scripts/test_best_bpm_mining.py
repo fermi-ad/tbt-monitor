@@ -3,8 +3,11 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import math
+import subprocess
+import sys
 import tempfile
 import unittest
 from concurrent.futures import ProcessPoolExecutor
@@ -58,7 +61,12 @@ from bpm_mining.best_n import (
     stratified_limit,
     training_candidates,
 )
-from bpm_mining.best_n_sensitivity import build_sensitivity_matrix
+from bpm_mining.best_n_sensitivity import (
+    SensitivityRun,
+    build_sensitivity_matrix,
+    read_mem_available_gib,
+    validate_parallel_run_controls,
+)
 from bpm_mining.best_n_verification import verify_best_n_outputs
 from bpm_mining.ridge_verification import (
     audit_sliding_file,
@@ -87,6 +95,7 @@ from bpm_mining.report import make_report
 from bpm_mining.verification import verify_best_bpm_followups, verify_best_bpm_outputs
 from audit_intensity_capture import audit as audit_intensity_capture
 from audit_delivery_ring_payloads import audit_manifest as audit_delivery_ring_manifest
+from run_best_n_sensitivity_matrix import _RunJob, _execute_jobs
 from make_best_bpm_ridge_density import (
     draw_legacy_pair_hv,
     draw_legacy_pair_hv_selected,
@@ -316,6 +325,149 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertEqual([label for label, _run in dimensions["beam_width"]], ["beam16", "beam32", "beam64"])
         baseline = [run for run in runs if run.beam_width == 32 and run.fit_windows == 8 and run.fold_seed == 20260709]
         self.assertEqual(len(baseline), 1)
+
+    def test_best_n_sensitivity_parallel_controls_and_memavailable(self) -> None:
+        validate_parallel_run_controls(1, 32.0, 5.0, 3)
+        validate_parallel_run_controls(2, 32.0, 5.0, 3)
+        for bad_parallelism in (0, 3):
+            with self.assertRaisesRegex(ValueError, "parallel_runs"):
+                validate_parallel_run_controls(bad_parallelism, 32.0, 5.0, 3)
+        with self.assertRaisesRegex(ValueError, "minimum_available_memory_gib"):
+            validate_parallel_run_controls(2, 0.0, 5.0, 3)
+        with self.assertRaisesRegex(ValueError, "memory_check_seconds"):
+            validate_parallel_run_controls(2, 32.0, 0.0, 3)
+        with self.assertRaisesRegex(ValueError, "low_memory_samples"):
+            validate_parallel_run_controls(2, 32.0, 5.0, 0)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            meminfo = Path(tmp) / "meminfo"
+            meminfo.write_text(
+                "MemTotal:       131072000 kB\nMemAvailable:    50331648 kB\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(read_mem_available_gib(meminfo), 48.0)
+            meminfo.write_text("MemAvailable: not-a-number kB\n", encoding="utf-8")
+            self.assertIsNone(read_mem_available_gib(meminfo))
+            self.assertIsNone(read_mem_available_gib(Path(tmp) / "missing"))
+
+    def test_best_n_sensitivity_dry_run_records_parallel_controls(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            inputs = root / "inputs"
+            (inputs / "manifest").mkdir(parents=True)
+            (inputs / "cache" / "index").mkdir(parents=True)
+            (inputs / "manifest" / "bpm_index.csv").write_text("source_key\n", encoding="utf-8")
+            (inputs / "cache" / "index" / "spectral_cache.csv").write_text(
+                "collection,spill_id,plane\n",
+                encoding="utf-8",
+            )
+            out = root / "out"
+            subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/run_best_n_sensitivity_matrix.py",
+                    "--inputs",
+                    str(inputs),
+                    "--out",
+                    str(out),
+                    "--device",
+                    "cpu",
+                    "--max-n",
+                    "1",
+                    "--curve-limit",
+                    "1",
+                    "--validation-limit",
+                    "1",
+                    "--folds",
+                    "1",
+                    "--parallel-runs",
+                    "2",
+                    "--dry-run",
+                ],
+                cwd=Path(__file__).resolve().parents[1],
+                check=True,
+            )
+            controls = json.loads((out / "execution_controls.json").read_text(encoding="utf-8"))
+            self.assertEqual(controls["parallel_runs"], 2)
+            self.assertEqual(controls["minimum_available_memory_gib"], 32.0)
+            manifest = read_csv(out / "sensitivity_run_manifest.csv")
+            self.assertEqual(len(manifest), 7)
+            self.assertEqual({row["status"] for row in manifest}, {"planned"})
+
+    def test_best_n_sensitivity_scheduler_is_bounded_and_fails_on_memory_floor(self) -> None:
+        args = argparse.Namespace(
+            dry_run=False,
+            parallel_runs=2,
+            minimum_available_memory_gib=32.0,
+            memory_check_seconds=0.01,
+            low_memory_samples=1,
+            max_n=1,
+            curve_limit=1,
+            validation_limit=1,
+            folds=1,
+            bootstrap_block_spills=1,
+        )
+        runs = [SensitivityRun(1, 1, 1), SensitivityRun(2, 1, 1)]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            out = root / "parallel"
+            out.mkdir()
+            jobs = []
+            for run in runs:
+                start_marker = root / f"{run.slug}.start"
+                end_marker = root / f"{run.slug}.end"
+                jobs.append(
+                    _RunJob(
+                        run=run,
+                        output=root / run.slug,
+                        command=[
+                            sys.executable,
+                            "-c",
+                            (
+                                "import time; from pathlib import Path; "
+                                f"Path({str(start_marker)!r}).touch(); time.sleep(0.3); "
+                                f"Path({str(end_marker)!r}).touch()"
+                            ),
+                        ],
+                    )
+                )
+            manifest = _execute_jobs(
+                args,
+                jobs,
+                root,
+                out,
+                verify_run=lambda _args, _job: None,
+                read_available_memory_gib=lambda: 128.0,
+            )
+            self.assertEqual([row["status"] for row in manifest], ["verified", "verified"])
+            self.assertTrue(all(job.process is not None and job.process.poll() == 0 for job in jobs))
+            start_times = [(root / f"{run.slug}.start").stat().st_mtime_ns for run in runs]
+            end_times = [(root / f"{run.slug}.end").stat().st_mtime_ns for run in runs]
+            self.assertLess(max(start_times), min(end_times))
+
+            low_out = root / "low"
+            low_out.mkdir()
+            low_jobs = [
+                _RunJob(
+                    run=run,
+                    output=root / f"low-{run.slug}",
+                    command=[sys.executable, "-c", "import time; time.sleep(5)"],
+                )
+                for run in runs
+            ]
+            with self.assertRaisesRegex(RuntimeError, "available-memory floor"):
+                _execute_jobs(
+                    args,
+                    low_jobs,
+                    root,
+                    low_out,
+                    verify_run=lambda _args, _job: None,
+                    read_available_memory_gib=lambda: 0.0,
+                )
+            self.assertTrue(all(job.process is not None and job.process.poll() is not None for job in low_jobs))
+            abort = json.loads((low_out / "memory_guard_abort.json").read_text(encoding="utf-8"))
+            self.assertEqual(abort["status"], "aborted")
+            self.assertEqual(abort["active_runs"], [run.slug for run in runs])
 
     def test_best_n_resume_requires_exact_contiguous_rows(self) -> None:
         key = {"collection": "a", "spill_id": "1", "plane": "H"}

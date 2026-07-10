@@ -271,7 +271,9 @@ Implemented structure:
   intervals, declared-count sign-flip inference, beam/fit/fold/block-length
   sensitivity, and cross-collection
   global-N transfer, plus a reusable seven-run sensitivity matrix and a
-  fail-closed output verifier
+  fail-closed output verifier. The matrix remains serial by default and exposes
+  only the measured two-evaluator Spark mode, guarded by a sustained Linux
+  `MemAvailable` floor and resumable per-run checkpoints.
 - a 200-spill exact-pair intensity sidecar with block-aware paired inference,
   10/20/40-spill block-length sensitivity, practical-effect gates,
   payload-horizon auditing, and an indexed review gallery

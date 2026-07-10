@@ -407,10 +407,14 @@ Tradeoffs:
   contention for a single GPU. The older autosweep may start with 2 concurrent
   jobs and use telemetry before raising that to 3-4; this does not apply to the
   max-N=40 evaluator.
-- Best-N max-N=40 evaluators run one at a time on Spark's single GB10. Four
-  measured processes exceeded 115 GiB of unified memory and made the host
-  unresponsive, while two-process safety was never qualified; logical sharding
-  and execution concurrency are separate controls.
+- Best-N max-N=40 evaluators run at no more than two processes on Spark's
+  single GB10. Four measured processes exceeded 115 GiB of unified memory and
+  made the host unresponsive. A watchdog-bounded two-process qualification
+  peaked near 83 GB (77 GiB) host use with about 44 GiB available and kept GPU
+  utilization mostly near 70-96%. Two-way execution therefore requires a
+  32 GiB `MemAvailable` floor sampled every five seconds, three low samples
+  before process-group termination, and resumable checkpoints; logical
+  sharding and execution concurrency remain separate controls.
 - Telemetry-derived GPU-hours and watt-hours are estimates from sampled
   `nvidia-smi` utilization and power, not scheduler-grade accounting.
 - Full-stage execution uses an explicit elite builder rather than implicit
