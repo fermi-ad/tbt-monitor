@@ -346,11 +346,16 @@ BESTN=/home/derekste/best_n_20260709
   --folds 5
 ```
 
-Repeat the evaluator for shard indices 1 through 3 before merging. Do not
-launch four concurrent CUDA evaluators on one GB10 without first measuring
-memory and utilization. Positive curve/validation limits are evenly stratified
-across collection and plane. Record any limit in the report and use the full
-curve for the final global-N recommendation.
+Repeat the evaluator for shard indices 1 through 3 before merging. Four
+logical shards are required for deterministic coverage, but execute them in
+two-worker waves on Spark's single GB10. A measured four-process, max-N=40
+launch rose from about 105 GiB to more than 115 GiB of unified memory and made
+the host unresponsive; four-way CUDA concurrency is therefore prohibited for
+this workload. Keep the foreground coordinator and workers in one process
+group, preserve per-shard resume files, and do not overlap Best-N with
+sensitivity, intensity, or ridge jobs. Positive curve/validation limits are
+evenly stratified across collection and plane. Record any limit in the report
+and use the full curve for the final global-N recommendation.
 Every shard must contain `run_contract.json`. A resume with changed scientific
 parameters or source hashes is rejected. Merge requires the complete declared
 shard index set with compatible contracts and no duplicate science keys; do

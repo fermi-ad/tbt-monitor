@@ -406,6 +406,10 @@ Tradeoffs:
 - Parallel jobs improve host/GPU utilization but can increase contention for a
   single GPU. Start Spark runs with 2 concurrent jobs and use telemetry before
   raising that to 3-4.
+- Best-N max-N=40 evaluators are explicitly capped at 2 concurrent processes on
+  Spark's single GB10. Four measured processes exceeded 115 GiB of unified
+  memory and made the host unresponsive; logical sharding and execution
+  concurrency are separate controls.
 - Telemetry-derived GPU-hours and watt-hours are estimates from sampled
   `nvidia-smi` utilization and power, not scheduler-grade accounting.
 - Full-stage execution uses an explicit elite builder rather than implicit
