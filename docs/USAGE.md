@@ -1024,8 +1024,10 @@ python3 scripts/package_publication_review.py \
 
 Each `LABEL=PATH` component is copied. `MANIFEST.csv` records every packaged
 file's original path, byte size, and SHA-256 checksum, while
-`PACKAGE_INDEX.md` summarizes the package. The output must be new or empty so
-an older review bundle cannot be silently overwritten.
+`PACKAGE_INDEX.md` summarizes the package. The generated `index.html` is a
+self-contained, lazy-loading gallery with text and category filters across
+every packaged image; use `--title` to set its heading. The output must be new
+or empty so an older review bundle cannot be silently overwritten.
 
 After visually inspecting the final poster and all four paper pages, close the
 publication directory with the explicit human-QA gate:

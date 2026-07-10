@@ -725,6 +725,9 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertEqual(len(manifest), 2)
         self.assertTrue(all(len(row["sha256"]) == 64 for row in manifest))
         self.assertTrue((out / "PACKAGE_INDEX.md").exists())
+        gallery = (out / "index.html").read_text(encoding="utf-8")
+        self.assertIn("Publication Review Gallery", gallery)
+        self.assertIn("gallery/figure.png", gallery)
 
     def test_publication_review_package_rejects_unsafe_destinations(self) -> None:
         source = self.root / "source.txt"

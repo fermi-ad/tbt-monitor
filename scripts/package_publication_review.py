@@ -12,6 +12,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Sequence
 
+from build_image_gallery import build_html
+
 
 LABEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 MANIFEST_FIELDS = ("component", "packaged_path", "source_path", "size_bytes", "sha256")
@@ -75,7 +77,11 @@ def write_manifest(path: Path, rows: Sequence[dict[str, object]]) -> None:
         writer.writerows(rows)
 
 
-def package_review(components: Sequence[tuple[str, Path]], out: Path) -> list[dict[str, object]]:
+def package_review(
+    components: Sequence[tuple[str, Path]],
+    out: Path,
+    gallery_title: str = "Publication Review Gallery",
+) -> list[dict[str, object]]:
     out = out.expanduser().resolve()
     if out.exists() and any(out.iterdir()):
         raise ValueError(f"output directory is not empty: {out}")
@@ -115,7 +121,14 @@ def package_review(components: Sequence[tuple[str, Path]], out: Path) -> list[di
     for label, source, file_count, size_bytes in summaries:
         lines.append(f"| `{label}` | {file_count} | {size_bytes} | `{source}` |")
     lines.extend(["", f"Total copied files: `{len(rows)}`", ""])
+    lines.extend(
+        [
+            "Open `index.html` for a searchable, filterable gallery of every packaged image.",
+            "",
+        ]
+    )
     (out / "PACKAGE_INDEX.md").write_text("\n".join(lines), encoding="utf-8")
+    (out / "index.html").write_text(build_html(out, gallery_title), encoding="utf-8")
     return rows
 
 
@@ -123,10 +136,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--component", action="append", required=True, help="repeatable LABEL=PATH component")
     parser.add_argument("--out", required=True, help="new or empty package directory")
+    parser.add_argument("--title", default="Publication Review Gallery", help="title shown in the image gallery")
     args = parser.parse_args(argv)
     try:
         components = [parse_component(value) for value in args.component]
-        rows = package_review(components, Path(args.out))
+        rows = package_review(components, Path(args.out), args.title)
     except ValueError as exc:
         parser.error(str(exc))
     print(f"packaged {len(rows)} files under {Path(args.out).expanduser().resolve()}")
