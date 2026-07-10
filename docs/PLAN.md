@@ -313,9 +313,21 @@ Current publication interpretation:
   panels keep the H-loss view legible.
   Corrected native rasterization fills the complete declared tune axis with
   proportional cells, keeping density colors and percentile overlays aligned.
+  Exact-paired turn tables retain unsmoothed adaptive-minus-legacy width,
+  entropy, peak-bin, and shared-ridge-mass contrasts; review PNGs apply only
+  five-window visual smoothing. These locate changes in ridge-pick
+  concentration without assigning a fixed extraction onset or claiming
+  physical noise removal.
 - Best-N, intensity, and full-buffer ridge passes write checksummed JSON run
   contracts before science output. Resumes reject parameter drift; merges
   require complete compatible shard sets and reject duplicate science keys.
+- Paper prose values that depend on primary or intensity tables are generated
+  as verifier-bound LaTeX macros; only explanatory scientific text remains
+  static in the manuscript source.
+- Final delivery is not inferred from build exit codes alone. A separate
+  finalizer requires explicit poster and paper visual-QA passes, rechecks page
+  geometry and payload closure, and inventories every delivered publication
+  file by SHA-256.
 - Full-buffer galleries are publication-eligible only after their strict
   spill/window, exact-pair, metric, warning, PNG, and caption verifier passes.
 - The old ``Best-10 deferred'' note is historical, not an active missing run.

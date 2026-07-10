@@ -55,7 +55,7 @@ const textFields = [
   "ridgeCaption",
   "conclusionHeading",
   "conclusionBody",
-  "selectedSpillCaption",
+  "ridgeContrastCaption",
   "quantitativeBody",
   "hLossCaption",
 ];
@@ -68,7 +68,7 @@ const assetRoles = {
   bestNH: "horizontal leakage-controlled Best-N validation",
   bestNV: "vertical leakage-controlled Best-N validation",
   ridgeHV: "exact-paired full-spill H/V ridge comparison",
-  selectedSpill: "selected-spill ensemble spectral evidence",
+  ridgeContrast: "selected-H/V exact-paired turn-width contrast",
   hLoss: "horizontal tracking-loss diagnostic",
 };
 const assets = {};
@@ -135,14 +135,14 @@ setText("Text Placeholder 3", content.bestNVCaption);
 setText("Text Placeholder 10", content.ridgeCaption);
 setText("Text Placeholder 9", content.conclusionHeading);
 setText("Text Placeholder 19", content.conclusionBody);
-setText("Text Placeholder 4", content.selectedSpillCaption);
+setText("Text Placeholder 4", content.ridgeContrastCaption);
 setText("Text Placeholder 20", content.quantitativeBody);
 setText("Text Placeholder 11", content.hLossCaption);
 
 await replaceImage("Picture Placeholder 22", assets.bestNH);
 await replaceImage("Picture Placeholder 28", assets.bestNV);
 await replaceImage("Picture Placeholder 21", assets.ridgeHV);
-await replaceImage("Picture Placeholder 15", assets.selectedSpill);
+await replaceImage("Picture Placeholder 15", assets.ridgeContrast);
 await replaceImage("Picture Placeholder 30", assets.hLoss);
 
 for (const name of [

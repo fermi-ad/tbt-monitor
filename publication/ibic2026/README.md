@@ -29,6 +29,11 @@ SHA-256
 materialization gate. It accepts only verifier-clean analysis roots and writes
 the exact poster JSON, paper table/figures, results payload, preparation report,
 and source manifest used by the two build pipelines.
+The paper figure set includes the selected-plane turn-resolved P10-P90 ridge-
+width contrast copied from the same accepted ridge root; its source CSV is
+unsmoothed and its rendered five-window smoothing is descriptive only.
+Primary adaptive-score values and intensity-effect counts in manuscript prose
+are generated into `results_macros.tex` from the same accepted roots.
 
 ## Deliverables
 
@@ -42,6 +47,13 @@ The completed directory contains:
   rendered artifact;
 - `compliance_report.md`: verifier state, page/size checks, placeholder and
   overlap audit, and visual-QA disposition.
+
+Generate the last two files with
+`scripts/finalize_ibic2026_publication.py` only after inspecting the final
+poster and all four paper pages. The finalizer requires explicit `pass` values
+for both visual reviews and rechecks the reference hashes, page geometry,
+render dimensions, and results payload. `publication_manifest.csv` inventories
+every file under this directory except itself.
 
 The working paper name is `ABSTRACT54` until IBIC assigns a programme code.
 Rename the TeX and PDF together when that code becomes available.

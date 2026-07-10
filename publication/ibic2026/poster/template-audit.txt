@@ -21,7 +21,7 @@ Inherited contract
 Evidence-frame roles
 - Upper-left pair: leakage-controlled Best-N evidence for H and V.
 - Wide lower-left: exact-paired, shared-scale 50000-turn H/V ridge comparison.
-- Upper-right: selected-spill adaptive-ensemble spectral evidence.
+- Upper-right: selected-H/V exact-paired P10-P90 turn-width contrast.
 - Lower-right: H-plane tracking-loss diagnostic with no imposed onset.
 - Text frames: method, quantitative interpretation, limitations, and claim
   boundaries.

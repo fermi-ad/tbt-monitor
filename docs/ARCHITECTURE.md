@@ -290,20 +290,34 @@ config ranking. Its package modules cover:
   0-50000 turn sliding spectra, and renders old-gallery-style ridge-density
   heatmaps plus per-N and plane-selected shared-scale H/V legacy/adaptive composites,
   exact-point-paired density differences, concentration and H-loss diagnostics,
-  and moving-turn-block legacy contrast intervals. Density bins use
+  unsmoothed per-turn legacy contrast tables with smoothed width/entropy/peak/
+  shared-mass review plots, shared-scale selected-H/V composites, and moving-
+  turn-block legacy contrast intervals.
+  Each selected composite has landscape and portrait render contracts so paper
+  and poster placement do not rely on cropping or excessive contain padding.
+  Density bins use
   proportional inclusive raster bounds so color fields and tune overlays occupy
   the same complete axis.
 - `ridge_verification.py` and `verify_ridge_density_outputs.py`: strict
   spill/window, cardinality, tune-band, exact-pair, metric, warning, PNG, and
   caption coverage checks for the full-buffer ridge gallery, tied to exact
   membership, legacy-table, manifest-inventory, and window-geometry hashes.
+  Turn-contrast closure additionally requires one finite exact-paired row per
+  contracted center and every global and plane-selected metric figure role.
   The publication contract additionally binds the adaptive pass to the archived
   `18d321dbd4fe` 4096/256 tracking protocol and exact 2000/1988 source coverage.
 - `scripts/prepare_ibic2026_publication.py`: accepts only verifier-clean primary,
   follow-up, three-block Best-N, intensity, and full-buffer ridge roots; checks
   cross-collection and hyperparameter sensitivity, rejects any retained
   intensity weighting, and materializes the exact poster/paper figures,
-  plane-specific results table, poster copy, results payload, and source hashes.
+  plane-specific results table, verifier-derived manuscript macros, poster
+  copy, results payload, and source hashes. The macros prevent primary-score or
+  intensity-count prose from drifting when the accepted run grid changes.
+- `scripts/finalize_ibic2026_publication.py`: final human-QA acknowledgment and
+  delivery closure gate. It verifies immutable references, PDF geometry, render
+  dimensions, required sources/figures, selected-N and sensitivity payload
+  state, zero retained intensity effects, and unresolved copy before writing
+  the complete publication inventory and compliance report.
 - `verification.py`: structural output-contract checks for completed or
   partially completed Best-BPM output directories, including required files,
   CSV headers, exact usable spill-plane/membership identity, shared-score

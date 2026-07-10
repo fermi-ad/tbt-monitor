@@ -544,6 +544,12 @@ Decision:
 - Apply exact selected memberships through 50000 turns for persistence plots.
   Pair every subtractive legacy comparison by exact collection/spill/window
   key and refuse any row whose selected cardinality is smaller than N.
+- Preserve unsmoothed per-turn paired width, entropy, peak-bin, and shared-ridge-
+  mass contrasts as data, while limiting smoothing to labeled review curves.
+  Treat all five as pick-distribution diagnostics rather than physical-noise or
+  extraction-onset measurements.
+- Stack selected H/V turn contrasts at full publication width with one shared y
+  scale; do not shrink native axis labels into separate half-column panels.
 - Persist every full-buffer generation warning and reject the ridge gallery if
   spill/window coverage, exact legacy pairing, tune-band bounds, selected
   cardinality, paired metrics, or any manifest PNG/caption is incomplete.

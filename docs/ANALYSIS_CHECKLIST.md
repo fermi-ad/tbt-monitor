@@ -240,13 +240,20 @@ Required for the publication review:
 - exact-point-paired legacy-versus-adaptive H/V ridge panels, one shared-scale
   four-panel H/V comparison for every requested N, and subtractive
   redistribution maps
+- unsmoothed exact-paired per-turn width, entropy, peak-bin, and shared-ridge-
+  mass contrasts, with zero-referenced five-window-smoothed global and selected-
+  N review plots, shared-scale selected-H/V composites, and explicit non-noise/
+  non-extraction guardrails
 - full-axis density raster coverage with percentile and median overlays on the
   identical tune-to-pixel mapping
 - H-plane concentration, width, entropy, confidence, fallback, and data-derived
   loss-candidate diagnostics
 - block-aware intensity result tables and indexed review gallery
 - editable A0 poster, poster PDF/render, four-page paper source/PDF, source data,
-  checksums, commands, captions, and compliance notes
+  generated numerical macros, checksums, commands, captions, and compliance
+  notes
+- final `compliance_report.md` and `publication_manifest.csv` produced only
+  after explicit visual-QA pass flags and page/payload/hash verification
 
 Optional but useful:
 

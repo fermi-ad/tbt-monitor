@@ -32,6 +32,9 @@ deterministic native PNG renderer for the key deconstruction, handoff,
 intensity, Best-N, and ridge figures. `prepare_ibic2026_publication.py` binds
 the final plane-specific N, numerical copy, tables, and figure files to the
 same accepted analysis roots before the poster or paper can be built.
+`finalize_ibic2026_publication.py` then requires explicit visual-QA passes and
+rechecks immutable references, page geometry, payload closure, and checksums
+before writing the final compliance report and publication inventory.
 
 ## Quick Start
 
