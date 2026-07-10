@@ -509,6 +509,9 @@ Tradeoffs:
 - The 0-50000 turn ridge-density sidecar is visually comparable to the older
   autosweep gallery, but it should be captioned as a membership-reuse
   recomputation rather than a new exhaustive search.
+- Never use legacy normalized-single versus selected Best-N as the only visual
+  method contrast. Add corrected adaptive Best-1 on the same exact points and
+  probability scale so selector repair and ensemble-size gain remain separate.
 - The verifier checks structural completeness without forcing line counts over
   very large CSVs by default. Large tables are checked for existence, size, and
   headers unless `--count-large-csv` is requested.

@@ -959,6 +959,13 @@ After the Best-N verifier selects H and V, pass both `--selected-h-n` and
 writes `ridge_density_legacy_single_vs_best_h<H>_v<V>_hv.png` plus one clean
 selected-N concentration panel per plane. The ridge verifier requires these
 assets whenever `selected_plane_sizes` is present in the run contract.
+It also writes two selector-defect controls on exact common points:
+`ridge_density_best1_vs_selected_h<H>_v<V>_hv.png` directly isolates the
+corrected ensemble-size contrast, while
+`ridge_density_legacy_vs_best1_vs_selected_h<H>_v<V>_hv.png` shows the legacy
+selector, corrected Best-1, and selected Best-N as separate columns on one
+probability scale. Do not attribute the full legacy-to-Best-N contrast solely
+to adding BPMs.
 
 The favorite `18d321dbd4fe` images bin one tracked `selected_tune` per spill
 and window; they are not spectral-power heatmaps. For an exact paired

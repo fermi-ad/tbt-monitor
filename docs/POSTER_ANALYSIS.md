@@ -444,6 +444,11 @@ tracks. Keep its quantitative caption and the separate sample-fraction and
 subtractive diagnostics in the review package; the composite alone cannot
 distinguish true persistence from missing observations or establish physical
 noise removal.
+Because the historical normalized-single selector was defective, also review
+the exact-paired corrected Best-1-versus-selected panel and the three-column
+legacy/corrected-Best-1/selected-Best-N control. Only the corrected
+Best-1-to-selected transition isolates the effect of ensemble size; the
+legacy-to-Best-1 transition is selector repair.
 The turn-resolved legacy contrast must also retain its unsmoothed exact-paired
 CSV. Review the adaptive-minus-legacy IQR and P10-P90 widths together with
 peak-bin-fraction, normalized-entropy, and shared-center-mass changes. The

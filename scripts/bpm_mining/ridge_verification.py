@@ -569,6 +569,10 @@ def verify_ridge_density_outputs(
         expected_role_minimums["exploratory extraction-context concentration"] = 2
     if selected_plane_sizes:
         expected_role_minimums["plane-selected paired legacy H/V comparison"] = 1
+        expected_role_minimums["plane-selected corrected Best-1 H/V comparison"] = 1
+        expected_role_minimums[
+            "plane-selected legacy/corrected Best-1/Best-N H/V comparison"
+        ] = 1
         expected_role_minimums["plane-selected turn concentration"] = 2
         for metric in (
             "iqr_delta_ensemble_minus_legacy",

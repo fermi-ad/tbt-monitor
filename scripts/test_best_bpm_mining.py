@@ -84,9 +84,11 @@ from audit_intensity_capture import audit as audit_intensity_capture
 from make_best_bpm_ridge_density import (
     draw_legacy_pair_hv,
     draw_legacy_pair_hv_selected,
+    draw_paired_density_grid_hv,
     draw_selected_turn_contrast_hv,
     draw_turn_metric_plot,
     exact_paired_density_results,
+    exact_paired_density_results_many,
     keyed_ensemble_points,
     keyed_legacy_points,
     legacy_comparison_by_turn_rows,
@@ -1168,6 +1170,50 @@ class BestBpmMiningTests(unittest.TestCase):
             },
         )
         self.assertEqual(png_dimensions(selected_path), (2400, 900))
+        h_three_way = exact_paired_density_results_many(
+            {"legacy": baseline, "best1": ensemble, "selected": ensemble},
+            (0.62, 0.68),
+            60,
+        )
+        v_three_way = exact_paired_density_results_many(
+            {"legacy": v_baseline, "best1": v_ensemble, "selected": v_ensemble},
+            (0.69, 0.74),
+            60,
+        )
+        self.assertEqual(
+            h_three_way["legacy"]["point_keys"],
+            h_three_way["best1"]["point_keys"],
+        )
+        self.assertEqual(len(h_three_way["selected"]["point_keys"]), 2)
+        triple_path = self.root / "ridge_legacy_best1_selected_hv.png"
+        draw_paired_density_grid_hv(
+            triple_path,
+            "LEGACY, CORRECTED BEST1, SELECTED BEST-N",
+            (
+                ("legacy", "LEGACY NORMALIZED-SINGLE"),
+                ("best1", "CORRECTED ADAPTIVE BEST1"),
+                ("selected", "SELECTED H BEST5 / V BEST3"),
+            ),
+            {
+                "H": (h_three_way, (0.62, 0.68)),
+                "V": (v_three_way, (0.69, 0.74)),
+            },
+        )
+        self.assertEqual(png_dimensions(triple_path), (3000, 900))
+        direct_path = self.root / "ridge_best1_selected_hv.png"
+        draw_paired_density_grid_hv(
+            direct_path,
+            "CORRECTED BEST1 VS SELECTED BEST-N",
+            (
+                ("best1", "CORRECTED ADAPTIVE BEST1"),
+                ("selected", "SELECTED H BEST5 / V BEST3"),
+            ),
+            {
+                "H": ({key: h_three_way[key] for key in ("best1", "selected")}, (0.62, 0.68)),
+                "V": ({key: v_three_way[key] for key in ("best1", "selected")}, (0.69, 0.74)),
+            },
+        )
+        self.assertEqual(png_dimensions(direct_path), (2400, 900))
         with self.assertRaisesRegex(ValueError, "duplicate legacy ridge point"):
             keyed_legacy_points(
                 [("run", "1", 100, 0.650), ("run", "1", 100, 0.651)],

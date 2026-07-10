@@ -240,6 +240,9 @@ Required for the publication review:
 - exact-point-paired legacy-versus-adaptive H/V ridge panels, one shared-scale
   four-panel H/V comparison for every requested N, and subtractive
   redistribution maps
+- exact-point-paired corrected Best-1-versus-selected H/V and
+  legacy/corrected-Best-1/selected-Best-N control composites, with only the
+  corrected Best-1 transition interpreted as ensemble-size evidence
 - unsmoothed exact-paired per-turn width, entropy, peak-bin, and shared-ridge-
   mass contrasts, with zero-referenced five-window-smoothed global and selected-
   N review plots, shared-scale selected-H/V composites, and explicit non-noise/
