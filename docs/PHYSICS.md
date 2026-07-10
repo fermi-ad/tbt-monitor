@@ -219,6 +219,11 @@ measured absence of support.
   the reviewed preserved position collections contain 50000 clean turns, while
   the separate intensity capture advertises a longer array whose tail becomes
   structurally unreliable near turn 64000
+- the checked-out Delivery Ring producer uses finite device-coded values below
+  threshold in scaled streams. A same-ID live comparison found those values in
+  scaled HP101 arrays but not either raw array, so raw captures are the correct
+  analysis boundary. Source/runtime drift still requires the independent
+  first-50000-turn corpus scan before publication
 - no SVD/PCA tune path in the Rust production flow yet; the standalone poster
   analyzer has opt-in SVD/PCA comparison plots that still need physics review
 - autosweep scoring uses pragmatic proxy metrics until independent tune labels
@@ -233,3 +238,5 @@ The BPM tune monitor is successful when:
 3. sliding tune evolution is smooth for accepted-quality spills
 4. subset/coherence checks support ring-wide beam-motion interpretation
 5. BPM-vs-reference residuals are operationally acceptable
+6. every publication raw payload passes the exact topology, count, finite-data,
+   plateau, and fallback-pair audit through turn 50000

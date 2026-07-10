@@ -333,6 +333,9 @@ Current publication interpretation:
   file by SHA-256.
 - Full-buffer galleries are publication-eligible only after their strict
   spill/window, exact-pair, metric, warning, PNG, and caption verifier passes.
+- Publication materialization also requires the independent Delivery Ring raw
+  payload audit over all 2200 manifests and first 50000 turns; no spectral
+  result can waive a payload-integrity failure.
 - The old ``Best-10 deferred'' note is historical, not an active missing run.
   The publication evaluates every N contiguously through at least N=20 (target
   N=30) under the separate leakage-controlled protocol. The bounded N=30 trial
@@ -348,7 +351,8 @@ Post-split analysis refinement:
 
 1. Complete the corrected exact-identity Best-1/3/5 run, Best-N curve and
    sensitivities, exact-point-paired 50000-turn gallery, visibility-duration
-   repair, final poster/paper, and publication artifact manifest; keep
+   repair, corpus-wide raw-payload audit, final poster/paper, and publication
+   artifact manifest; keep
    deficiencies tracked in GitHub issue #39.
 2. Add explicit spectral-coherence and clipping diagnostics to production
    analysis summaries when the autosweep identifies stable criteria.

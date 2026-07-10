@@ -19,6 +19,7 @@ produce physically credible `Qx/Qy` evidence for Delivery Ring studies.
 | Tune config keys | [Config Reference](docs/CONFIG_REFERENCE.md) |
 | Understand module boundaries and data contracts | [Architecture](docs/ARCHITECTURE.md) |
 | Review physics status and open analysis questions | [Physics](docs/PHYSICS.md), [Analysis Checklist](docs/ANALYSIS_CHECKLIST.md) |
+| Review the Delivery Ring raw-stream provenance audit | [Producer And Payload Audit](docs/DELIVERY_RING_SOURCE_AUDIT.md) |
 
 Current capture defaults preserve `TBT_POSITION_RAW` and can derive matching
 `TBT_INTENSITY_RAW` payloads for offline study. Spark/GPU workflows include raw
@@ -26,7 +27,9 @@ captured-spill analysis, staged autosweep ranking, exact-identity Best-BPM
 subset mining, leakage-controlled contiguous Best-N validation, an optional
 position/intensity sidecar, full-buffer ridge-density review galleries, and
 fail-closed publication verifiers for the primary, Best-N, intensity, and ridge
-outputs.
+outputs. A separate raw-payload gate scans every publication stream through turn
+50000 for nonfinite data, sample-count drift, long exact plateaus, and
+device-coded threshold fallback pairs.
 Publication artifacts use exact channel identities, semantic verifiers, and a
 deterministic native PNG renderer for the key deconstruction, handoff,
 intensity, Best-N, and ridge figures. `prepare_ibic2026_publication.py` binds

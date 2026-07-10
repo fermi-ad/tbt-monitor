@@ -207,6 +207,39 @@ def finalize(
         raise ValueError("results payload contains a nonpositive selected size")
     if int(payload.get("retained_intensity_effects") or 0) != 0:
         raise ValueError("publication payload retains an intensity weighting effect")
+    payload_integrity = payload.get("payload_integrity")
+    if not isinstance(payload_integrity, dict) or payload_integrity.get("status") != "pass":
+        raise ValueError("publication payload does not contain a passing raw-payload audit")
+    for field, expected in (
+        ("analysis_turns", 50_000),
+        ("plateau_turns", 128),
+        ("manifest_count", 2_200),
+        ("stream_rows", 263_999),
+        ("paired_stream_rows", 23_999),
+        ("incomplete_manifests", 1),
+        ("flagged_rows", 0),
+        ("position_plateau_rows", 0),
+        ("paired_plateau_rows", 0),
+        ("raw_device_fallback_pair_rows", 0),
+    ):
+        if int(payload_integrity.get(field) or 0) != expected:
+            raise ValueError(f"publication raw-payload audit mismatch: {field}")
+    topology = payload_integrity.get("topology")
+    if not isinstance(topology, dict) or len(topology) != 3:
+        raise ValueError("publication raw-payload audit is missing three collection topologies")
+    for collection, raw in topology.items():
+        if not isinstance(raw, dict):
+            raise ValueError(f"publication raw-payload topology is invalid: {collection}")
+        if (
+            int(raw.get("unique_position_streams") or 0) != 120
+            or int(raw.get("unique_h_streams") or 0) != 60
+            or int(raw.get("unique_v_streams") or 0) != 60
+            or int(raw.get("unique_digitizers") or 0) != 30
+            or raw.get("bad_digitizers")
+        ):
+            raise ValueError(f"publication raw-payload topology mismatch: {collection}")
+    if len(str(payload_integrity.get("manifest_inventory_sha256") or "")) != 64:
+        raise ValueError("publication raw-payload audit is missing its manifest hash")
     sensitivity = payload.get("sensitivity")
     if not isinstance(sensitivity, dict) or int(sensitivity.get("run_count") or 0) != 7:
         raise ValueError("publication payload does not contain seven sensitivity runs")
@@ -233,6 +266,7 @@ def finalize(
         "",
         f"- selected ensembles: H Best-{selected_sizes['H']}, V Best-{selected_sizes['V']}",
         "- retained intensity weighting effects: 0",
+        "- raw payload audit: 263999 streams through turn 50000, no blocking findings",
         "- Best-N sensitivity runs: 7",
         "- cross-collection transfer rows: 4 OK",
         f"- poster: {poster_info['pages']} A0 page, {poster_info['width_points']} x {poster_info['height_points']} pt",

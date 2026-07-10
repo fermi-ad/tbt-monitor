@@ -5,9 +5,9 @@ This directory is the versioned source and final-deliverable home for abstract
 Mu2e Delivery Ring."
 
 Final numerical copy and figures are accepted only from roots that pass the
-repository's primary, follow-up, Best-N, intensity, and full-buffer ridge
-verifiers. June 2026 downstream figures may be used for layout development but
-not as publication evidence.
+repository's primary, follow-up, Best-N, intensity, full-buffer ridge, and
+corpus-wide raw-payload verifiers. June 2026 downstream figures may be used for
+layout development but not as publication evidence.
 
 ## Authoritative Inputs
 
@@ -29,6 +29,8 @@ SHA-256
 materialization gate. It accepts only verifier-clean analysis roots and writes
 the exact poster JSON, paper table/figures, results payload, preparation report,
 and source manifest used by the two build pipelines.
+It also requires a passing first-50000-turn audit over the exact 2200-manifest,
+263999-position-row, and 23999-paired-row publication corpus.
 The paper figure set includes the selected-plane turn-resolved P10-P90 ridge-
 width contrast copied from the same accepted ridge root; its source CSV is
 unsmoothed and its rendered five-window smoothing is descriptive only.

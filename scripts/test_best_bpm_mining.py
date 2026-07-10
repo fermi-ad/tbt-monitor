@@ -77,10 +77,16 @@ from bpm_mining.intensity import (
     paired_channels,
 )
 from bpm_mining.intensity_verification import verify_intensity_outputs
+from bpm_mining.payload_integrity import (
+    device_fallback_values,
+    longest_finite_exact_run,
+    longest_true_run,
+)
 from bpm_mining.plots import make_artifacts
 from bpm_mining.report import make_report
 from bpm_mining.verification import verify_best_bpm_followups, verify_best_bpm_outputs
 from audit_intensity_capture import audit as audit_intensity_capture
+from audit_delivery_ring_payloads import audit_manifest as audit_delivery_ring_manifest
 from make_best_bpm_ridge_density import (
     draw_legacy_pair_hv,
     draw_legacy_pair_hv_selected,
@@ -614,6 +620,58 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertEqual(missing[0]["channel"], "VP601")
         self.assertEqual(missing[0]["status"], "PAIR_ABSENT")
 
+    def test_payload_integrity_detects_exact_plateaus_and_device_fallback_pairs(self) -> None:
+        position = np.asarray([0.0, 0.2, 0.4, *([1.01] * 12), 0.7], dtype=np.float32)
+        intensity = np.asarray([10.0, 20.0, 30.0, *([1101.0] * 12), 40.0], dtype=np.float32)
+        start, turns, values = longest_finite_exact_run([position, intensity])
+        self.assertEqual((start, turns), (3, 12))
+        np.testing.assert_allclose(values, (1.01, 1101.0))
+        fallback = device_fallback_values("HP101")
+        self.assertEqual(fallback, (1.01, 1101.0))
+        mask = (position == np.float32(fallback[0])) & (intensity == np.float32(fallback[1]))
+        self.assertEqual(longest_true_run(mask), (3, 12))
+        self.assertIsNone(device_fallback_values("invalid"))
+
+    def test_delivery_ring_manifest_audit_flags_raw_fallback_plateau(self) -> None:
+        bundle = self.root / "payload-audit" / "spill_1"
+        payloads = bundle / "payloads"
+        payloads.mkdir(parents=True)
+        position = np.asarray([0.0, 0.2, 0.4, *([1.01] * 12), 0.7], dtype="<f4")
+        intensity = np.asarray([10.0, 20.0, 30.0, *([1101.0] * 12), 40.0], dtype="<f4")
+        position.tofile(payloads / "position.bin")
+        intensity.tofile(payloads / "intensity.bin")
+        key = "{TEST}:HP101"
+        manifest = {
+            "streams": [
+                {
+                    "stream_key": f"{key}:TBT_POSITION_RAW",
+                    "plane": "H",
+                    "bpm_ip": "digitizer-1",
+                    "stream_id": "1-0",
+                    "stream_ms": 1,
+                    "payload_file": "payloads/position.bin",
+                    "sample_count": len(position),
+                },
+                {
+                    "stream_key": f"{key}:TBT_INTENSITY_RAW",
+                    "plane": "H",
+                    "bpm_ip": "digitizer-1",
+                    "stream_id": "1-0",
+                    "stream_ms": 1,
+                    "payload_file": "payloads/intensity.bin",
+                    "sample_count": len(intensity),
+                },
+            ]
+        }
+        manifest_path = bundle / "manifest.json"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        rows, topology = audit_delivery_ring_manifest(manifest_path, analysis_turns=16, plateau_turns=8)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(len(topology), 1)
+        self.assertIn("LONG_EXACT_POSITION_PLATEAU", rows[0]["quality_flags"])
+        self.assertIn("LONG_EXACT_PAIRED_PLATEAU", rows[0]["quality_flags"])
+        self.assertIn("RAW_DEVICE_FALLBACK_PAIR", rows[0]["quality_flags"])
+
     def test_tiny_intensity_entropy_shift_is_not_practically_retained(self) -> None:
         rows = []
         for spill in range(32):
@@ -827,6 +885,7 @@ class BestBpmMiningTests(unittest.TestCase):
         best_n = self.root / "best-n"
         ridge = self.root / "ridge"
         intensity = self.root / "intensity"
+        payload_audit = self.root / "payload-audit"
         publication = self.root / "publication"
 
         def json_file(path: Path, value: dict[str, object]) -> None:
@@ -845,6 +904,35 @@ class BestBpmMiningTests(unittest.TestCase):
             intensity / "merged_block20" / "intensity_verification.json",
         ):
             json_file(report, {"status": "pass", "error_count": 0})
+        json_file(
+            payload_audit / "delivery_ring_payload_audit.json",
+            {
+                "schema": "tbt-monitor.delivery-ring-payload-audit/v1",
+                "status": "pass",
+                "analysis_turns": 50000,
+                "plateau_turns": 128,
+                "manifest_count": 2200,
+                "stream_rows": 263999,
+                "paired_stream_rows": 23999,
+                "incomplete_manifests": 1,
+                "flagged_rows": 0,
+                "position_plateau_rows": 0,
+                "paired_plateau_rows": 0,
+                "raw_device_fallback_pair_rows": 0,
+                "error_count": 0,
+                "manifest_inventory_sha256": "a" * 64,
+                "topology": {
+                    name: {
+                        "unique_position_streams": 120,
+                        "unique_h_streams": 60,
+                        "unique_v_streams": 60,
+                        "unique_digitizers": 30,
+                        "bad_digitizers": [],
+                    }
+                    for name in ("a", "b", "intensity")
+                },
+            },
+        )
 
         best_rows = []
         for plane in ("H", "V"):
@@ -980,9 +1068,10 @@ class BestBpmMiningTests(unittest.TestCase):
             [{"label": "block20", "retained_effects": 0}],
         )
 
-        payload = prepare_publication(primary, followup, best_n, ridge, intensity, publication)
+        payload = prepare_publication(primary, followup, best_n, ridge, intensity, payload_audit, publication)
         self.assertEqual(payload["selected_sizes"], {"H": 1, "V": 1})
         self.assertEqual(payload["numeric_summary"]["intensity_effect_count"], 1)
+        self.assertEqual(payload["payload_integrity"]["stream_rows"], 263999)
         content = json.loads((publication / "poster" / "content.json").read_text(encoding="utf-8"))
         self.assertEqual(content["assets"]["ridgeContrast"], "assets/ridge_width_contrast_hv.png")
         self.assertNotIn("selectedSpill", content["assets"])
@@ -992,6 +1081,12 @@ class BestBpmMiningTests(unittest.TestCase):
         manifest = read_csv(publication / "source_manifest.csv")
         self.assertTrue(any(row["role"] == "poster:ridge_width_hv_poster" for row in manifest))
         self.assertTrue(any(row["role"] == "paper:ridge_width_hv" for row in manifest))
+        audit_path = payload_audit / "delivery_ring_payload_audit.json"
+        incomplete_audit = json.loads(audit_path.read_text(encoding="utf-8"))
+        incomplete_audit["stream_rows"] = 263998
+        audit_path.write_text(json.dumps(incomplete_audit), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "does not match the publication corpus"):
+            prepare_publication(primary, followup, best_n, ridge, intensity, payload_audit, publication)
 
     def test_intensity_block_sensitivity_separates_statistical_and_practical_passes(self) -> None:
         root = self.root / "intensity-block"

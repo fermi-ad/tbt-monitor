@@ -403,13 +403,14 @@ Tradeoffs:
 - Pilot selection can miss interactions that a full Cartesian search would
   reveal; full-stage reruns should therefore include baseline and top H/V/poster
   configs.
-- Parallel jobs improve host/GPU utilization but can increase contention for a
-  single GPU. Start Spark runs with 2 concurrent jobs and use telemetry before
-  raising that to 3-4.
-- Best-N max-N=40 evaluators are explicitly capped at 2 concurrent processes on
-  Spark's single GB10. Four measured processes exceeded 115 GiB of unified
-  memory and made the host unresponsive; logical sharding and execution
-  concurrency are separate controls.
+- Parallel autosweep jobs improve host/GPU utilization but can increase
+  contention for a single GPU. The older autosweep may start with 2 concurrent
+  jobs and use telemetry before raising that to 3-4; this does not apply to the
+  max-N=40 evaluator.
+- Best-N max-N=40 evaluators run one at a time on Spark's single GB10. Four
+  measured processes exceeded 115 GiB of unified memory and made the host
+  unresponsive, while two-process safety was never qualified; logical sharding
+  and execution concurrency are separate controls.
 - Telemetry-derived GPU-hours and watt-hours are estimates from sampled
   `nvidia-smi` utilization and power, not scheduler-grade accounting.
 - Full-stage execution uses an explicit elite builder rather than implicit
@@ -651,6 +652,32 @@ Tradeoffs:
 - Strict visibility may leave sparse H-plane handoff plots. That sparsity is a
   result; weak/no-reliable windows remain available in CSV diagnostics without
   being promoted into visible sets.
+
+## DD-024: Raw publication payloads require an independent producer-integrity gate
+
+Decision:
+- Treat `TBT_POSITION_RAW` and `TBT_INTENSITY_RAW` as the publication source
+  boundary, not the scaled orbit products. The checked-out producer inserts
+  device-coded below-threshold values only in scaled arrays; a same-ID live
+  raw/scaled comparison confirmed that separation despite source/runtime drift.
+- Scan every publication raw stream through turn 50000 independently of the
+  spectral analysis. Reject nonfinite samples, byte/sample-count drift, exact
+  plateaus of at least 128 turns, and repeated device-coded fallback pairs.
+- Require the exact 2200-manifest, 263999-position-row, 23999-paired-row report
+  in publication materialization and finalization. Report the known incomplete
+  intensity manifest rather than silently normalizing it away.
+
+Why:
+- Finite sentinels can evade ordinary numerical plausibility checks and create
+  step spectra or false late-spill structure. A clean FFT output is not proof
+  that its source waveform was semantically raw.
+- Bind-mounted source changed after the representative Python process started,
+  so current files alone cannot establish historical runtime behavior.
+
+Tradeoffs:
+- The audit rereads roughly 264000 first-50000-turn payload slices and adds a
+  serial I/O pass. It does not alter source data and is cheaper than accepting
+  an untraceable publication artifact.
 
 ## Decision Update Rule
 

@@ -218,13 +218,15 @@ Every final publication plot must satisfy:
 2. complete the contiguous Best-N curve, beam/fit/fold sensitivities, and
    cross-collection transfer; require the full and seven-run sample outputs to
    pass `verify_best_n_outputs.py`
-3. render the exact-point-paired 50000-turn legacy/Best-N ridge gallery and
+3. pass the independent 2200-manifest raw-payload audit over all 263999
+   position rows and 23999 exact intensity pairs through turn 50000
+4. render the exact-point-paired 50000-turn legacy/Best-N ridge gallery and
    inspect H-loss diagnostics without forcing an extraction onset; require the
    strict spill/window/pair/figure verifier to pass
-4. freeze the executive interpretation and issue #39 deficiency disposition
-5. build and visually verify the Fermilab-template A0 poster and four-page JACoW
+5. freeze the executive interpretation and issue #39 deficiency disposition
+6. build and visually verify the Fermilab-template A0 poster and four-page JACoW
    paper
-6. package the exhaustive review gallery and curated publication source bundle,
+7. package the exhaustive review gallery and curated publication source bundle,
    then merge scoped PRs and leave a clean repository
 
 SVD/PCA remains deferred for production Rust tune extraction. The standalone

@@ -311,7 +311,8 @@ config ranking. Its package modules cover:
   The publication contract additionally binds the adaptive pass to the archived
   `18d321dbd4fe` 4096/256 tracking protocol and exact 2000/1988 source coverage.
 - `scripts/prepare_ibic2026_publication.py`: accepts only verifier-clean primary,
-  follow-up, three-block Best-N, intensity, and full-buffer ridge roots; checks
+  follow-up, three-block Best-N, intensity, full-buffer ridge, and raw-payload
+  audit roots; checks
   cross-collection and hyperparameter sensitivity, rejects any retained
   intensity weighting, and materializes the exact poster/paper figures,
   plane-specific results table, verifier-derived manuscript macros, poster
@@ -320,7 +321,8 @@ config ranking. Its package modules cover:
 - `scripts/finalize_ibic2026_publication.py`: final human-QA acknowledgment and
   delivery closure gate. It verifies immutable references, PDF geometry, render
   dimensions, required sources/figures, selected-N and sensitivity payload
-  state, zero retained intensity effects, and unresolved copy before writing
+  state, zero retained intensity effects, exact corpus-wide raw-payload audit,
+  and unresolved copy before writing
   the complete publication inventory and compliance report.
 - `verification.py`: structural output-contract checks for completed or
   partially completed Best-BPM output directories, including required files,
@@ -435,6 +437,11 @@ Raw payload policy:
 - Position streams choose the capture target and feed offline tune analysis.
   Derived intensity streams are auxiliary preservation payloads and are skipped
   by offline tune analysis until intensity semantics are promoted explicitly.
+- `scripts/audit_delivery_ring_payloads.py` independently rereads every raw
+  publication payload through turn 50000. It checks the exact 120-channel,
+  30-digitizer topology; advertised/on-disk counts; finite samples; long exact
+  plateaus; and the producer's device-coded fallback pairs. Its report is a
+  required publication input rather than an optional diagnostic.
 - `capture-spills` writes `capture_index.csv` as the run-level bundle index,
   keyed by `redis_timestamp_ms` / `target_ms`, and also writes
   `capture_spill_diagnostics.csv`, `capture_stream_diagnostics.csv`,

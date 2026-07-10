@@ -995,7 +995,24 @@ pairing or contrast metrics, unresolved membership/payload warnings, and any
 missing, invalid, undersized, or uncaptioned manifest figure. Other data-quality
 warnings remain visible and require written review.
 
-Materialize final poster and paper inputs only after every analysis gate passes:
+Materialize final poster and paper inputs only after every analysis gate passes.
+First audit the complete raw publication corpus independently of the spectral
+pipelines:
+
+```bash
+python3 scripts/audit_delivery_ring_payloads.py \
+  --capture-root /path/to/position-collection-a \
+  --capture-root /path/to/position-collection-b \
+  --capture-root /path/to/intensity-capture \
+  --out /path/to/delivery-ring-payload-audit \
+  --analysis-turns 50000 \
+  --plateau-turns 128
+```
+
+Publication acceptance requires 2200 manifests, 263999 position rows, 23999
+paired position/intensity rows, the 120-channel/30-digitizer union topology in
+each collection, and no first-50000-turn corruption, long exact plateau, or
+repeated device-coded raw fallback pair. Then bind every accepted root:
 
 ```bash
 python3 scripts/prepare_ibic2026_publication.py \
@@ -1004,12 +1021,14 @@ python3 scripts/prepare_ibic2026_publication.py \
   --best-n-root /path/to/best-n-full \
   --ridge-root /path/to/ridge-50000 \
   --intensity-root /path/to/intensity-refresh \
+  --payload-audit-root /path/to/delivery-ring-payload-audit \
   --publication-root publication/ibic2026
 ```
 
 This command requires accepted 10/20/40-block Best-N outputs, four OK
 cross-collection transfer rows, seven verified beam/fit/fold sensitivity runs,
-an accepted mixed-N ridge contract, and zero retained intensity effects. It
+an accepted mixed-N ridge contract, zero retained intensity effects, and the
+exact corpus-bound raw-payload audit. It
 writes `poster/content.json`, `paper/results_table.tex`, verifier-derived
 `paper/results_macros.tex`, exact figure copies, `results_payload.json`,
 `PREPARATION_REPORT.md`, and `source_manifest.csv`. The macros bind primary
@@ -1026,6 +1045,7 @@ python3 scripts/package_publication_review.py \
   --component best-n-gallery=/path/to/best-n-gallery \
   --component ridge-gallery=/path/to/ridge-gallery \
   --component intensity-gallery=/path/to/intensity-gallery \
+  --component payload-audit=/path/to/delivery-ring-payload-audit \
   --out review-artifacts/ibic2026-final-review-YYYYMMDD
 ```
 
@@ -1051,7 +1071,7 @@ python3 scripts/finalize_ibic2026_publication.py \
 The finalizer verifies immutable reference hashes, required source and render
 files, A0 poster and four-page paper geometry, PNG dimensions, the selected H/V
 payload, seven sensitivity runs, four OK transfer rows, zero retained intensity
-effects, and unresolved-copy gates. It writes `compliance_report.md` and
+effects, the exact raw-payload corpus, and unresolved-copy gates. It writes `compliance_report.md` and
 `publication_manifest.csv`; the manifest inventories every publication file
 except itself.
 

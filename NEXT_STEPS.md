@@ -121,15 +121,27 @@ the publication audit:
     climbed above roughly 115 GiB of unified memory, making the host
     unresponsive after only 10/1000 curve keys per shard and forcing a reboot.
     Those partial rows are resume checkpoints, not accepted evidence. Recovery
-    keeps four logical shards for deterministic coverage but executes at most
-    two CUDA evaluators at once, anchors the workload to one monitored process
-    group, and serializes every later sensitivity, intensity, and ridge stage.
+    keeps four logical shards for deterministic coverage but executes one CUDA
+    evaluator at a time, anchors the workload to one monitored process group,
+    and serializes every later sensitivity, intensity, and ridge stage. Two-way
+    max-N=40 concurrency remains unproven and is not used for the definitive run.
 20. A legacy-versus-selected Best-N density panel alone would combine two
     effects: repair of the flawed normalized-single selector and the benefit of
     using more than one corrected adaptive BPM. The final ridge gallery now
     requires an exact-paired corrected Best-1-versus-selected H/V panel and a
     legacy/corrected-Best-1/selected-Best-N three-column panel on one probability
     scale. Only the Best-1-to-selected transition isolates ensemble-size gain.
+21. The Delivery Ring producer source can substitute device-coded values such
+    as HP101 position `1.01` and intensity `1101` below threshold, and its
+    bind-mounted Python changed after the representative dataflow process
+    started. A 2026-07-10 live audit therefore checked data behavior rather
+    than trusting the checkout: one exact HP101 event had zero fallback values
+    in both `TBT_*_RAW` arrays and 221,215 fallback values in both scaled
+    arrays, with one shared Redis ID. Active dataflow30 logs repeatedly report
+    the HP303/VP304 one-turn correction. Publication closure now additionally
+    requires an exhaustive first-50000-turn scan of all 263,999 raw position
+    rows and 23,999 paired raw intensity rows; any nonfinite sample, long exact
+    plateau, or repeated device-coded raw fallback pair is fatal.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;
@@ -214,8 +226,9 @@ Completion status:
 | --- | --- | --- |
 | Exact identity/ring-order implementation and regression tests | complete | local 57-test Best-BPM suite and 9 autosweep tests pass; all 62 previously committed tests plus byte compilation pass on Spark |
 | Corrected Best-1/3/5 primary and downstream rerun | complete | primary and follow-up strict verifiers both report zero failures and zero warnings; every required fixed, held-out, artifact, and handoff product is present |
-| Best-N curve through at least N=20 | in progress | bounded N=30 trial put V at the boundary; the first four-concurrent-shard N=40 launch exceeded unified memory and forced a Spark reboot, so checkpoint recovery proceeds in two-worker waves before block and seven-run beam/fit/fold sensitivity |
+| Best-N curve through at least N=20 | in progress | bounded N=30 trial put V at the boundary; the first four-concurrent-shard N=40 launch exceeded unified memory and forced a Spark reboot, so checkpoint recovery proceeds strictly serially before block and seven-run beam/fit/fold sensitivity |
 | 200-spill intensity hypothesis test | in progress | initial 199-spill pass and block-aware re-summary found 0 FDR-significant/0 practical effects; corrected all-zero gate fallback, exact N=1 contract, and strict payload/window/effect/gallery verifier pass locally; 200-spill gate-refresh merge/gallery pending |
+| Delivery Ring producer and raw-payload integrity audit | in progress | live raw/scaled separation and HP303/VP304 roll behavior confirmed read-only on drbpm2; exhaustive first-50000-turn scan over all three publication collections pending on Spark |
 | Corrected 50000-turn ridge/difference/concentration gallery | pending | exact-source-key full-buffer sidecar plus strict spill/window/pair/metric/PNG/caption verifier |
 | All required handoff, fixed, held-out, artifact, and report tasks below | complete | corrected follow-up verifier passes 32,000 fixed, 800,000 held-out, 201,240 visibility, 13,104 handoff-event, 4,680 summary rows, and every required artifact |
 | Fermilab-template A0 poster and visual QA | pending | editable PPTX, PDF, rendered PNG, template audit |
