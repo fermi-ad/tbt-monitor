@@ -35,7 +35,9 @@ The paper figure set includes the selected-plane turn-resolved P10-P90 ridge-
 width contrast copied from the same accepted ridge root; its source CSV is
 unsmoothed and its rendered five-window smoothing is descriptive only.
 Primary adaptive-score values and intensity-effect counts in manuscript prose
-are generated into `results_macros.tex` from the same accepted roots.
+are generated into `results_macros.tex` from the same accepted roots. The macro
+set also distinguishes 4000 full-curve spill-plane cases from 1000 stratified
+validation cases evaluated across five digitizer folds.
 
 ## Deliverables
 

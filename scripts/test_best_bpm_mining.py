@@ -107,6 +107,7 @@ from gpu_analyze_captured_spills import preprocess_traces, select_trace_subset
 from audit_legacy_single_bpm_selection import selection_row as legacy_selection_row
 from package_publication_review import package_review
 from prepare_ibic2026_publication import (
+    best_n_design_summary,
     prepare_publication,
     publication_content,
     publication_numeric_summary,
@@ -834,6 +835,11 @@ class BestBpmMiningTests(unittest.TestCase):
             for plane in ("H", "V")
         }
         sizes = {"H": 7, "V": 11}
+        design = {
+            "curve_spill_plane_count": 4000,
+            "validation_spill_plane_count": 1000,
+            "digitizer_fold_count": 5,
+        }
         table = render_results_table(best, ridge, sizes)
         self.assertIn("H & 7", table)
         self.assertIn("V & 11", table)
@@ -843,6 +849,7 @@ class BestBpmMiningTests(unittest.TestCase):
             best,
             ridge,
             {"first_sustained_half_peak_loss_turn": "12000", "most_likely_change_turn": "14000"},
+            design,
             240,
             0,
         )
@@ -850,6 +857,8 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertIn("V Best-11", content["ridgeCaption"])
         self.assertIn("P10-P90 width minus legacy", content["ridgeContrastCaption"])
         self.assertIn("0/240", content["quantitativeBody"])
+        self.assertIn("4,000 H/V curve cases", content["quantitativeBody"])
+        self.assertIn("1,000 stratified spill-plane", content["methodBody"])
 
     def test_publication_numeric_macros_are_generated_from_accepted_rows(self) -> None:
         primary = [
@@ -871,13 +880,26 @@ class BestBpmMiningTests(unittest.TestCase):
             }
             for index in range(3)
         ]
-        summary = publication_numeric_summary(primary, paired, intensity)
+        design = {
+            "curve_spill_plane_count": 4000,
+            "validation_spill_plane_count": 1000,
+            "digitizer_fold_count": 5,
+            "maximum_n": 40,
+            "curve_evaluation_row_count": 160000,
+            "validation_evaluation_row_count": 200000,
+        }
+        summary = publication_numeric_summary(primary, paired, intensity, design)
         macros = render_results_macros(summary)
         self.assertIn(r"\newcommand{\PrimaryHBestOneScore}{0.300}", macros)
         self.assertIn(r"\newcommand{\PrimaryVThreeToFiveGain}{0.0300}", macros)
         self.assertIn(r"\newcommand{\IntensityEffectCount}{3}", macros)
         self.assertIn(r"\newcommand{\IntensityFdrCount}{1}", macros)
         self.assertIn(r"\newcommand{\IntensityRetainedCount}{0}", macros)
+        self.assertIn(r"\newcommand{\BestNCurveSpillPlaneCount}{4000}", macros)
+        self.assertIn(r"\newcommand{\BestNValidationSpillPlaneCount}{1000}", macros)
+        self.assertIn(r"\newcommand{\BestNDigitizerFoldCount}{5}", macros)
+        with self.assertRaisesRegex(ValueError, "definitive study design"):
+            best_n_design_summary({"curve_cache_key_count": 4000})
 
     def test_publication_materialization_binds_reports_numbers_and_figures(self) -> None:
         primary = self.root / "primary"
@@ -904,6 +926,19 @@ class BestBpmMiningTests(unittest.TestCase):
             intensity / "merged_block20" / "intensity_verification.json",
         ):
             json_file(report, {"status": "pass", "error_count": 0})
+        json_file(
+            best_n / "merged_block20" / "best_n_verification.json",
+            {
+                "status": "pass",
+                "error_count": 0,
+                "expected_max_n": 40,
+                "expected_folds": 5,
+                "curve_cache_key_count": 4000,
+                "curve_row_count": 160000,
+                "validation_cache_key_count": 1000,
+                "validation_row_count": 200000,
+            },
+        )
         json_file(
             payload_audit / "delivery_ring_payload_audit.json",
             {
@@ -1072,6 +1107,7 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertEqual(payload["selected_sizes"], {"H": 1, "V": 1})
         self.assertEqual(payload["numeric_summary"]["intensity_effect_count"], 1)
         self.assertEqual(payload["payload_integrity"]["stream_rows"], 263999)
+        self.assertEqual(payload["best_n_design"]["validation_spill_plane_count"], 1000)
         content = json.loads((publication / "poster" / "content.json").read_text(encoding="utf-8"))
         self.assertEqual(content["assets"]["ridgeContrast"], "assets/ridge_width_contrast_hv.png")
         self.assertNotIn("selectedSpill", content["assets"])
