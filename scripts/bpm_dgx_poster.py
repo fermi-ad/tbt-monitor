@@ -659,6 +659,53 @@ def scale_value(value: float, src_min: float, src_max: float, dst_min: int, dst_
     return int(round(dst_min + frac * (dst_max - dst_min)))
 
 
+def format_axis_value(value: float, span: float) -> str:
+    """Format a compact numeric label for the built-in bitmap font."""
+    if not math.isfinite(value):
+        return ""
+    if span >= 100.0 or (abs(value - round(value)) < 1e-9 and (abs(value) >= 1.0 or span >= 2.0)):
+        return str(int(round(value)))
+    magnitude = max(abs(value), abs(span))
+    if magnitude and (magnitude < 1e-3 or magnitude >= 1e6):
+        return f"{value:.2e}".replace("e+", "e")
+    if span < 0.01:
+        return f"{value:.5f}"
+    if span < 0.1:
+        return f"{value:.4f}"
+    if span < 1.0:
+        return f"{value:.3f}"
+    return f"{value:.1f}"
+
+
+def draw_numeric_axis_labels(
+    pixels: bytearray,
+    width: int,
+    height: int,
+    area: tuple[int, int, int, int],
+    x_range: tuple[float, float],
+    y_range: tuple[float, float],
+    x_ticks: int = 6,
+) -> None:
+    """Draw x ticks plus y endpoints without crowding the horizontal y label."""
+    x0, y0, x1, y1 = area
+    xmin, xmax = x_range
+    ymin, ymax = y_range
+    x_span = xmax - xmin
+    y_span = ymax - ymin
+    for tick in range(max(2, x_ticks)):
+        fraction = tick / (max(2, x_ticks) - 1)
+        value = xmin + fraction * x_span
+        label = format_axis_value(value, x_span)
+        label_width = len(label) * 8
+        x = x0 + int(round((x1 - x0) * fraction)) - label_width // 2
+        x = max(2, min(width - label_width - 2, x))
+        draw_text(pixels, width, height, x, y1 + 8, label, MUTED, 2)
+    for value, y in ((ymax, y0 - 7), (ymin, y1 - 7)):
+        label = format_axis_value(value, y_span)
+        label_width = len(label) * 8
+        draw_text(pixels, width, height, max(2, x0 - label_width - 6), y, label, MUTED, 2)
+
+
 def draw_axes(pixels: bytearray, width: int, height: int, title: str, x_label: str, y_label: str) -> tuple[int, int, int, int]:
     x0, y0, x1, y1 = plot_area(width, height)
     draw_text(pixels, width, height, 34, 30, title[:40], INK, 3)
@@ -700,8 +747,31 @@ def line_plot(
         ymax += pad
     else:
         ymin, ymax = y_range
-    draw_text(pixels, width, height, x0, y0 - 24, f"{ymax:.4f}", MUTED, 2)
-    draw_text(pixels, width, height, x0, y1 + 8, f"{ymin:.4f}", MUTED, 2)
+    unique_x = sorted(set(xs))
+    integer_x = unique_x and all(abs(value - round(value)) < 1e-9 for value in unique_x)
+    draw_numeric_axis_labels(
+        pixels,
+        width,
+        height,
+        (x0, y0, x1, y1),
+        (xmin, xmax),
+        (ymin, ymax),
+        x_ticks=2 if integer_x else 6,
+    )
+    if integer_x and len(unique_x) > 2:
+        tick_indices = sorted(
+            index
+            for index in {
+                *{round(position * (len(unique_x) - 1) / 5) for position in range(1, 5)},
+                *(set([unique_x.index(0.0)]) if 0.0 in unique_x else set()),
+            }
+            if 0 < index < len(unique_x) - 1
+        )
+        for index in tick_indices:
+            value = unique_x[index]
+            label = str(int(round(value)))
+            x = scale_value(value, xmin, xmax, x0, x1) - len(label) * 4
+            draw_text(pixels, width, height, x, y1 + 8, label, MUTED, 2)
     legend_x = x1 - 210
     legend_y = y0 - 34
     for idx, (name, rows, color) in enumerate(series):
@@ -731,6 +801,7 @@ def hist_plot(
     bins: int = 32,
     x_range: Optional[tuple[float, float]] = None,
     color: Color = BLUE,
+    note: str = "",
 ) -> None:
     vals = finite(values)
     if not vals:
@@ -741,7 +812,9 @@ def hist_plot(
     x0, y0, x1, y1 = draw_axes(pixels, width, height, title, x_label, "COUNT")
     xmin, xmax = x_range if x_range else (min(vals), max(vals))
     if xmax <= xmin:
-        xmax = xmin + 1.0
+        half_width = 1.0 if abs(xmin) >= 100.0 else 0.5
+        xmin -= half_width
+        xmax += half_width
     counts = [0 for _ in range(bins)]
     for value in vals:
         idx = int((value - xmin) / (xmax - xmin) * bins)
@@ -754,8 +827,15 @@ def hist_plot(
         bx1 = min(x1, bx0 + bar_w - 2)
         by0 = scale_value(count, 0, max_count, y1, y0)
         rect(pixels, width, height, bx0, by0, bx1, y1, color)
-    draw_text(pixels, width, height, x0, y1 + 8, f"{xmin:.4f}", MUTED, 2)
-    draw_text(pixels, width, height, x1 - 80, y1 + 8, f"{xmax:.4f}", MUTED, 2)
+    xmin_label = format_axis_value(xmin, xmax - xmin)
+    xmax_label = format_axis_value(xmax, xmax - xmin)
+    draw_text(pixels, width, height, x0, y1 + 8, xmin_label, MUTED, 2)
+    draw_text(pixels, width, height, x1 - len(xmax_label) * 8, y1 + 8, xmax_label, MUTED, 2)
+    max_label = str(max_count)
+    draw_text(pixels, width, height, max(2, x0 - len(max_label) * 8 - 6), y0 - 7, max_label, MUTED, 2)
+    draw_text(pixels, width, height, x0 - 14, y1 - 7, "0", MUTED, 2)
+    if note:
+        draw_text(pixels, width, height, x0, y0 - 28, note[:72], MUTED, 2)
     write_png(path, width, height, pixels)
 
 

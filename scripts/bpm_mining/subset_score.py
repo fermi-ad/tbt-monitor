@@ -78,6 +78,38 @@ def spectral_entropy_xp(xp, power):
     return ent / math.log(max(2, int(power.shape[-1])))
 
 
+def visibility_fraction_and_duration(
+    prominence: Sequence[float],
+    window_centers: Sequence[float],
+    threshold: float = 4.0,
+) -> tuple[float, float]:
+    visible_indices = [
+        index
+        for index, value in enumerate(prominence)
+        if math.isfinite(float(value)) and float(value) >= threshold
+    ]
+    visible_fraction = len(visible_indices) / max(1, len(prominence))
+    if len(visible_indices) < 2:
+        return visible_fraction, 0.0
+    first = float(window_centers[visible_indices[0]])
+    last = float(window_centers[visible_indices[-1]])
+    return visible_fraction, max(0.0, last - first)
+
+
+def subset_window_prominence(spectra: np.ndarray) -> np.ndarray:
+    """Recompute the score primitive for one selected subset on CPU."""
+    clean = np.asarray(spectra, dtype=np.float32)
+    if clean.ndim != 3 or clean.shape[0] == 0:
+        return np.empty(0, dtype=np.float64)
+    combined = np.mean(clean, axis=0, dtype=np.float32)
+    log_power = np.log10(combined.astype(np.float64) + 1e-24)
+    peak_indices = np.argmax(log_power, axis=1)
+    peak_log = log_power[np.arange(log_power.shape[0]), peak_indices]
+    band_median = np.median(log_power, axis=1)
+    band_mad = np.median(np.abs(log_power - band_median[:, None]), axis=1) * 1.4826
+    return (peak_log - band_median) / np.maximum(band_mad, 1e-9)
+
+
 def score_subset_chunk(
     spectra: np.ndarray,
     tune_axis: np.ndarray,
@@ -149,8 +181,10 @@ def score_subset_chunk(
         ring_span = (max(orders) - min(orders)) / 1000.0 if len(orders) > 1 else 0.5
         diversity = 0.5 if subset_size == 1 else max(0.0, min(1.0, 0.65 * digitizer_fraction + 0.35 * ring_span))
         ambiguity = max(0.0, min(0.25, (median(ratios) - 0.6) * 0.5 if ratios else 0.0))
-        visible = sum(1 for value in prom_vals if value >= 4.0) / max(1, len(prom_vals))
-        duration = float(max(window_centers) - min(window_centers)) if visible and len(window_centers) > 1 else 0.0
+        visible, duration = visibility_fraction_and_duration(
+            prominence[row_idx],
+            window_centers,
+        )
         window_scores = []
         for prom, ent in zip(prominence[row_idx], entropy[row_idx]):
             local_peak = max(0.0, min(1.0, float(prom) / 12.0)) * 0.75 + max(0.0, min(1.0, 1.0 - float(ent))) * 0.25

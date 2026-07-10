@@ -90,15 +90,16 @@ def make_report(cfg: dict[str, object], inputs: Path, out: Path) -> None:
         fixed_lines.extend(
             [
                 f"Direct fixed-set spectral evaluation rows are available: `{len(fixed_direct)}` summary rows.",
-                "Use `statistics/fixed_vs_dynamic_direct_summary.csv` for operational fixed-set candidates.",
-                "Legacy `statistics/fixed_sets_*` tables are overlap-filtered dynamic-winner proxy summaries, not held-out fixed-set validation.",
+                "`statistics/fixed_vs_dynamic_direct_summary.csv` rescores dynamic, frozen, and all-BPM memberships from the same cache with one evolution metric.",
+                "This is a descriptive control because the original dynamic memberships reuse selection windows; it does not validate an operational fixed set.",
+                "Legacy `statistics/fixed_sets_*` tables are overlap-filtered dynamic-winner proxy summaries, not direct spectral evaluation.",
             ]
         )
     else:
         fixed_lines.extend(
             [
                 "Direct fixed-set spectral evaluation is not present in this output tree.",
-                "Legacy `statistics/fixed_sets_*` tables are overlap-filtered dynamic-winner proxy summaries and should not be treated as held-out fixed-set validation.",
+                "Legacy `statistics/fixed_sets_*` tables are overlap-filtered dynamic-winner proxy summaries and should not be treated as direct spectral evaluation.",
             ]
         )
     caveats = [
@@ -125,12 +126,13 @@ def make_report(cfg: dict[str, object], inputs: Path, out: Path) -> None:
             "",
             "## Dynamic Per-Spill Subset Performance",
             "",
-            "Dynamic subset outputs are in `subset_search/best*/best*_results.csv`; scores are within-spill and use held-out BPM support.",
+            "Dynamic subset outputs are in `subset_search/best*/best*_results.csv`; their descriptive fit-window score includes support from nonselected channels on those same windows. Only the separate Best-N pass uses later windows and disjoint digitizers for validation.",
             f"`evolution/finalist_reevaluation.csv` contains `{len(finalists)}` robust finalist rows across mean, median, trimmed-mean, and static-quality-weighted aggregators.",
             "",
             "## Fixed-Vs-Dynamic Performance",
             "",
-            "Direct fixed-set summaries compare frozen trained member sets against dynamic per-spill winners when follow-up outputs are present.",
+            "Corrected direct summaries rescore frozen trained member sets, dynamic per-spill memberships, and all-BPM controls with one evolution metric when follow-up outputs are present.",
+            "Because the original dynamic memberships reuse their selection windows, this is a descriptive control. Leakage-controlled later-window Best-N validation carries the inferential claim.",
             "The older cross-fit summaries only describe dynamic winners that overlap trained member lists.",
             "",
             "## Subset-Size Effect Sizes",
@@ -168,7 +170,7 @@ def make_report(cfg: dict[str, object], inputs: Path, out: Path) -> None:
             "",
             "## Recommended Operational Subset",
             "",
-            "Prefer directly re-evaluated fixed subsets when their held-out spectral scores are competitive; otherwise treat dynamic per-spill winners as review examples.",
+            "Do not promote a frozen set from this descriptive control. Use the leakage-controlled Best-N result to choose a global ensemble size while keeping exact per-spill membership adaptive, and retain a no-reliable-tune state.",
             "",
             "## Recommended Next Beam Study",
             "",
@@ -186,7 +188,7 @@ def make_report(cfg: dict[str, object], inputs: Path, out: Path) -> None:
         "",
         f"Primary claim discipline: {_claim_discipline(completed_sizes)}",
         "",
-        "Use direct fixed-set spectral evaluation for operational fixed-set claims when present; use per-spill dynamic winners as examples, not as external truth labels.",
+        "The direct fixed-set sidecar is a same-metric descriptive control, not held-out operational validation. Use leakage-controlled Best-N results for ensemble-size claims and keep per-spill winners scoped as BPM-only internal evidence.",
         "",
     ]
     atomic_write_text(out / "strong_bpm_executive_summary.md", "\n".join(exec_lines))

@@ -29,10 +29,37 @@ Treat these as baseline rather than open TODOs:
   `initial_analysis_summary.md`
 - Best-BPM mining pass over the 2000-spill Spark dataset, including per-BPM
   spectra/features, within-spill consensus, exact best-1/best-3 searches,
-  screened-pool audited best-5/best-10 searches, fixed-vs-dynamic statistics,
+  screened-pool audited best-5 search, fixed-vs-dynamic statistics,
   morphology clustering, selected artifacts, and final reports
+- Best-BPM follow-up sidecars for same-metric dynamic/fixed/all-BPM
+  recomputation, held-out spectral support, handoff/visibility review, curated
+  plane-balanced poster PNGs, and full-buffer Best-1/3/5 ridge-density
+  comparison artifacts
+- exact-cache visibility-duration repair plus semantic verification of result
+  identities, fixed/held-out controls, handoff transitions, poster balance,
+  and recommended PNG payloads
+- corrected exact-channel identity and ring-order reconstruction across the
+  primary and every downstream sidecar
+- contiguous leakage-controlled Best-N curves with purged later-window and
+  digitizer-disjoint validation, block intervals, beam/fit/fold/block-length
+  sensitivity comparisons, cross-collection global-N transfer, and a strict
+  verifier for contiguous coverage, identities, timing, metrics, summaries,
+  recommendation boundaries, and plots
+- an initial exact-pair intensity weighting/covariate study over 199 complete
+  spills; that provisional block-aware result rejects intensity weighting and retains only
+  integrity and exploratory timing diagnostics. A corrected all-zero gate
+  fallback plus an explicit no-usable-intensity unweighted fallback restore N=1
+  invariance and require one final 200-spill refresh.
+- strict intensity verification of the audited pair count, complete method/turn
+  grids, payload horizon, exact N=1 equality, effect decisions, and gallery
+  assets; 10/20/40 blocks must retain the same exact effect identities
 
-## 2. Open Implementation Work (Current TODO)
+## 2. Deferred Production Enhancements (Not Publication TODO)
+
+The following items remain useful production/Rust enhancements, but they are
+not missing tasks for the current BPM-only IBIC publication. The publication
+uses the implemented Spark sidecars and records the absence of an external tune
+reference as a limitation rather than silently treating these as complete.
 
 ### 2.1 Aggregate median spectrogram
 
@@ -130,18 +157,23 @@ Keep existing `status` and `quality_label`, and add optional:
 
 - `physics_usable` flag (stricter than generic analysis success)
 
-### 2.8 Intensity-assisted quality study
+### 2.8 Intensity-assisted quality study (provisional baseline)
 
-Use newly captured auxiliary `TBT_INTENSITY_RAW` payloads to test whether
-intensity helps identify usable spills or bad BPM/digitizer data.
+The June sidecar used exact `TBT_POSITION_RAW`/`TBT_INTENSITY_RAW` pairs,
+position-only member selection, purged later windows, and collection-aware
+moving blocks. Its numbers below are a diagnostic baseline until the corrected
+200-spill refresh passes the strict verifier.
 
-Questions:
+Resolved findings:
 
-- whether intensity RAW is more useful than SCALED for quality metrics
-- whether sample index 0 should be treated as metadata rather than waveform
-- whether intensity dropouts correlate with bad position traces or tune failures
-- whether the observed 5000-sample payload depth is sufficient for the intended
-  physics review or points to another acquisition-depth setting
+- the first 50000 turns are structurally valid for inference; the advertised
+  tail becomes unreliable near turn 64000 and is an integrity finding
+- 240 paired method-effect tests yield zero FDR-significant directional effects
+  within tune tolerance and zero practical effects with 20-spill blocks
+- square-root, linear, and gated intensity weighting are rejected for tune
+  extraction
+- lag and crossing-turn plots remain exploratory and do not identify a fixed
+  extraction boundary or establish causation
 
 Current autosweep note:
 
@@ -153,46 +185,60 @@ Current autosweep note:
   `spill_health.csv` usable spills and preserves rejected/flagged configs in
   diagnostics before full-data reruns.
 
-## 3. Plot Usability Upgrades (Applies to Existing + New Plots)
+## 3. Plot Usability Gate (Current Publication)
 
-Improve consistency across plot outputs:
+Every final publication plot must satisfy:
 
 - explicit axis labels and units where available
 - subtitles with spill ID/target ms, window parameters, and BPM counts
 - consistent naming conventions
 - readable annotation density/resolution
+- confidence intervals or an explicit descriptive-only label where inference
+  is not supported
+- exact support counts and point-pairing disclosure for comparisons
+- no extraction marker in the primary plot; broad review context may appear
+  only in a separately named variant
+- a verifier-accepted `run_contract.json` binding the figure rows to exact
+  source inventories, scientific parameters, and complete compatible shards
+- a semantic verifier proving that the depicted metric comes from its named
+  table rather than a reused placeholder series; blank or constant scientific
+  panels fail even when a PNG exists
 
-## 4. Immediate Execution Order
+## 4. Current Publication Execution Order
 
-1. aggregate median spectrogram
-2. BPM subset consistency checks
-3. best-BPM vs all-BPM spectrum comparison
-4. FFT resolution metadata fields
-5. optional frequency-axis mode
-6. intensity-assisted quality study
-7. `physics_summary.md` and `physics_usable` flag integration
-8. Spark autosweep elite full-data execution and review of top-ranked
-   H/V/robust/poster configurations
-9. Spark Best-BPM full run execution, verifier pass with
-   `scripts/verify_best_bpm_outputs.py`, and review of
-   `reports/strong_bpm_analysis_summary.md`
+1. complete and verify the corrected exact-identity Best-1/3/5 run and every
+   fixed/held-out/handoff/artifact/report sidecar, including the exact-cache
+   visibility-duration repair
+2. complete the contiguous Best-N curve, beam/fit/fold sensitivities, and
+   cross-collection transfer; require the full and seven-run sample outputs to
+   pass `verify_best_n_outputs.py`
+3. render the exact-point-paired 50000-turn legacy/Best-N ridge gallery and
+   inspect H-loss diagnostics without forcing an extraction onset; require the
+   strict spill/window/pair/figure verifier to pass
+4. freeze the executive interpretation and issue #39 deficiency disposition
+5. build and visually verify the Fermilab-template A0 poster and four-page JACoW
+   paper
+6. package the exhaustive review gallery and curated publication source bundle,
+   then merge scoped PRs and leave a clean repository
 
 SVD/PCA remains deferred for production Rust tune extraction. The standalone
 poster analyzer can already produce opt-in representative-spill SVD/PCA
 comparison plots for physics review.
 
-## 5. Next Review Deliverables
+## 5. Current Review Deliverables
 
-Minimum for the next beam-physics review:
+Required for the publication review:
 
-- `physics_summary.md`
-- representative `spectrum_h/v.png`
-- representative `tune_vs_time.png`
-- representative `spectrogram_h/v.png`
-- `median_spectrogram_h.png`
-- `median_spectrogram_v.png`
-- `subset_consistency_h.png`
-- `subset_consistency_v.png`
+- corrected verifier and follow-up-verifier reports
+- Best-N summary, sensitivity, and cross-collection transfer tables/plots
+- exact-point-paired legacy-versus-adaptive H/V ridge panels, one shared-scale
+  four-panel H/V comparison for every requested N, and subtractive
+  redistribution maps
+- H-plane concentration, width, entropy, confidence, fallback, and data-derived
+  loss-candidate diagnostics
+- block-aware intensity result tables and indexed review gallery
+- editable A0 poster, poster PDF/render, four-page paper source/PDF, source data,
+  checksums, commands, captions, and compliance notes
 
 Optional but useful:
 
@@ -209,7 +255,9 @@ Optional but useful:
 - Best-BPM mining `reports/strong_bpm_analysis_summary.md`,
   `logs/best_bpm_verification_report.md`,
   `statistics/bpm_global_statistics.csv`, `subset_search/best*/best*_results.csv`,
-  `subset_search/progress/*.json`, and selected `artifacts/global/*.png`
+  `subset_search/progress/*.json`, selected `artifacts/global/*.png`,
+  `followups/artifacts/poster/*.png`, and
+  `followups/next_steps_20260628/ridge_density_best_ensemble/*.png`
 
 ## 6. Related Acquisition/Analysis Split
 
@@ -227,8 +275,9 @@ Current split status:
 The split is implemented for live capture, DAQ diagnostics, offline
 single/batch captured-bundle analysis, and a minimal online/offline parity
 guardrail. The checked-in capture config now preserves RAW position payloads
-and derived RAW intensity payloads; intensity remains auxiliary until quality
-metrics are defined. See `docs/USAGE.md` for command usage and
+and derived RAW intensity payloads. The completed sidecar rejects intensity as
+a tune weight but retains it as an auxiliary integrity/timing channel. See
+`docs/USAGE.md` for command usage and
 `docs/ISSUE_MAP_DAQ_SPLIT.md` for issue history.
 
 The split guardrail is not a physics-quality acceptance criterion. It only

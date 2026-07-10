@@ -11,7 +11,9 @@ from pathlib import Path
 from typing import Sequence
 
 import numpy as np
+import bpm_dgx_poster as poster
 
+from .identity import channel_label, manifest_by_index
 from .io import atomic_write_text, read_csv, write_csv
 from .progress import chunked, write_parent_status, write_shard_status
 
@@ -26,6 +28,7 @@ WINDOW_VISIBILITY_FIELDS = [
     "bpm_index",
     "bpm_name",
     "digitizer",
+    "source_key",
     "consensus_tune",
     "consensus_label",
     "peak_tune",
@@ -40,6 +43,7 @@ WINDOW_VISIBILITY_FIELDS = [
     "is_top1_visible",
     "is_top3_visible",
     "is_top5_visible",
+    "is_top10_visible",
     "quality_flags",
 ]
 
@@ -68,6 +72,7 @@ VISIBILITY_SUMMARY_FIELDS = [
     "bpm_index",
     "bpm_name",
     "digitizer",
+    "source_key",
     "visible_window_fraction",
     "first_visible_turn",
     "last_visible_turn",
@@ -77,6 +82,7 @@ VISIBILITY_SUMMARY_FIELDS = [
     "top1_window_fraction",
     "top3_window_fraction",
     "top5_window_fraction",
+    "top10_window_fraction",
     "handoff_event_count",
 ]
 
@@ -128,7 +134,7 @@ def selected_cache_rows(root: Path, spectral_config: str, limit: int = 0) -> lis
 
 
 def bpm_meta(manifest_dir: Path) -> dict[tuple[str, int], dict[str, str]]:
-    return {(row["plane"], int(row["bpm_index"])): row for row in read_csv(manifest_dir / "bpm_index.csv")}
+    return manifest_by_index(read_csv(manifest_dir / "bpm_index.csv"))
 
 
 def consensus_maps(root: Path) -> tuple[dict[tuple[str, str, str, str, str], dict[str, str]], dict[tuple[str, str, str], dict[str, str]]]:
@@ -213,6 +219,8 @@ def _visibility_class(score: float, prominence: float, edge_distance: float, thr
 
 
 def _jaccard(a: set[str], b: set[str]) -> float:
+    if not a and not b:
+        return 1.0
     return len(a & b) / max(1, len(a | b))
 
 
@@ -262,8 +270,9 @@ def process_cache(cache: dict[str, str]) -> tuple[list[dict[str, object]], list[
                 "window_index": widx,
                 "center_turn": _fmt(float(centers[widx])),
                 "bpm_index": bpm_idx,
-                "bpm_name": meta.get("bpm_name", str(bpm_idx)),
+                "bpm_name": channel_label(meta) or str(bpm_idx),
                 "digitizer": meta.get("digitizer", ""),
+                "source_key": meta.get("source_key", ""),
                 "consensus_tune": _fmt(q),
                 "consensus_label": label,
                 "peak_tune": _fmt(peak_tune),
@@ -278,14 +287,19 @@ def process_cache(cache: dict[str, str]) -> tuple[list[dict[str, object]], list[
                 "is_top1_visible": "false",
                 "is_top3_visible": "false",
                 "is_top5_visible": "false",
+                "is_top10_visible": "false",
                 "quality_flags": "|".join(flags),
             }
             scored.append((score, row))
         scored.sort(key=lambda item: item[0], reverse=True)
+        visible_scored = [
+            item for item in scored if item[1]["visibility_class"] == "VISIBLE_TUNE"
+        ]
         tops = {
-            1: [str(item[1]["bpm_name"]) for item in scored[:1]],
-            3: [str(item[1]["bpm_name"]) for item in scored[:3]],
-            5: [str(item[1]["bpm_name"]) for item in scored[:5]],
+            1: [str(item[1]["bpm_name"]) for item in visible_scored[:1]],
+            3: [str(item[1]["bpm_name"]) for item in visible_scored[:3]],
+            5: [str(item[1]["bpm_name"]) for item in visible_scored[:5]],
+            10: [str(item[1]["bpm_name"]) for item in visible_scored[:10]],
         }
         window_top[widx] = tops
         top_sets = {size: set(names) for size, names in tops.items()}
@@ -294,9 +308,10 @@ def process_cache(cache: dict[str, str]) -> tuple[list[dict[str, object]], list[
             row["is_top1_visible"] = str(name in top_sets[1]).lower()
             row["is_top3_visible"] = str(name in top_sets[3]).lower()
             row["is_top5_visible"] = str(name in top_sets[5]).lower()
+            row["is_top10_visible"] = str(name in top_sets[10]).lower()
             visibility_rows.append(row)
     event_rows: list[dict[str, object]] = []
-    for size in (1, 3, 5):
+    for size in (1, 3, 5, 10):
         previous: set[str] | None = None
         previous_q = math.nan
         for widx in range(spectra.shape[1]):
@@ -315,11 +330,18 @@ def process_cache(cache: dict[str, str]) -> tuple[list[dict[str, object]], list[
                     break
             q = window_consensus.get(widx, math.nan)
             q_delta = abs(q - previous_q) if math.isfinite(q) and math.isfinite(previous_q) else math.nan
-            label = "STABLE"
-            if handoff_score >= 0.6 and persistence >= 3 and (not math.isfinite(q_delta) or q_delta <= 0.006):
+            if not previous and not current:
+                label = "NO_VISIBLE_SET"
+            elif previous and not current:
+                label = "VISIBILITY_LOSS"
+            elif not previous and current:
+                label = "VISIBILITY_RECOVERY"
+            elif handoff_score >= 0.6 and persistence >= 3 and (not math.isfinite(q_delta) or q_delta <= 0.006):
                 label = "PERSISTENT_HANDOFF"
             elif handoff_score >= 0.6:
                 label = "FLICKER"
+            else:
+                label = "STABLE"
             event_rows.append(
                 {
                     "collection": cache["collection"],
@@ -350,8 +372,8 @@ def process_cache(cache: dict[str, str]) -> tuple[list[dict[str, object]], list[
                     events_by_bpm[(event["collection"], event["spill_id"], event["plane"], name)] += 1
     grouped = defaultdict(list)
     for row in visibility_rows:
-        grouped[(row["collection"], row["spill_id"], row["plane"], row["bpm_index"], row["bpm_name"], row["digitizer"])].append(row)
-    for (collection, spill_id, plane, bpm_index, bpm_name, digitizer), rows in grouped.items():
+        grouped[(row["collection"], row["spill_id"], row["plane"], row["bpm_index"], row["bpm_name"], row["digitizer"], row["source_key"])].append(row)
+    for (collection, spill_id, plane, bpm_index, bpm_name, digitizer, source_key), rows in grouped.items():
         visible = [row for row in rows if row["visibility_class"] == "VISIBLE_TUNE"]
         turns = [_f(row.get("center_turn")) for row in visible]
         summary_rows.append(
@@ -362,6 +384,7 @@ def process_cache(cache: dict[str, str]) -> tuple[list[dict[str, object]], list[
                 "bpm_index": bpm_index,
                 "bpm_name": bpm_name,
                 "digitizer": digitizer,
+                "source_key": source_key,
                 "visible_window_fraction": _fmt(len(visible) / max(1, len(rows))),
                 "first_visible_turn": _fmt(min(turns)) if turns else "",
                 "last_visible_turn": _fmt(max(turns)) if turns else "",
@@ -371,10 +394,116 @@ def process_cache(cache: dict[str, str]) -> tuple[list[dict[str, object]], list[
                 "top1_window_fraction": _fmt(sum(row["is_top1_visible"] == "true" for row in rows) / max(1, len(rows))),
                 "top3_window_fraction": _fmt(sum(row["is_top3_visible"] == "true" for row in rows) / max(1, len(rows))),
                 "top5_window_fraction": _fmt(sum(row["is_top5_visible"] == "true" for row in rows) / max(1, len(rows))),
+                "top10_window_fraction": _fmt(sum(row["is_top10_visible"] == "true" for row in rows) / max(1, len(rows))),
                 "handoff_event_count": events_by_bpm.get((collection, spill_id, plane, bpm_name), 0),
             }
         )
     return visibility_rows, event_rows, summary_rows
+
+
+def _write_spill_visibility_panel(
+    path: Path,
+    collection: str,
+    spill_id: str,
+    plane: str,
+    rows: Sequence[dict[str, object]],
+) -> None:
+    bpm_keys = sorted(
+        {(int(row["bpm_index"]), str(row["bpm_name"])) for row in rows},
+        key=lambda item: (item[0], item[1]),
+    )
+    turns = sorted({_f(row["center_turn"]) for row in rows if math.isfinite(_f(row["center_turn"]))})
+    if not bpm_keys or not turns:
+        poster.no_data_png(path, f"{plane} BPM VISIBILITY {spill_id}")
+        return
+
+    row_by_key = {
+        (int(row["bpm_index"]), str(row["bpm_name"]), _f(row["center_turn"])): row
+        for row in rows
+    }
+    width, height = 1400, 1000
+    pixels = poster.new_canvas(width, height)
+    poster.draw_text(pixels, width, height, 34, 26, f"{plane} BPM VISIBILITY {spill_id}"[:44], poster.INK, 3)
+    poster.draw_text(pixels, width, height, 34, 60, "COLOR: SCORE 0-1; MARKERS: STRICT VISIBLE RANK", poster.MUTED, 2)
+    x0, y0, x1, y1 = 112, 105, width - 45, 720
+    poster.rect(pixels, width, height, x0, y0, x1, y1, (245, 247, 248))
+    cell_w = max(1, (x1 - x0 + 1) // len(turns))
+    cell_h = max(1, (y1 - y0 + 1) // len(bpm_keys))
+    for row_index, (bpm_index, bpm_name) in enumerate(bpm_keys):
+        for turn_index, turn in enumerate(turns):
+            row = row_by_key.get((bpm_index, bpm_name, turn))
+            score = _f(row.get("visibility_score")) if row else math.nan
+            color = poster.tune_color(score if math.isfinite(score) else None, 0.0, 1.0)
+            cx0 = x0 + turn_index * cell_w
+            cy0 = y0 + row_index * cell_h
+            cx1 = min(x1, cx0 + cell_w - 1)
+            cy1 = min(y1, cy0 + cell_h - 1)
+            poster.rect(pixels, width, height, cx0, cy0, cx1, cy1, color)
+            if not row:
+                continue
+            marker_size = max(1, min(4, cell_w // 4, cell_h // 3))
+            if row.get("is_top1_visible") == "true":
+                poster.rect(pixels, width, height, cx0, cy0, min(cx1, cx0 + marker_size + 1), min(cy1, cy0 + marker_size + 1), poster.INK)
+                poster.rect(pixels, width, height, cx0 + 1, cy0 + 1, min(cx1, cx0 + marker_size), min(cy1, cy0 + marker_size), poster.WHITE)
+            elif row.get("is_top3_visible") == "true":
+                poster.rect(pixels, width, height, cx0, max(cy0, cy1 - marker_size), cx1, cy1, poster.GREEN)
+            elif row.get("is_top5_visible") == "true":
+                poster.rect(pixels, width, height, cx0, max(cy0, cy1 - marker_size), cx1, cy1, poster.ORANGE)
+
+    for tick in range(6):
+        x = x0 + int((x1 - x0) * tick / 5)
+        poster.line(pixels, width, height, x, y0, x, y1, poster.GRID)
+        value = turns[0] + (turns[-1] - turns[0]) * tick / 5
+        label = poster.format_axis_value(value, turns[-1] - turns[0])
+        poster.draw_text(pixels, width, height, x - len(label) * 4, y1 + 8, label, poster.MUTED, 2)
+    poster.line(pixels, width, height, x0, y1, x1, y1, poster.INK)
+    poster.line(pixels, width, height, x0, y0, x0, y1, poster.INK)
+    poster.draw_text(pixels, width, height, (x0 + x1) // 2 - 55, y1 + 34, "CENTER TURN", poster.MUTED, 2)
+    poster.draw_text(pixels, width, height, 18, (y0 + y1) // 2 - 24, "BPM ORDER", poster.MUTED, 2)
+
+    legend_x = x1 - 350
+    legend_y = y0 - 28
+    for index, (name, color) in enumerate((("TOP1", poster.WHITE), ("TOP3", poster.GREEN), ("TOP5", poster.ORANGE))):
+        lx = legend_x + index * 112
+        poster.rect(pixels, width, height, lx, legend_y, lx + 14, legend_y + 12, poster.INK)
+        poster.rect(pixels, width, height, lx + 1, legend_y + 1, lx + 13, legend_y + 11, color)
+        poster.draw_text(pixels, width, height, lx + 21, legend_y, name, poster.MUTED, 2)
+
+    q_by_turn: list[tuple[float, float, str]] = []
+    for turn in turns:
+        turn_rows = [row for row in rows if _f(row["center_turn"]) == turn]
+        q = next((_f(row.get("consensus_tune")) for row in turn_rows if math.isfinite(_f(row.get("consensus_tune")))), math.nan)
+        label = next((str(row.get("consensus_label", "")) for row in turn_rows if row.get("consensus_label")), "")
+        q_by_turn.append((turn, q, label))
+    finite_q = [q for _turn, q, _label in q_by_turn if math.isfinite(q)]
+    qx0, qy0, qx1, qy1 = x0, 820, x1, 930
+    poster.rect(pixels, width, height, qx0, qy0, qx1, qy1, (245, 247, 248))
+    if finite_q:
+        qmin, qmax = min(finite_q), max(finite_q)
+        pad = max(0.0005, (qmax - qmin) * 0.10)
+        qmin -= pad
+        qmax += pad
+        previous: tuple[int, int] | None = None
+        for turn, q, label in q_by_turn:
+            if not math.isfinite(q):
+                previous = None
+                continue
+            px = poster.scale_value(turn, turns[0], turns[-1], qx0, qx1)
+            py = poster.scale_value(q, qmin, qmax, qy1, qy0)
+            color = poster.GREEN if "CLEAN" in label or "GOOD" in label else poster.ORANGE
+            if previous is not None:
+                poster.line(pixels, width, height, previous[0], previous[1], px, py, color)
+            poster.rect(pixels, width, height, px - 2, py - 2, px + 2, py + 2, color)
+            previous = (px, py)
+        poster.draw_text(pixels, width, height, qx0 - 72, qy0 - 6, poster.format_axis_value(qmax, qmax - qmin), poster.MUTED, 2)
+        poster.draw_text(pixels, width, height, qx0 - 72, qy1 - 6, poster.format_axis_value(qmin, qmax - qmin), poster.MUTED, 2)
+    else:
+        poster.draw_text(pixels, width, height, qx0 + 24, qy0 + 38, "NO CONSENSUS TUNE", poster.RED, 3)
+    poster.line(pixels, width, height, qx0, qy1, qx1, qy1, poster.INK)
+    poster.line(pixels, width, height, qx0, qy0, qx0, qy1, poster.INK)
+    poster.draw_text(pixels, width, height, 18, qy0 + 34, "CONSENSUS Q", poster.MUTED, 2)
+    poster.draw_text(pixels, width, height, qx0, height - 35, f"SOURCE {collection}"[:70], poster.MUTED, 2)
+    poster.write_png(path, width, height, pixels)
 
 
 def process_handoff_chunk(args: tuple[int, int, list[dict[str, str]], str | None]) -> tuple[int, int, list[dict[str, object]], list[dict[str, object]], list[dict[str, object]]]:
@@ -399,108 +528,188 @@ def process_handoff_chunk(args: tuple[int, int, list[dict[str, str]], str | None
     return shard_id, len(rows), visibility, events, summary
 
 
-def _matplotlib():
-    try:
-        import matplotlib
-
-        matplotlib.use("Agg")
-        import matplotlib.pyplot as plt
-
-        return plt
-    except Exception:
-        return None
-
-
 def write_handoff_plots(out: Path, visibility_rows: Sequence[dict[str, object]], event_rows: Sequence[dict[str, object]]) -> None:
-    plt = _matplotlib()
-    if plt is None:
-        atomic_write_text(out / "handoff_plots_unavailable.txt", "matplotlib unavailable\n")
-        return
+    out.mkdir(parents=True, exist_ok=True)
     for plane in ("H", "V"):
         rows = [row for row in visibility_rows if row.get("plane") == plane]
         by_turn: dict[float, list[dict[str, object]]] = defaultdict(list)
         for row in rows:
             by_turn[_f(row.get("center_turn"))].append(row)
         xs = sorted(k for k in by_turn if math.isfinite(k))
-        frac = []
+        visible_fraction = [
+            sum(row.get("visibility_class") == "VISIBLE_TUNE" for row in by_turn[x])
+            / max(1, len(by_turn[x]))
+            for x in xs
+        ]
+        poster.line_plot(
+            out / f"visible_bpm_fraction_vs_turn_{plane.lower()}.png",
+            f"{plane} STRICT VISIBLE BPM FRACTION",
+            [("VISIBLE / ALL", list(zip(xs, visible_fraction)), poster.BLUE)],
+            "CENTER TURN",
+            "BPM FRACTION",
+            (0.0, 1.0),
+        )
+        atomic_write_text(
+            out / f"visible_bpm_fraction_vs_turn_{plane.lower()}_caption.md",
+            f"# {plane} Strict Visible-BPM Fraction\n\nFraction of reviewed BPM-window rows meeting the fixed `VISIBLE_TUNE` score, prominence, and edge-distance thresholds. A decline localizes observability loss; it does not identify extraction onset or establish a causal beam-loss mechanism.\n",
+        )
+
+        top5_score = []
+        spill_visible_fraction = []
         for x in xs:
-            vals = by_turn[x]
-            frac.append(sum(row.get("visibility_class") == "VISIBLE_TUNE" for row in vals) / max(1, len(vals)))
-        for name, y, ylabel in (
-            (f"visible_bpm_fraction_vs_turn_{plane.lower()}.png", frac, "visible BPM fraction"),
-            (
-                f"top_bpm_membership_vs_turn_{plane.lower()}.png",
-                [sum(row.get("is_top5_visible") == "true" for row in by_turn[x]) for x in xs],
-                "top5 membership count",
-            ),
+            top_scores = [
+                _f(row.get("visibility_score"))
+                for row in by_turn[x]
+                if row.get("is_top5_visible") == "true"
+            ]
+            top5_score.append(median(top_scores))
+            spill_groups: dict[tuple[str, str], list[dict[str, object]]] = defaultdict(list)
+            for row in by_turn[x]:
+                spill_groups[(str(row["collection"]), str(row["spill_id"]))].append(row)
+            spill_visible_fraction.append(
+                sum(
+                    any(row.get("visibility_class") == "VISIBLE_TUNE" for row in group)
+                    for group in spill_groups.values()
+                )
+                / max(1, len(spill_groups))
+            )
+        poster.line_plot(
+            out / f"visible_set_support_vs_turn_{plane.lower()}.png",
+            f"{plane} VISIBLE-SET SUPPORT",
+            [
+                ("SPILLS WITH SET", list(zip(xs, spill_visible_fraction)), poster.GREEN),
+                ("TOP5 MED SCORE", list(zip(xs, top5_score)), poster.ORANGE),
+            ],
+            "CENTER TURN",
+            "FRACTION / SCORE",
+            (0.0, 1.0),
+        )
+        atomic_write_text(
+            out / f"visible_set_support_vs_turn_{plane.lower()}_caption.md",
+            f"# {plane} Visible-Set Support\n\nGreen is the fraction of reviewed spill-windows with at least one strict visible BPM. Orange is the median score among up to five strict visible channels. Missing orange points mean no channel passed; the series is not padded with merely top-ranked noise.\n",
+        )
+
+        subset5_events = [
+            row
+            for row in event_rows
+            if row.get("plane") == plane and int(row.get("subset_size") or 0) == 5
+        ]
+        events_by_turn: dict[float, list[dict[str, object]]] = defaultdict(list)
+        for row in subset5_events:
+            events_by_turn[_f(row.get("center_turn"))].append(row)
+        event_xs = sorted(turn for turn in events_by_turn if math.isfinite(turn))
+        event_series = []
+        for label, color in (
+            ("VISIBILITY LOSS", poster.RED),
+            ("PERSISTENT HANDOFF", poster.PURPLE),
+            ("VISIBILITY RECOVERY", poster.GREEN),
         ):
-            fig, ax = plt.subplots(figsize=(8, 4))
-            ax.plot(xs, y, marker="o", linewidth=1.0)
-            ax.set_title(f"{plane} {ylabel}")
-            ax.set_xlabel("center turn")
-            ax.set_ylabel(ylabel)
-            fig.tight_layout()
-            fig.savefig(out / name, dpi=160)
-            plt.close(fig)
-        ev = [row for row in event_rows if row.get("plane") == plane and row.get("event_label") == "PERSISTENT_HANDOFF"]
-        counts = defaultdict(int)
-        for row in ev:
-            counts[_f(row.get("center_turn"))] += 1
-        fig, ax = plt.subplots(figsize=(8, 4))
-        ax.bar(list(counts.keys()), list(counts.values()), width=180)
-        ax.set_title(f"{plane} persistent handoff rate")
-        ax.set_xlabel("center turn")
-        ax.set_ylabel("events")
-        fig.tight_layout()
-        fig.savefig(out / f"handoff_rate_vs_turn_{plane.lower()}.png", dpi=160)
-        plt.close(fig)
+            values = [
+                sum(row.get("event_label") == label.replace(" ", "_") for row in events_by_turn[turn])
+                / max(1, len(events_by_turn[turn]))
+                for turn in event_xs
+            ]
+            event_series.append((label, list(zip(event_xs, values)), color))
+        poster.line_plot(
+            out / f"handoff_rate_vs_turn_{plane.lower()}.png",
+            f"{plane} VISIBLE-SET TRANSITIONS",
+            event_series,
+            "CENTER TURN",
+            "SPILL FRACTION",
+            (0.0, 1.0),
+        )
+        atomic_write_text(
+            out / f"handoff_rate_vs_turn_{plane.lower()}_caption.md",
+            f"# {plane} Visible-Set Transitions\n\nPer-turn fractions for strict Best-5 visible-set loss, persistent membership replacement, and recovery. Empty-to-empty windows are `NO_VISIBLE_SET`, not handoffs. These are thresholded diagnostics and are not used to impose an extraction time.\n",
+        )
+
         summary_by_bpm = defaultdict(list)
         for row in rows:
             summary_by_bpm[str(row.get("bpm_name"))].append(_f(row.get("visibility_score")))
         labels = sorted(summary_by_bpm)
         values = [median(summary_by_bpm[label]) for label in labels]
-        fig, ax = plt.subplots(figsize=(10, 5))
-        ax.imshow(np.asarray(values, dtype=float)[None, :], aspect="auto", cmap="viridis")
-        ax.set_title(f"{plane} BPM visibility cluster map")
-        ax.set_xticks(range(len(labels)))
-        ax.set_xticklabels(labels, rotation=75, ha="right", fontsize=6)
-        ax.set_yticks([])
-        fig.tight_layout()
-        fig.savefig(out / f"bpm_visibility_cluster_map_{plane.lower()}.png", dpi=160)
-        plt.close(fig)
-    selected = sorted({(str(row["collection"]), str(row["spill_id"]), str(row["plane"])) for row in visibility_rows})[:12]
+        poster.heatmap_plot(
+            out / f"bpm_visibility_cluster_map_{plane.lower()}.png",
+            f"{plane} MEDIAN BPM VISIBILITY SCORE",
+            [values],
+            0.0,
+            1.0,
+            "BPM RING ORDER",
+            "MEDIAN",
+        )
+        atomic_write_text(
+            out / f"bpm_visibility_cluster_map_{plane.lower()}_caption.md",
+            f"# {plane} BPM Visibility Map\n\nMedian visibility score by exact BPM channel in ring order. The associated CSV retains channel labels; color encodes score from 0 to 1 and does not encode tune.\n",
+        )
+
+        bpm_keys = sorted(
+            {(int(row["bpm_index"]), str(row["bpm_name"])) for row in rows},
+            key=lambda item: (item[0], item[1]),
+        )
+        membership_matrix: list[list[float]] = []
+        for bpm_index, bpm_name in bpm_keys:
+            row_values = []
+            for turn in xs:
+                candidates = [
+                    row
+                    for row in by_turn[turn]
+                    if int(row["bpm_index"]) == bpm_index and str(row["bpm_name"]) == bpm_name
+                ]
+                row_values.append(
+                    sum(row.get("is_top5_visible") == "true" for row in candidates)
+                    / max(1, len(candidates))
+                )
+            membership_matrix.append(row_values)
+        poster.heatmap_plot(
+            out / f"top_bpm_membership_vs_turn_{plane.lower()}.png",
+            f"{plane} STRICT TOP5 MEMBERSHIP FRACTION",
+            membership_matrix,
+            0.0,
+            1.0,
+            "CENTER TURN",
+            "BPM ORDER",
+        )
+        atomic_write_text(
+            out / f"top_bpm_membership_vs_turn_{plane.lower()}_caption.md",
+            f"# {plane} Strict Top-BPM Membership\n\nEach cell is the fraction of reviewed spills in which the exact BPM channel belongs to the strict visible Top-5 set at that turn. Empty visible sets contribute zero. The map describes repeatable observability, not tune motion or beam intensity.\n",
+        )
+
+    selected = sorted({(str(row["collection"]), str(row["spill_id"]), str(row["plane"])) for row in visibility_rows})
     for collection, spill_id, plane in selected:
         rows = [row for row in visibility_rows if row["collection"] == collection and row["spill_id"] == spill_id and row["plane"] == plane]
-        bpm_names = sorted({str(row["bpm_name"]) for row in rows})
-        turns = sorted({_f(row["center_turn"]) for row in rows if math.isfinite(_f(row["center_turn"]))})
-        matrix = np.full((len(bpm_names), len(turns)), np.nan, dtype=float)
-        bpm_pos = {name: idx for idx, name in enumerate(bpm_names)}
-        turn_pos = {turn: idx for idx, turn in enumerate(turns)}
-        for row in rows:
-            turn = _f(row["center_turn"])
-            if str(row["bpm_name"]) in bpm_pos and turn in turn_pos:
-                matrix[bpm_pos[str(row["bpm_name"])], turn_pos[turn]] = _f(row["visibility_score"])
         stem = f"spill_{spill_id}_{plane.lower()}"
-        fig, ax = plt.subplots(figsize=(10, 6))
-        im = ax.imshow(matrix, aspect="auto", origin="lower", cmap="viridis", vmin=0, vmax=1)
-        ax.set_title(f"{stem} BPM visibility handoff")
-        ax.set_xlabel("window index")
-        ax.set_ylabel("BPM")
-        ax.set_yticks(range(len(bpm_names)))
-        ax.set_yticklabels(bpm_names, fontsize=5)
-        fig.colorbar(im, ax=ax, label="visibility score")
-        fig.tight_layout()
-        fig.savefig(out / f"{stem}_bpm_visibility_handoff.png", dpi=160)
-        plt.close(fig)
-        fig, ax = plt.subplots(figsize=(8, 4))
+        _write_spill_visibility_panel(
+            out / f"{stem}_bpm_visibility_handoff.png",
+            collection,
+            spill_id,
+            plane,
+            rows,
+        )
+        atomic_write_text(
+            out / f"{stem}_bpm_visibility_handoff_caption.md",
+            f"# {plane} Spill Visibility And Consensus\n\nRows are exact BPM channels and columns are overlapping windows for `{collection}/{spill_id}`. Color is the 0-to-1 visibility score; white, green, and orange markers denote strict visible Top-1, Top-3-only, and Top-5-only membership. The lower trace is the within-spill consensus tune. It localizes loss, recovery, and stable handoff without imposing an extraction onset.\n",
+        )
         ev = [row for row in event_rows if row["collection"] == collection and row["spill_id"] == spill_id and row["plane"] == plane]
-        ax.plot([_f(row["center_turn"]) for row in ev], [_f(row["handoff_score"]) for row in ev], marker="o", linewidth=0.8)
-        ax.set_title(f"{stem} top sets vs turn")
-        ax.set_xlabel("center turn")
-        ax.set_ylabel("handoff score")
-        fig.tight_layout()
-        fig.savefig(out / f"{stem}_top_sets_vs_turn.png", dpi=160)
-        plt.close(fig)
+        series = []
+        for subset_size, color in ((1, poster.BLUE), (3, poster.GREEN), (5, poster.ORANGE)):
+            points = sorted(
+                (_f(row["center_turn"]), _f(row["handoff_score"]))
+                for row in ev
+                if int(row.get("subset_size") or 0) == subset_size
+            )
+            series.append((f"BEST{subset_size}", points, color))
+        poster.line_plot(
+            out / f"{stem}_top_sets_vs_turn.png",
+            f"{plane} VISIBLE-SET CHANGE {spill_id}",
+            series,
+            "CENTER TURN",
+            "1 - JACCARD",
+            (0.0, 1.0),
+        )
+        atomic_write_text(
+            out / f"{stem}_top_sets_vs_turn_caption.md",
+            f"# {plane} Spill Visible-Set Change\n\nOne minus Jaccard overlap between consecutive strict visible sets for `{collection}/{spill_id}`. Loss and recovery are labeled separately in `bpm_handoff_events.csv`; empty-to-empty has zero change.\n",
+        )
 
 
 def run_handoff_analysis(

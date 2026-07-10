@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from pathlib import Path
 
+from .identity import manifest_by_index, normalize_subset_row
 from .io import atomic_write_text, read_csv, write_csv
 
 
@@ -28,11 +29,12 @@ def jaccard(a: set[str], b: set[str]) -> float:
 
 def select_artifacts(cfg: dict[str, object], inputs: Path, out: Path) -> None:
     max_per_plane = int(cfg["artifacts"].get("max_spills_per_plane", 40))
+    meta_by_index = manifest_by_index(read_csv(inputs / "manifest" / "bpm_index.csv"))
     subset_rows = []
     for size in (1, 3, 5, 10):
         path = inputs / "subset_search" / f"best{size}" / f"best{size}_results.csv"
         if path.exists():
-            subset_rows.extend(read_csv(path))
+            subset_rows.extend(normalize_subset_row(row, meta_by_index) for row in read_csv(path))
     consensus_path = inputs / "consensus" / "spill_consensus_summary.csv"
     consensus_rows = read_csv(consensus_path) if consensus_path.exists() else []
     fixed_path = inputs / "statistics" / "fixed_sets_crossfit_summary.csv"

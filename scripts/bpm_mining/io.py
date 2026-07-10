@@ -16,6 +16,7 @@ from typing import Iterable, Sequence
 
 import numpy as np
 
+from .identity import channel_token
 from .schema import (
     BPM_INDEX_FIELDS,
     CHANNEL_FIELDS,
@@ -278,7 +279,8 @@ def build_manifest_outputs(cfg: dict[str, object], out: Path, limit: int = 0) ->
         idx = plane_counts[plane]
         plane_counts[plane] += 1
         bpm_index[(plane, bpm_name, source_key, digitizer)] = idx
-        ring_match = re.search(r"(\d+)", bpm_name)
+        token = channel_token(source_key)
+        ring_match = re.search(r"(\d+)$", token)
         bpm_rows.append(
             {
                 "bpm_index": idx,

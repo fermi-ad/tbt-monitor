@@ -30,8 +30,25 @@ capabilities rather than re-track them as new software tasks:
   configurations and candidate spills from raw position bundles
 - Best-BPM mining through `scripts/run_best_bpm_pipeline.py`, including
   per-BPM spectral features, within-spill consensus, exact best-1/best-3
-  searches, screened-pool audited best-5/best-10 searches, global BPM
+  searches, screened-pool audited best-5 search, global BPM
   statistics, morphology clustering, selected artifacts, and reports
+- Best-BPM follow-up sidecars for same-metric dynamic/fixed/all-BPM
+  recomputation, held-out spectral support, handoff/visibility review, poster
+  PNG generation, and full-buffer Best-ensemble ridge-density comparison
+- an exact-cache repair for visibility duration and semantic verification that
+  fixed/held-out/handoff/poster artifacts encode their named scientific rows
+- strict ridge-gallery coverage and exact-pair verification before interpreting
+  apparent concentration, redistribution, or H-plane loss behavior
+- leakage-controlled Best-N curves with fit/test purging, digitizer-disjoint
+  validation, collection-block intervals, sensitivity checks, and
+  cross-collection global-N transfer; publication use requires the strict
+  Best-N coverage/identity/timing/summary verifier, not only completed CSV files
+- an exact-pair intensity-study implementation with practical-effect gates and
+  payload-horizon auditing; the June result is provisional until the corrected
+  200-spill refresh passes strict closure, and intensity remains auxiliary to
+  position tune extraction
+- strict intensity closure requires exact Best-1 zero-effect behavior, complete
+  first-50000-turn grids, and recomputation of every retain/reject gate
 
 ## 2. Core Physics Question
 
@@ -94,7 +111,8 @@ Deliverables:
 
 ### 3.4 BPM Coherence Test
 
-Confirm tune is not dominated by a small BPM subset.
+Confirm that the tune candidate is not a one-channel artifact and that
+independent digitizer groups recover compatible later-window structure.
 
 Deliverables:
 
@@ -119,13 +137,26 @@ Notes:
 - Best-BPM mining labels and consensus tunes are BPM-only internal evidence.
   The method intentionally avoids using global tune distributions or neighboring
   spills as labels because the machine configuration changed during collection.
+- The full-buffer Best-ensemble ridge-density sidecar holds fit-prefix Best-N
+  memberships fixed through the 50000-turn buffer. It tests persistence and is
+  not same-window dynamic reselection.
 - Best-1 and best-3 subset searches can be described as globally exhaustive
-  over valid BPMs. Best-5 and best-10 must be described as screened-pool exact
-  searches with beam/random full-space audits unless a true global enumeration
-  is ever run.
+  over valid BPMs. Best-5 must be described as a screened-pool exact search with
+  beam/random full-space audits. The historical screened Best-10 path is not the
+  publication ensemble-size result; contiguous N is evaluated by beam search
+  and disjoint validation.
+- Blind full-band selected/held-out agreement is the ensemble-size guardrail.
+  Near-training-tune support is useful but conditioned and cannot replace it.
+- Exact common spill/window pairing is required for ridge-density subtraction.
+  Narrowing or probability-mass redistribution can be described as suppressed
+  diffuse ridge picks, not physical noise removal or absolute tune accuracy.
+  The shared-scale H/V composite uses column-normalized pick probability, so
+  exact paired counts and sample-fraction diagnostics must accompany it.
 - `scripts/verify_best_bpm_outputs.py` is an artifact completeness and schema
-  gate for Best-BPM runs. Passing it means the planned BPM-only outputs exist;
-  it does not establish external tune truth or Schottky agreement.
+  gate for Best-BPM runs. The associated semantic verifier also reconstructs
+  identities, masks, fixed/held-out controls, handoff states, and poster PNGs.
+  Passing both means the planned BPM-only outputs are internally coherent; it
+  does not establish external tune truth or Schottky agreement.
 
 Deliverables:
 
@@ -167,12 +198,19 @@ Use repository field names when reviewing outputs:
 - no direct Schottky ingestion/auto-sync path in this repository
 - no dedicated cross-BPM coherence metric exported as first-class batch field
 - no dedicated clipping/saturation diagnostic exported yet
-- no physics-quality contract yet for auxiliary intensity payloads; RAW
-  intensity is currently preserved for offline study, not used in tune
-  extraction
-- current full-resolution Redis payloads observed so far contain 5000 `f32`
-  samples; any expectation of a longer turn window still needs to be reconciled
-  with front-end acquisition settings or stream variant semantics
+- the provisional June block-aware intensity sidecar found no FDR-significant
+  directional or practically meaningful benefit from intensity weighting; RAW
+  intensity is therefore not used in tune extraction unless the corrected
+  refresh overturns every declared gate, and lag/crossing plots remain exploratory
+- in the provisional June 0-50000 turn ridge-density sidecar, H-plane ridge
+  concentration peaks early and falls below half-peak before the soft
+  extraction-review band; the corrected exact-pair rerun must confirm this, and
+  even then it indicates weak H observability rather than a causal extraction
+  onset
+- live Redis payload depth remains a configuration-dependent acquisition issue;
+  the reviewed preserved position collections contain 50000 clean turns, while
+  the separate intensity capture advertises a longer array whose tail becomes
+  structurally unreliable near turn 64000
 - no SVD/PCA tune path in the Rust production flow yet; the standalone poster
   analyzer has opt-in SVD/PCA comparison plots that still need physics review
 - autosweep scoring uses pragmatic proxy metrics until independent tune labels

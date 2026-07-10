@@ -86,6 +86,7 @@ def default_config() -> dict[str, Any]:
         },
         "statistics": {
             "bootstrap_samples": 2000,
+            "bootstrap_block_spills": 20,
             "permutation_samples": 10000,
             "fdr_alpha": 0.05,
             "shapley_like_permutations": 5000,

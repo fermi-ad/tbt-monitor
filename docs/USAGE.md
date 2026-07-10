@@ -605,8 +605,11 @@ Use the Best-BPM mining pipeline when the question is not which analyzer config
 is best, but which BPM subsets carry the most defensible within-spill tune
 evidence. The pipeline consumes raw captured position bundles, caches per-BPM
 spectra, builds within-spill consensus clusters, searches best 1/3/5/10 BPM
-subsets, computes global/fixed/dynamic statistics, clusters spill morphologies,
-selects review artifacts, and writes final reports.
+subsets when explicitly requested, computes global statistics, clusters spill
+morphologies, selects review artifacts, and writes final reports. The old
+screened Best-10 path remains available but is not the publication ensemble-size
+study; contiguous leakage-controlled Best-N validation below answers that
+question.
 
 ```bash
 /home/derekste/venvs/cupy-spark-cu13/bin/python scripts/run_best_bpm_pipeline.py \
@@ -614,9 +617,14 @@ selects review artifacts, and writes final reports.
   --out /home/derekste/best_bpm_mining \
   --device cuda \
   --workers 12 \
-  --resume \
   --gpu-telemetry-interval-seconds 30
 ```
+
+`--resume` is a spectral-cache reuse switch, not a whole-pipeline checkpoint:
+later stages, including subset search, still execute. After a separately
+completed subset search, run the stage-specific evolution, statistics,
+clustering, selection, artifact, and report wrappers instead of calling the
+full pipeline again.
 
 Verify that a completed output directory satisfies the expected artifact
 contract:
@@ -659,6 +667,319 @@ Main outputs:
   `logs/best_bpm_verification_report.md` when the verifier is run
 - `logs/gpu_telemetry.csv`, `logs/gpu_telemetry_summary.json`, and
   `logs/gpu_telemetry_summary.md` when GPU telemetry is enabled
+
+`statistics/bpm_global_statistics.csv` retains both the plane-local
+`bpm_index` and the channel-token-derived `ring_order`. Ring-quality plots use
+`ring_order`; subset-size Pareto plots use the exported `compute_cost` rather
+than treating N itself as compute cost.
+
+Follow-up validation and poster-review passes can run as sidecars against a
+completed Best-BPM output tree:
+
+```bash
+python3 scripts/evaluate_fixed_bpm_sets.py --inputs /path/to/best_bpm --out /path/to/followups
+python3 scripts/evaluate_heldout_spectral_support.py --inputs /path/to/best_bpm --out /path/to/followups
+python3 scripts/make_best_bpm_poster_artifacts.py --inputs /path/to/best_bpm --manifest /path/to/best_bpm/artifact_selection/artifact_manifest.csv --out /path/to/followups/artifacts
+python3 scripts/run_bpm_handoff_analysis.py --inputs /path/to/best_bpm --out /path/to/followups
+```
+
+For runs produced before the corrected visibility-duration primitive, repair
+only that descriptive field from the exact cached spectra before statistics:
+
+```bash
+python3 scripts/repair_best_bpm_visibility_duration.py \
+  --config config/best_bpm_mining.yaml \
+  --root /path/to/best_bpm \
+  --out /path/to/followups/visibility_duration_repair \
+  --subset-sizes 1 3 5
+```
+
+The repair refuses nonidentical subset/cache coverage or a reproduced visible
+fraction mismatch, changes no score or membership, and records row-level old
+and corrected durations plus input/output hashes.
+
+The fixed-set sidecar resolves exact per-spill dynamic memberships and frozen
+cross-collection memberships, then recomputes dynamic, fixed, and all-BPM
+controls from the same spectral cache with one evolution score. It fails on a
+cardinality mismatch. This comparison is descriptive because the original
+dynamic memberships reuse selection windows; use the leakage-controlled
+Best-N study for inferential claims.
+The handoff sidecar ranks channels but places only strict `VISIBLE_TUNE`
+channels in Top-1/3/5/10 sets. Empty-to-empty windows are `NO_VISIBLE_SET` with
+Jaccard one; transitions are labeled `VISIBILITY_LOSS`,
+`VISIBILITY_RECOVERY`, `PERSISTENT_HANDOFF`, `FLICKER`, or `STABLE` as
+appropriate. Native-PNG plots report visible-BPM fraction, spill support,
+loss/recovery/handoff fractions, per-turn Top-5 membership frequency, and an
+uncapped set of selected-spill visibility/consensus composites. Score color and
+strict-rank markers are encoded separately; the plots do not assign an
+extraction onset.
+
+### Leakage-Controlled Best-N Study
+
+Use the cached corrected run to sweep contiguous ensemble sizes. Member search
+uses only the fit-window prefix; every overlapping window is purged before
+later-window evaluation. Complete digitizers, including sibling channels, stay
+on one side of each disjoint validation fold.
+
+```bash
+python3 scripts/evaluate_best_n_curve.py \
+  --config config/best_bpm_mining.yaml \
+  --inputs /path/to/corrected-best-bpm \
+  --out /path/to/best-n-shards/shard_0 \
+  --device cuda \
+  --max-n 30 \
+  --beam-width 64 \
+  --validation-beam-width 64 \
+  --folds 5 \
+  --fold-seed 20260709 \
+  --fit-windows 8 \
+  --bootstrap-block-spills 20 \
+  --shard-index 0 \
+  --shard-count 4 \
+  --resume
+
+python3 scripts/merge_best_n_shards.py \
+  --shards /path/to/best-n-shards \
+  --out /path/to/best-n-merged \
+  --bootstrap-samples 1000 \
+  --bootstrap-block-spills 20
+
+python3 scripts/verify_best_n_outputs.py \
+  --root /path/to/best-n-merged \
+  --max-n 30 \
+  --curve-cache-rows 4000 \
+  --validation-cache-rows 1000 \
+  --folds 5
+```
+
+Repeat the evaluator for every shard index. `--curve-limit 0` and
+`--validation-limit 0` use every cache row; positive limits are stratified and
+evenly spaced within collection and plane, not taken from the start of the run.
+The merge writes full curves, selected/held-out later-window contrast,
+blind full-band channel-disjoint agreement, confidence intervals, a provisional
+non-inferiority knee, per-collection summaries, and cross-collection global-N
+transfer. The conditioned near-training-tune metrics are never substituted for
+the blind agreement result.
+
+The verifier is fail-closed: expected cache-row counts are explicit, every
+spill-plane and fold must contain exactly one row for every contiguous N,
+membership cardinality and masks must agree, fit/test supports must not overlap,
+critical metrics must be finite, detailed and summary counts must match, and all
+cross-collection and native-PNG products must exist. A scientifically honest
+"no recommendation" is a warning rather than a structural failure; any actual
+recommendation must have at least three evaluated larger N values.
+Each shard writes `run_contract.json` before science rows. `--resume` is
+accepted only when that contract still matches the configuration, source
+indexes, N range, beam widths, folds, fit prefix, tolerance, block length,
+device, and shard identity. The merger requires exactly one compatible
+contract for every declared shard and fails on duplicate curve or validation
+keys instead of deduplicating them. Resume skips a spill-plane only when it has
+exactly one contiguous row for every N and fold; a row at the maximum N alone
+is not treated as completion. Sensitivity comparators require identical full
+key sets and never take silent intersections.
+
+Run the declared beam-width, fit-prefix, and fold-seed sample matrix with one
+shared baseline:
+
+```bash
+python3 scripts/run_best_n_sensitivity_matrix.py \
+  --inputs /path/to/corrected-best-bpm \
+  --out /path/to/best-n-sensitivity \
+  --device cuda \
+  --max-n 30 \
+  --curve-limit 400 \
+  --validation-limit 200 \
+  --folds 5 \
+  --beam-widths 16 32 64 \
+  --fit-windows 4 8 16 \
+  --fold-seeds 20260709 20260710 20260711 \
+  --resume
+```
+
+This executes seven unique runs, verifies each one, compares summary curves for
+all three dimensions, performs exact membership/score/tune convergence checks
+for beam width, and writes an indexed native-PNG gallery plus the complete
+command manifest.
+The sensitivity gallery includes central curves and their interval endpoints;
+block-length comparisons are expected to change uncertainty even when central
+estimates and the recommended N are unchanged.
+Configured permutation sample counts are executed as declared; the primary
+block sign-flip path does not apply an undocumented upper cap.
+The intensity and full-buffer ridge sidecars use the same fail-closed contract
+rule. Their verifiers check the merged block length or ridge window geometry
+and the SHA-256 source inventory before accepting plots.
+`scripts/analyze_next_steps_outputs.py` also refuses supplied primary,
+follow-up, Best-N, ridge, or intensity roots unless their JSON verifier reports
+are accepted; the executive interpretation cannot silently consume a
+provisional tree. A supplied sensitivity root must contain exactly seven unique
+verified runs; the report discovers all nested beam/fit/seed recommendation
+tables and recomputes the full-run H/V recommendation with the contract-bound
+tune tolerance.
+
+Compare fit-window, fold-seed, beam-width, or other completed sensitivity runs:
+
+```bash
+python3 scripts/compare_best_n_sensitivity.py \
+  --dimension fit_windows \
+  --run fit4=/path/to/fit4 \
+  --run fit8=/path/to/fit8 \
+  --run fit16=/path/to/fit16 \
+  --reference-label fit8 \
+  --out /path/to/fit-window-sensitivity
+```
+
+Remerge the same completed shards at 10, 20, and 40-spill bootstrap blocks and
+compare those summaries as an inference sensitivity; no GPU reselection is
+needed. Blocks stay inside each collection and do not wrap its endpoints.
+Apply the same three block lengths with
+`scripts/resummarize_intensity_study.py` and require one retain/reject decision.
+
+Summarize and render the intensity block-length decision:
+
+```bash
+python3 scripts/compare_intensity_block_sensitivity.py \
+  --run block10=/path/to/intensity-block10 \
+  --run block20=/path/to/intensity-block20 \
+  --run block40=/path/to/intensity-block40 \
+  --out /path/to/intensity-block-sensitivity
+```
+
+The count plot separates FDR-significant directional effects from effects whose
+confidence intervals clear a predeclared minimum practical effect. The second
+plot shows the strongest directional confidence bound divided by that practical
+threshold; retention requires the ratio to exceed one plus all tune-stability
+gates. The comparator fails unless the exact retained-effect identities agree
+at all block lengths and every Best-1 paired effect remains zero.
+
+### Intensity-Assisted Sidecar
+
+Intensity is an auxiliary covariate and spectral aggregation weight; it is
+never multiplied into the position waveform. Run sharded waveform analysis,
+then merge with collection-aware moving blocks:
+
+```bash
+python3 scripts/analyze_intensity_assisted_tune.py \
+  --config config/best_bpm_mining.yaml \
+  --capture-root /path/to/intensity-capture \
+  --out /path/to/intensity-shards/shard_0 \
+  --device cuda \
+  --analysis-turns 50000 \
+  --window-turns 4096 \
+  --stride-turns 512 \
+  --fit-windows 8 \
+  --shard-index 0 \
+  --shard-count 4
+
+python3 scripts/merge_intensity_study.py \
+  --shards /path/to/intensity-shards \
+  --out /path/to/intensity-merged \
+  --bootstrap-block-spills 20
+
+python3 scripts/make_intensity_study_plots.py \
+  --inputs /path/to/intensity-merged \
+  --out /path/to/intensity-gallery
+
+python3 scripts/verify_intensity_outputs.py \
+  --root /path/to/intensity-merged \
+  --gallery /path/to/intensity-gallery \
+  --subset-sizes 1 3 5 7 10 12 15 20 \
+  --expected-paired-payload-rows 23999 \
+  --expected-spill-rows 12800 \
+  --expected-centers 90 \
+  --minimum-spills-per-group 199 \
+  --expected-block-spills 20
+```
+
+`scripts/resummarize_intensity_study.py` can recompute block-aware inference
+from an existing merged study without rereading waveforms. Retain a weighting
+method only if the FDR-corrected directional test, minimum practical effect,
+median tune-shift tolerance, and 95% spillwise tune-shift tolerance all pass.
+Payload corruption after the declared analysis horizon is an integrity
+finding, not beam-loss evidence.
+The 4096/512 full-buffer geometry contains 90 windows. The strict verifier
+checks the audited capture shape, exact source identities,
+complete spill/window grids, zero errors or invalid first-50000-turn payloads,
+equal advertised and on-disk position/intensity sample counts, member
+cardinality, every effect decision gate, exact Best-1 weighting
+invariance, and every indexed gallery PNG/claim guardrail.
+If no selected channel has usable intensity in a window, every weighted method
+uses an explicit unweighted fallback. When finite values exist but the 50%
+gate would be empty, only the strongest finite selected channel is retained.
+`intensity_window_metrics.csv` records the reason in `weight_fallback`, and
+`intensity_spill_metrics.csv` records `weight_fallback_window_fraction`; the
+merged summary reports the total fallback-window count.
+
+Build a filterable, lazy-loading HTML index for any generated review directory:
+
+```bash
+python3 scripts/build_image_gallery.py \
+  --root /path/to/review-gallery \
+  --title "Best-N Publication Figure Review"
+```
+
+The index reads the intensity and ridge figure manifests when present, exposes
+their claim guardrails next to each thumbnail, and otherwise indexes images by
+directory. It links assets in place and does not duplicate the gallery payload.
+
+`scripts/make_best_bpm_ridge_density.py` is a targeted poster sidecar for
+recreating the older ridge-density visual grammar with exact corrected Best-N
+memberships over a 0-50000 turn raw-spill recomputation. Pass a merged Best-N
+membership CSV when rendering sizes other than the canonical Best-1/3/5 rows.
+With `--legacy-sliding-csv`, paired panels and subtractive maps use only exact
+common spill/window ridge points. They quantify ridge-pick redistribution, not
+physical noise removal. Primary figures are unmarked; optional
+`--extraction-context-variants` add a separately named broad review band that
+is never used by the data-derived loss heuristic.
+For each requested N the sidecar also writes
+`ridge_density_legacy_single_vs_best<N>_hv.png`, a primary H/V-by-method
+comparison whose four panels use column-normalized pick probability and one
+shared P98-clipped color scale. Its caption reports exact paired counts and
+warns that visual narrowing must agree with sample-fraction, width, entropy,
+and shared-ridge-mass diagnostics.
+
+The favorite `18d321dbd4fe` images bin one tracked `selected_tune` per spill
+and window; they are not spectral-power heatmaps. For an exact paired
+comparison, use the archived protocol: 4096/256 Hann windows, a 4096-turn
+injection seed, RMS-per-BPM normalization, mean subtraction, zeroed DC bin,
+confidence 2.0, tracking half-width and maximum step 0.005, and H/V bands
+0.620-0.680 / 0.690-0.740. The publication verifier rejects drift from those
+settings. Color in standalone panels is spill count; paired and subtractive
+panels are explicitly column-normalized probabilities.
+
+Verify the primary gallery before using any panel:
+
+```bash
+python3 scripts/verify_ridge_density_outputs.py \
+  --root /path/to/ridge-gallery \
+  --subset-sizes 1 3 5 10 15 20 30 \
+  --minimum-spills 1900 \
+  --expected-centers 180
+```
+
+The verifier requires all 2000 adaptive spill-planes and all 1988 legacy
+spill-planes at the exact 180-center grid. It rejects duplicate memberships or
+points, wrong selected-member cardinality, out-of-band tune picks, incomplete exact legacy
+pairing or contrast metrics, unresolved membership/payload warnings, and any
+missing, invalid, undersized, or uncaptioned manifest figure. Other data-quality
+warnings remain visible and require written review.
+
+Package final publication sources, rendered deliverables, reports, and broad
+review galleries into one local handoff directory:
+
+```bash
+python3 scripts/package_publication_review.py \
+  --component publication=publication/ibic2026 \
+  --component report=/path/to/final-analysis-report \
+  --component best-n-gallery=/path/to/best-n-gallery \
+  --component ridge-gallery=/path/to/ridge-gallery \
+  --component intensity-gallery=/path/to/intensity-gallery \
+  --out review-artifacts/ibic2026-final-review-YYYYMMDD
+```
+
+Each `LABEL=PATH` component is copied. `MANIFEST.csv` records every packaged
+file's original path, byte size, and SHA-256 checksum, while
+`PACKAGE_INDEX.md` summarizes the package. The output must be new or empty so
+an older review bundle cannot be silently overwritten.
 
 ## Timing Semantics
 
