@@ -538,6 +538,9 @@ Decision:
 - Execute beam 16/32/64, fit-prefix 4/8/16, and three fold seeds as seven unique
   stratified sample runs with one shared baseline. Keep this convergence matrix
   distinct from the all-row primary curve.
+- Keep a no-recommendation sensitivity run as a valid analysis outcome, but do
+  not materialize a poster or paper that claims a selected N while any declared
+  beam/fit/fold run lacks an eligible recommendation in either plane.
 - Fail closed on the declared full/sample cache-row counts, contiguous N and
   fold coverage, exact member cardinality and masks, purged timing, finite
   metrics, detail/summary agreement, cross-collection products, native plots,
