@@ -187,6 +187,9 @@ The active publication protocol adds two independent tests:
 - Intensity: use the 200-spill capture with exact raw position/intensity pairs;
   never multiply the position waveform by intensity; compare unweighted,
   square-root, linear, and gated spectral aggregation on purged later windows.
+  Analyze the canonical N grid `1,3,5,7,10,12,15,20` plus each distinct
+  accepted H/V Best-N recommendation when it is outside that grid; every shard,
+  merge, verifier, and gallery must use the same explicit union.
   Select ensembles from position-only fit windows, treat collection and spill
   ordering as part of the sampling design, and use a moving-block bootstrap plus
   block sign-flip test within collection. The N=1 result is a required
