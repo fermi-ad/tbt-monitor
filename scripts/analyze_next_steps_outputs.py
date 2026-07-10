@@ -5,10 +5,30 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import math
 from collections import Counter, defaultdict
 from pathlib import Path
 from statistics import median
+
+from bpm_mining.best_n import recommended_n
+
+
+MISSING_INPUTS: set[str] = set()
+REPORT_WARNINGS: list[str] = []
+
+
+def require_verification(path: Path, accepted: set[str]) -> dict[str, object]:
+    if not path.is_file():
+        raise ValueError(f"required verification report is missing: {path}")
+    try:
+        report = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"invalid verification report: {path}: {exc}") from exc
+    status = str(report.get("status", "")).lower()
+    if status not in accepted:
+        raise ValueError(f"verification report is not accepted: {path}: status={status!r}")
+    return report
 
 
 def fnum(value: str | None) -> float | None:
@@ -22,11 +42,17 @@ def fnum(value: str | None) -> float | None:
 
 
 def read_rows(path: Path) -> list[dict[str, str]]:
+    if not path.exists():
+        MISSING_INPUTS.add(str(path))
+        return []
     with path.open(newline="") as handle:
         return list(csv.DictReader(handle))
 
 
 def iter_rows(path: Path):
+    if not path.exists():
+        MISSING_INPUTS.add(str(path))
+        return
     with path.open(newline="") as handle:
         yield from csv.DictReader(handle)
 
@@ -97,6 +123,21 @@ def summarize_by(rows: list[dict[str, str]], keys: list[str], fields: list[str])
     return out
 
 
+def fixed_score_contract_mismatches(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    mismatches: list[dict[str, str]] = []
+    for row in rows:
+        score = fnum(row.get("score"))
+        visible = fnum(row.get("visible_fraction"))
+        prominence = fnum(row.get("median_prominence"))
+        if score is None or visible is None or prominence is None:
+            mismatches.append(row)
+            continue
+        expected = visible * max(0.0, min(1.0, prominence / 12.0))
+        if abs(score - expected) > 1e-6:
+            mismatches.append(row)
+    return mismatches
+
+
 def top_bpm_table(root: Path, plane: str) -> list[list[object]]:
     rows = [row for row in read_rows(root / "statistics" / "bpm_global_statistics.csv") if row["plane"] == plane]
     rows.sort(key=lambda row: (-(fnum(row.get("top1_frequency")) or 0.0), -(fnum(row.get("top5_inclusion_frequency")) or 0.0)))
@@ -117,11 +158,26 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, required=True, help="Canonical Best-BPM run root")
     parser.add_argument("--followup", type=Path, required=True, help="NEXT_STEPS sidecar root")
+    parser.add_argument("--best-n", type=Path, default=None, help="optional merged leakage-controlled Best-N root")
+    parser.add_argument("--ridge", type=Path, default=None, help="optional full-buffer ridge-density output root")
+    parser.add_argument("--intensity", type=Path, default=None, help="optional merged block-aware intensity-study root")
+    parser.add_argument("--sensitivity", type=Path, action="append", default=[], help="optional Best-N sensitivity output root; repeat as needed")
     parser.add_argument("--out", type=Path, required=True, help="Markdown report path")
     args = parser.parse_args()
 
     root = args.root
     followup = args.followup
+
+    verification_reports = [
+        require_verification(root / "logs" / "best_bpm_verification.json", {"ok", "pass"}),
+        require_verification(followup / "logs" / "best_bpm_followup_verification.json", {"ok", "pass"}),
+    ]
+    if args.best_n:
+        verification_reports.append(require_verification(args.best_n / "best_n_verification.json", {"pass"}))
+    if args.ridge:
+        verification_reports.append(require_verification(args.ridge / "ridge_density_verification.json", {"pass"}))
+    if args.intensity:
+        verification_reports.append(require_verification(args.intensity / "intensity_verification.json", {"pass"}))
 
     fixed_summary = read_rows(followup / "statistics" / "fixed_vs_dynamic_direct_summary.csv")
     heldout_summary = read_rows(followup / "evolution" / "heldout_spectral_support_summary.csv")
@@ -139,10 +195,46 @@ def main() -> int:
     cluster_bpm_rankings = read_rows(root / "clustering" / "cluster_bpm_rankings.csv")
 
     fixed_eval = list(iter_rows(followup / "statistics" / "fixed_set_direct_evaluation.csv"))
+    fixed_mismatches = fixed_score_contract_mismatches(fixed_eval)
+    if fixed_mismatches:
+        REPORT_WARNINGS.append(
+            f"ignored `fixed_vs_dynamic_direct_summary.csv` because {len(fixed_mismatches)} "
+            "direct-control rows mix incompatible score definitions; rerun the corrected fixed-set sidecar"
+        )
+        fixed_eval = []
+        fixed_summary = []
     heldout = list(iter_rows(followup / "evolution" / "finalist_heldout_spectral_support.csv"))
     visibility = list(iter_rows(followup / "handoff" / "bpm_window_visibility.csv"))
     handoff_events = list(iter_rows(followup / "handoff" / "bpm_handoff_events.csv"))
     visibility_summary = list(iter_rows(followup / "handoff" / "bpm_visibility_summary.csv"))
+
+    best_n_summary = read_rows(args.best_n / "best_n_summary.csv") if args.best_n else []
+    best_n_transfer = read_rows(args.best_n / "best_n_cross_collection_transfer.csv") if args.best_n else []
+    best_n_tune_half_width = 0.0025
+    if args.best_n:
+        best_n_contract = json.loads((args.best_n / "run_contract.json").read_text(encoding="utf-8"))
+        best_n_tune_half_width = float(best_n_contract.get("tune_half_width", best_n_tune_half_width))
+    sensitivity_recommendations: list[dict[str, str]] = []
+    for sensitivity_root in args.sensitivity:
+        run_manifest = read_rows(sensitivity_root / "sensitivity_run_manifest.csv")
+        run_identities = {
+            (row.get("beam_width", ""), row.get("fit_windows", ""), row.get("fold_seed", ""))
+            for row in run_manifest
+        }
+        if len(run_manifest) != 7 or len(run_identities) != 7 or any(row.get("status") != "verified" for row in run_manifest):
+            raise ValueError(
+                f"Best-N sensitivity matrix must contain seven unique verified runs: {sensitivity_root}"
+            )
+        recommendation_files = sorted(sensitivity_root.rglob("best_n_*_recommendations.csv"))
+        if not recommendation_files:
+            MISSING_INPUTS.add(str(sensitivity_root / "best_n_*_recommendations.csv"))
+        for path in recommendation_files:
+            sensitivity_recommendations.extend(read_rows(path))
+    ridge_legacy = read_rows(args.ridge / "ridge_density_legacy_comparison_metrics.csv") if args.ridge else []
+    ridge_loss = read_rows(args.ridge / "ridge_density_loss_candidates.csv") if args.ridge else []
+    ridge_manifest = read_rows(args.ridge / "ridge_density_best_ensemble_manifest.csv") if args.ridge else []
+    intensity_effects = read_rows(args.intensity / "intensity_method_effects.csv") if args.intensity else []
+    intensity_correlations = read_rows(args.intensity / "intensity_visibility_correlation_summary.csv") if args.intensity else []
 
     lines: list[str] = []
     lines.append("# NEXT_STEPS Output Analysis")
@@ -150,38 +242,120 @@ def main() -> int:
     lines.append("This report is computed from the verifier-clean canonical Best-BPM run plus the NEXT_STEPS sidecar outputs.")
     lines.append("")
     lines.append("## Evidence Set")
-    lines.extend(
-        md_table(
-            ["Surface", "Rows / files"],
-            [
-                ["subset-size comparison", len(subset_size)],
-                ["best1/3/5 winner rows", sum(len(rows) for rows in best_results.values())],
-                ["paired method tests", len(paired)],
-                ["fixed direct evaluation", len(fixed_eval)],
-                ["fixed direct summary", len(fixed_summary)],
-                ["held-out support", len(heldout)],
-                ["held-out support summary", len(heldout_summary)],
-                ["handoff window visibility", len(visibility)],
-                ["handoff events", len(handoff_events)],
-                ["handoff BPM summaries", len(visibility_summary)],
-                ["selected artifact rows", len(artifacts)],
-            ],
-        )
-    )
+    evidence_rows = [
+        ["accepted verification reports", len(verification_reports)],
+        ["subset-size comparison", len(subset_size)],
+        ["best1/3/5 winner rows", sum(len(rows) for rows in best_results.values())],
+        ["paired method tests", len(paired)],
+        ["fixed direct evaluation", len(fixed_eval)],
+        ["fixed direct summary", len(fixed_summary)],
+        ["held-out support", len(heldout)],
+        ["held-out support summary", len(heldout_summary)],
+        ["handoff window visibility", len(visibility)],
+        ["handoff events", len(handoff_events)],
+        ["handoff BPM summaries", len(visibility_summary)],
+        ["selected artifact rows", len(artifacts)],
+    ]
+    if args.best_n:
+        evidence_rows.extend([["Best-N summary rows", len(best_n_summary)], ["Best-N transfer rows", len(best_n_transfer)]])
+    if args.sensitivity:
+        evidence_rows.append(["Best-N sensitivity recommendation rows", len(sensitivity_recommendations)])
+    if args.ridge:
+        evidence_rows.extend([["ridge legacy comparison rows", len(ridge_legacy)], ["ridge loss rows", len(ridge_loss)], ["ridge figures", len(ridge_manifest)]])
+    if args.intensity:
+        evidence_rows.extend([["intensity effect tests", len(intensity_effects)], ["intensity correlation summary rows", len(intensity_correlations)]])
+    lines.extend(md_table(["Surface", "Rows / files"], evidence_rows))
+    if MISSING_INPUTS:
+        lines.append("")
+        lines.append("Missing optional/report inputs:")
+        lines.extend(f"- `{path}`" for path in sorted(MISSING_INPUTS))
+    if REPORT_WARNINGS:
+        lines.append("")
+        lines.append("Report guardrails:")
+        lines.extend(f"- {warning}." for warning in REPORT_WARNINGS)
     lines.append("")
 
     lines.append("## Main Conclusions")
-    conclusions = [
-        "**The current dataset supports the soft tune priors H near 0.65 and V near 0.72.** Dynamic and all-BPM summaries cluster around H 0.653-0.654 and V 0.721-0.724. The older H around 0.69 context is not supported by this dataset.",
-        "**Dynamic per-spill subset selection is strongly favored over frozen fixed sets.** The direct fixed-set recomputation gives zero median H score for fixed top1/top3/top5 in both held-out collections and only small V fixed-top5 scores. That busts the simple frozen-set operational hypothesis under the strict early-window metric.",
-        "**Subset size helps, but with diminishing returns.** Best3 improves over best1, and best5 improves over best3, with paired effect sizes already large in the canonical statistics. The best5 increment is smaller than the best1-to-best3 jump.",
-        "**V is much more coherent than H in held-out spectral support.** V best3/best5 finalists have median held-out candidate fractions near 0.98-1.0 for most aggregators, while H candidate fractions remain 0 even though non-selected BPM power at the same q_hat is present.",
-        "**A single globally strongest BPM is not enough.** BPM 10.200.22.62 is a repeated top candidate in both planes, but its top1 frequency is only about 6%, and direct fixed-top1 medians collapse to zero. It is a strong contributor, not a standalone tune monitor.",
-        "**Tune visibility appears to migrate across BPMs/windows, but most changes are weak/flickery rather than clean handoffs.** The handoff pass found thousands of transitions in selected artifacts, but only a small persistent-handoff subset and only one strictly VISIBLE_TUNE window under the v1 threshold.",
-        "**All-BPM averaging is plane-dependent.** All-BPM mean is effectively unusable for H in this metric; all-BPM mean/median are viable V baselines but still underperform dynamic best3/best5.",
-    ]
-    for item in conclusions:
-        lines.append(f"- {item}")
+    dynamic_grouped = summarize_by(subset_size, ["plane", "subset_size"], ["subset_score"])
+    dynamic_score = {
+        (str(row["plane"]), str(row["subset_size"])): row["subset_score_median"]
+        for row in dynamic_grouped
+    }
+    for plane in ("H", "V"):
+        q_parts = []
+        score_parts = []
+        for size, rows in best_results.items():
+            q_values = [fnum(row.get("q_hat")) for row in rows if row.get("plane") == plane]
+            q_values = [value for value in q_values if value is not None]
+            q_parts.append(f"Best-{size} {fmt(median(q_values) if q_values else None, 6)}")
+            score_parts.append(f"Best-{size} {fmt(dynamic_score.get((plane, size)), 5)}")
+        lines.append(
+            f"- **{plane} adaptive-search medians:** tune candidates {', '.join(q_parts)}; "
+            f"selection scores {', '.join(score_parts)}. Selection scores are not compared with the direct-control metric below."
+        )
+
+        control_plane = [
+            row
+            for row in fixed_summary
+            if row.get("plane") == plane
+        ]
+        dynamic_controls = {
+            (str(row.get("test_collection", "")), str(row.get("subset_size", ""))): row
+            for row in control_plane
+            if str(row.get("method", "")).startswith("dynamic_")
+        }
+        fixed_plane = [row for row in control_plane if str(row.get("method", "")).startswith("fixed_")]
+        fixed_ranked = sorted(
+            fixed_plane,
+            key=lambda row: fnum(row.get("median_score")) if fnum(row.get("median_score")) is not None else -math.inf,
+            reverse=True,
+        )
+        if fixed_ranked:
+            best_fixed = fixed_ranked[0]
+            matched_dynamic = dynamic_controls.get(
+                (str(best_fixed.get("test_collection", "")), str(best_fixed.get("subset_size", "")))
+            )
+            lines.append(
+                f"- **{plane} strongest same-metric frozen control:** "
+                f"`{best_fixed.get('method', '')}` median score {fmt(fnum(best_fixed.get('median_score')), 5)} "
+                f"on `{best_fixed.get('test_collection', '')}` versus matched adaptive "
+                f"{fmt(fnum(matched_dynamic.get('median_score')), 5) if matched_dynamic else 'NA'}. "
+                "This direct control is descriptive because adaptive membership selection reused these windows."
+            )
+
+        heldout_plane = [row for row in heldout_summary if row.get("plane") == plane]
+        heldout_ranked = sorted(
+            heldout_plane,
+            key=lambda row: fnum(row.get("median_heldout_candidate_fraction"))
+            if fnum(row.get("median_heldout_candidate_fraction")) is not None
+            else -math.inf,
+            reverse=True,
+        )
+        if heldout_ranked:
+            best_heldout = heldout_ranked[0]
+            lines.append(
+                f"- **{plane} strongest held-out summary:** Best-{best_heldout.get('subset_size', '')} "
+                f"`{best_heldout.get('aggregator', '')}` candidate fraction "
+                f"{fmt(fnum(best_heldout.get('median_heldout_candidate_fraction')), 5)}, power support "
+                f"{fmt(fnum(best_heldout.get('median_heldout_power_support')), 5)}."
+            )
+
+        top_rows = top_bpm_table(root, plane)
+        if top_rows:
+            lines.append(
+                f"- **{plane} most frequent Best-1 contributor:** `{top_rows[0][0]}` with top-1 frequency "
+                f"{fmt(top_rows[0][2], 5)}; recurrence is not a standalone operational validation."
+            )
+
+    event_counts_now = Counter(row.get("event_label", "") for row in handoff_events)
+    lines.append(
+        "- **Handoff labels are descriptive:** "
+        + ", ".join(f"{label or 'UNLABELED'}={count}" for label, count in event_counts_now.most_common())
+        + ". Thresholded event counts do not establish a physical handoff mechanism."
+    )
+    lines.append(
+        "- **Scope:** these are BPM-only internal-consistency observations. A verifier-clean artifact tree does not provide an external tune reference."
+    )
     lines.append("")
     consensus_counts = Counter()
     consensus_by_plane = Counter()
@@ -365,10 +539,10 @@ def main() -> int:
     class_counts = Counter(row["visibility_class"] for row in visibility)
     class_by_plane = Counter((row["plane"], row["visibility_class"]) for row in visibility)
     event_counts = Counter(row["event_label"] for row in handoff_events)
-    event_by_plane = Counter((row["plane"], row["event_label"]) for row in handoff_events)
+    event_by_plane_size = Counter((row["plane"], row["subset_size"], row["event_label"]) for row in handoff_events)
     top_counts = Counter()
     for row in visibility:
-        for field in ("is_top1_visible", "is_top3_visible", "is_top5_visible"):
+        for field in ("is_top1_visible", "is_top3_visible", "is_top5_visible", "is_top10_visible"):
             if row[field] == "true":
                 top_counts[(row["plane"], field)] += 1
     lines.extend(
@@ -394,20 +568,20 @@ def main() -> int:
     lines.append("")
     lines.extend(
         md_table(
-            ["Plane", "Event label", "Rows"],
-            [[plane, label, count] for (plane, label), count in sorted(event_by_plane.items())],
+            ["Plane", "Top set", "Event label", "Rows"],
+            [[plane, f"Top-{size}", label, count] for (plane, size, label), count in sorted(event_by_plane_size.items())],
         )
     )
     lines.append("")
     total_by_plane = Counter(row["plane"] for row in visibility)
-    lines.append("Fraction of per-BPM windows where the dynamic top-N member was visible:")
+    lines.append("Fraction of per-BPM windows belonging to each strict visible Top-N set:")
     lines.extend(
         md_table(
             ["Plane", "Top set", "Visible row fraction"],
             [
                 [plane, field.replace("is_", "").replace("_visible", ""), top_counts[(plane, field)] / total_by_plane[plane]]
                 for plane in sorted(total_by_plane)
-                for field in ("is_top1_visible", "is_top3_visible", "is_top5_visible")
+                for field in ("is_top1_visible", "is_top3_visible", "is_top5_visible", "is_top10_visible")
             ],
         )
     )
@@ -422,6 +596,7 @@ def main() -> int:
             "top1_window_fraction",
             "top3_window_fraction",
             "top5_window_fraction",
+            "top10_window_fraction",
         ):
             val = fnum(row.get(field))
             if val is not None:
@@ -460,29 +635,194 @@ def main() -> int:
     lines.extend(md_table(["Category", "Rows"], [[key, value] for key, value in artifact_counts.most_common()]))
     lines.append("")
 
-    lines.append("## Hypotheses")
-    hypotheses = [
-        ["H/V soft priors are around 0.65/0.72 for this dataset", "Supported", "Observed q_hat medians cluster near H 0.653-0.654 and V 0.721-0.724."],
-        ["The older H around 0.69 context applies to this dataset", "Busted", "No main dynamic/fixed/all-BPM summaries center near 0.69."],
-        ["Best3/Best5 dynamic subsets improve over Best1", "Supported", "Paired differences are positive in both planes, with large sign-balance effect sizes."],
-        ["A frozen global top-N subset can replace dynamic per-spill selection", "Busted for strict v1 metric", "Direct fixed-set recomputation collapses H fixed medians to zero and leaves V fixed sets far below dynamic/all-BPM baselines."],
-        ["BPM 10.200.22.62 is globally important", "Supported but limited", "It leads both planes globally, but top1 frequency is only around 6% and fixed-top1 does not generalize as a standalone monitor."],
-        ["Held-out BPMs independently support finalist tunes", "Plane-dependent", "V best3/best5 have near-unity held-out candidate fractions; H has non-selected power support but not matching candidate-peak fractions."],
-        ["All-BPM averaging is a safe fallback", "Partly busted", "All-BPM V is usable but below dynamic; all-BPM H mean is effectively zero under this score."],
-        ["Tune visibility hands off among BPMs", "Supported qualitatively", "Selected artifacts show many top-N membership changes and 406 persistent handoff events, but most strict window classifications remain weak/no reliable tune."],
-        ["The data proves true machine tune", "Not proven", "The analysis is BPM-only and internally consistent; it has no independent Schottky/reference truth."],
-    ]
-    lines.extend(md_table(["Hypothesis", "Status", "Evidence"], hypotheses))
-    lines.append("")
+    if args.best_n:
+        lines.append("## Leakage-Controlled Best-N")
+        for plane in ("H", "V"):
+            chosen, rationale = recommended_n(best_n_summary, plane, best_n_tune_half_width)
+            if chosen is None:
+                lines.append(f"- **{plane}: no automatic Best-N recommendation.** {rationale}.")
+            else:
+                lines.append(f"- **{plane}: Best-{chosen.get('subset_size', '')}.** {rationale}.")
+        lines.append("")
+        lines.extend(
+            md_table(
+                ["Plane", "N", "Spills", "Blind agree [95% CI]", "Blind abs dq [95% CI]", "Selected power", "Held-out power", "Selected prom.", "Held-out prom."],
+                [
+                    [
+                        row.get("plane", ""),
+                        row.get("subset_size", ""),
+                        row.get("validation_spill_count", ""),
+                        f"{row.get('blind_q_agreement_rate', '')} [{row.get('blind_q_agreement_ci_low', '')}, {row.get('blind_q_agreement_ci_high', '')}]",
+                        f"{row.get('median_blind_selected_heldout_abs_q_delta', '')} [{row.get('blind_selected_heldout_abs_q_delta_ci_low', '')}, {row.get('blind_selected_heldout_abs_q_delta_ci_high', '')}]",
+                        row.get("median_test_power_support", ""),
+                        row.get("median_heldout_power_support", ""),
+                        row.get("median_test_peak_prominence", ""),
+                        row.get("median_heldout_prominence", ""),
+                    ]
+                    for row in sorted(best_n_summary, key=lambda row: (row.get("plane", ""), int(row.get("subset_size") or 0)))
+                ],
+            )
+        )
+        lines.append("")
+        lines.append("Cross-collection global-N transfer:")
+        lines.extend(
+            md_table(
+                ["Train", "Test", "Plane", "Status", "N", "Test knee", "Blind agree", "Blind abs dq", "Gain vs N1"],
+                [
+                    [
+                        row.get("train_collection", ""),
+                        row.get("test_collection", ""),
+                        row.get("plane", ""),
+                        row.get("status", ""),
+                        row.get("selected_n", ""),
+                        row.get("test_collection_knee_n", ""),
+                        row.get("test_blind_q_agreement_rate", ""),
+                        row.get("test_median_blind_selected_heldout_abs_q_delta", ""),
+                        row.get("blind_agreement_gain_vs_n1", ""),
+                    ]
+                    for row in best_n_transfer
+                ],
+            )
+        )
+        lines.append("")
 
-    lines.append("## Recommended Next Moves")
+    if sensitivity_recommendations:
+        lines.append("## Best-N Sensitivity Recommendations")
+        lines.extend(
+            md_table(
+                ["Dimension", "Run", "Plane", "Recommended N", "Status"],
+                [
+                    [
+                        row.get("dimension", ""),
+                        row.get("label", ""),
+                        row.get("plane", ""),
+                        row.get("recommended_n", ""),
+                        row.get("status", ""),
+                    ]
+                    for row in sensitivity_recommendations
+                ],
+            )
+        )
+        lines.append("")
+
+    if args.ridge:
+        lines.append("## Exact-Paired Full-Buffer Ridge Comparison")
+        lines.extend(
+            md_table(
+                ["Plane", "N", "Paired points", "Legacy IQR", "Ensemble IQR", "IQR delta [turn-block CI]", "Peak gain [CI]", "Entropy delta [CI]", "Shared-ridge mass gain [CI]"],
+                [
+                    [
+                        row.get("plane", ""),
+                        row.get("subset_size", ""),
+                        row.get("common_ridge_point_count", ""),
+                        row.get("legacy_median_iqr_width", ""),
+                        row.get("ensemble_median_iqr_width", ""),
+                        f"{row.get('median_iqr_delta_ensemble_minus_legacy', '')} [{row.get('median_iqr_delta_ci_low', '')}, {row.get('median_iqr_delta_ci_high', '')}]",
+                        f"{row.get('median_peak_bin_fraction_gain', '')} [{row.get('median_peak_bin_fraction_gain_ci_low', '')}, {row.get('median_peak_bin_fraction_gain_ci_high', '')}]",
+                        f"{row.get('median_density_entropy_delta', '')} [{row.get('median_density_entropy_delta_ci_low', '')}, {row.get('median_density_entropy_delta_ci_high', '')}]",
+                        f"{row.get('median_shared_ridge_mass_gain', '')} [{row.get('median_shared_ridge_mass_gain_ci_low', '')}, {row.get('median_shared_ridge_mass_gain_ci_high', '')}]",
+                    ]
+                    for row in sorted(ridge_legacy, key=lambda row: (row.get("plane", ""), int(row.get("subset_size") or 0)))
+                ],
+            )
+        )
+        lines.append("")
+        lines.append("Data-derived concentration-loss candidates:")
+        lines.extend(
+            md_table(
+                ["Plane", "N", "Peak turn", "Half-peak loss", "Change turn", "Peak drop", "IQR increase", "Sample drop"],
+                [
+                    [
+                        row.get("plane", ""),
+                        row.get("subset_size", ""),
+                        row.get("peak_concentration_turn", ""),
+                        row.get("first_sustained_half_peak_loss_turn", ""),
+                        row.get("most_likely_change_turn", ""),
+                        row.get("relative_peak_fraction_drop", ""),
+                        row.get("relative_iqr_width_increase", ""),
+                        row.get("relative_sample_fraction_drop", ""),
+                    ]
+                    for row in sorted(ridge_loss, key=lambda row: (row.get("plane", ""), int(row.get("subset_size") or 0)))
+                ],
+            )
+        )
+        lines.append("")
+        lines.append("Turn-block intervals describe persistence across overlapping windows. They are not spill-population intervals, physical noise measurements, or external tune validation.")
+        lines.append("")
+
+    if args.intensity:
+        lines.append("## Block-Aware Intensity Study")
+        significant = [
+            row
+            for row in intensity_effects
+            if row.get("statistical_benefit_pass") == "true"
+            and fnum(row.get("fdr_q_value")) is not None
+            and float(row.get("fdr_q_value", "nan")) <= 0.05
+        ]
+        practical = [row for row in intensity_effects if row.get("practical_effect_pass") == "true"]
+        retained = [row for row in intensity_effects if row.get("retain_method_for_tune_analysis") == "true"]
+        lines.append(f"- paired method-effect tests: `{len(intensity_effects)}`")
+        lines.append(f"- FDR-significant directional effects within tune tolerance: `{len(significant)}`")
+        lines.append(f"- effects clearing the minimum practical threshold: `{len(practical)}`")
+        lines.append(f"- retained weighting effects: `{len(retained)}`")
+        lines.append("")
+
+        best_effects: dict[tuple[str, str], tuple[float, dict[str, str], float, float]] = {}
+        for row in intensity_effects:
+            margin = fnum(row.get("minimum_practical_effect"))
+            delta = fnum(row.get("median_paired_delta"))
+            low = fnum(row.get("bootstrap_ci_low"))
+            high = fnum(row.get("bootstrap_ci_high"))
+            if not margin or delta is None or low is None or high is None:
+                continue
+            sign = -1.0 if row.get("beneficial_direction") == "decrease" else 1.0
+            ratio = sign * delta / margin
+            interval = sorted((sign * low / margin, sign * high / margin))
+            key = (row.get("plane", ""), row.get("method", ""))
+            if key not in best_effects or ratio > best_effects[key][0]:
+                best_effects[key] = (ratio, row, interval[0], interval[1])
+        lines.append("Most favorable practical-effect fraction per plane/method (1.0 is the declared minimum):")
+        lines.extend(
+            md_table(
+                ["Plane", "Method", "Metric", "N", "Effect / minimum [95% CI]", "FDR q", "Retain"],
+                [
+                    [
+                        plane,
+                        method,
+                        row.get("metric", ""),
+                        row.get("subset_size", ""),
+                        f"{fmt(ratio, 5)} [{fmt(low, 5)}, {fmt(high, 5)}]",
+                        row.get("fdr_q_value", ""),
+                        row.get("retain_method_for_tune_analysis", ""),
+                    ]
+                    for (plane, method), (ratio, row, low, high) in sorted(best_effects.items())
+                ],
+            )
+        )
+        lines.append("")
+
+        correlation_grouped: dict[tuple[str, str, str], list[dict[str, str]]] = defaultdict(list)
+        for row in intensity_correlations:
+            correlation_grouped[(row.get("plane", ""), row.get("subset_size", ""), row.get("metric", ""))].append(row)
+        strongest_correlations = []
+        for key, rows in sorted(correlation_grouped.items()):
+            finite_rows = [row for row in rows if fnum(row.get("median_spearman_rho")) is not None]
+            if finite_rows:
+                strongest = max(finite_rows, key=lambda row: abs(fnum(row.get("median_spearman_rho")) or 0.0))
+                strongest_correlations.append([*key, strongest.get("lag_windows", ""), strongest.get("median_spearman_rho", ""), f"[{strongest.get('bootstrap_ci_low', '')}, {strongest.get('bootstrap_ci_high', '')}]"])
+        lines.append("Largest absolute exploratory lag correlation per plane/N/metric:")
+        lines.extend(md_table(["Plane", "N", "Metric", "Lag windows", "Median rho", "95% block CI"], strongest_correlations))
+        lines.append("")
+        lines.append("Lag and crossing-turn associations are exploratory. They do not identify extraction onset or establish causation.")
+        lines.append("")
+
+    lines.append("## Interpretation Guardrails")
     for item in [
-        "For physics review, lead with V best3/best5 dynamic examples and treat H as weaker/harder in this dataset.",
-        "Do not promote a frozen fixed BPM set for operations yet. If an operational fallback is required, use dynamic best3/best5 with held-out support gating; all-BPM V mean/median can be a secondary fallback.",
-        "Investigate the discrepancy between the older fixed-set crossfit summary and the stricter direct fixed-set recomputation before citing fixed-set performance.",
-        "Retune visibility thresholds. The handoff pass is informative, but the v1 `VISIBLE_TUNE` threshold is too strict for these selected artifacts and collapses nearly everything into WEAK/NO_RELIABLE.",
-        "Add an external tune reference or controlled settings log in the next beam study. The current data can rank BPM-only consistency; it cannot prove absolute tune truth.",
-        "Use the 317 selected spill artifacts as the first manual review set, prioritizing V examples with high best5 score and H examples that show why H is less coherent.",
+        "Treat expected H/V tune values as soft discovery priors, not labels. Quote the data-derived medians above for the supplied run.",
+        "Use paired intervals and effect sizes to compare Best-1/3/5. Do not infer the optimal ensemble size from training score; use the separate leakage-controlled Best-N result.",
+        "Do not promote a frozen set, all-BPM fallback, or recurrent individual BPM unless its directly recomputed held-out result supports that claim.",
+        "Handoff and visibility classes are thresholded review aids. Report their measured counts from this run and retain a no-reliable-tune state.",
+        "No table in this report establishes absolute tune accuracy. External reference matching or a controlled settings study remains required for that claim.",
     ]:
         lines.append(f"- {item}")
     lines.append("")

@@ -14,10 +14,21 @@ __pycache__/
 /out/
 /poster-artifacts/
 /best_bpm_mining/
+/review-artifacts/
+/untracked-references/
 /.devspace-local/
 *.png
 *.csv
 *.jsonl
+*.aux
+*.log
+*.out
+*.synctex.gz
+
+# Curated publication deliverables are intentionally versioned.
+!/publication/
+!/publication/ibic2026/
+!/publication/ibic2026/**
 
 # Local reference docs (large, non-source)
 ChatGPT - Synchrotron Tune Calculation plan.pdf

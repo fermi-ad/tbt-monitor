@@ -12,6 +12,7 @@ from typing import Sequence
 
 import numpy as np
 
+from .identity import identity_fields, manifest_by_index, subset_indices
 from .io import atomic_write_text, read_csv, write_csv
 from .progress import chunked, write_parent_status, write_shard_status
 
@@ -22,7 +23,10 @@ HELDOUT_FIELDS = [
     "plane",
     "subset_size",
     "subset_mask",
+    "bpm_indices",
     "bpm_members",
+    "bpm_source_keys",
+    "bpm_digitizers",
     "aggregator",
     "source_rank",
     "q_hat",
@@ -72,20 +76,12 @@ def median(values: Sequence[float]) -> float:
     return 0.5 * (vals[mid - 1] + vals[mid])
 
 
-def _split_members(value: str) -> list[str]:
-    return [part.strip() for part in str(value or "").split(",") if part.strip()]
-
-
 def cache_lookup(cache_dir: Path, spectral_config: str) -> dict[tuple[str, str, str], dict[str, str]]:
     return {
         (row["collection"], row["spill_id"], row["plane"]): row
         for row in read_csv(cache_dir / "index" / "spectral_cache.csv")
         if row.get("status") == "ok" and row.get("spectral_config") == spectral_config
     }
-
-
-def name_to_index(manifest_dir: Path) -> dict[tuple[str, str], int]:
-    return {(row["plane"], row["bpm_name"]): int(row["bpm_index"]) for row in read_csv(manifest_dir / "bpm_index.csv")}
 
 
 def finalist_rows(root: Path, limit: int = 0) -> list[dict[str, str]]:
@@ -99,7 +95,7 @@ def init_heldout_worker(cache_dir: str, manifest_dir: str, spectral_config: str,
     global _HELDOUT_WORKER_STATE
     _HELDOUT_WORKER_STATE = {
         "caches": cache_lookup(Path(cache_dir), spectral_config),
-        "name_to_index": name_to_index(Path(manifest_dir)),
+        "meta_by_index": manifest_by_index(read_csv(Path(manifest_dir) / "bpm_index.csv")),
         "half_width": float(half_width),
     }
 
@@ -133,7 +129,12 @@ def _support_for_q(
     return np.asarray(np.median(ratio, axis=1), dtype=np.float32), np.asarray(np.median(prominence, axis=1), dtype=np.float32)
 
 
-def evaluate_group(cache: dict[str, str], rows: list[dict[str, str]], name_index: dict[tuple[str, str], int], half_width: float) -> list[dict[str, object]]:
+def evaluate_group(
+    cache: dict[str, str],
+    rows: list[dict[str, str]],
+    meta_by_index: dict[tuple[str, int], dict[str, str]],
+    half_width: float,
+) -> list[dict[str, object]]:
     bpm_indices = np.load(cache["bpm_indices_path"])
     pos_by_index = {int(idx): pos for pos, idx in enumerate(bpm_indices)}
     spectra = np.load(cache["spectra_path"], mmap_mode="r")
@@ -147,8 +148,8 @@ def evaluate_group(cache: dict[str, str], rows: list[dict[str, str]], name_index
         if q_idx not in support_cache:
             support_cache[q_idx] = _support_for_q(spectra, tune_axis, q_hat, half_width)
         support, prominence = support_cache[q_idx]
-        selected_indices = [name_index.get((row["plane"], name)) for name in _split_members(row.get("bpm_members", ""))]
-        selected_positions = {pos_by_index[idx] for idx in selected_indices if idx is not None and idx in pos_by_index}
+        selected_indices = subset_indices(row, row["plane"], meta_by_index)
+        selected_positions = {pos_by_index[idx] for idx in selected_indices if idx in pos_by_index}
         heldout_positions = sorted(all_positions - selected_positions)
         selected_positions_sorted = sorted(selected_positions)
         flags: list[str] = []
@@ -156,6 +157,9 @@ def evaluate_group(cache: dict[str, str], rows: list[dict[str, str]], name_index
             flags.append("NO_SELECTED_BPM")
         if not heldout_positions:
             flags.append("NO_HELDOUT_BPM")
+        expected_size = int(row.get("subset_size") or 0)
+        if expected_size and len(selected_positions_sorted) != expected_size:
+            flags.append("SELECTED_CHANNEL_COUNT_MISMATCH")
         held_support = support[heldout_positions] if heldout_positions else np.asarray([], dtype=np.float32)
         held_prom = prominence[heldout_positions] if heldout_positions else np.asarray([], dtype=np.float32)
         sel_support = support[selected_positions_sorted] if selected_positions_sorted else np.asarray([], dtype=np.float32)
@@ -163,6 +167,7 @@ def evaluate_group(cache: dict[str, str], rows: list[dict[str, str]], name_index
         held_power = median([float(v) for v in held_support])
         sel_power = median([float(v) for v in sel_support])
         candidate_fraction = float(np.mean(held_support >= 3.0)) if held_support.size else math.nan
+        identities = identity_fields(row["plane"], [int(bpm_indices[pos]) for pos in selected_positions_sorted], meta_by_index)
         out.append(
             {
                 "collection": row["collection"],
@@ -170,7 +175,7 @@ def evaluate_group(cache: dict[str, str], rows: list[dict[str, str]], name_index
                 "plane": row["plane"],
                 "subset_size": row["subset_size"],
                 "subset_mask": row["subset_mask"],
-                "bpm_members": row["bpm_members"],
+                **identities,
                 "aggregator": row.get("aggregator", ""),
                 "source_rank": row.get("source_rank", ""),
                 "q_hat": row.get("q_hat", ""),
@@ -207,7 +212,7 @@ def process_heldout_chunk(args: tuple[int, int, list[dict[str, str]], str | None
                     evaluate_group(
                         cache,
                         grouped[key],
-                        _HELDOUT_WORKER_STATE["name_to_index"],  # type: ignore[arg-type]
+                        _HELDOUT_WORKER_STATE["meta_by_index"],  # type: ignore[arg-type]
                         float(_HELDOUT_WORKER_STATE["half_width"]),
                     )
                 )

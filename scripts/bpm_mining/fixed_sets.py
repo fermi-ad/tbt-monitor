@@ -11,8 +11,10 @@ from pathlib import Path
 from typing import Sequence
 
 import numpy as np
+import bpm_dgx_poster as poster
 
 from .evolution import combine_spectra, score_evolution_windows
+from .identity import identity_fields, manifest_by_index, normalize_subset_row, parse_indices, subset_indices
 from .io import atomic_write_text, read_csv, write_csv
 from .progress import chunked, write_parent_status, write_shard_status
 
@@ -26,7 +28,10 @@ FIXED_EVAL_FIELDS = [
     "subset_size",
     "train_collection",
     "test_collection",
+    "bpm_indices",
     "bpm_members",
+    "bpm_source_keys",
+    "bpm_digitizers",
     "q_hat",
     "score",
     "visible_fraction",
@@ -45,7 +50,10 @@ FIXED_SUMMARY_FIELDS = [
     "subset_size",
     "train_collection",
     "test_collection",
+    "bpm_indices",
     "bpm_members",
+    "bpm_source_keys",
+    "bpm_digitizers",
     "row_count",
     "median_score",
     "median_visible_fraction",
@@ -93,18 +101,8 @@ def cache_rows(cache_dir: Path, spectral_config: str, limit: int = 0) -> list[di
     return rows[:limit] if limit else rows
 
 
-def bpm_maps(manifest_dir: Path) -> tuple[dict[tuple[str, str], int], dict[tuple[str, int], dict[str, str]], dict[str, set[str]]]:
-    name_to_index: dict[tuple[str, str], int] = {}
-    meta_by_index: dict[tuple[str, int], dict[str, str]] = {}
-    names_by_plane: dict[str, set[str]] = defaultdict(set)
-    for row in read_csv(manifest_dir / "bpm_index.csv"):
-        plane = row["plane"]
-        idx = int(row["bpm_index"])
-        name = row["bpm_name"]
-        name_to_index[(plane, name)] = idx
-        meta_by_index[(plane, idx)] = row
-        names_by_plane[plane].add(name)
-    return name_to_index, meta_by_index, names_by_plane
+def bpm_maps(manifest_dir: Path) -> dict[tuple[str, int], dict[str, str]]:
+    return manifest_by_index(read_csv(manifest_dir / "bpm_index.csv"))
 
 
 def best1_rows(root: Path) -> list[dict[str, str]]:
@@ -112,35 +110,29 @@ def best1_rows(root: Path) -> list[dict[str, str]]:
     return read_csv(path) if path.exists() else []
 
 
-def dynamic_rows(root: Path, subset_sizes: Sequence[int]) -> list[dict[str, object]]:
+def dynamic_membership_specs(
+    root: Path,
+    subset_sizes: Sequence[int],
+    meta_by_index: dict[tuple[str, int], dict[str, str]],
+) -> list[dict[str, object]]:
     out: list[dict[str, object]] = []
     for size in subset_sizes:
         path = root / "subset_search" / f"best{size}" / f"best{size}_results.csv"
         if not path.exists():
             continue
         for row in read_csv(path):
-            score = _f(row.get("subset_score"))
+            row = normalize_subset_row(row, meta_by_index)
             out.append(
                 {
                     "collection": row["collection"],
                     "spill_id": row["spill_id"],
                     "plane": row["plane"],
-                    "spectral_config": "",
                     "method": f"dynamic_best{size}",
                     "subset_size": str(size),
-                    "train_collection": "",
-                    "test_collection": row["collection"],
+                    "bpm_indices": row.get("bpm_indices", ""),
                     "bpm_members": row.get("bpm_members", ""),
-                    "q_hat": row.get("q_hat", ""),
-                    "score": _fmt(score),
-                    "visible_fraction": row.get("visible_fraction", ""),
-                    "visibility_duration_turns": row.get("visibility_duration_turns", ""),
-                    "last_visible_turn": "",
-                    "median_prominence": row.get("peak_quality", ""),
-                    "median_abs_step_visible": "",
-                    "p95_step_visible": "",
-                    "ridge_jump_fraction": "",
-                    "quality_flags": row.get("quality_flags", ""),
+                    "bpm_source_keys": row.get("bpm_source_keys", ""),
+                    "bpm_digitizers": row.get("bpm_digitizers", ""),
                 }
             )
     return out
@@ -148,7 +140,7 @@ def dynamic_rows(root: Path, subset_sizes: Sequence[int]) -> list[dict[str, obje
 
 def choose_fixed_members(root: Path, manifest_dir: Path, subset_sizes: Sequence[int]) -> list[dict[str, object]]:
     rows = best1_rows(root)
-    _, _, names_by_plane = bpm_maps(manifest_dir)
+    meta_by_index = bpm_maps(manifest_dir)
     collections = sorted({row["collection"] for row in rows})
     if not collections:
         collections = sorted({row["collection"] for row in read_csv(root / "manifest" / "spills.csv")})
@@ -156,12 +148,12 @@ def choose_fixed_members(root: Path, manifest_dir: Path, subset_sizes: Sequence[
     for train in collections:
         test_collections = [col for col in collections if col != train] or [train]
         for plane in ("H", "V"):
-            scores: dict[str, list[float]] = defaultdict(list)
-            counts: dict[str, int] = defaultdict(int)
+            scores: dict[int, list[float]] = defaultdict(list)
+            counts: dict[int, int] = defaultdict(int)
             for row in rows:
                 if row.get("collection") != train or row.get("plane") != plane:
                     continue
-                members = _split_members(row.get("bpm_members", ""))
+                members = subset_indices(row, plane, meta_by_index)
                 if len(members) != 1:
                     continue
                 score = _f(row.get("subset_score"))
@@ -169,17 +161,23 @@ def choose_fixed_members(root: Path, manifest_dir: Path, subset_sizes: Sequence[
                     scores[members[0]].append(score)
                     counts[members[0]] += 1
             ranked = sorted(
-                names_by_plane.get(plane, set()),
-                key=lambda name: (median(scores.get(name, [])), counts.get(name, 0), name),
+                [idx for meta_plane, idx in meta_by_index if meta_plane == plane and scores.get(idx)],
+                key=lambda idx: (median(scores.get(idx, [])), counts.get(idx, 0), idx),
                 reverse=True,
             )
+            required = max([int(size) for size in subset_sizes if int(size) > 0] or [0])
+            if len(ranked) < required:
+                raise ValueError(
+                    f"{train}/{plane}: only {len(ranked)} BPMs have finite training scores; need {required}"
+                )
             for size in subset_sizes:
                 size = int(size)
                 if size <= 0:
                     continue
-                members = ranked[:size]
-                if len(members) != size:
+                member_indices = ranked[:size]
+                if len(member_indices) != size:
                     continue
+                identities = identity_fields(plane, member_indices, meta_by_index)
                 for test in test_collections:
                     specs.append(
                         {
@@ -188,19 +186,27 @@ def choose_fixed_members(root: Path, manifest_dir: Path, subset_sizes: Sequence[
                             "train_collection": train,
                             "test_collection": test,
                             "plane": plane,
-                            "bpm_members": ",".join(members),
+                            **identities,
                         }
                     )
     specs.sort(key=lambda row: (str(row["train_collection"]), str(row["test_collection"]), str(row["plane"]), str(row["subset_size"])))
     return specs
 
 
-def init_fixed_worker(manifest_dir: str, specs_json: str) -> None:
+def init_fixed_worker(specs_json: str, dynamic_specs_json: str) -> None:
     global _FIXED_WORKER_STATE
-    name_to_index, _, _ = bpm_maps(Path(manifest_dir))
+    dynamic_by_cache: dict[tuple[str, str, str], list[dict[str, object]]] = defaultdict(list)
+    seen_dynamic: set[tuple[str, str, str, str]] = set()
+    for spec in json.loads(dynamic_specs_json):
+        cache_key = (str(spec["collection"]), str(spec["spill_id"]), str(spec["plane"]))
+        unique_key = (*cache_key, str(spec["method"]))
+        if unique_key in seen_dynamic:
+            raise ValueError(f"duplicate dynamic membership: {unique_key}")
+        seen_dynamic.add(unique_key)
+        dynamic_by_cache[cache_key].append(spec)
     _FIXED_WORKER_STATE = {
-        "name_to_index": name_to_index,
         "specs": json.loads(specs_json),
+        "dynamic_by_cache": dynamic_by_cache,
     }
 
 
@@ -210,7 +216,10 @@ def _score_row(
     subset_size: str,
     train_collection: str,
     test_collection: str,
+    bpm_indices: str,
     bpm_members: str,
+    bpm_source_keys: str,
+    bpm_digitizers: str,
     combined: np.ndarray,
     tune_axis: np.ndarray,
     centers: np.ndarray,
@@ -226,7 +235,10 @@ def _score_row(
         "subset_size": subset_size,
         "train_collection": train_collection,
         "test_collection": test_collection,
+        "bpm_indices": bpm_indices,
         "bpm_members": bpm_members,
+        "bpm_source_keys": bpm_source_keys,
+        "bpm_digitizers": bpm_digitizers,
         "q_hat": _fmt(metrics["q_hat"]),
         "score": _fmt(score),
         "visible_fraction": _fmt(metrics["visible_fraction"]),
@@ -240,7 +252,11 @@ def _score_row(
     }
 
 
-def evaluate_cache_row(cache: dict[str, str], specs: list[dict[str, object]], name_to_index: dict[tuple[str, str], int]) -> list[dict[str, object]]:
+def evaluate_cache_row(
+    cache: dict[str, str],
+    specs: list[dict[str, object]],
+    dynamic_by_cache: dict[tuple[str, str, str], list[dict[str, object]]],
+) -> list[dict[str, object]]:
     spectra = np.load(cache["spectra_path"], mmap_mode="r")
     tune_axis = np.load(cache["tune_axis_path"])
     centers = np.load(cache["window_centers_path"])
@@ -251,14 +267,43 @@ def evaluate_cache_row(cache: dict[str, str], specs: list[dict[str, object]], na
         return out
     all_spectra = np.asarray(spectra, dtype=np.float32)
     for method, aggregator in (("all_bpm_mean", "mean_power"), ("all_bpm_median", "median_power")):
-        out.append(_score_row(cache, method, "all", "", cache["collection"], "", combine_spectra(all_spectra, aggregator), tune_axis, centers))
+        out.append(_score_row(cache, method, "all", "", cache["collection"], "", "", "", "", combine_spectra(all_spectra, aggregator), tune_axis, centers))
+    cache_key = (cache["collection"], cache["spill_id"], cache["plane"])
+    for spec in dynamic_by_cache.get(cache_key, []):
+        wanted = parse_indices(spec.get("bpm_indices"))
+        expected = int(spec["subset_size"])
+        positions = [pos_by_index[idx] for idx in wanted if idx in pos_by_index]
+        if len(wanted) != expected or len(positions) != expected:
+            raise ValueError(
+                f"{cache_key} {spec['method']} resolves {len(positions)}/{expected} exact cached channels"
+            )
+        selected = np.asarray(spectra[positions], dtype=np.float32)
+        out.append(
+            _score_row(
+                cache,
+                str(spec["method"]),
+                str(spec["subset_size"]),
+                "",
+                cache["collection"],
+                str(spec.get("bpm_indices", "")),
+                str(spec.get("bpm_members", "")),
+                str(spec.get("bpm_source_keys", "")),
+                str(spec.get("bpm_digitizers", "")),
+                combine_spectra(selected, "mean_power"),
+                tune_axis,
+                centers,
+            )
+        )
     for spec in specs:
         if spec["test_collection"] != cache["collection"] or spec["plane"] != cache["plane"]:
             continue
-        wanted = [name_to_index.get((cache["plane"], name)) for name in _split_members(str(spec["bpm_members"]))]
-        positions = [pos_by_index[idx] for idx in wanted if idx is not None and idx in pos_by_index]
-        if not positions:
-            continue
+        wanted = parse_indices(spec.get("bpm_indices"))
+        positions = [pos_by_index[idx] for idx in wanted if idx in pos_by_index]
+        expected = int(spec["subset_size"])
+        if len(wanted) != expected or len(positions) != expected:
+            raise ValueError(
+                f"{cache_key} {spec['method']} resolves {len(positions)}/{expected} exact cached channels"
+            )
         selected = np.asarray(spectra[positions], dtype=np.float32)
         out.append(
             _score_row(
@@ -267,7 +312,10 @@ def evaluate_cache_row(cache: dict[str, str], specs: list[dict[str, object]], na
                 str(spec["subset_size"]),
                 str(spec["train_collection"]),
                 str(spec["test_collection"]),
+                str(spec.get("bpm_indices", "")),
                 str(spec["bpm_members"]),
+                str(spec.get("bpm_source_keys", "")),
+                str(spec.get("bpm_digitizers", "")),
                 combine_spectra(selected, "mean_power"),
                 tune_axis,
                 centers,
@@ -288,7 +336,7 @@ def process_fixed_chunk(args: tuple[int, int, list[dict[str, str]], str | None])
                 evaluate_cache_row(
                     row,
                     _FIXED_WORKER_STATE["specs"],  # type: ignore[arg-type]
-                    _FIXED_WORKER_STATE["name_to_index"],  # type: ignore[arg-type]
+                    _FIXED_WORKER_STATE["dynamic_by_cache"],  # type: ignore[arg-type]
                 )
             )
             if idx % 10 == 0 or idx == len(rows):
@@ -325,11 +373,7 @@ def summarize(rows: Sequence[dict[str, object]]) -> list[dict[str, object]]:
         qhats = [_f(row.get("q_hat")) for row in group]
         med = median(scores)
         dyn = dynamic_medians.get((plane, test, subset_size))
-        members = ""
-        for row in group:
-            if row.get("bpm_members"):
-                members = str(row.get("bpm_members"))
-                break
+        identity = next((row for row in group if row.get("bpm_indices")), {})
         out.append(
             {
                 "plane": plane,
@@ -337,7 +381,10 @@ def summarize(rows: Sequence[dict[str, object]]) -> list[dict[str, object]]:
                 "subset_size": subset_size,
                 "train_collection": train,
                 "test_collection": test,
-                "bpm_members": members,
+                "bpm_indices": str(identity.get("bpm_indices", "")),
+                "bpm_members": str(identity.get("bpm_members", "")),
+                "bpm_source_keys": str(identity.get("bpm_source_keys", "")),
+                "bpm_digitizers": str(identity.get("bpm_digitizers", "")),
                 "row_count": len(group),
                 "median_score": _fmt(med),
                 "median_visible_fraction": _fmt(median(visible)),
@@ -349,38 +396,68 @@ def summarize(rows: Sequence[dict[str, object]]) -> list[dict[str, object]]:
     return out
 
 
-def _matplotlib():
-    try:
-        import matplotlib
-
-        matplotlib.use("Agg")
-        import matplotlib.pyplot as plt
-
-        return plt
-    except Exception:
-        return None
-
-
 def write_plots(summary_rows: Sequence[dict[str, object]], out: Path) -> None:
-    plt = _matplotlib()
+    collections = sorted({str(row.get("test_collection", "")) for row in summary_rows if row.get("test_collection")})
+    labels = {collection: chr(ord("A") + index) for index, collection in enumerate(collections)}
+    dynamic_colors = (poster.BLUE, poster.GREEN, poster.RED)
+    fixed_colors = (poster.ORANGE, poster.PURPLE, (80, 105, 115))
     for plane in ("H", "V"):
-        rows = [row for row in summary_rows if row.get("plane") == plane and row.get("method") in {"dynamic_best1", "dynamic_best3", "dynamic_best5", "fixed_top1", "fixed_top3", "fixed_top5", "all_bpm_mean", "all_bpm_median"}]
-        labels = [f"{row['method']}:{row['subset_size']}" for row in rows]
-        values = [_f(row.get("median_score")) for row in rows]
+        rows = [row for row in summary_rows if row.get("plane") == plane]
+        series: list[tuple[str, list[tuple[float, float]], tuple[int, int, int]]] = []
+        for index, collection in enumerate(collections):
+            points = sorted(
+                (
+                    float(row["subset_size"]),
+                    _f(row.get("median_score")),
+                )
+                for row in rows
+                if row.get("test_collection") == collection
+                and str(row.get("method", "")).startswith("dynamic_best")
+            )
+            if points:
+                series.append((f"ADAPTIVE {labels[collection]}", points, dynamic_colors[index % len(dynamic_colors)]))
+        fixed_directions = sorted(
+            {
+                (str(row.get("train_collection", "")), str(row.get("test_collection", "")))
+                for row in rows
+                if str(row.get("method", "")).startswith("fixed_")
+            }
+        )
+        for index, (train, test) in enumerate(fixed_directions):
+            points = sorted(
+                (
+                    float(row["subset_size"]),
+                    _f(row.get("median_score")),
+                )
+                for row in rows
+                if row.get("train_collection") == train
+                and row.get("test_collection") == test
+                and str(row.get("method", "")).startswith("fixed_")
+            )
+            if points:
+                series.append(
+                    (
+                        f"FROZEN {labels.get(train, '?')}->{labels.get(test, '?')}",
+                        points,
+                        fixed_colors[index % len(fixed_colors)],
+                    )
+                )
         path = out / "artifacts" / "global" / f"fixed_vs_dynamic_direct_{plane.lower()}.png"
         path.parent.mkdir(parents=True, exist_ok=True)
-        if plt is None:
-            atomic_write_text(path.with_suffix(".txt"), "\n".join(f"{a},{b}" for a, b in zip(labels, values)))
-            continue
-        fig, ax = plt.subplots(figsize=(11, 4))
-        ax.bar(range(len(labels)), values, color="#386cb0")
-        ax.set_title(f"{plane} direct fixed-set evaluation")
-        ax.set_ylabel("median score")
-        ax.set_xticks(range(len(labels)))
-        ax.set_xticklabels(labels, rotation=70, ha="right", fontsize=7)
-        fig.tight_layout()
-        fig.savefig(path, dpi=160)
-        plt.close(fig)
+        poster.line_plot(
+            path,
+            f"{plane} SAME-METRIC ADAPTIVE VS FROZEN",
+            series,
+            x_label="ENSEMBLE SIZE N",
+            y_label="EVOLUTION SCORE",
+        )
+        mapping = ", ".join(f"{labels[collection]} = {collection}" for collection in collections)
+        atomic_write_text(
+            path.with_name(f"{path.stem}_caption.md"),
+            f"# {plane} Same-Metric Adaptive Versus Frozen Control\n\n"
+            f"Collection labels: {mapping}. Every curve is recomputed from the same spectral cache with the same evolution score. "
+            "Frozen A->B is trained on collection A and applied to B. The comparison is descriptive because adaptive memberships reuse their selection windows; leakage-controlled Best-N validation carries the inferential claim.\n",
+        )
 
 
 def evaluate_fixed_sets(
@@ -395,6 +472,8 @@ def evaluate_fixed_sets(
     spectral_config = spectral_config or str(cfg.get("subset_search", {}).get("search_spectral_config", "early_4096_256"))
     cache = cache_rows(root / "cache", spectral_config, limit)
     specs = choose_fixed_members(root, root / "manifest", subset_sizes)
+    meta_by_index = bpm_maps(root / "manifest")
+    dynamic_specs = dynamic_membership_specs(root, subset_sizes, meta_by_index)
     progress_dir = out / "statistics" / "fixed_set_progress"
     runtime = cfg.get("runtime", {})
     worker_count = max(1, int(workers if workers is not None else runtime.get("workers", 1) if isinstance(runtime, dict) else 1))
@@ -404,9 +483,10 @@ def evaluate_fixed_sets(
     started = time.time()
     write_parent_status(progress_dir, "running", 0, len(chunks), 0, len(cache), 0, started)
     specs_json = json.dumps(specs, sort_keys=True)
+    dynamic_specs_json = json.dumps(dynamic_specs, sort_keys=True)
     fixed_rows: list[dict[str, object]] = []
     if worker_count <= 1 or len(chunks) <= 1:
-        init_fixed_worker(str(root / "manifest"), specs_json)
+        init_fixed_worker(specs_json, dynamic_specs_json)
         rows_done = 0
         for idx, chunk in enumerate(chunks):
             _, row_count, chunk_rows = process_fixed_chunk((idx, len(chunks), chunk, str(progress_dir)))
@@ -415,7 +495,11 @@ def evaluate_fixed_sets(
             write_parent_status(progress_dir, "running", idx + 1, len(chunks), rows_done, len(cache), len(fixed_rows), started)
     else:
         results: dict[int, tuple[int, list[dict[str, object]]]] = {}
-        with ProcessPoolExecutor(max_workers=worker_count, initializer=init_fixed_worker, initargs=(str(root / "manifest"), specs_json)) as pool:
+        with ProcessPoolExecutor(
+            max_workers=worker_count,
+            initializer=init_fixed_worker,
+            initargs=(specs_json, dynamic_specs_json),
+        ) as pool:
             tasks = [(idx, len(chunks), chunk, str(progress_dir)) for idx, chunk in enumerate(chunks)]
             rows_done = 0
             output_rows = 0
@@ -429,8 +513,7 @@ def evaluate_fixed_sets(
                 write_parent_status(progress_dir, "running", completed, len(chunks), rows_done, len(cache), output_rows, started)
         for idx in sorted(results):
             fixed_rows.extend(results[idx][1])
-    dynamic = dynamic_rows(root, subset_sizes)
-    all_rows = sorted(dynamic + fixed_rows, key=lambda row: (str(row.get("collection", "")), str(row.get("spill_id", "")), str(row.get("plane", "")), str(row.get("method", "")), str(row.get("subset_size", "")), str(row.get("train_collection", ""))))
+    all_rows = sorted(fixed_rows, key=lambda row: (str(row.get("collection", "")), str(row.get("spill_id", "")), str(row.get("plane", "")), str(row.get("method", "")), str(row.get("subset_size", "")), str(row.get("train_collection", ""))))
     summary_rows = summarize(all_rows)
     write_csv(out / "statistics" / "fixed_set_direct_evaluation.csv", all_rows, FIXED_EVAL_FIELDS)
     write_csv(out / "statistics" / "fixed_vs_dynamic_direct_summary.csv", summary_rows, FIXED_SUMMARY_FIELDS)
@@ -442,6 +525,7 @@ def evaluate_fixed_sets(
         f"- cache rows evaluated: `{len(cache)}`\n"
         f"- output rows: `{len(all_rows)}`\n"
         f"- workers: `{worker_count}`\n"
-        "- dynamic rows are copied from subset-search winners; fixed and all-BPM rows are recomputed directly from cached spectra.\n",
+        "- dynamic memberships, fixed memberships, and all-BPM controls are all rescored from the same cached spectra with the same evolution metric.\n"
+        "- this descriptive comparison reuses the membership-selection windows; leakage-controlled later-window Best-N validation remains the publication inference.\n",
     )
     write_parent_status(progress_dir, "complete", len(chunks), len(chunks), len(cache), len(cache), len(all_rows), started)

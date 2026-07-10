@@ -10,6 +10,7 @@ import statistics
 from collections import Counter, defaultdict
 from pathlib import Path
 
+from .identity import channel_label, manifest_by_index, normalize_subset_row
 from .io import atomic_write_text, read_csv, write_csv
 from .schema import GLOBAL_BPM_STATS_FIELDS
 
@@ -58,11 +59,53 @@ def bootstrap_interval(values: list[float], samples: int, seed: int) -> tuple[fl
     return meds[int(0.025 * (len(meds) - 1))], meds[int(0.975 * (len(meds) - 1))]
 
 
+def moving_block_resample(
+    values: list[float],
+    rng: random.Random,
+    block_spills: int,
+) -> list[float]:
+    """Draw full non-wrapping blocks, then truncate to the observed length."""
+    if not values:
+        return []
+    block = max(1, min(int(block_spills), len(values)))
+    sampled: list[float] = []
+    while len(sampled) < len(values):
+        start = rng.randrange(len(values) - block + 1)
+        sampled.extend(values[start : start + block])
+    return sampled[: len(values)]
+
+
+def block_bootstrap_interval(
+    series_by_collection: dict[str, list[float]],
+    samples: int,
+    seed: int,
+    block_spills: int,
+) -> tuple[float | str, float | str]:
+    series = {
+        collection: [value for value in values if math.isfinite(value)]
+        for collection, values in series_by_collection.items()
+    }
+    series = {collection: values for collection, values in series.items() if values}
+    if not series:
+        return "", ""
+    rng = random.Random(seed)
+    medians: list[float] = []
+    for _ in range(max(100, samples)):
+        draw: list[float] = []
+        for collection in sorted(series):
+            values = series[collection]
+            draw.extend(moving_block_resample(values, rng, block_spills))
+        medians.append(statistics.median(draw))
+    medians.sort()
+    return medians[int(0.025 * (len(medians) - 1))], medians[int(0.975 * (len(medians) - 1))]
+
+
 def aggregate_statistics(cfg: dict[str, object], inputs: Path, manifest_dir: Path, out: Path) -> None:
-    rows = subset_rows(inputs)
-    ranking_rows = best1_ranking_rows(inputs)
     bpm_index = read_csv(manifest_dir / "bpm_index.csv")
-    by_plane_name = {(row["plane"], row["bpm_name"]): row for row in bpm_index}
+    meta_by_index = manifest_by_index(bpm_index)
+    rows = [normalize_subset_row(row, meta_by_index) for row in subset_rows(inputs)]
+    ranking_rows = [normalize_subset_row(row, meta_by_index) for row in best1_ranking_rows(inputs)]
+    by_plane_name = {(row["plane"], channel_label(row)): row for row in bpm_index}
     grouped = defaultdict(list)
     for row in rows:
         for member in parse_members(row):
@@ -97,7 +140,7 @@ def aggregate_statistics(cfg: dict[str, object], inputs: Path, manifest_dir: Pat
         durations = [_f(row.get("visibility_duration_turns")) for row in group]
         top_counts = Counter(row["subset_size"] for row in group)
         rank_values = rank_percentiles.get(key, [])
-        rank_low, rank_high = bootstrap_interval(rank_values, boot, hash(key) & 0xFFFFFFFF)
+        rank_low, rank_high = bootstrap_interval(rank_values, boot, stable_seed("bpm-rank", *key))
         collections = sorted({row["collection"] for row in rows})
         c1 = median(rank_percentiles_by_collection.get((collections[0], plane, bpm), [])) if collections else ""
         c2 = median(rank_percentiles_by_collection.get((collections[1], plane, bpm), [])) if len(collections) > 1 else ""
@@ -107,6 +150,8 @@ def aggregate_statistics(cfg: dict[str, object], inputs: Path, manifest_dir: Pat
                 "bpm_index": meta.get("bpm_index", ""),
                 "bpm_name": bpm,
                 "digitizer": meta.get("digitizer", ""),
+                "source_key": meta.get("source_key", ""),
+                "ring_order": meta.get("ring_order", ""),
                 "valid_spill_count": len({(row["collection"], row["spill_id"]) for row in group}),
                 "median_percentile_rank": median(rank_values),
                 "top1_frequency": top_counts["1"] / max(1, totals[(plane, "1")]),
@@ -190,12 +235,20 @@ def rank_stability(rows):
     for plane in sorted({row["plane"] for row in rows}):
         collections = sorted({row["collection"] for row in rows if row["plane"] == plane})
         if len(collections) >= 2:
-            a = {m for row in rows if row["plane"] == plane and row["collection"] == collections[0] for m in parse_members(row)}
-            b = {m for row in rows if row["plane"] == plane and row["collection"] == collections[1] for m in parse_members(row)}
-            jac = len(a & b) / max(1, len(a | b))
-            out.append({"plane": plane, "metric": "topN_jaccard_overlap", "value": jac, "detail": f"{collections[0]} vs {collections[1]}"})
             a_scores = Counter(m for row in rows if row["plane"] == plane and row["collection"] == collections[0] for m in parse_members(row))
             b_scores = Counter(m for row in rows if row["plane"] == plane and row["collection"] == collections[1] for m in parse_members(row))
+            top_count = min(10, len(a_scores), len(b_scores))
+            a = {name for name, _count in a_scores.most_common(top_count)}
+            b = {name for name, _count in b_scores.most_common(top_count)}
+            jac = len(a & b) / max(1, len(a | b))
+            out.append(
+                {
+                    "plane": plane,
+                    "metric": "top10_jaccard_overlap",
+                    "value": jac,
+                    "detail": f"top {top_count}: {collections[0]} vs {collections[1]}",
+                }
+            )
             out.append({"plane": plane, "metric": "spearman_rank_correlation", "value": spearman(dict(a_scores), dict(b_scores)), "detail": f"{collections[0]} vs {collections[1]}"})
             out.append({"plane": plane, "metric": "kendall_tau", "value": kendall_tau(dict(a_scores), dict(b_scores)), "detail": f"{collections[0]} vs {collections[1]}"})
     return out
@@ -238,6 +291,11 @@ def stable_seed(*parts: object) -> int:
     return int(digest[:16], 16)
 
 
+def permutation_draw_count(samples: int) -> int:
+    """Honor the declared Monte Carlo count while retaining a useful floor."""
+    return max(100, int(samples))
+
+
 def paired_permutation_p_value(diffs: list[float], samples: int, seed: int) -> float | str:
     vals = [v for v in diffs if math.isfinite(v) and v != 0.0]
     if not vals:
@@ -246,7 +304,7 @@ def paired_permutation_p_value(diffs: list[float], samples: int, seed: int) -> f
     total_exact = 2 ** len(vals)
     rng = random.Random(seed)
     exceed = 0
-    draws = min(max(100, samples), 5000)
+    draws = permutation_draw_count(samples)
     if total_exact <= draws:
         draws = total_exact
         for mask in range(total_exact):
@@ -261,13 +319,61 @@ def paired_permutation_p_value(diffs: list[float], samples: int, seed: int) -> f
     return (exceed + 1) / (draws + 1)
 
 
+def block_sign_permutation_p_value(
+    series_by_collection: dict[str, list[float]],
+    samples: int,
+    seed: int,
+    block_spills: int,
+) -> float | str:
+    blocks: list[list[float]] = []
+    block = max(1, int(block_spills))
+    for collection in sorted(series_by_collection):
+        values = [value for value in series_by_collection[collection] if math.isfinite(value)]
+        blocks.extend(values[start : start + block] for start in range(0, len(values), block))
+    if not any(blocks):
+        return ""
+    blocks = [values for values in blocks if any(value != 0.0 for value in values)]
+    if not blocks:
+        return 1.0
+    observed = abs(statistics.median([value for values in blocks for value in values]))
+    total_exact = 2 ** len(blocks)
+    draws = permutation_draw_count(samples)
+    exceed = 0
+    if total_exact <= draws:
+        draws = total_exact
+        signs = (
+            [1.0 if (mask >> index) & 1 else -1.0 for index in range(len(blocks))]
+            for mask in range(total_exact)
+        )
+    else:
+        rng = random.Random(seed)
+        signs = ([1.0 if rng.random() < 0.5 else -1.0 for _ in blocks] for _ in range(draws))
+    for block_signs in signs:
+        flipped = [sign * value for sign, values in zip(block_signs, blocks) for value in values]
+        if abs(statistics.median(flipped)) >= observed - 1e-15:
+            exceed += 1
+    return exceed / draws if total_exact <= draws else (exceed + 1) / (draws + 1)
+
+
 def rank_biserial_effect(diffs: list[float]) -> float | str:
     vals = [v for v in diffs if math.isfinite(v) and v != 0.0]
     if not vals:
         return ""
-    positive = sum(1 for value in vals if value > 0)
-    negative = sum(1 for value in vals if value < 0)
-    return (positive - negative) / len(vals)
+    order = sorted(range(len(vals)), key=lambda index: abs(vals[index]))
+    ranks = [0.0 for _value in vals]
+    start = 0
+    while start < len(order):
+        end = start
+        while end + 1 < len(order) and abs(vals[order[end + 1]]) == abs(vals[order[start]]):
+            end += 1
+        average_rank = 0.5 * ((start + 1) + (end + 1))
+        for position in range(start, end + 1):
+            ranks[order[position]] = average_rank
+        start = end + 1
+    positive = sum(rank for rank, value in zip(ranks, vals) if value > 0)
+    negative = sum(rank for rank, value in zip(ranks, vals) if value < 0)
+    total = positive + negative
+    return (positive - negative) / total if total else ""
 
 
 def benjamini_hochberg(rows: list[dict[str, object]]) -> None:
@@ -296,14 +402,29 @@ def paired_tests(rows, cfg):
         by_spill[(row["collection"], row["spill_id"], row["plane"])][row["subset_size"]] = _f(row.get("subset_score"))
     out = []
     samples = int(cfg.get("statistics", {}).get("permutation_samples", 10000)) if isinstance(cfg.get("statistics"), dict) else 10000
+    bootstrap_samples = int(cfg.get("statistics", {}).get("bootstrap_samples", 2000)) if isinstance(cfg.get("statistics"), dict) else 2000
+    block_spills = int(cfg.get("statistics", {}).get("bootstrap_block_spills", 20)) if isinstance(cfg.get("statistics"), dict) else 20
+
+    def spill_sort_key(value: str) -> tuple[int, object]:
+        token = value.replace("spill_", "")
+        try:
+            return 0, int(token)
+        except ValueError:
+            return 1, token
+
     for plane in sorted({key[2] for key in by_spill}):
         for a, b in (("1", "3"), ("3", "5"), ("5", "10")):
-            diffs = [vals[b] - vals[a] for key, vals in by_spill.items() if key[2] == plane and vals.get(a) is not None and vals.get(b) is not None]
+            series_by_collection: dict[str, list[float]] = defaultdict(list)
+            for key in sorted(by_spill, key=lambda item: (item[0], spill_sort_key(item[1]), item[2])):
+                vals = by_spill[key]
+                if key[2] == plane and vals.get(a) is not None and vals.get(b) is not None:
+                    series_by_collection[key[0]].append(vals[b] - vals[a])
+            diffs = [value for collection in sorted(series_by_collection) for value in series_by_collection[collection]]
             if not diffs:
                 continue
             seed = stable_seed("paired", plane, a, b)
-            lo, hi = bootstrap_interval(diffs, 500, seed & 0xFFFFFFFF)
-            p_value = paired_permutation_p_value(diffs, samples, seed)
+            lo, hi = block_bootstrap_interval(series_by_collection, bootstrap_samples, seed, block_spills)
+            p_value = block_sign_permutation_p_value(series_by_collection, samples, seed, block_spills)
             out.append(
                 {
                     "plane": plane,
@@ -314,7 +435,7 @@ def paired_tests(rows, cfg):
                     "permutation_p_value": f"{p_value:.9g}" if isinstance(p_value, float) else "",
                     "fdr_q_value": "",
                     "effect_size": rank_biserial_effect(diffs),
-                    "note": "paired sign-flip permutation on subset-score differences; effect_size is rank-biserial sign balance",
+                    "note": f"paired subset-score differences; moving-block bootstrap and block sign-flip permutation within collection (block={block_spills} spills); effect_size is the matched-pairs rank-biserial correlation",
                 }
             )
     benjamini_hochberg(out)

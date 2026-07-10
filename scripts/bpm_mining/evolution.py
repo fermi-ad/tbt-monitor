@@ -16,6 +16,7 @@ from pathlib import Path
 
 import numpy as np
 
+from .identity import identity_fields, manifest_by_index, normalize_subset_row, subset_indices
 from .io import atomic_write_text, read_csv, write_csv
 
 
@@ -40,7 +41,10 @@ SUMMARY_FIELDS = [
     "plane",
     "subset_size",
     "subset_mask",
+    "bpm_indices",
     "bpm_members",
+    "bpm_source_keys",
+    "bpm_digitizers",
     "visible_fraction",
     "last_visible_turn",
     "visibility_duration_turns",
@@ -59,7 +63,10 @@ FINALIST_FIELDS = [
     "plane",
     "subset_size",
     "subset_mask",
+    "bpm_indices",
     "bpm_members",
+    "bpm_source_keys",
+    "bpm_digitizers",
     "aggregator",
     "source_rank",
     "q_hat",
@@ -209,13 +216,6 @@ def cache_lookup(cache_dir: Path, spectral_config: str) -> dict[tuple[str, str, 
     }
 
 
-def bpm_name_to_index(manifest_dir: Path) -> dict[tuple[str, str], int]:
-    path = manifest_dir / "bpm_index.csv"
-    if not path.exists():
-        return {}
-    return {(row["plane"], row["bpm_name"]): int(row["bpm_index"]) for row in read_csv(path)}
-
-
 def quality_weights(features_dir: Path) -> dict[tuple[str, str, str, int], float]:
     path = features_dir / "per_bpm_spill_summary.csv"
     if not path.exists():
@@ -237,7 +237,7 @@ def init_evolution_worker(spectral_config: str, cache_dir: str, features_dir: st
     _EVOLUTION_WORKER_STATE = {
         "spectral_config": spectral_config,
         "caches": cache_lookup(cache_path, spectral_config),
-        "name_index": bpm_name_to_index(manifest_path),
+        "meta_by_index": manifest_by_index(read_csv(manifest_path / "bpm_index.csv")),
         "weights_by_bpm": quality_weights(feature_path),
     }
 
@@ -287,7 +287,7 @@ def score_evolution_windows(power: np.ndarray, tune_axis: np.ndarray, centers: n
 def reevaluate_finalist_rows(
     rows: list[dict[str, str]],
     caches: dict[tuple[str, str, str], dict[str, str]],
-    name_index: dict[tuple[str, str], int],
+    meta_by_index: dict[tuple[str, int], dict[str, str]],
     weights_by_bpm: dict[tuple[str, str, str, int], float],
 ) -> list[dict[str, object]]:
     output_rows: list[dict[str, object]] = []
@@ -305,12 +305,14 @@ def reevaluate_finalist_rows(
             centers = np.load(cache["window_centers_path"])
             loaded[cache_key] = (spectra, pos_by_index, tune_axis, centers)
         spectra_all, pos_by_index, tune_axis, centers = loaded[cache_key]
-        wanted = [name_index.get((row["plane"], name)) for name in row.get("bpm_members", "").split(",") if name]
-        positions = [pos_by_index[idx] for idx in wanted if idx is not None and idx in pos_by_index]
+        wanted = subset_indices(row, row["plane"], meta_by_index)
+        positions = [pos_by_index[idx] for idx in wanted if idx in pos_by_index]
         if not positions:
             continue
         spectra = np.asarray(spectra_all[positions], dtype=np.float32)
-        w = np.asarray([weights_by_bpm.get((row["collection"], row["spill_id"], row["plane"], int(idx)), 1.0) for idx in wanted if idx is not None and idx in pos_by_index], dtype=np.float32)
+        selected_indices = [idx for idx in wanted if idx in pos_by_index]
+        w = np.asarray([weights_by_bpm.get((row["collection"], row["spill_id"], row["plane"], idx), 1.0) for idx in selected_indices], dtype=np.float32)
+        identities = identity_fields(row["plane"], selected_indices, meta_by_index)
         for aggregator in ("mean_power", "median_power", "trimmed_mean_10pct", "static_quality_weighted_mean"):
             combined = combine_spectra(spectra, aggregator, w)
             metrics = score_evolution_windows(combined, tune_axis, centers)
@@ -321,7 +323,7 @@ def reevaluate_finalist_rows(
                     "plane": row["plane"],
                     "subset_size": row["subset_size"],
                     "subset_mask": row["subset_mask"],
-                    "bpm_members": row["bpm_members"],
+                    **identities,
                     "aggregator": aggregator,
                     "source_rank": row.get("source_rank", ""),
                     **{key: ("" if not math.isfinite(value) else f"{value:.9g}") for key, value in metrics.items()},
@@ -339,7 +341,7 @@ def reevaluate_finalist_chunk(args: tuple[int, int, list[dict[str, str]], str | 
         output = reevaluate_finalist_rows(
             rows,
             _EVOLUTION_WORKER_STATE["caches"],  # type: ignore[arg-type]
-            _EVOLUTION_WORKER_STATE["name_index"],  # type: ignore[arg-type]
+            _EVOLUTION_WORKER_STATE["meta_by_index"],  # type: ignore[arg-type]
             _EVOLUTION_WORKER_STATE["weights_by_bpm"],  # type: ignore[arg-type]
         )
     except BaseException as exc:
@@ -419,10 +421,15 @@ def evaluate_evolution(
     manifest_dir: Path | None = None,
     workers: int | None = None,
 ) -> None:
+    meta_by_index = manifest_by_index(read_csv(manifest_dir / "bpm_index.csv")) if manifest_dir is not None else {}
     rows = []
     for path in result_files(subsets_dir):
         if path.exists():
-            rows.extend(read_csv(path))
+            source_rows = read_csv(path)
+            if meta_by_index:
+                rows.extend(normalize_subset_row(row, meta_by_index) for row in source_rows)
+            else:
+                rows.extend(source_rows)
     window_rows = []
     summary_rows = []
     comparison_rows = []
@@ -453,7 +460,10 @@ def evaluate_evolution(
             "plane": row["plane"],
             "subset_size": row["subset_size"],
             "subset_mask": row["subset_mask"],
+            "bpm_indices": row.get("bpm_indices", ""),
             "bpm_members": row["bpm_members"],
+            "bpm_source_keys": row.get("bpm_source_keys", ""),
+            "bpm_digitizers": row.get("bpm_digitizers", ""),
             "visible_fraction": row["visible_fraction"],
             "last_visible_turn": row["visibility_duration_turns"],
             "visibility_duration_turns": row["visibility_duration_turns"],

@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
+from collections import Counter
 from pathlib import Path
 from typing import Iterable, Sequence
 
@@ -14,7 +16,8 @@ from .evolution import FINALIST_FIELDS, SIZE_FIELDS, SUMMARY_FIELDS as EVOLUTION
 from .fixed_sets import FIXED_EVAL_FIELDS, FIXED_SUMMARY_FIELDS
 from .heldout import HELDOUT_FIELDS, HELDOUT_SUMMARY_FIELDS
 from .handoff import HANDOFF_EVENT_FIELDS, VISIBILITY_SUMMARY_FIELDS, WINDOW_VISIBILITY_FIELDS
-from .io import atomic_write_text
+from .identity import channel_token, identity_fields, indices_from_mask, manifest_by_index, parse_indices
+from .io import atomic_write_text, read_csv
 from .schema import (
     BEST_SUBSET_FIELDS,
     BPM_INDEX_FIELDS,
@@ -194,6 +197,97 @@ def _best_subset_checks(subset_sizes: Iterable[int]) -> list[tuple[str, Sequence
     return checks
 
 
+def _subset_identity_check(root: Path, subset_sizes: Sequence[int]) -> dict[str, object]:
+    check: dict[str, object] = {
+        "path": "subset_search/best*/best*_results.csv",
+        "kind": "cross-table identity",
+        "required": True,
+        "status": "ok",
+        "messages": [],
+    }
+    messages: list[str] = check["messages"]  # type: ignore[assignment]
+    bpm_path = root / "manifest" / "bpm_index.csv"
+    spills_path = root / "manifest" / "spills.csv"
+    if not bpm_path.is_file() or not spills_path.is_file():
+        check["status"] = "fail"
+        messages.append("manifest tables required for exact identity verification are missing")
+        return check
+
+    bpm_rows = read_csv(bpm_path)
+    bpm_keys = [(row.get("plane", ""), row.get("bpm_index", "")) for row in bpm_rows]
+    duplicate_manifest_keys = len(bpm_keys) - len(set(bpm_keys))
+    if duplicate_manifest_keys:
+        messages.append(f"duplicate plane/BPM-index manifest keys: {duplicate_manifest_keys}")
+    duplicate_source_keys = len(bpm_rows) - len(
+        {(row.get("plane", ""), row.get("source_key", "")) for row in bpm_rows}
+    )
+    if duplicate_source_keys:
+        messages.append(f"duplicate plane/source-key manifest identities: {duplicate_source_keys}")
+    ring_mismatches = 0
+    for row in bpm_rows:
+        token = channel_token(row.get("source_key"))
+        if token and str(row.get("ring_order", "")) != token[2:]:
+            ring_mismatches += 1
+    if ring_mismatches:
+        messages.append(f"manifest ring-order/token mismatches: {ring_mismatches}")
+    meta_by_index = manifest_by_index(bpm_rows)
+
+    expected_keys: set[tuple[str, str, str]] = set()
+    for row in read_csv(spills_path):
+        for plane, field in (("H", "usable_h"), ("V", "usable_v")):
+            if str(row.get(field, "")).lower() == "true":
+                expected_keys.add((row.get("collection", ""), row.get("spill_id", ""), plane))
+
+    rows_by_subset: dict[int, int] = {}
+    for subset_size in subset_sizes:
+        candidates = (
+            root / "subset_search" / f"best{subset_size}" / f"best{subset_size}_results.csv",
+            root / "subset_search" / f"best{subset_size}_results.csv",
+        )
+        path = next((candidate for candidate in candidates if candidate.is_file()), None)
+        if path is None:
+            messages.append(f"missing exact result table for Best-{subset_size}")
+            continue
+        rows = read_csv(path)
+        rows_by_subset[int(subset_size)] = len(rows)
+        keys = [(row.get("collection", ""), row.get("spill_id", ""), row.get("plane", "")) for row in rows]
+        duplicate_keys = len(keys) - len(set(keys))
+        if duplicate_keys:
+            messages.append(f"Best-{subset_size} duplicate spill-plane keys: {duplicate_keys}")
+        if set(keys) != expected_keys or len(keys) != len(expected_keys):
+            messages.append(
+                f"Best-{subset_size} spill-plane coverage differs from usable manifest: "
+                f"expected={len(expected_keys)} rows={len(keys)} unique={len(set(keys))}"
+            )
+
+        failure_counts: Counter[str] = Counter()
+        for row in rows:
+            plane = row.get("plane", "")
+            declared_size = int(row.get("subset_size") or 0)
+            raw_indices = [part.strip() for part in row.get("bpm_indices", "").split(",") if part.strip()]
+            indices = parse_indices(row.get("bpm_indices"))
+            masked = indices_from_mask(row.get("subset_mask"))
+            if declared_size != subset_size:
+                failure_counts["declared_size"] += 1
+            if len(raw_indices) != subset_size or len(indices) != subset_size:
+                failure_counts["index_cardinality"] += 1
+            if sorted(indices) != sorted(masked):
+                failure_counts["mask_identity"] += 1
+            expected_identity = identity_fields(plane, indices, meta_by_index)
+            for field in ("bpm_indices", "bpm_members", "bpm_source_keys", "bpm_digitizers"):
+                if str(row.get(field, "")) != expected_identity[field]:
+                    failure_counts[field] += 1
+        for failure, count in sorted(failure_counts.items()):
+            messages.append(f"Best-{subset_size} exact identity failure {failure}: {count}")
+
+    check["usable_spill_plane_rows"] = len(expected_keys)
+    check["rows_by_subset"] = rows_by_subset
+    check["manifest_rows"] = len(bpm_rows)
+    if messages:
+        check["status"] = "fail"
+    return check
+
+
 def verify_best_bpm_outputs(
     root: Path,
     subset_sizes: Sequence[int] = (1, 3, 5, 10),
@@ -252,6 +346,7 @@ def verify_best_bpm_outputs(
         _csv_check(root, rel, fields, min_rows, max_count_bytes, count_large_csv)
         for rel, fields, min_rows in csv_checks
     ]
+    checks.append(_subset_identity_check(root, subset_sizes))
     for rel in [
         "manifest/dataset_summary.md",
         "cache/index/spectral_cache_summary.md",
@@ -293,12 +388,225 @@ def verify_best_bpm_outputs(
 def _followup_checks(root: Path, max_count_bytes: int, count_large_csv: bool) -> list[dict[str, object]]:
     checks = [_csv_check(root, rel, fields, min_rows, max_count_bytes, count_large_csv) for rel, fields, min_rows in FOLLOWUP_CSV_SCHEMAS]
     checks.extend(_file_check(root, rel) for rel in FOLLOWUP_FILES)
+    checks.append(_followup_semantic_check(root))
     if (root / "artifacts").exists():
         checks.append(_directory_has_artifacts(root, "artifacts/spills"))
         checks.append(_directory_has_artifacts(root, "artifacts/global"))
     if (root / "handoff").exists():
         checks.append(_directory_has_artifacts(root, "handoff"))
     return checks
+
+
+def _number(value: object) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return math.nan
+    return number if math.isfinite(number) else math.nan
+
+
+def _parts(value: object) -> list[str]:
+    return [part.strip() for part in str(value or "").split(",") if part.strip()]
+
+
+def _followup_semantic_check(root: Path) -> dict[str, object]:
+    check: dict[str, object] = {
+        "path": ".",
+        "kind": "followup semantics",
+        "required": True,
+        "status": "ok",
+        "messages": [],
+    }
+    messages: list[str] = check["messages"]  # type: ignore[assignment]
+
+    fixed_path = root / "statistics" / "fixed_set_direct_evaluation.csv"
+    if fixed_path.is_file():
+        rows = read_csv(fixed_path)
+        keys = [
+            (
+                row.get("collection", ""),
+                row.get("spill_id", ""),
+                row.get("plane", ""),
+                row.get("method", ""),
+                row.get("subset_size", ""),
+                row.get("train_collection", ""),
+                row.get("test_collection", ""),
+            )
+            for row in rows
+        ]
+        if len(keys) != len(set(keys)):
+            messages.append(f"fixed-set evaluation duplicate keys: {len(keys) - len(set(keys))}")
+        bad_scores = 0
+        bad_identity = 0
+        for row in rows:
+            visible = _number(row.get("visible_fraction"))
+            prominence = _number(row.get("median_prominence"))
+            score = _number(row.get("score"))
+            expected = visible * max(0.0, min(1.0, prominence / 12.0))
+            if not all(math.isfinite(value) for value in (visible, prominence, score)) or abs(score - expected) > 1e-7:
+                bad_scores += 1
+            method = str(row.get("method", ""))
+            if method.startswith(("dynamic_best", "fixed_top")):
+                size = int(row.get("subset_size") or 0)
+                if (
+                    len(parse_indices(row.get("bpm_indices"))) != size
+                    or len(_parts(row.get("bpm_members"))) != size
+                    or len(_parts(row.get("bpm_source_keys"))) != size
+                    or len(_parts(row.get("bpm_digitizers"))) != size
+                ):
+                    bad_identity += 1
+        if bad_scores:
+            messages.append(f"fixed/dynamic rows violate the shared score contract: {bad_scores}")
+        if bad_identity:
+            messages.append(f"fixed/dynamic rows have incomplete exact membership: {bad_identity}")
+
+    heldout_path = root / "evolution" / "finalist_heldout_spectral_support.csv"
+    if heldout_path.is_file():
+        rows = read_csv(heldout_path)
+        keys = [
+            (
+                row.get("collection", ""),
+                row.get("spill_id", ""),
+                row.get("plane", ""),
+                row.get("subset_size", ""),
+                row.get("aggregator", ""),
+                row.get("source_rank", ""),
+            )
+            for row in rows
+        ]
+        if len(keys) != len(set(keys)):
+            messages.append(f"held-out evaluation duplicate keys: {len(keys) - len(set(keys))}")
+        bad_rows = 0
+        numeric_fields = (
+            "q_hat",
+            "heldout_candidate_fraction",
+            "heldout_power_support",
+            "heldout_prominence_at_qhat",
+            "selected_power_support",
+            "selected_prominence_at_qhat",
+            "selected_vs_heldout_delta",
+        )
+        for row in rows:
+            size = int(row.get("subset_size") or 0)
+            if (
+                int(row.get("selected_bpm_count") or 0) != size
+                or int(row.get("heldout_bpm_count") or 0) <= 0
+                or len(parse_indices(row.get("bpm_indices"))) != size
+                or any(not math.isfinite(_number(row.get(field))) for field in numeric_fields)
+                or "SELECTED_CHANNEL_COUNT_MISMATCH" in str(row.get("quality_flags", ""))
+            ):
+                bad_rows += 1
+        if bad_rows:
+            messages.append(f"held-out rows fail cardinality, finite-metric, or quality checks: {bad_rows}")
+
+    events_path = root / "handoff" / "bpm_handoff_events.csv"
+    if events_path.is_file():
+        rows = read_csv(events_path)
+        keys = [
+            (
+                row.get("collection", ""),
+                row.get("spill_id", ""),
+                row.get("plane", ""),
+                row.get("subset_size", ""),
+                row.get("window_index", ""),
+            )
+            for row in rows
+        ]
+        if len(keys) != len(set(keys)):
+            messages.append(f"handoff event duplicate keys: {len(keys) - len(set(keys))}")
+        groups: dict[tuple[str, str, str], dict[int, int]] = {}
+        for row in rows:
+            group = (row.get("collection", ""), row.get("spill_id", ""), row.get("plane", ""))
+            size = int(row.get("subset_size") or 0)
+            counts = groups.setdefault(group, {})
+            counts[size] = counts.get(size, 0) + 1
+        incomplete_groups = [
+            group
+            for group, counts in groups.items()
+            if set(counts) != {1, 3, 5, 10} or len(set(counts.values())) != 1
+        ]
+        if incomplete_groups:
+            messages.append(f"handoff groups lack complete equal-length Top-1/3/5/10 transitions: {len(incomplete_groups)}")
+        bad_states = 0
+        for row in rows:
+            previous = set(_parts(row.get("previous_members")))
+            current = set(_parts(row.get("current_members")))
+            label = row.get("event_label", "")
+            expected = None
+            if not previous and not current:
+                expected = "NO_VISIBLE_SET"
+                if abs(_number(row.get("jaccard_vs_previous")) - 1.0) > 1e-12:
+                    bad_states += 1
+            elif previous and not current:
+                expected = "VISIBILITY_LOSS"
+            elif not previous and current:
+                expected = "VISIBILITY_RECOVERY"
+            if expected is not None and label != expected:
+                bad_states += 1
+            if label == "PERSISTENT_HANDOFF" and (not previous or not current):
+                bad_states += 1
+        if bad_states:
+            messages.append(f"handoff rows have inconsistent visible-set transition labels: {bad_states}")
+
+    visibility_path = root / "handoff" / "bpm_window_visibility.csv"
+    if visibility_path.is_file():
+        visibility_rows = read_csv(visibility_path)
+        bad_flags = 0
+        for row in visibility_rows:
+            flags = [row.get(f"is_top{size}_visible", "") for size in (1, 3, 5, 10)]
+            if any(flag not in {"true", "false"} for flag in flags):
+                bad_flags += 1
+                continue
+            selected = [flag == "true" for flag in flags]
+            if any(selected[index] and not selected[index + 1] for index in range(3)):
+                bad_flags += 1
+        if bad_flags:
+            messages.append(f"handoff visibility rows violate nested Top-1/3/5/10 membership: {bad_flags}")
+
+        handoff_dir = visibility_path.parent
+        for plane in ("h", "v"):
+            for stem in (
+                "handoff_rate_vs_turn",
+                "visible_bpm_fraction_vs_turn",
+                "visible_set_support_vs_turn",
+                "bpm_visibility_cluster_map",
+                "top_bpm_membership_vs_turn",
+            ):
+                for suffix in (".png", "_caption.md"):
+                    path = handoff_dir / f"{stem}_{plane}{suffix}"
+                    if not path.is_file() or path.stat().st_size == 0:
+                        messages.append(f"missing required handoff artifact: {path.name}")
+
+        spill_keys = {
+            (row.get("collection", ""), row.get("spill_id", ""), row.get("plane", ""))
+            for row in visibility_rows
+        }
+        output_names = [f"spill_{spill_id}_{plane.lower()}" for _collection, spill_id, plane in spill_keys]
+        if len(output_names) != len(set(output_names)):
+            messages.append("handoff spill identifiers collide across collections")
+        for stem in output_names:
+            for artifact in ("bpm_visibility_handoff", "top_sets_vs_turn"):
+                for suffix in (".png", "_caption.md"):
+                    path = handoff_dir / f"{stem}_{artifact}{suffix}"
+                    if not path.is_file() or path.stat().st_size == 0:
+                        messages.append(f"missing required per-spill handoff artifact: {path.name}")
+
+    poster_manifest = root / "artifacts" / "poster" / "selected_poster_artifacts.csv"
+    if poster_manifest.is_file():
+        rows = read_csv(poster_manifest)
+        if {row.get("plane", "") for row in rows} != {"H", "V"}:
+            messages.append("curated poster examples are not plane-balanced")
+        missing_figures = []
+        for row in rows:
+            for filename in str(row.get("recommended_files", "")).split(";"):
+                if filename and not (poster_manifest.parent / filename).is_file():
+                    missing_figures.append(filename)
+        if missing_figures:
+            messages.append(f"recommended poster figures are missing: {len(missing_figures)}")
+
+    if messages:
+        check["status"] = "fail"
+    return check
 
 
 def verify_best_bpm_followups(

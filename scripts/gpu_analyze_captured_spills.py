@@ -505,14 +505,15 @@ def load_plane_traces(
     turn_end: Optional[int],
     normalization: str,
     injection_window_turns: int,
-) -> tuple[Optional[np.ndarray], int, list[str], list[str]]:
+    label_mode: str = "bpm_ip",
+) -> tuple[Optional[np.ndarray], int, list[str], list[str], Optional[np.ndarray]]:
     warnings: list[str] = []
     streams = [stream for stream in bundle.streams if stream.plane == plane]
     if aligned_only:
         streams = [stream for stream in streams if stream.aligned is not False]
     length = consensus_length(streams)
     if length is None:
-        return None, 0, [f"plane {plane} has no streams"], []
+        return None, 0, [f"plane {plane} has no streams"], [], None
     streams = [stream for stream in streams if stream.sample_count == length]
     if max_traces is not None and max_traces > 0 and len(streams) > max_traces:
         streams = streams[:max_traces]
@@ -544,12 +545,13 @@ def load_plane_traces(
             warnings.append(f"{stream.stream_key} turn range {turn_start}:{turn_end} is empty")
             continue
         arrays.append(np.asarray(data[start:end], dtype=np.float32))
-        labels.append(stream.bpm_ip or stream.stream_key)
+        labels.append(stream.stream_key if label_mode == "stream_key" else stream.bpm_ip or stream.stream_key)
     if not arrays:
-        return None, length, warnings + [f"plane {plane} has no readable payloads"], []
+        return None, length, warnings + [f"plane {plane} has no readable payloads"], [], None
     traces = np.stack(arrays, axis=0)
+    ranking_rms = np.sqrt(np.mean(np.asarray(traces, dtype=np.float64) ** 2, axis=1))
     traces = preprocess_traces(traces, normalization, injection_window_turns)
-    return traces, traces.shape[1], warnings, labels
+    return traces, traces.shape[1], warnings, labels, ranking_rms
 
 
 def hann_window(xp, n: int):
@@ -616,7 +618,11 @@ def ridge_source_method(args: argparse.Namespace) -> str:
     return "multitaper" if "multitaper" in methods else baseline_method(args)
 
 
-def select_trace_subset(traces_np: np.ndarray, mode: str) -> tuple[np.ndarray, float]:
+def select_trace_subset(
+    traces_np: np.ndarray,
+    mode: str,
+    ranking_scores: Optional[np.ndarray] = None,
+) -> tuple[np.ndarray, float]:
     if traces_np.size == 0:
         return traces_np, 0.0
     count = traces_np.shape[0]
@@ -629,7 +635,11 @@ def select_trace_subset(traces_np: np.ndarray, mode: str) -> tuple[np.ndarray, f
         subset = traces_np[: max(1, count // 2)]
         return subset, subset.shape[0] / max(1, count)
 
-    rms = np.sqrt(np.mean(np.asarray(traces_np, dtype=np.float64) ** 2, axis=1))
+    rms = (
+        np.asarray(ranking_scores, dtype=np.float64)
+        if ranking_scores is not None and len(ranking_scores) == count
+        else np.sqrt(np.mean(np.asarray(traces_np, dtype=np.float64) ** 2, axis=1))
+    )
     order = np.argsort(rms)[::-1]
     if mode == "best_single_bpm":
         selected = order[:1]
@@ -697,10 +707,11 @@ def average_spectra(
     multitaper_nw: float = 2.5,
     multitaper_k: int = 4,
     timers: Optional[dict[str, float]] = None,
+    ranking_scores: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     if traces_np.size == 0 or not starts:
         return np.empty((0, window_turns), dtype=np.float32)
-    traces_np, _dominant_fraction = select_trace_subset(traces_np, bpm_combination)
+    traces_np, _dominant_fraction = select_trace_subset(traces_np, bpm_combination, ranking_scores)
     xp = backend.xp
     traces = xp.asarray(traces_np, dtype=xp.float32)
     offsets = xp.arange(window_turns, dtype=xp.int64)
@@ -1097,9 +1108,10 @@ def analyze_plane(
     backend: FftBackend,
     band: tuple[float, float],
     compute_timer: dict[str, float],
+    ranking_scores: Optional[np.ndarray] = None,
 ) -> PlaneAnalysis:
     warnings: list[str] = []
-    selected_traces, dominant_fraction = select_trace_subset(traces, args.bpm_combination)
+    selected_traces, dominant_fraction = select_trace_subset(traces, args.bpm_combination, ranking_scores)
     injection_window_turns = args.sliding_window_turns if args.flashes is not None else args.injection_window_turns
     bpm_observations = per_bpm_injection_observations(
         bpm_labels,
@@ -1129,6 +1141,7 @@ def analyze_plane(
         multitaper_nw=args.multitaper_nw,
         multitaper_k=args.multitaper_k,
         timers=compute_timer,
+        ranking_scores=ranking_scores,
     )
     elapsed_fft = time.perf_counter() - t0
     compute_timer["fft_seconds"] += elapsed_fft
@@ -1175,6 +1188,7 @@ def analyze_plane(
             multitaper_nw=args.multitaper_nw,
             multitaper_k=args.multitaper_k,
             timers=compute_timer,
+            ranking_scores=ranking_scores,
         )
         elapsed_fft = time.perf_counter() - t0
         compute_timer["fft_seconds"] += elapsed_fft
@@ -1951,7 +1965,7 @@ def write_svd_products(
     if not args.svd_denoise:
         return None
     t0 = time.perf_counter()
-    traces, consensus_turns, warnings, _labels = load_plane_traces(
+    traces, consensus_turns, warnings, _labels, _ranking_scores = load_plane_traces(
         representative.bundle,
         plane,
         args.max_traces_per_plane,
@@ -2264,6 +2278,11 @@ def write_summary(
     fft_seconds = float(timers.get("fft_seconds", 0.0))
     total_for_rate = fft_seconds if fft_seconds > 0.0 else elapsed
     memory_mib = estimate_memory_mib(args)
+    ranking_source = (
+        "raw pre-normalization RMS over the loaded turn range"
+        if args.bpm_combination in {"best_single_bpm", "top5_by_confidence", "top10_by_confidence", "top20_by_confidence"}
+        else "not applicable"
+    )
     lines = [
         "# GPU Captured-Spill Analysis Summary",
         "",
@@ -2280,6 +2299,7 @@ def write_summary(
         f"- plane mode: `{args.plane}`",
         f"- turn range: `{args.turn_start}` / `{args.turn_end if args.turn_end is not None else 'full'}`",
         f"- BPM combination: `{args.bpm_combination}`",
+        f"- BPM subset ranking source: `{ranking_source}`",
         f"- BPM normalization: `{args.bpm_normalization}`",
         f"- detrend/DC handling: `{args.detrend}` / `{args.dc_handling}`",
         f"- spectrogram method: `{args.spectrogram_method}`",
@@ -2399,7 +2419,7 @@ def analyze(args: argparse.Namespace) -> None:
             if args.plane != "both" and args.plane != plane:
                 continue
             t0 = time.perf_counter()
-            traces, consensus_turns, warnings, bpm_labels = load_plane_traces(
+            traces, consensus_turns, warnings, bpm_labels, ranking_scores = load_plane_traces(
                 bundle,
                 plane,
                 args.max_traces_per_plane,
@@ -2413,7 +2433,18 @@ def analyze(args: argparse.Namespace) -> None:
             load_warnings[plane].extend(warnings)
             if traces is None:
                 continue
-            analysis = analyze_plane(bundle, plane, traces, bpm_labels, consensus_turns, args, backend, band, timers)
+            analysis = analyze_plane(
+                bundle,
+                plane,
+                traces,
+                bpm_labels,
+                consensus_turns,
+                args,
+                backend,
+                band,
+                timers,
+                ranking_scores,
+            )
             analysis.warnings.extend(load_warnings[plane])
             analyses[plane] = analysis
             if analysis.band_spectra is not None and not args.no_spectrogram:
@@ -2565,7 +2596,7 @@ def build_parser() -> argparse.ArgumentParser:
             "first_second_half",
         ],
         default="mean",
-        help="how to combine BPM spectra per plane",
+        help="how to combine BPM spectra per plane; best/top-N modes rank raw pre-normalization RMS",
     )
     parser.add_argument(
         "--bpm-normalization",

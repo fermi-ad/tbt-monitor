@@ -15,11 +15,23 @@ from typing import Sequence
 import numpy as np
 
 from .io import atomic_write_text, read_csv, write_csv
+from .identity import channel_label, channel_token
 from .schema import BEST_SUBSET_FIELDS
 from .subset_score import SubsetScore, combination_array, score_subset_chunk, subset_mask
 
 
-POOL_FIELDS = ["collection", "spill_id", "plane", "subset_size", "pool_size", "bpm_indices", "bpm_members", "source"]
+POOL_FIELDS = [
+    "collection",
+    "spill_id",
+    "plane",
+    "subset_size",
+    "pool_size",
+    "bpm_indices",
+    "bpm_members",
+    "bpm_source_keys",
+    "bpm_digitizers",
+    "source",
+]
 AUDIT_FIELDS = [
     "collection",
     "spill_id",
@@ -30,7 +42,10 @@ AUDIT_FIELDS = [
     "screened_winner_score",
     "improvement",
     "pool_expanded",
+    "bpm_indices",
     "bpm_members",
+    "bpm_source_keys",
+    "bpm_digitizers",
 ]
 
 
@@ -49,7 +64,16 @@ def stable_seed(*parts: object) -> int:
 
 def metadata_for_bpms(manifest_dir: Path, plane: str) -> dict[int, dict[str, str]]:
     rows = read_csv(manifest_dir / "bpm_index.csv")
-    return {int(row["bpm_index"]): row for row in rows if row.get("plane") == plane}
+    out: dict[int, dict[str, str]] = {}
+    for source in rows:
+        if source.get("plane") != plane:
+            continue
+        row = dict(source)
+        token = channel_token(row.get("source_key"))
+        if token:
+            row["ring_order"] = token[2:]
+        out[int(row["bpm_index"])] = row
+    return out
 
 
 def candidate_tune_index(features_dir: Path) -> dict[tuple[str, str, str], dict[int, float]]:
@@ -210,14 +234,17 @@ def result_row(
     quality_flags: str = "",
 ) -> dict[str, object]:
     members_idx = [int(bpm_indices[pos]) for pos in score.subset]
-    names = [bpm_meta.get(idx, {}).get("bpm_name", str(idx)) for idx in members_idx]
+    metas = [bpm_meta.get(idx, {}) for idx in members_idx]
     return {
         "collection": collection,
         "spill_id": spill_id,
         "plane": plane,
         "subset_size": len(members_idx),
         "subset_mask": subset_mask(members_idx),
-        "bpm_members": ",".join(names),
+        "bpm_indices": ",".join(str(idx) for idx in members_idx),
+        "bpm_members": ",".join(channel_label(meta) or str(idx) for idx, meta in zip(members_idx, metas)),
+        "bpm_source_keys": ",".join(meta.get("source_key", "") for meta in metas),
+        "bpm_digitizers": ",".join(meta.get("digitizer", "") for meta in metas),
         "candidate_pool_size": pool_size,
         "search_scope": scope,
         "search_exact": str(exact).lower(),
@@ -241,6 +268,7 @@ def result_row(
 
 def pool_row(collection, spill_id, plane, subset_size, pool, bpm_indices, bpm_meta, source):
     members_idx = [int(bpm_indices[pos]) for pos in pool]
+    metas = [bpm_meta.get(idx, {}) for idx in members_idx]
     return {
         "collection": collection,
         "spill_id": spill_id,
@@ -248,7 +276,9 @@ def pool_row(collection, spill_id, plane, subset_size, pool, bpm_indices, bpm_me
         "subset_size": subset_size,
         "pool_size": len(pool),
         "bpm_indices": ",".join(str(idx) for idx in members_idx),
-        "bpm_members": ",".join(bpm_meta.get(idx, {}).get("bpm_name", str(idx)) for idx in members_idx),
+        "bpm_members": ",".join(channel_label(meta) or str(idx) for idx, meta in zip(members_idx, metas)),
+        "bpm_source_keys": ",".join(meta.get("source_key", "") for meta in metas),
+        "bpm_digitizers": ",".join(meta.get("digitizer", "") for meta in metas),
         "source": source,
     }
 
@@ -636,6 +666,8 @@ def run_audits(cfg, spectra, tune_axis, centers, bpm_indices, candidate_tunes, b
             continue
         improvement = scored[0].subset_score - screened_score
         expanded = improvement > float(search_cfg.get("audit_improvement_threshold", 0.01))
+        member_indices = [int(bpm_indices[pos]) for pos in scored[0].subset]
+        member_meta = [bpm_meta.get(idx, {}) for idx in member_indices]
         audit_rows.append(
             {
                 "collection": collection,
@@ -647,7 +679,10 @@ def run_audits(cfg, spectra, tune_axis, centers, bpm_indices, candidate_tunes, b
                 "screened_winner_score": f"{screened_score:.9g}",
                 "improvement": f"{improvement:.9g}",
                 "pool_expanded": str(expanded).lower(),
-                "bpm_members": ",".join(str(int(bpm_indices[pos])) for pos in scored[0].subset),
+                "bpm_indices": ",".join(str(idx) for idx in member_indices),
+                "bpm_members": ",".join(channel_label(meta) or str(idx) for idx, meta in zip(member_indices, member_meta)),
+                "bpm_source_keys": ",".join(meta.get("source_key", "") for meta in member_meta),
+                "bpm_digitizers": ",".join(meta.get("digitizer", "") for meta in member_meta),
             }
         )
     return best

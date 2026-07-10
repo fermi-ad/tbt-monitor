@@ -9,6 +9,7 @@ from pathlib import Path
 
 import numpy as np
 
+from .identity import manifest_by_index, normalize_subset_row
 from .io import atomic_write_text, read_csv, write_csv
 
 
@@ -23,6 +24,22 @@ def _f(value):
     except (TypeError, ValueError):
         return math.nan
     return number if math.isfinite(number) else math.nan
+
+
+def _median(values: list[float]) -> float | str:
+    finite = sorted(value for value in values if math.isfinite(value))
+    if not finite:
+        return ""
+    middle = len(finite) // 2
+    return finite[middle] if len(finite) % 2 else 0.5 * (finite[middle - 1] + finite[middle])
+
+
+def _preferred_score(features: dict[str, float], plane: str) -> float:
+    for size in ("5", "3", "1", "10"):
+        value = features.get(f"{plane}_score_{size}", math.nan)
+        if math.isfinite(value):
+            return value
+    return math.nan
 
 
 def kmeans(x: np.ndarray, k: int, seed: int) -> np.ndarray:
@@ -43,11 +60,12 @@ def kmeans(x: np.ndarray, k: int, seed: int) -> np.ndarray:
 
 def cluster_spills(cfg: dict[str, object], inputs: Path, out: Path) -> None:
     consensus_path = inputs / "consensus" / "spill_consensus_summary.csv"
+    meta_by_index = manifest_by_index(read_csv(inputs / "manifest" / "bpm_index.csv"))
     subsets = []
     for size in (1, 3, 5, 10):
         path = inputs / "subset_search" / f"best{size}" / f"best{size}_results.csv"
         if path.exists():
-            subsets.extend(read_csv(path))
+            subsets.extend(normalize_subset_row(row, meta_by_index) for row in read_csv(path))
     by_spill = defaultdict(dict)
     for row in read_csv(consensus_path) if consensus_path.exists() else []:
         by_spill[(row["collection"], row["spill_id"])][f"{row['plane']}_consensus"] = _f(row.get("dominant_consensus_tune"))
@@ -65,6 +83,10 @@ def cluster_spills(cfg: dict[str, object], inputs: Path, out: Path) -> None:
         write_csv(out / "cluster_bpm_rankings.csv", [], RANK_FIELDS)
         return
     x = np.asarray(matrix, dtype=np.float64)
+    usable_columns = np.any(np.isfinite(x), axis=0)
+    if not np.any(usable_columns):
+        raise ValueError("clustering feature matrix has no finite columns")
+    x = x[:, usable_columns]
     col_med = np.nanmedian(x, axis=0)
     x = np.where(np.isfinite(x), x, col_med)
     col_scale = np.nanstd(x, axis=0)
@@ -80,7 +102,19 @@ def cluster_spills(cfg: dict[str, object], inputs: Path, out: Path) -> None:
         tags = []
         if len(members) < max(5, 0.02 * len(cluster_rows)):
             tags.append("SMALL")
-        summary_rows.append({"cluster_id": f"CLUSTER_{label}", "spill_count": len(members), "tags": ",".join(tags), "median_score_h": "", "median_score_v": ""})
+        member_features = [
+            by_spill[(str(row["collection"]), str(row["spill_id"]))]
+            for row in members
+        ]
+        summary_rows.append(
+            {
+                "cluster_id": f"CLUSTER_{label}",
+                "spill_count": len(members),
+                "tags": ",".join(tags),
+                "median_score_h": _median([_preferred_score(values, "H") for values in member_features]),
+                "median_score_v": _median([_preferred_score(values, "V") for values in member_features]),
+            }
+        )
     bpm_counts = Counter()
     cluster_lookup = {(row["collection"], row["spill_id"]): row["cluster_id"] for row in cluster_rows}
     for row in subsets:
