@@ -97,8 +97,8 @@ commands in `docs/USAGE.md` when continuing after a completed search.
 - `src/capture.rs`: raw synchronized spill capture and capture diagnostics.
 - `src/analyze.rs`: live/offline tune analysis, studies, and batch outputs.
 - `scripts/`: poster/DGX tooling, Spark autosweep, Best-BPM mining,
-  verification helpers, verifier-bound IBIC materialization, and checksummed
-  publication-review packaging.
+  verification helpers, verifier-bound IBIC materialization, and browsable,
+  checksummed publication-review packaging.
 - `config/`: example/generated runtime config.
 - `docs/`: subsystem guides, command reference, architecture, physics notes,
   backlog, and workflow docs.
