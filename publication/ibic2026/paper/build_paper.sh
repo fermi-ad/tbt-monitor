@@ -77,7 +77,7 @@ if grep -Eq 'Overfull \\[hv]box|undefined references|Citation .* undefined' "$OU
   exit 1
 fi
 "$PDFFONTS" "$PDF" >"$OUT/pdffonts.txt"
-if awk 'NR > 2 && ($4 != "yes" || $5 != "yes" || $6 != "yes") {bad=1} END {exit bad}' "$OUT/pdffonts.txt"; then
+if awk 'NR > 2 && ($(NF-4) != "yes" || $(NF-3) != "yes" || $(NF-2) != "yes") {bad=1} END {exit bad}' "$OUT/pdffonts.txt"; then
   :
 else
   echo "paper PDF contains a non-embedded or non-subset font" >&2

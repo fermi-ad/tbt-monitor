@@ -93,10 +93,12 @@ the publication audit:
 15. Tectonic's default client attempted network initialization even with a
     complete local TeX bundle and could fail in macOS system configuration.
     The paper build now accepts `TECTONIC_FLAGS`, including `--only-cached`, so
-    resource-download policy is explicit. Tectonic 0.16.9 still initializes
-    macOS proxy state in this sandbox; the final compile therefore remains
-    gated on a permitted Tectonic context or an equivalent complete TeX Live
-    engine rather than being reported as passed from the partial fallback.
+    resource-download policy is explicit. In a permitted context, Tectonic
+    0.16.9 using its coherent cached bundle passed the complete layout smoke:
+    exactly four `595 x 792 bp` JACoW pages, no overfull boxes or unresolved
+    references, and every font embedded, subset, and Unicode-mapped. The final
+    compile remains pending only because it must consume the accepted real-data
+    outputs; the synthetic smoke is layout proof, not a scientific deliverable.
 16. The manuscript prose still embedded corrected primary-score values and the
     first intensity-study row count as literals. Expanding the final intensity
     N grid could therefore leave a verifier-clean table beside stale prose.
@@ -109,6 +111,11 @@ the publication audit:
     page geometry, render sizes, required sources, selected-N/sensitivity/
     transfer payload, zero retained intensity effects, and unresolved copy;
     only explicit poster and paper visual-QA passes can produce final closure.
+18. The PDF font gate read fixed whitespace columns from `pdffonts`. A valid
+    embedded `CID Type 0C` font contains spaces in its type name, shifting the
+    `emb/sub/uni` fields and causing a false failure. Both paper and poster gates
+    now read those three status fields relative to the right edge, where the
+    trailing object and generation numbers have stable positions.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;

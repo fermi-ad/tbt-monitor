@@ -11,6 +11,9 @@ tree.
 When Tectonic's bundle is already cached, set `TECTONIC_FLAGS=--only-cached`
 to forbid resource downloads. Some Tectonic builds still initialize operating-
 system proxy state in cached mode; that initialization must also succeed.
+The synthetic layout smoke passed with Tectonic 0.16.9 and a coherent cached
+bundle, including the exact page, reference, overflow, and font gates. It does
+not substitute for rebuilding from the accepted real-data artifacts.
 
 The paper is not final while it contains phrases such as "final manuscript
 will report" or lacks any required publication figure. Numerical Results, Abstract,
@@ -32,6 +35,9 @@ the same pass. The final source must include:
 - exactly four class-defined `595 x 792 bp` pages with no overfull boxes or
   missing references. This is the explicit JACoW v3.01 page geometry; do not
   replace it with ISO A4 or US Letter geometry.
+- every PDF font embedded, subset, and Unicode-mapped; the gate parses these
+  status fields from the right because names such as `CID Type 0C` span several
+  whitespace columns in `pdffonts` output.
 
 The accepted abstract is intentionally quoted in the manuscript abstract until
 the corrected results justify a narrower factual update.
