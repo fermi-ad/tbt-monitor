@@ -451,8 +451,8 @@ def publication_content(
         ),
         "quantitativeBody": (
             f"2,000 spills; {best_n_design['curve_spill_plane_count']:,} H/V curve cases; "
-            f"{best_n_design['validation_spill_plane_count']:,} validation cases x"
-            f"{best_n_design['digitizer_fold_count']} folds. "
+            f"{best_n_design['validation_spill_plane_count']:,} stratified validation cases; "
+            f"{best_n_design['digitizer_fold_count']} held-out-digitizer folds. "
             f"H Best-{selected_sizes['H']} blind agreement {pct(h_best.get('blind_q_agreement_rate'))}; "
             f"V Best-{selected_sizes['V']} {pct(v_best.get('blind_q_agreement_rate'))}. "
             f"Intensity weighting retained {retained_intensity_effects}/{intensity_effect_count} tested effects."
