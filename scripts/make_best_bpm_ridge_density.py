@@ -435,6 +435,20 @@ def normalized_columns(density: np.ndarray) -> np.ndarray:
     return out / col_sum
 
 
+def raster_cell_bounds(index: int, count: int, start: int, end: int, *, reverse: bool = False) -> tuple[int, int]:
+    """Map one raster bin onto an inclusive pixel interval without truncation gaps."""
+    if count <= 0 or index < 0 or index >= count or end < start:
+        raise ValueError("invalid raster cell geometry")
+    span = end - start + 1
+    if reverse:
+        low = end - int((index + 1) * span / count) + 1
+        high = end - int(index * span / count)
+    else:
+        low = start + int(index * span / count)
+        high = start + int((index + 1) * span / count) - 1
+    return low, high
+
+
 def median_points(grouped: dict[int, list[float]], pct: float) -> list[tuple[float, float]]:
     points: list[tuple[float, float]] = []
     for center in sorted(grouped):
@@ -491,16 +505,20 @@ def ridge_density_plot(
     finite_vals = density[density > 0]
     vmax = float(np.percentile(finite_vals, 98)) if finite_vals.size else 1.0
     vmax = max(vmax, 1.0 / max(1, len(accepted_spills)) if args.ridge_density_normalize else 1.0)
-    cell_w = max(1, (x1 - x0 + 1) // max(1, len(centers)))
-    cell_h = max(1, (y1 - y0 + 1) // args.ridge_density_tune_bins)
     for col in range(len(centers)):
+        cx0, cx1 = raster_cell_bounds(col, len(centers), x0, x1)
         for row_idx in range(args.ridge_density_tune_bins):
             value = float(density[row_idx, col])
             frac = value / vmax if vmax else 0.0
             color = color_ramp(frac) if value > 0 else (245, 247, 248)
-            cx0 = x0 + col * cell_w
-            cy0 = y1 - (row_idx + 1) * cell_h
-            poster.rect(pixels, width, height, cx0, cy0, min(x1, cx0 + cell_w - 1), min(y1, cy0 + cell_h - 1), color)
+            cy0, cy1 = raster_cell_bounds(
+                row_idx,
+                args.ridge_density_tune_bins,
+                y0,
+                y1,
+                reverse=True,
+            )
+            poster.rect(pixels, width, height, cx0, cy0, cx1, cy1, color)
     area = (x0, y0, x1, y1)
     if args.mark_extraction_context:
         overlay_extraction_context(
@@ -748,14 +766,12 @@ def draw_density_in_area(
     columns = density.shape[1]
     rows = density.shape[0]
     for col in range(columns):
-        cx0 = x0 + int(col * (x1 - x0 + 1) / max(1, columns))
-        cx1 = x0 + int((col + 1) * (x1 - x0 + 1) / max(1, columns)) - 1
+        cx0, cx1 = raster_cell_bounds(col, columns, x0, x1)
         for row in range(rows):
             value = float(density[row, col])
-            cy0 = y1 - int((row + 1) * (y1 - y0 + 1) / max(1, rows)) + 1
-            cy1 = y1 - int(row * (y1 - y0 + 1) / max(1, rows))
+            cy0, cy1 = raster_cell_bounds(row, rows, y0, y1, reverse=True)
             color = color_ramp(value / vmax) if value > 0 else (245, 247, 248)
-            poster.rect(pixels, width, height, cx0, cy0, min(x1, cx1), min(y1, cy1), color)
+            poster.rect(pixels, width, height, cx0, cy0, cx1, cy1, color)
 
 
 def draw_legacy_pair(
@@ -819,10 +835,26 @@ def draw_legacy_pair_hv(
     subset_size: str,
     paired: dict[str, tuple[dict[str, object], dict[str, object], tuple[float, float]]],
 ) -> None:
+    draw_legacy_pair_hv_selected(
+        path,
+        {"H": str(subset_size), "V": str(subset_size)},
+        paired,
+    )
+
+
+def draw_legacy_pair_hv_selected(
+    path: Path,
+    subset_sizes: dict[str, str],
+    paired: dict[str, tuple[dict[str, object], dict[str, object], tuple[float, float]]],
+) -> None:
     required = {"H", "V"}
-    if set(paired) != required:
-        poster.no_data_png(path, f"LEGACY VS BEST{subset_size} H/V", "MISSING PLANE")
+    if set(paired) != required or set(subset_sizes) != required:
+        poster.no_data_png(path, "LEGACY VS PLANE-SELECTED BEST-N H/V", "MISSING PLANE")
         return
+
+    h_size = str(subset_sizes["H"])
+    v_size = str(subset_sizes["V"])
+    selected_label = f"BEST{h_size}" if h_size == v_size else f"H BEST{h_size} / V BEST{v_size}"
 
     aligned: dict[str, tuple[list[int], np.ndarray, np.ndarray]] = {}
     positives: list[np.ndarray] = []
@@ -830,7 +862,7 @@ def draw_legacy_pair_hv(
         legacy, ensemble, _band = paired[plane]
         centers = sorted(set(legacy["centers"]) | set(ensemble["centers"]))
         if not centers:
-            poster.no_data_png(path, f"LEGACY VS BEST{subset_size} H/V", f"NO COMMON {plane} DENSITY")
+            poster.no_data_png(path, f"LEGACY VS {selected_label} H/V", f"NO COMMON {plane} DENSITY")
             return
         old_density = aligned_density(legacy, centers)
         new_density = aligned_density(ensemble, centers)
@@ -847,7 +879,7 @@ def draw_legacy_pair_hv(
         height,
         34,
         24,
-        f"FULL-SPILL RIDGE DENSITY: LEGACY VS ADAPTIVE BEST{subset_size}",
+        f"FULL-SPILL RIDGE DENSITY: LEGACY VS ADAPTIVE {selected_label}",
         poster.INK,
         3,
     )
@@ -862,7 +894,7 @@ def draw_legacy_pair_hv(
         2,
     )
     poster.draw_text(pixels, width, height, 110, 96, "LEGACY NORMALIZED-SINGLE", poster.MUTED, 2)
-    poster.draw_text(pixels, width, height, 1260, 96, f"ADAPTIVE BEST{subset_size} POWER ENSEMBLE", poster.MUTED, 2)
+    poster.draw_text(pixels, width, height, 1260, 96, f"ADAPTIVE {selected_label} POWER ENSEMBLE", poster.MUTED, 2)
 
     areas = {
         ("H", "legacy"): (110, 140, 1160, 400),
@@ -1040,15 +1072,13 @@ def draw_density_difference(
     finite_vals = np.abs(diff[np.isfinite(diff)])
     vmax = float(np.percentile(finite_vals, 99)) if finite_vals.size else 1.0
     vmax = max(vmax, 1e-6)
-    cell_w = max(1, (x1 - x0 + 1) // max(1, len(centers)))
-    cell_h = max(1, (y1 - y0 + 1) // diff.shape[0])
     for col in range(len(centers)):
+        cx0, cx1 = raster_cell_bounds(col, len(centers), x0, x1)
         for row_idx in range(diff.shape[0]):
             value = float(diff[row_idx, col])
             color = diverging_color(value / vmax)
-            cx0 = x0 + col * cell_w
-            cy0 = y1 - (row_idx + 1) * cell_h
-            poster.rect(pixels, width, height, cx0, cy0, min(x1, cx0 + cell_w - 1), min(y1, cy0 + cell_h - 1), color)
+            cy0, cy1 = raster_cell_bounds(row_idx, diff.shape[0], y0, y1, reverse=True)
+            poster.rect(pixels, width, height, cx0, cy0, cx1, cy1, color)
     area = (x0, y0, x1, y1)
     if args.mark_extraction_context:
         overlay_extraction_context(
@@ -1475,10 +1505,16 @@ This is a diagnostic contrast plot, not an absolute truth metric. It uses BPM-on
 """
 
 
-def caption_for_concentration(plane: str, subset_sizes: Sequence[str], context_variant: bool = False) -> str:
+def caption_for_concentration(
+    plane: str,
+    subset_sizes: Sequence[str],
+    context_variant: bool = False,
+    image_name: str | None = None,
+) -> str:
+    image_name = image_name or f"ridge_concentration_vs_turn_{plane.lower()}.png"
     return f"""# Ridge Concentration Vs Turn {plane}
 
-Image: `ridge_concentration_vs_turn_{plane.lower()}.png`
+Image: `{image_name}`
 
 ## What It Shows
 
@@ -1540,12 +1576,27 @@ def caption_for_legacy_pair_hv(
     subset_size: str,
     metrics_by_plane: dict[str, dict[str, object]],
 ) -> str:
+    return caption_for_legacy_pair_hv_selected(
+        {"H": str(subset_size), "V": str(subset_size)},
+        metrics_by_plane,
+        f"ridge_density_legacy_single_vs_best{subset_size}_hv.png",
+    )
+
+
+def caption_for_legacy_pair_hv_selected(
+    subset_sizes: dict[str, str],
+    metrics_by_plane: dict[str, dict[str, object]],
+    image_name: str,
+) -> str:
+    h_size = str(subset_sizes["H"])
+    v_size = str(subset_sizes["V"])
+    selected_label = f"Best-{h_size}" if h_size == v_size else f"H Best-{h_size} / V Best-{v_size}"
     lines = [
-        f"# Legacy Normalized-Single Versus Adaptive Best-{subset_size} H/V",
+        f"# Legacy Normalized-Single Versus Adaptive {selected_label}",
         "",
-        f"Image: `ridge_density_legacy_single_vs_best{subset_size}_hv.png`",
+        f"Image: `{image_name}`",
         "",
-        "Rows are horizontal and vertical; columns are the audited legacy normalized-single selector and the adaptive fit-prefix power ensemble. Every panel uses the exact 4096/256-turn legacy protocol. Color is the column-normalized cross-spill probability of a tracked tune pick, all four panels share one scale, and values above the shared 98th percentile are clipped only for color rendering. White curves are the cross-spill P10, median, and P90 ridge tracks. Compare legacy with adaptive within each row; H and V use different tune-band widths, so their apparent vertical thicknesses are not directly comparable.",
+        "Rows are horizontal and vertical; columns are the audited legacy normalized-single selector and the plane-selected adaptive fit-prefix power ensemble. Every panel uses the exact 4096/256-turn legacy protocol. Color is the column-normalized cross-spill probability of a tracked tune pick, all four panels share one scale, and values above the shared 98th percentile are clipped only for color rendering. White curves are the cross-spill P10, median, and P90 ridge tracks. Compare legacy with adaptive within each row; H and V use different tune-band widths, so their apparent vertical thicknesses are not directly comparable.",
         "",
         "| Plane | Exact paired spills | Exact paired ridge points | Legacy median IQR | Adaptive median IQR | Peak-bin gain | Shared-ridge mass gain |",
         "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
@@ -1711,6 +1762,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--window-turns", type=int, default=4096)
     parser.add_argument("--stride-turns", type=int, default=256)
     parser.add_argument("--subset-sizes", nargs="+", default=["1", "3", "5"], help="membership sizes to render")
+    parser.add_argument("--selected-h-n", type=int, default=None, help="verified H ensemble size for the plane-selected H/V comparison")
+    parser.add_argument("--selected-v-n", type=int, default=None, help="verified V ensemble size for the plane-selected H/V comparison")
     parser.add_argument("--planes", nargs="+", default=["H", "V"], choices=["H", "V"])
     parser.add_argument("--bpm-normalization", default="rms_per_bpm", choices=["none", "rms_per_bpm", "mad_per_bpm", "injection_rms_per_bpm"])
     parser.add_argument("--detrend", default="mean_subtract", choices=["none", "mean_subtract", "linear", "polynomial_order_2"])
@@ -1734,6 +1787,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--extraction-context-variants", action="store_true", help="also render separately named plots with the broad extraction-review range marked")
     args = parser.parse_args(argv)
     args.mark_extraction_context = False
+    if (args.selected_h_n is None) != (args.selected_v_n is None):
+        parser.error("--selected-h-n and --selected-v-n must be provided together")
+    selected_sizes = None
+    if args.selected_h_n is not None:
+        selected_sizes = {"H": str(args.selected_h_n), "V": str(args.selected_v_n)}
+        missing = sorted(set(selected_sizes.values()) - set(args.subset_sizes), key=int)
+        if missing:
+            parser.error(f"plane-selected N must be included in --subset-sizes: {', '.join(missing)}")
 
     best_root = Path(args.best_root)
     out = Path(args.out)
@@ -1788,6 +1849,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "window_turns": int(args.window_turns),
             "stride_turns": int(args.stride_turns),
             "subset_sizes": sorted(int(size) for size in args.subset_sizes),
+            "selected_plane_sizes": {plane: int(size) for plane, size in selected_sizes.items()} if selected_sizes else {},
             "planes": list(args.planes),
             "bpm_normalization": args.bpm_normalization,
             "detrend": args.detrend,
@@ -2100,6 +2162,61 @@ def main(argv: Sequence[str] | None = None) -> int:
         (str(row.get("subset_size", "")), str(row.get("plane", ""))): row
         for row in legacy_metric_rows
     }
+    if selected_sizes:
+        for plane in ("H", "V"):
+            selected_size = selected_sizes[plane]
+            concentration_img = f"ridge_concentration_selected_best{selected_size}_{plane.lower()}.png"
+            draw_concentration_plot(
+                out / concentration_img,
+                plane,
+                center_rows,
+                [selected_size],
+                args,
+            )
+            concentration_cap = concentration_img.replace(".png", "_caption.md")
+            write_text(
+                out / concentration_cap,
+                caption_for_concentration(plane, [selected_size], image_name=concentration_img),
+            )
+            figure_rows.append(
+                {
+                    "figure": concentration_img,
+                    "caption_file": concentration_cap,
+                    "plane": plane,
+                    "subset_size": selected_size,
+                    "role": "plane-selected turn concentration",
+                    "source": "ridge_density_turn_concentration.csv",
+                }
+            )
+        selected_keys = {(selected_sizes[plane], plane) for plane in ("H", "V")}
+        if selected_keys <= set(paired_legacy_results):
+            selected_pairs = {
+                plane: paired_legacy_results[(selected_sizes[plane], plane)]
+                for plane in ("H", "V")
+            }
+            selected_metrics = {
+                plane: legacy_metrics_by_key[(selected_sizes[plane], plane)]
+                for plane in ("H", "V")
+            }
+            pair_img = (
+                f"ridge_density_legacy_single_vs_best_h{selected_sizes['H']}_v{selected_sizes['V']}_hv.png"
+            )
+            pair_cap = pair_img.replace(".png", "_caption.md")
+            draw_legacy_pair_hv_selected(out / pair_img, selected_sizes, selected_pairs)
+            write_text(
+                out / pair_cap,
+                caption_for_legacy_pair_hv_selected(selected_sizes, selected_metrics, pair_img),
+            )
+            figure_rows.append(
+                {
+                    "figure": pair_img,
+                    "caption_file": pair_cap,
+                    "plane": "H/V",
+                    "subset_size": f"H={selected_sizes['H']};V={selected_sizes['V']}",
+                    "role": "plane-selected paired legacy H/V comparison",
+                    "source": str(args.legacy_sliding_csv),
+                }
+            )
     for size in args.subset_sizes:
         pair_keys = {(size, "H"), (size, "V")}
         if pair_keys <= set(paired_legacy_results):

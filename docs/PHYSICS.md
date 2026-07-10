@@ -193,6 +193,11 @@ Use repository field names when reviewing outputs:
 - `sliding_suspicious_count_h`, `sliding_suspicious_count_v`
 - `quality_label` and `quality_flags`
 
+`NO_VISIBLE_TUNE` and `NO_VALID_Q` mean that the associated prominence or
+held-out support is unavailable. Those states must remain blank in numeric
+support fields; encoding them as zero would confuse missing observability with
+measured absence of support.
+
 ## 6. Known Limitations
 
 - no direct Schottky ingestion/auto-sync path in this repository

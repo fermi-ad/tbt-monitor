@@ -30,7 +30,7 @@ from bpm_mining.consensus import build_consensus
 from bpm_mining.subset_search import search_best_bpm_subsets
 from bpm_mining.evolution import evaluate_evolution
 from bpm_mining.fixed_sets import evaluate_fixed_sets
-from bpm_mining.heldout import evaluate_heldout_support
+from bpm_mining.heldout import evaluate_group as evaluate_heldout_group, evaluate_heldout_support
 from bpm_mining.handoff import _jaccard, run_handoff_analysis
 from bpm_mining.statistics import aggregate_statistics
 from bpm_mining.statistics import (
@@ -83,16 +83,19 @@ from bpm_mining.verification import verify_best_bpm_followups, verify_best_bpm_o
 from audit_intensity_capture import audit as audit_intensity_capture
 from make_best_bpm_ridge_density import (
     draw_legacy_pair_hv,
+    draw_legacy_pair_hv_selected,
     exact_paired_density_results,
     keyed_ensemble_points,
     keyed_legacy_points,
     legacy_comparison_metrics,
     load_memberships,
+    raster_cell_bounds,
     robust_change_point,
 )
 from gpu_analyze_captured_spills import preprocess_traces, select_trace_subset
 from audit_legacy_single_bpm_selection import selection_row as legacy_selection_row
 from package_publication_review import package_review
+from prepare_ibic2026_publication import publication_content, render_results_table
 from repair_best_bpm_visibility_duration import repair_visibility_durations
 from analyze_next_steps_outputs import fixed_score_contract_mismatches
 from compare_intensity_block_sensitivity import (
@@ -724,6 +727,47 @@ class BestBpmMiningTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "not empty"):
             package_review((("source", source),), occupied)
 
+    def test_publication_copy_and_table_are_plane_specific(self) -> None:
+        best = {
+            plane: {
+                "blind_q_agreement_rate": "0.5",
+                "blind_q_agreement_ci_low": "0.4",
+                "blind_q_agreement_ci_high": "0.6",
+                "median_blind_selected_heldout_abs_q_delta": "0.001",
+                "blind_selected_heldout_abs_q_delta_ci_low": "0.0008",
+                "blind_selected_heldout_abs_q_delta_ci_high": "0.0012",
+            }
+            for plane in ("H", "V")
+        }
+        ridge = {
+            plane: {
+                "median_iqr_delta_ensemble_minus_legacy": "-0.002",
+                "median_iqr_delta_ci_low": "-0.0025",
+                "median_iqr_delta_ci_high": "-0.0015",
+                "median_shared_ridge_mass_gain": "0.1",
+                "median_shared_ridge_mass_gain_ci_low": "0.08",
+                "median_shared_ridge_mass_gain_ci_high": "0.12",
+            }
+            for plane in ("H", "V")
+        }
+        sizes = {"H": 7, "V": 11}
+        table = render_results_table(best, ridge, sizes)
+        self.assertIn("H & 7", table)
+        self.assertIn("V & 11", table)
+        self.assertIn("concentration, not absolute tune accuracy", table)
+        content = publication_content(
+            sizes,
+            best,
+            ridge,
+            {"first_sustained_half_peak_loss_turn": "12000", "most_likely_change_turn": "14000"},
+            {"plane": "V", "category": "best5_improvement", "spill_id": "spill_1", "score": "0.8"},
+            240,
+            0,
+        )
+        self.assertIn("H Best-7", content["ridgeCaption"])
+        self.assertIn("V Best-11", content["ridgeCaption"])
+        self.assertIn("0/240", content["quantitativeBody"])
+
     def test_intensity_block_sensitivity_separates_statistical_and_practical_passes(self) -> None:
         root = self.root / "intensity-block"
         root.mkdir()
@@ -828,6 +872,16 @@ class BestBpmMiningTests(unittest.TestCase):
             },
         )
         self.assertEqual(png_dimensions(combined_path), (2400, 900))
+        selected_path = self.root / "ridge_h5_v3.png"
+        draw_legacy_pair_hv_selected(
+            selected_path,
+            {"H": "5", "V": "3"},
+            {
+                "H": (paired_baseline, paired_ensemble, (0.62, 0.68)),
+                "V": (paired_v_baseline, paired_v_ensemble, (0.69, 0.74)),
+            },
+        )
+        self.assertEqual(png_dimensions(selected_path), (2400, 900))
         with self.assertRaisesRegex(ValueError, "duplicate legacy ridge point"):
             keyed_legacy_points(
                 [("run", "1", 100, 0.650), ("run", "1", 100, 0.651)],
@@ -842,6 +896,16 @@ class BestBpmMiningTests(unittest.TestCase):
                 "H",
                 (0.62, 0.68),
             )
+
+    def test_ridge_raster_cells_fill_uneven_axes_without_gaps(self) -> None:
+        forward = [raster_cell_bounds(index, 160, 95, 815) for index in range(160)]
+        reverse = [raster_cell_bounds(index, 160, 95, 815, reverse=True) for index in range(160)]
+        self.assertEqual(forward[0][0], 95)
+        self.assertEqual(forward[-1][1], 815)
+        self.assertTrue(all(left[1] + 1 == right[0] for left, right in zip(forward, forward[1:])))
+        self.assertEqual(reverse[0][1], 815)
+        self.assertEqual(reverse[-1][0], 95)
+        self.assertTrue(all(left[0] - 1 == right[1] for left, right in zip(reverse, reverse[1:])))
 
     def test_ridge_memberships_reject_duplicate_spill_plane_n(self) -> None:
         best_root = self.root / "ridge_membership_best_root"
@@ -1117,6 +1181,61 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertTrue(all(int(row["selected_bpm_count"]) == int(row["subset_size"]) for row in heldout_rows))
         self.assertTrue(all("SELECTED_CHANNEL_COUNT_MISMATCH" not in row["quality_flags"] for row in heldout_rows))
         self.assertTrue((out / "heldout_parallel" / "evolution" / "heldout_progress" / "parent_status.json").exists())
+
+    def test_heldout_no_q_is_explicitly_unevaluable(self) -> None:
+        spectra_path = self.root / "heldout_no_q_spectra.npy"
+        tune_path = self.root / "heldout_no_q_tune.npy"
+        indices_path = self.root / "heldout_no_q_indices.npy"
+        np.save(spectra_path, np.ones((3, 2, 16), dtype=np.float32))
+        np.save(tune_path, np.linspace(0.60, 0.70, 16, dtype=np.float32))
+        np.save(indices_path, np.asarray([0, 1, 2], dtype=np.int64))
+        cache = {
+            "spectra_path": str(spectra_path),
+            "tune_axis_path": str(tune_path),
+            "bpm_indices_path": str(indices_path),
+        }
+        meta = {
+            ("H", index): {
+                "bpm_index": str(index),
+                "bpm_name": f"HP{index:03d}",
+                "digitizer": f"digitizer-{index}",
+                "source_key": f"{{TEST}}:HP{index:03d}:TBT_POSITION_RAW",
+                "plane": "H",
+            }
+            for index in range(3)
+        }
+        rows = [{
+            "collection": "collection",
+            "spill_id": "spill_1",
+            "plane": "H",
+            "subset_size": "1",
+            "subset_mask": "1",
+            "bpm_indices": "0",
+            "aggregator": "mean_power",
+            "source_rank": "1",
+            "q_hat": "",
+        }]
+        result = evaluate_heldout_group(cache, rows, meta, 0.0025)[0]
+        self.assertIn("NO_VALID_Q", result["quality_flags"])
+        for field in (
+            "heldout_candidate_fraction",
+            "heldout_power_support",
+            "heldout_prominence_at_qhat",
+            "selected_power_support",
+            "selected_prominence_at_qhat",
+            "selected_vs_heldout_delta",
+        ):
+            self.assertEqual(result[field], "")
+
+    def test_fixed_score_contract_accepts_flagged_no_visible_state(self) -> None:
+        row = {
+            "visible_fraction": "0",
+            "median_prominence": "",
+            "score": "0",
+            "quality_flags": "NO_VALID_Q|NO_VISIBLE_TUNE",
+        }
+        self.assertFalse(fixed_score_contract_mismatches([row]))
+        self.assertTrue(fixed_score_contract_mismatches([{**row, "quality_flags": ""}]))
 
     def test_best_bpm_verifier_reports_missing_outputs(self) -> None:
         out = self.root / "incomplete_best_bpm"

@@ -46,6 +46,8 @@ HELDOUT_SUMMARY_FIELDS = [
     "subset_size",
     "aggregator",
     "row_count",
+    "evaluable_row_count",
+    "evaluable_fraction",
     "median_heldout_candidate_fraction",
     "median_heldout_power_support",
     "median_selected_vs_heldout_delta",
@@ -153,6 +155,8 @@ def evaluate_group(
         heldout_positions = sorted(all_positions - selected_positions)
         selected_positions_sorted = sorted(selected_positions)
         flags: list[str] = []
+        if not math.isfinite(q_hat):
+            flags.append("NO_VALID_Q")
         if not selected_positions_sorted:
             flags.append("NO_SELECTED_BPM")
         if not heldout_positions:
@@ -166,7 +170,17 @@ def evaluate_group(
         sel_prom = prominence[selected_positions_sorted] if selected_positions_sorted else np.asarray([], dtype=np.float32)
         held_power = median([float(v) for v in held_support])
         sel_power = median([float(v) for v in sel_support])
-        candidate_fraction = float(np.mean(held_support >= 3.0)) if held_support.size else math.nan
+        finite_held_support = held_support[np.isfinite(held_support)]
+        finite_selected_support = sel_support[np.isfinite(sel_support)]
+        candidate_fraction = (
+            float(np.mean(finite_held_support >= 3.0))
+            if finite_held_support.size
+            else math.nan
+        )
+        if math.isfinite(q_hat) and not finite_held_support.size:
+            flags.append("NO_FINITE_HELDOUT_SUPPORT")
+        if math.isfinite(q_hat) and not finite_selected_support.size:
+            flags.append("NO_FINITE_SELECTED_SUPPORT")
         identities = identity_fields(row["plane"], [int(bpm_indices[pos]) for pos in selected_positions_sorted], meta_by_index)
         out.append(
             {
@@ -232,12 +246,30 @@ def summarize(rows: Sequence[dict[str, object]]) -> list[dict[str, object]]:
     out: list[dict[str, object]] = []
     for (plane, subset_size, aggregator) in sorted(grouped):
         group = grouped[(plane, subset_size, aggregator)]
+        evaluable = [
+            row
+            for row in group
+            if all(
+                math.isfinite(_f(row.get(field)))
+                for field in (
+                    "q_hat",
+                    "heldout_candidate_fraction",
+                    "heldout_power_support",
+                    "heldout_prominence_at_qhat",
+                    "selected_power_support",
+                    "selected_prominence_at_qhat",
+                    "selected_vs_heldout_delta",
+                )
+            )
+        ]
         out.append(
             {
                 "plane": plane,
                 "subset_size": subset_size,
                 "aggregator": aggregator,
                 "row_count": len(group),
+                "evaluable_row_count": len(evaluable),
+                "evaluable_fraction": _fmt(len(evaluable) / len(group) if group else math.nan),
                 "median_heldout_candidate_fraction": _fmt(median([_f(row.get("heldout_candidate_fraction")) for row in group])),
                 "median_heldout_power_support": _fmt(median([_f(row.get("heldout_power_support")) for row in group])),
                 "median_selected_vs_heldout_delta": _fmt(median([_f(row.get("selected_vs_heldout_delta")) for row in group])),
@@ -301,6 +333,7 @@ def evaluate_heldout_support(
         f"- tune half-width: `{tune_half_width}`\n"
         f"- finalist rows read: `{len(rows)}`\n"
         f"- output rows: `{len(output)}`\n"
+        f"- evaluable rows: `{sum(int(row['evaluable_row_count']) for row in summary_rows)}` / `{len(output)}`\n"
         f"- workers: `{worker_count}`\n"
         "- support is computed from non-selected BPM spectra at each finalist q_hat.\n",
     )

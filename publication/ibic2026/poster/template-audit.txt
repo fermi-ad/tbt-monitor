@@ -1,0 +1,35 @@
+Template audit: FNAL Scientific Poster A0 Vertical, May 2025
+Source SHA-256: ca9647b1db39860ebdc83854c432842f0dd09b0a7601c8f4af1bd2bf405468a9
+
+Source structure
+- Two A0 portrait source slides, each 33.1 x 46.8 inches.
+- Source slide 1, layout "2 column", is the selected frame.
+- Source slide 2 is omitted because its text-heavy layout leaves less room for
+  the required visual evidence.
+
+Inherited contract
+- Preserve the FNAL blue header and footer bands and authentic footer artwork.
+- Preserve the one-inch outer margins, gutter logic, and footer clear space.
+- Preserve inherited Helvetica typography and FNAL blue section headings; use
+  the template's documented Arial fallback if the PDF renderer cannot preserve
+  Helvetica.
+- Replace the five scientific sample images inside their inherited frames.
+- Delete only the explicitly mapped authoring arrows, instructions, sample
+  photographs, and unrelated sample logos.
+- Do not add a parallel background, replacement brand bar, or new logo system.
+
+Evidence-frame roles
+- Upper-left pair: leakage-controlled Best-N evidence for H and V.
+- Wide lower-left: exact-paired, shared-scale 50000-turn H/V ridge comparison.
+- Upper-right: selected-spill adaptive-ensemble spectral evidence.
+- Lower-right: H-plane tracking-loss diagnostic with no imposed onset.
+- Text frames: method, quantitative interpretation, limitations, and claim
+  boundaries.
+
+QA contract
+- Author from the prepared template starter with @oai/artifact-tool.
+- Use contain fitting for every scientific plot; never crop axes or legends.
+- Reject provisional wording, unresolved placeholders, missing assets, image
+  frames under 500 x 300 pixels, overlap, clipping, or template-fidelity loss.
+- Inspect the full-size A0 raster, final layout JSON, exported slide XML, PDF,
+  and editable PPTX before delivery.

@@ -1,0 +1,21 @@
+results_table.tex contract
+
+The generated file contains one table* environment and no document preamble.
+It is built only after the Best-N block-20 root and selected full-buffer ridge
+root both pass their strict verifiers.
+
+The table uses `\small`, `@{}` outer padding, concise two-line-safe headings,
+and an ordinary `tabular`; it must fit `\textwidth` without `\resizebox` or an
+overfull box. Keep interval notation compact enough to preserve legibility.
+
+Required columns, one H row and one V row:
+- plane
+- recommended global N, or "none" with the verifier rationale
+- blind full-band selected/held-out agreement and 95% collection-block interval
+- median blind selected/held-out absolute tune delta and 95% interval
+- paired adaptive-minus-legacy median IQR delta and 95% turn-block interval
+- paired shared-ridge probability-mass gain and 95% turn-block interval
+
+The caption must distinguish spill-block Best-N intervals from turn-block ridge
+intervals. It must state that the ridge values describe exact-paired pick
+concentration, not absolute tune accuracy or measured physical noise.

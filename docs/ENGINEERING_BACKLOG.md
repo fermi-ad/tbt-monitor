@@ -33,16 +33,27 @@ None.
 
 ## In Progress
 
+### [ENG-037] Verifier-bound IBIC publication materialization
+- Status: in_progress
+- Owner: project
+- Type: reliability
+- Why: the A0 poster and JACoW paper scaffolds rejected placeholders but had no code path proving that their copy, selected N, tables, and five final figures came from the same accepted primary, follow-up, Best-N, intensity, and ridge roots.
+- Scope: render a plane-specific H/V ridge composite when H and V select different N; generate clean selected-N concentration panels; require the plane choices in the ridge run contract and verifier; materialize poster `content.json`, paper `results_table.tex`, exact figure copies, a machine-readable results payload, and a checksummed source manifest from accepted roots; allow valid empty LaTeX option lists while still rejecting unresolved bracket placeholders.
+- Acceptance: local tests cover mixed H/V rendering and plane-specific publication copy; corrected Spark ridge output contains the contract-bound mixed composite and selected-plane concentration panels; publication preparation rejects failed reports, mismatched N, unresolved block sensitivity, retained intensity weighting, missing cross-collection transfer, or undersized images; final A0 poster and four-page paper pass their layout/compliance gates.
+- Docs: README.md, NEXT_STEPS.md, docs/USAGE.md, docs/SPARK.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md, publication/ibic2026/README.md, publication/ibic2026/poster/README.md, publication/ibic2026/paper/README.md
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/prepare_ibic2026_publication.py scripts/make_best_bpm_ridge_density.py scripts/bpm_mining/ridge_verification.py; PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; strict Spark ridge and publication preparation pass; A0 PPTX/PDF/PNG visual QA; exact four-page JACoW PDF QA
+- Notes: plane-specific N is allowed because H and V are independent diagnostics. The mixed four-panel image still uses one shared P98-clipped color scale, but visual thickness is compared only within each plane because the tune-band widths differ.
+
 ### [ENG-036] Semantic publication artifacts and nonduplicating continuation
 - Status: in_progress
 - Owner: project
 - Type: fix
 - Why: subset visibility duration used the whole fit span after one visible window; compatibility plots reused unrelated data or mislabeled local index/N as ring order/compute cost; handoff top-five counts were constant even without visible channels; and the waiting `--resume` continuation would repeat the completed subset search.
 - Scope: compute duration only between actually visible windows; repair the active result rows from cached spectra before statistics with hashes; render key poster candidates with the native PNG path; derive every named compatibility plot from its actual table; classify visible-set loss/recovery/empty/handoff states; retain nested strict Top-1/3/5/10 sets and every selected-spill composite; add semantic primary/follow-up verification; invoke only downstream stages after the active search.
-- Acceptance: regression tests reproduce and repair duration, empty-set Jaccard is one, recommended poster files are real PNGs without Matplotlib, every required global/per-spill handoff asset exists, corrupted exact identities and semantic sidecars fail, cluster H/V medians are finite, and the Spark continuation contains no full-pipeline/subset-search call.
+- Acceptance: regression tests reproduce and repair duration, empty-set Jaccard is one, recommended poster files are real PNGs without Matplotlib, every required global/per-spill handoff asset exists, explicitly flagged no-visible/no-q rows remain auditable without being mistaken for zero support, corrupted exact identities and available-row metrics fail, cluster H/V medians are finite, and the Spark continuation contains no full-pipeline/subset-search call.
 - Docs: README.md, NEXT_STEPS.md, docs/USAGE.md, docs/SPARK.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
 - Validation: python3 -m compileall -q scripts; python3 -m unittest discover -s scripts -p 'test_*.py' -v; bash -n staged Spark scripts; strict corrected primary and follow-up Spark verifiers; rendered gallery review
-- Notes: selection scores and memberships were unaffected by the duration-field defect; the repair changes only that descriptive field before dependent summaries are regenerated.
+- Notes: selection scores and memberships were unaffected by the duration-field defect; the repair changes only that descriptive field before dependent summaries are regenerated. Held-out summaries report both total and evaluable rows because missing `q_hat` is a scientific coverage result, not a numerical zero.
 
 ### [ENG-035] Fail-closed run provenance and shard merging
 - Status: in_progress
@@ -72,10 +83,10 @@ None.
 - Type: reliability
 - Why: the ridge renderer could exit successfully while only reporting an aggregate warning count, so missing memberships, incomplete exact pairing, or absent figure files could escape publication review.
 - Scope: persist every generation warning and verify requested-N spill/window coverage, exact member cardinality, tune-band bounds, unique ridge keys, exact 2000-spill adaptive and 1988-spill legacy coverage, finite contrast metrics, loss/role coverage, every per-N shared-scale H/V comparison and other manifest PNG/caption, and an exact match to the archived `18d321dbd4fe` tracking protocol.
-- Acceptance: the verifier fails on an incomplete synthetic output root; the full Spark 50000-turn gallery passes at the declared minimum spill and 180-center coverage; every remaining noncritical warning receives written disposition before a panel is used.
+- Acceptance: the verifier fails on an incomplete synthetic output root; proportional raster cells fill the full declared tune axis without gaps or overlay displacement; the full Spark 50000-turn gallery passes at the declared minimum spill and 180-center coverage; every remaining noncritical warning receives written disposition before a panel is used.
 - Docs: README.md, NEXT_STEPS.md, docs/USAGE.md, docs/SPARK.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
 - Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/ridge_verification.py scripts/make_best_bpm_ridge_density.py scripts/verify_ridge_density_outputs.py scripts/test_best_bpm_mining.py; PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; full Spark ridge pass and strict verifier
-- Notes: subtractive plots remain exact-pair probability redistribution diagnostics, not physical noise measurements.
+- Notes: subtractive plots remain exact-pair probability redistribution diagnostics, not physical noise measurements. The older standalone raster used floor-divided cell heights and could misalign density with percentile overlays; paired panels were unaffected, and all corrected panels use proportional inclusive cell bounds.
 
 ### [ENG-032] Non-circular block inference and matched-pairs effect size
 - Status: in_progress

@@ -38,6 +38,8 @@ Treat these as baseline rather than open TODOs:
 - exact-cache visibility-duration repair plus semantic verification of result
   identities, fixed/held-out controls, handoff transitions, poster balance,
   and recommended PNG payloads
+- explicit no-visible/no-q quality states plus held-out evaluable-row coverage;
+  unavailable support must never be encoded as a zero effect
 - corrected exact-channel identity and ring-order reconstruction across the
   primary and every downstream sidecar
 - contiguous leakage-controlled Best-N curves with purged later-window and
@@ -53,6 +55,10 @@ Treat these as baseline rather than open TODOs:
 - strict intensity verification of the audited pair count, complete method/turn
   grids, payload horizon, exact N=1 equality, effect decisions, and gallery
   assets; 10/20/40 blocks must retain the same exact effect identities
+- verifier-bound publication materialization with independent H/V Best-N,
+  exact-paired mixed ridge comparison, selected-N H-loss panel, poster copy,
+  paper table, and source hashes; final execution remains gated on the active
+  Best-N, intensity, and ridge passes
 
 ## 2. Deferred Production Enhancements (Not Publication TODO)
 
@@ -234,6 +240,8 @@ Required for the publication review:
 - exact-point-paired legacy-versus-adaptive H/V ridge panels, one shared-scale
   four-panel H/V comparison for every requested N, and subtractive
   redistribution maps
+- full-axis density raster coverage with percentile and median overlays on the
+  identical tune-to-pixel mapping
 - H-plane concentration, width, entropy, confidence, fallback, and data-derived
   loss-candidate diagnostics
 - block-aware intensity result tables and indexed review gallery

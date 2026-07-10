@@ -295,6 +295,11 @@ from the same cache with the same evolution score. Treat it as a descriptive
 control because the original dynamic memberships reuse their selection
 windows; later-window digitizer-disjoint Best-N validation is the publication
 inference.
+No-visible fixed/control rows and no-`q_hat` held-out rows are retained with
+explicit quality flags and blank unavailable metrics. The held-out summary
+reports evaluable coverage; the semantic verifier accepts those states only
+when identity/cardinality remain exact and rejects any missing metric for a
+finite `q_hat`.
 
 The artifact pass keeps compatibility outputs under `artifacts/global/` and
 `artifacts/spills/`, and writes the curated poster-review set under
@@ -316,7 +321,7 @@ BESTN=/home/derekste/best_n_20260709
   --inputs "$ROOT" \
   --out "$BESTN/shards/shard_0" \
   --device cuda \
-  --max-n 30 \
+  --max-n 40 \
   --beam-width 64 \
   --validation-beam-width 64 \
   --folds 5 \
@@ -335,7 +340,7 @@ BESTN=/home/derekste/best_n_20260709
 
 "$PY" scripts/verify_best_n_outputs.py \
   --root "$BESTN/merged" \
-  --max-n 30 \
+  --max-n 40 \
   --curve-cache-rows 4000 \
   --validation-cache-rows 1000 \
   --folds 5
@@ -360,8 +365,10 @@ not GPU selection. Blocks are non-circular and never join collection endpoints.
 Configured sign-flip sample counts are executed without an undocumented cap.
 Merge each variant separately, then compare completed runs with
 `scripts/compare_best_n_beam_widths.py` or
-`scripts/compare_best_n_sensitivity.py`. Extend beyond N=30 only if the blind
-agreement and selected/held-out contrast curves have not reached a plateau;
+`scripts/compare_best_n_sensitivity.py`. The bounded N=30 benchmark put the V
+recommendation on the upper boundary, so the definitive run extends through
+N=40. Extend again only if the blind agreement and selected/held-out contrast
+curves remain boundary-limited;
 five-fold validation cannot select more channels than remain in a training
 fold.
 
@@ -372,7 +379,7 @@ The reproducible sample sensitivity matrix is:
   --inputs "$ROOT" \
   --out "$BESTN/sensitivity" \
   --device cuda \
-  --max-n 30 \
+  --max-n 40 \
   --curve-limit 400 \
   --validation-limit 200 \
   --folds 5 \
@@ -450,14 +457,16 @@ Best-N memberships, run the full-buffer ridge-density sidecar:
   --min-peak-confidence 2.0 \
   --track-half-width 0.005 \
   --max-tune-step-per-window 0.005 \
-  --subset-sizes 1 3 5 10 15 20 30 \
+  --subset-sizes 1 3 5 10 15 20 30 40 \
+  --selected-h-n "$H_N" \
+  --selected-v-n "$V_N" \
   --comparison-bootstrap-samples 1000 \
   --extraction-context-variants \
   --progress 100
 
 "$PY" scripts/verify_ridge_density_outputs.py \
   --root "$OUT/ridge_density_best_ensemble" \
-  --subset-sizes 1 3 5 10 15 20 30 \
+  --subset-sizes 1 3 5 10 15 20 30 40 \
   --minimum-spills 1900 \
   --expected-centers 180
 ```
@@ -470,12 +479,27 @@ and an indexed gallery. Primary figures omit the broad extraction-review marker;
 separately named context variants may show it. The method applies members chosen
 from early fit windows through the 0-50000-turn buffer. It tests persistence and
 does not perform same-window dynamic reselection.
+Set `H_N` and `V_N` from the accepted block-20 Best-N recommendations. The
+additional mixed H/V composite uses the selected membership for each plane,
+and selected-N concentration panels avoid presenting every requested N in the
+final H-loss frame. Both values are stored in `run_contract.json` and required
+by the verifier.
 The legacy table contains one tracked tune pick per spill/window, not spectral
 power. The explicit settings above match archived job `18d321dbd4fe`; the
 verifier rejects protocol drift and requires all 2000 adaptive and all 1988
 legacy spill-planes on the exact 180-center grid, every per-N combined H/V
 comparison, every other manifest PNG/caption, and machine-readable disposition
 of generation warnings.
+The native renderer proportionally maps every tune bin over the complete plot
+height; this keeps standalone and subtractive heatmaps aligned with their tune
+axis and percentile overlays when the pixel height is not divisible by the bin
+count.
+
+After the intensity refresh and ridge verifier pass, run
+`scripts/prepare_ibic2026_publication.py` with the corrected primary/follow-up,
+Best-N parent, ridge, and intensity parent roots. Run it on Spark before
+copy-back when the large ridge CSVs remain in place; only the generated
+publication tree and review galleries need transfer to the local checkout.
 
 If an original artifact must be revisited, Spark can reach the acquisition host
 with forwarded credentials via `ssh -K drbpm1`; copy or package the smallest

@@ -62,6 +62,34 @@ the publication audit:
     but silently capped execution at 5,000. The corrected block sign-flip test
     honors the declared count exactly (with only the existing 100-draw floor),
     so the method text and executed Monte Carlo sample size cannot diverge.
+11. Standalone ridge-density and density-difference PNGs divided the plot
+    height by the tune-bin count with integer truncation. The unused remainder
+    left the heatmap short of the declared tune axis while percentile tracks
+    used the full axis. Paired H/V panels already used proportional cell bounds;
+    the corrected renderer now applies those bounds to every density panel and
+    a regression test requires complete, gap-free axis coverage.
+12. The first strict follow-up verifier treated an unavailable tune as corrupt
+    even when the row correctly represented no visible tune: 19,004 fixed or
+    dynamic control rows had `visible_fraction=0`, `score=0`, and no finite
+    prominence, while 504,074 held-out rows had exact selected cardinality but
+    no finite finalist `q_hat`. The held-out producer also converted an empty
+    comparison (`NaN >= 3`) into a misleading candidate fraction of zero.
+    Corrected rows retain explicit `NO_VISIBLE_TUNE`/`NO_VALID_Q` flags, leave
+    every unavailable metric blank, and report evaluable counts/fractions.
+    Verification still requires exact identities and finite support metrics
+    whenever `q_hat` exists.
+13. The publication scaffold rejected placeholder copy but did not bind final
+    H/V ensemble sizes, numerical text, table rows, and exact figure files to
+    one set of accepted analysis roots. It could therefore be populated by a
+    stale or single-N image without violating the layout gate. Corrected
+    materialization requires every primary/follow-up/Best-N/intensity/ridge
+    report, preserves independent H/V N in a mixed four-panel ridge image, and
+    writes a machine-readable results payload plus source hashes.
+14. The paper build's unresolved-placeholder regex also rejected the valid
+    JACoW declaration `\documentclass[]{jacow}` because it treated every empty
+    LaTeX option list as a placeholder. The corrected gate still rejects
+    bracket placeholders containing whitespace but permits syntactically valid
+    empty option lists.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;
@@ -144,12 +172,12 @@ Completion status:
 
 | Deliverable | Status | Completion evidence |
 | --- | --- | --- |
-| Exact identity/ring-order implementation and regression tests | complete | local 50-test Best-BPM suite and 9 autosweep tests pass; six process-pool tests are skipped only by the local sandbox; corrected Spark rerun active |
-| Corrected Best-1/3/5 primary and downstream rerun | pending | corrected Spark root plus verifier |
-| Best-N curve through at least N=20 | in progress | seven-run beam/fit/fold sensitivity matrix and fail-closed verifier pass locally; blind/disjoint validation, selected and held-out contrast, block-bootstrap intervals, cross-collection transfer, and full Spark shard merge pending |
+| Exact identity/ring-order implementation and regression tests | complete | local 54-test Best-BPM suite and 9 autosweep tests pass; all 62 previously committed tests plus byte compilation pass on Spark |
+| Corrected Best-1/3/5 primary and downstream rerun | complete | primary and follow-up strict verifiers both report zero failures and zero warnings; every required fixed, held-out, artifact, and handoff product is present |
+| Best-N curve through at least N=20 | in progress | bounded N=30 trial put V at the boundary; definitive four-shard N=40 curve is active, followed by block and seven-run beam/fit/fold sensitivity |
 | 200-spill intensity hypothesis test | in progress | initial 199-spill pass and block-aware re-summary found 0 FDR-significant/0 practical effects; corrected all-zero gate fallback, exact N=1 contract, and strict payload/window/effect/gallery verifier pass locally; 200-spill gate-refresh merge/gallery pending |
 | Corrected 50000-turn ridge/difference/concentration gallery | pending | exact-source-key full-buffer sidecar plus strict spill/window/pair/metric/PNG/caption verifier |
-| All required handoff, fixed, held-out, artifact, and report tasks below | pending | corrected follow-up verifier and task audit |
+| All required handoff, fixed, held-out, artifact, and report tasks below | complete | corrected follow-up verifier passes 32,000 fixed, 800,000 held-out, 201,240 visibility, 13,104 handoff-event, 4,680 summary rows, and every required artifact |
 | Fermilab-template A0 poster and visual QA | pending | editable PPTX, PDF, rendered PNG, template audit |
 | JACoW-compliant four-page paper and visual QA | pending | source, PDF, figures, references, compliance check |
 | Scoped commits/PRs, merged docs, and clean repository | pending | merged PR URLs and clean `git status` |
@@ -1174,6 +1202,10 @@ Color/artifact ideas:
    panels. It does not turn diffuse-pick suppression into a measurement of
    physical noise; paired counts, sample-fraction diagnostics, and quantitative
    width/entropy/mass tables remain required alongside it.
+   When the accepted H and V recommendations differ, also render the
+   contract-bound plane-selected comparison and selected-N concentration
+   panels. Do not use the vertical recommendation as an unlabeled horizontal
+   default.
 
    Actual completed outputs:
 

@@ -442,8 +442,19 @@ def _followup_semantic_check(root: Path) -> dict[str, object]:
             visible = _number(row.get("visible_fraction"))
             prominence = _number(row.get("median_prominence"))
             score = _number(row.get("score"))
-            expected = visible * max(0.0, min(1.0, prominence / 12.0))
-            if not all(math.isfinite(value) for value in (visible, prominence, score)) or abs(score - expected) > 1e-7:
+            flags = str(row.get("quality_flags", ""))
+            finite_score_state = math.isfinite(visible) and math.isfinite(score)
+            if math.isfinite(prominence):
+                expected = visible * max(0.0, min(1.0, prominence / 12.0))
+                valid_score = finite_score_state and abs(score - expected) <= 1e-7
+            else:
+                valid_score = (
+                    finite_score_state
+                    and visible == 0.0
+                    and score == 0.0
+                    and "NO_VISIBLE_TUNE" in flags
+                )
+            if not valid_score:
                 bad_scores += 1
             method = str(row.get("method", ""))
             if method.startswith(("dynamic_best", "fixed_top")):
@@ -477,8 +488,7 @@ def _followup_semantic_check(root: Path) -> dict[str, object]:
         if len(keys) != len(set(keys)):
             messages.append(f"held-out evaluation duplicate keys: {len(keys) - len(set(keys))}")
         bad_rows = 0
-        numeric_fields = (
-            "q_hat",
+        support_fields = (
             "heldout_candidate_fraction",
             "heldout_power_support",
             "heldout_prominence_at_qhat",
@@ -488,13 +498,20 @@ def _followup_semantic_check(root: Path) -> dict[str, object]:
         )
         for row in rows:
             size = int(row.get("subset_size") or 0)
-            if (
+            flags = str(row.get("quality_flags", ""))
+            identity_bad = (
                 int(row.get("selected_bpm_count") or 0) != size
                 or int(row.get("heldout_bpm_count") or 0) <= 0
                 or len(parse_indices(row.get("bpm_indices"))) != size
-                or any(not math.isfinite(_number(row.get(field))) for field in numeric_fields)
-                or "SELECTED_CHANNEL_COUNT_MISMATCH" in str(row.get("quality_flags", ""))
-            ):
+                or "SELECTED_CHANNEL_COUNT_MISMATCH" in flags
+            )
+            q_hat = _number(row.get("q_hat"))
+            support_finite = [math.isfinite(_number(row.get(field))) for field in support_fields]
+            if math.isfinite(q_hat):
+                metric_bad = not all(support_finite) or "NO_VALID_Q" in flags
+            else:
+                metric_bad = "NO_VALID_Q" not in flags or any(support_finite)
+            if identity_bad or metric_bad:
                 bad_rows += 1
         if bad_rows:
             messages.append(f"held-out rows fail cardinality, finite-metric, or quality checks: {bad_rows}")
