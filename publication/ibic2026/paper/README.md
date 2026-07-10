@@ -45,4 +45,4 @@ the corrected results justify a narrower factual update.
 Generate `results_table.tex`, `results_macros.tex`, and the five files under `figures/` with
 `scripts/prepare_ibic2026_publication.py`; the script rejects any mismatch
 between the selected Best-N rows and the plane-specific full-buffer ridge
-contract.
+contract and requires the passing 2200-manifest raw-payload audit.

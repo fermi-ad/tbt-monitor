@@ -347,12 +347,13 @@ BESTN=/home/derekste/best_n_20260709
 ```
 
 Repeat the evaluator for shard indices 1 through 3 before merging. Four
-logical shards are required for deterministic coverage, but execute them in
-two-worker waves on Spark's single GB10. A measured four-process, max-N=40
-launch rose from about 105 GiB to more than 115 GiB of unified memory and made
+logical shards are required for deterministic coverage, but execute exactly
+one max-N=40 evaluator at a time on Spark's single GB10. A measured four-process,
+max-N=40 launch rose from about 105 GiB to more than 115 GiB of unified memory and made
 the host unresponsive; four-way CUDA concurrency is therefore prohibited for
-this workload. Keep the foreground coordinator and workers in one process
-group, preserve per-shard resume files, and do not overlap Best-N with
+this workload, and two-way execution has not been qualified. Keep the
+foreground coordinator and workers in one process group, preserve per-shard
+resume files, and do not overlap Best-N with
 sensitivity, intensity, or ridge jobs. Positive curve/validation limits are
 evenly stratified across collection and plane. Record any limit in the report
 and use the full curve for the final global-N recommendation.
@@ -438,6 +439,26 @@ method; a finite-but-below-threshold gate keeps the strongest finite member.
 The window/spill CSVs and merged summary expose fallback reasons and frequency;
 there is no silent intensity fallback.
 
+Before interpreting either the intensity or 50000-turn ridge products, scan
+the complete publication corpus independently of the FFT paths:
+
+```bash
+"$PY" scripts/audit_delivery_ring_payloads.py \
+  --capture-root /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-183119 \
+  --capture-root /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-231330 \
+  --capture-root "$INTENSITY_CAPTURE" \
+  --out "$OUT/delivery_ring_payload_audit" \
+  --analysis-turns 50000 \
+  --plateau-turns 128
+```
+
+The audit must cover 2200 manifests, 263999 raw position rows, and 23999 exact
+raw position/intensity pairs. It fails on first-50000-turn nonfinite samples,
+advertised/on-disk count differences, exact plateaus of 128 turns or more, and
+repeated device-coded threshold fallback pairs. The one known incomplete
+120-channel intensity manifest remains counted and visible; it is not silently
+dropped. See `docs/DELIVERY_RING_SOURCE_AUDIT.md` for the upstream live audit.
+
 To reproduce the old `18d321db` ridge-density visual grammar with corrected
 Best-N memberships, run the full-buffer ridge-density sidecar:
 
@@ -512,9 +533,9 @@ height; this keeps standalone and subtractive heatmaps aligned with their tune
 axis and percentile overlays when the pixel height is not divisible by the bin
 count.
 
-After the intensity refresh and ridge verifier pass, run
+After the raw-payload, intensity, and ridge verifiers pass, run
 `scripts/prepare_ibic2026_publication.py` with the corrected primary/follow-up,
-Best-N parent, ridge, and intensity parent roots. Run it on Spark before
+Best-N parent, ridge, intensity parent, and payload-audit roots. Run it on Spark before
 copy-back when the large ridge CSVs remain in place; only the generated
 publication tree and review galleries need transfer to the local checkout.
 The generated paper tree includes `results_table.tex`, `results_macros.tex`,

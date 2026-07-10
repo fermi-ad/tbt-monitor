@@ -481,7 +481,8 @@ uses seven unique sample runs with one shared baseline; it does not replace the
 all-row primary curve.
 `scripts/prepare_ibic2026_publication.py` is the final provenance gate. It
 requires accepted primary/follow-up, Best-N 10/20/40-block, intensity, and
-ridge reports; checks cross-collection transfer and the seven-run matrix; and
+ridge reports plus the exact 2200-manifest raw-payload audit; checks
+cross-collection transfer and the seven-run matrix; and
 copies the exact figures while writing the poster JSON, paper table, results
 payload, and source manifest. The paper copy additionally binds the selected-H
 and selected-V exact-paired P10-P90 width-contrast plots so the time-resolved
@@ -497,6 +498,8 @@ The intensity gallery is held to the same closure standard: the audited capture
 counts, first-50000-turn integrity, complete method grids, exact Best-1
 zero-effect control, all statistical/practical/tune-shift gates, and every PNG
 with its claim guardrail must pass before an intensity panel is considered.
+The independent raw-payload audit also covers both position-only collections;
+passing intensity-pair checks cannot waive a position source failure.
 Held-out support captions and tables must state their evaluable numerator and
 denominator. A finalist row without finite `q_hat` is retained as an explicitly
 flagged unavailable observation; it contributes neither a zero candidate

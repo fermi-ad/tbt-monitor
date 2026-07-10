@@ -33,6 +33,17 @@ None.
 
 ## In Progress
 
+### [ENG-038] Delivery Ring producer and raw-payload publication integrity
+- Status: in_progress
+- Owner: project
+- Type: reliability
+- Why: the Delivery Ring producer can emit finite device-coded below-threshold values in scaled streams, its bind-mounted Python can drift from the running process, and a finite raw placeholder or plateau could pass ordinary plausibility checks while creating false spectral structure.
+- Scope: document the dated read-only drbpm1/drbpm2 topology and live raw/scaled comparison; scan every publication raw payload through turn 50000 for topology, count, finite-data, long exact plateau, and device-coded fallback-pair integrity; bind the exact corpus report into publication preparation and finalization.
+- Acceptance: synthetic tests detect paired exact plateaus and fallback runs; the Spark audit covers 2200 manifests, 263999 raw position rows, and 23999 exact raw pairs with zero blocking findings; final materialization rejects a missing, partial, or failed audit.
+- Docs: README.md, NEXT_STEPS.md, docs/USAGE.md, docs/SPARK.md, docs/DELIVERY_RING_SOURCE_AUDIT.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md, publication/ibic2026/README.md, publication/ibic2026/poster/README.md, publication/ibic2026/paper/README.md
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/payload_integrity.py scripts/audit_delivery_ring_payloads.py scripts/prepare_ibic2026_publication.py scripts/finalize_ibic2026_publication.py scripts/test_best_bpm_mining.py; PYTHONPATH=scripts PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; strict Spark payload audit and publication preparation pass
+- Notes: a same-ID HP101 live event contained zero device-coded values in both raw arrays and 221215 in both scaled arrays, resolving the threshold-placeholder concern for the raw boundary. The loaded process predates the current bind-mounted source, so the exhaustive payload scan remains required evidence.
+
 ### [ENG-037] Verifier-bound IBIC publication materialization
 - Status: in_progress
 - Owner: project
@@ -141,7 +152,7 @@ None.
 - Acceptance: synthetic tests cover complete N curves, two-shard merge, matrix deduplication, and strict verification; a Spark smoke produces non-saturated validation metrics; the full 2000-spill curve and disjoint validation quantify the knee through at least N=20 or document why a larger N is still required; beam/fit/fold and 10/20/40-spill block-length sensitivity do not reveal an unresolved recommendation; every full and sample output passes `verify_best_n_outputs.py`.
 - Docs: README.md, NEXT_STEPS.md, docs/USAGE.md, docs/SPARK.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
 - Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/best_n.py scripts/bpm_mining/best_n_sensitivity.py scripts/bpm_mining/best_n_verification.py scripts/evaluate_best_n_curve.py scripts/merge_best_n_shards.py scripts/run_best_n_sensitivity_matrix.py scripts/verify_best_n_outputs.py scripts/test_best_bpm_mining.py; PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; Spark CuPy smoke; full Spark sharded run, block remerges, seven-run sensitivity matrix, and strict verification
-- Notes: the automatic knee is a declared reproducibility/contrast non-inferiority rule; full metric curves remain the primary evidence. Four concurrent max-N=40 evaluators exceeded 115 GiB on Spark's single GB10 and forced a reboot, so the four logical shards run in two-worker waves and every later GPU stage is serialized.
+- Notes: the automatic knee is a declared reproducibility/contrast non-inferiority rule; full metric curves remain the primary evidence. Four concurrent max-N=40 evaluators exceeded 115 GiB on Spark's single GB10 and forced a reboot, so the four logical shards run strictly serially and every later GPU stage is serialized; two-way safety was not qualified.
 
 ### [ENG-026] Exact BPM identity and ring-order provenance correction
 - Status: in_progress

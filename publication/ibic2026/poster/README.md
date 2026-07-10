@@ -15,7 +15,8 @@ parallel visual rebuild are not permitted.
 
 Do not edit `content.json` or copy the five final PNGs by hand. Generate them
 with `scripts/prepare_ibic2026_publication.py`, which preserves independent H/V
-Best-N choices and records every source hash.
+Best-N choices, requires the exact corpus-wide raw-payload audit, and records
+every source hash.
 
 `content.json` must provide the text and asset keys enforced by
 `build_poster.mjs`. The builder rejects missing/undersized images, unresolved

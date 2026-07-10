@@ -25,6 +25,19 @@ MANIFEST_FIELDS = (
     "output_sha256",
 )
 
+PAYLOAD_AUDIT_EXPECTED = {
+    "analysis_turns": 50_000,
+    "plateau_turns": 128,
+    "manifest_count": 2_200,
+    "stream_rows": 263_999,
+    "paired_stream_rows": 23_999,
+    "incomplete_manifests": 1,
+    "flagged_rows": 0,
+    "position_plateau_rows": 0,
+    "paired_plateau_rows": 0,
+    "raw_device_fallback_pair_rows": 0,
+}
+
 
 def read_csv(path: Path) -> list[dict[str, str]]:
     if not path.is_file():
@@ -61,6 +74,41 @@ def require_report(path: Path) -> dict[str, object]:
     for field in ("error_count", "fail_count"):
         if field in report and int(report[field] or 0) != 0:
             raise ValueError(f"verification report contains failures: {path}: {field}={report[field]}")
+    return report
+
+
+def require_payload_audit(path: Path) -> dict[str, object]:
+    report = require_report(path)
+    if report.get("schema") != "tbt-monitor.delivery-ring-payload-audit/v1":
+        raise ValueError(f"unsupported Delivery Ring payload-audit schema: {path}")
+    mismatches = {
+        field: (int(report.get(field) or 0), expected)
+        for field, expected in PAYLOAD_AUDIT_EXPECTED.items()
+        if int(report.get(field) or 0) != expected
+    }
+    if mismatches:
+        raise ValueError(f"Delivery Ring payload audit does not match the publication corpus: {mismatches}")
+    topology = report.get("topology")
+    if not isinstance(topology, Mapping) or len(topology) != 3:
+        raise ValueError("Delivery Ring payload audit must cover all three publication collections")
+    for collection, raw in topology.items():
+        if not isinstance(raw, Mapping):
+            raise ValueError(f"Delivery Ring payload topology is invalid: {collection}")
+        expected = {
+            "unique_position_streams": 120,
+            "unique_h_streams": 60,
+            "unique_v_streams": 60,
+            "unique_digitizers": 30,
+        }
+        mismatches = {
+            field: (int(raw.get(field) or 0), value)
+            for field, value in expected.items()
+            if int(raw.get(field) or 0) != value
+        }
+        if mismatches or raw.get("bad_digitizers"):
+            raise ValueError(f"Delivery Ring payload topology mismatch for {collection}: {mismatches}")
+    if len(str(report.get("manifest_inventory_sha256") or "")) != 64:
+        raise ValueError("Delivery Ring payload audit is missing its manifest-inventory hash")
     return report
 
 
@@ -397,6 +445,7 @@ def prepare_publication(
     best_n_root: Path,
     ridge_root: Path,
     intensity_root: Path,
+    payload_audit_root: Path,
     publication_root: Path,
 ) -> dict[str, object]:
     best_n_block20 = best_n_root / "merged_block20"
@@ -407,9 +456,11 @@ def prepare_publication(
         *(best_n_root / f"merged_block{block}" / "best_n_verification.json" for block in (10, 20, 40)),
         ridge_root / "ridge_density_verification.json",
         intensity_block20 / "intensity_verification.json",
+        payload_audit_root / "delivery_ring_payload_audit.json",
     ]
-    for path in verification_paths:
+    for path in verification_paths[:-1]:
         require_report(path)
+    payload_audit = require_payload_audit(verification_paths[-1])
 
     best_n_contract = read_json(best_n_block20 / "run_contract.json")
     tune_half_width = float(best_n_contract.get("tune_half_width") or 0.0025)
@@ -536,6 +587,7 @@ def prepare_publication(
         "numeric_summary": numeric_summary,
         "intensity_effect_count": len(intensity_effects),
         "retained_intensity_effects": len(retained_effects),
+        "payload_integrity": payload_audit,
         "verification_reports": [str(path.resolve()) for path in verification_paths],
     }
     payload_path = publication_root / "results_payload.json"
@@ -576,6 +628,8 @@ def prepare_publication(
         f"- selected V ensemble: `Best-{selected_sizes['V']}`",
         *sensitivity_text,
         f"- retained intensity effects: `{len(retained_effects)}/{len(intensity_effects)}`",
+        f"- raw payload rows scanned through 50000 turns: `{payload_audit['stream_rows']}`",
+        f"- raw device-coded fallback pairs: `{payload_audit['raw_device_fallback_pair_rows']}`",
         "",
         "The ridge figure uses exact common spill/window picks and plane-specific selected N. Its subtraction and concentration metrics do not measure physical noise or absolute tune accuracy.",
         "",
@@ -603,6 +657,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--best-n-root", type=Path, required=True)
     parser.add_argument("--ridge-root", type=Path, required=True)
     parser.add_argument("--intensity-root", type=Path, required=True)
+    parser.add_argument("--payload-audit-root", type=Path, required=True)
     parser.add_argument(
         "--publication-root",
         type=Path,
@@ -616,6 +671,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.best_n_root.resolve(),
             args.ridge_root.resolve(),
             args.intensity_root.resolve(),
+            args.payload_audit_root.resolve(),
             args.publication_root.resolve(),
         )
     except ValueError as exc:
