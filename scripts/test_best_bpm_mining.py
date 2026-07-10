@@ -853,6 +853,7 @@ class BestBpmMiningTests(unittest.TestCase):
             240,
             0,
         )
+        self.assertEqual(content["author"], "Derek Steinkamp | Fermi National Accelerator Laboratory")
         self.assertIn("H Best-7", content["ridgeCaption"])
         self.assertIn("V Best-11", content["ridgeCaption"])
         self.assertIn("P10-P90 width minus legacy", content["ridgeContrastCaption"])
