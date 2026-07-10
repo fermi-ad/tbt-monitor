@@ -207,6 +207,19 @@ def finalize(
         raise ValueError("results payload contains a nonpositive selected size")
     if int(payload.get("retained_intensity_effects") or 0) != 0:
         raise ValueError("publication payload retains an intensity weighting effect")
+    best_n_design = payload.get("best_n_design")
+    if not isinstance(best_n_design, dict):
+        raise ValueError("publication payload is missing the Best-N study design")
+    for field, expected in (
+        ("curve_spill_plane_count", 4_000),
+        ("validation_spill_plane_count", 1_000),
+        ("digitizer_fold_count", 5),
+        ("maximum_n", 40),
+        ("curve_evaluation_row_count", 160_000),
+        ("validation_evaluation_row_count", 200_000),
+    ):
+        if int(best_n_design.get(field) or 0) != expected:
+            raise ValueError(f"publication Best-N study-design mismatch: {field}")
     payload_integrity = payload.get("payload_integrity")
     if not isinstance(payload_integrity, dict) or payload_integrity.get("status") != "pass":
         raise ValueError("publication payload does not contain a passing raw-payload audit")
@@ -266,6 +279,7 @@ def finalize(
         "",
         f"- selected ensembles: H Best-{selected_sizes['H']}, V Best-{selected_sizes['V']}",
         "- retained intensity weighting effects: 0",
+        "- Best-N design: 4000 full-curve spill-plane cases; 1000 validation cases x 5 folds",
         "- raw payload audit: 263999 streams through turn 50000, no blocking findings",
         "- Best-N sensitivity runs: 7",
         "- cross-collection transfer rows: 4 OK",

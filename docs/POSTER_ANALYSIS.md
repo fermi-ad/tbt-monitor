@@ -487,6 +487,10 @@ copies the exact figures while writing the poster JSON, paper table, results
 payload, and source manifest. The paper copy additionally binds the selected-H
 and selected-V exact-paired P10-P90 width-contrast plots so the time-resolved
 method comparison cannot drift from the ridge contract.
+Poster and manuscript copy must distinguish the 4000 H/V spill-plane cases in
+the full N curve from the evenly stratified 1000-case, five-fold held-out
+validation sample. Those counts come from the accepted verifier and generated
+macros, not manually maintained prose.
 Every subtractive ridge caption must say that color represents probability-mass
 redistribution, not measured physical noise. The primary density figures do not
 show a fixed extraction onset; a broad 10000--20000-turn context band may appear

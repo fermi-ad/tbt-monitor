@@ -317,7 +317,9 @@ config ranking. Its package modules cover:
   intensity weighting, and materializes the exact poster/paper figures,
   plane-specific results table, verifier-derived manuscript macros, poster
   copy, results payload, and source hashes. The macros prevent primary-score or
-  intensity-count prose from drifting when the accepted run grid changes.
+  intensity-count prose from drifting when the accepted run grid changes and
+  distinguish the full Best-N curve population from the stratified
+  digitizer-disjoint validation sample.
 - `scripts/finalize_ibic2026_publication.py`: final human-QA acknowledgment and
   delivery closure gate. It verifies immutable references, PDF geometry, render
   dimensions, required sources/figures, selected-N and sensitivity payload

@@ -637,6 +637,10 @@ Decision:
 - Verification must check primary cross-table identity and follow-up semantics,
   including shared score formulas, held-out cardinality/finite metrics, state
   transitions, plane balance, and every recommended poster PNG.
+- Best-N publication copy must state the full-curve and stratified-validation
+  case counts separately. Generate those values from the accepted verifier and
+  reject a final payload whose case, fold, N, or evaluation-row counts differ
+  from the definitive design.
 
 Why:
 - Correct filenames and valid CSV headers do not prove that a figure visualizes

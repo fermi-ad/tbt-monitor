@@ -46,3 +46,5 @@ Generate `results_table.tex`, `results_macros.tex`, and the five files under `fi
 `scripts/prepare_ibic2026_publication.py`; the script rejects any mismatch
 between the selected Best-N rows and the plane-specific full-buffer ridge
 contract and requires the passing 2200-manifest raw-payload audit.
+The generated macro set also supplies the definitive full-curve case count,
+stratified validation case count, and fold count used in manuscript prose.

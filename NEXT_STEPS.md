@@ -142,6 +142,13 @@ the publication audit:
     requires an exhaustive first-50000-turn scan of all 263,999 raw position
     rows and 23,999 paired raw intensity rows; any nonfinite sample, long exact
     plateau, or repeated device-coded raw fallback pair is fatal.
+22. The poster and manuscript identified 2,000 primary spills and five folds
+    but did not distinguish the 4,000 H/V spill-plane cases used for the full
+    N curve from the 1,000 evenly stratified cases used for digitizer-disjoint
+    validation. Publication materialization now reads those counts and the
+    160,000/200,000 curve/validation evaluation-row totals from the accepted
+    block-20 verifier, generates manuscript macros, writes them into the result
+    payload, and requires the finalizer to recheck the exact study design.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;

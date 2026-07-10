@@ -1033,7 +1033,10 @@ writes `poster/content.json`, `paper/results_table.tex`, verifier-derived
 `paper/results_macros.tex`, exact figure copies, `results_payload.json`,
 `PREPARATION_REPORT.md`, and `source_manifest.csv`. The macros bind primary
 Best-1/3/5 scores and intensity effect counts to the accepted tables instead of
-preserving literals from an earlier run.
+preserving literals from an earlier run. They also bind 4000 full-curve
+spill-plane cases, 1000 stratified validation cases, and five digitizer folds
+from the accepted block-20 Best-N verifier; materialization rejects any other
+study design.
 
 Package final publication sources, rendered deliverables, reports, and broad
 review galleries into one local handoff directory:
