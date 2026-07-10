@@ -1,6 +1,6 @@
 # Next Steps For Best-BPM Mining And IBIC Poster
 
-Last updated: 2026-07-09.
+Last updated: 2026-07-10.
 
 This file is a handoff for the next Codex/DevSpace pass. It consolidates the current repo review, Spark run status, physics assumptions, validation gaps, and the most important next analysis questions for the Delivery Ring BPM tune-tracking work.
 
@@ -116,6 +116,14 @@ the publication audit:
     `emb/sub/uni` fields and causing a false failure. Both paper and poster gates
     now read those three status fields relative to the right edge, where the
     trailing object and generation numbers have stable positions.
+19. The first definitive N=1-40 launch ran all four logical shards concurrently
+    on Spark's single GB10. The evaluators consumed about 105 GiB initially and
+    climbed above roughly 115 GiB of unified memory, making the host
+    unresponsive after only 10/1000 curve keys per shard and forcing a reboot.
+    Those partial rows are resume checkpoints, not accepted evidence. Recovery
+    keeps four logical shards for deterministic coverage but executes at most
+    two CUDA evaluators at once, anchors the workload to one monitored process
+    group, and serializes every later sensitivity, intensity, and ridge stage.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;
@@ -200,7 +208,7 @@ Completion status:
 | --- | --- | --- |
 | Exact identity/ring-order implementation and regression tests | complete | local 57-test Best-BPM suite and 9 autosweep tests pass; all 62 previously committed tests plus byte compilation pass on Spark |
 | Corrected Best-1/3/5 primary and downstream rerun | complete | primary and follow-up strict verifiers both report zero failures and zero warnings; every required fixed, held-out, artifact, and handoff product is present |
-| Best-N curve through at least N=20 | in progress | bounded N=30 trial put V at the boundary; definitive four-shard N=40 curve is active, followed by block and seven-run beam/fit/fold sensitivity |
+| Best-N curve through at least N=20 | in progress | bounded N=30 trial put V at the boundary; the first four-concurrent-shard N=40 launch exceeded unified memory and forced a Spark reboot, so checkpoint recovery proceeds in two-worker waves before block and seven-run beam/fit/fold sensitivity |
 | 200-spill intensity hypothesis test | in progress | initial 199-spill pass and block-aware re-summary found 0 FDR-significant/0 practical effects; corrected all-zero gate fallback, exact N=1 contract, and strict payload/window/effect/gallery verifier pass locally; 200-spill gate-refresh merge/gallery pending |
 | Corrected 50000-turn ridge/difference/concentration gallery | pending | exact-source-key full-buffer sidecar plus strict spill/window/pair/metric/PNG/caption verifier |
 | All required handoff, fixed, held-out, artifact, and report tasks below | complete | corrected follow-up verifier passes 32,000 fixed, 800,000 held-out, 201,240 visibility, 13,104 handoff-event, 4,680 summary rows, and every required artifact |
