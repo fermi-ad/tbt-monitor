@@ -444,6 +444,9 @@ tracks. Keep its quantitative caption and the separate sample-fraction and
 subtractive diagnostics in the review package; the composite alone cannot
 distinguish true persistence from missing observations or establish physical
 noise removal.
+Every density raster maps tune bins proportionally onto the complete declared
+axis. Integer-truncated cell heights are forbidden because they displace the
+color field from the percentile tracks even when both come from the same rows.
 The Best-N plot set is eligible only after strict verification of the declared
 cache-row counts, contiguous N/fold coverage, exact memberships, purged timing,
 finite metrics, detail/summary agreement, cross-collection products, native

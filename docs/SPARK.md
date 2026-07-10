@@ -476,6 +476,10 @@ verifier rejects protocol drift and requires all 2000 adaptive and all 1988
 legacy spill-planes on the exact 180-center grid, every per-N combined H/V
 comparison, every other manifest PNG/caption, and machine-readable disposition
 of generation warnings.
+The native renderer proportionally maps every tune bin over the complete plot
+height; this keeps standalone and subtractive heatmaps aligned with their tune
+axis and percentile overlays when the pixel height is not divisible by the bin
+count.
 
 If an original artifact must be revisited, Spark can reach the acquisition host
 with forwarded credentials via `ssh -K drbpm1`; copy or package the smallest

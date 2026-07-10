@@ -538,6 +538,9 @@ Decision:
 - Persist every full-buffer generation warning and reject the ridge gallery if
   spill/window coverage, exact legacy pairing, tune-band bounds, selected
   cardinality, paired metrics, or any manifest PNG/caption is incomplete.
+- Map density bins to proportional inclusive pixel bounds. Floor-dividing plot
+  height by tune-bin count can leave an unfilled band and make percentile
+  overlays appear at the wrong tune even when the underlying rows are correct.
 - Treat intensity as a separately tested covariate or spectral aggregation
   weight. Retain it only after FDR-corrected block-aware evidence, a minimum
   practical effect, a median tune shift within tolerance, and at least 95% of

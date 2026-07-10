@@ -435,6 +435,20 @@ def normalized_columns(density: np.ndarray) -> np.ndarray:
     return out / col_sum
 
 
+def raster_cell_bounds(index: int, count: int, start: int, end: int, *, reverse: bool = False) -> tuple[int, int]:
+    """Map one raster bin onto an inclusive pixel interval without truncation gaps."""
+    if count <= 0 or index < 0 or index >= count or end < start:
+        raise ValueError("invalid raster cell geometry")
+    span = end - start + 1
+    if reverse:
+        low = end - int((index + 1) * span / count) + 1
+        high = end - int(index * span / count)
+    else:
+        low = start + int(index * span / count)
+        high = start + int((index + 1) * span / count) - 1
+    return low, high
+
+
 def median_points(grouped: dict[int, list[float]], pct: float) -> list[tuple[float, float]]:
     points: list[tuple[float, float]] = []
     for center in sorted(grouped):
@@ -491,16 +505,20 @@ def ridge_density_plot(
     finite_vals = density[density > 0]
     vmax = float(np.percentile(finite_vals, 98)) if finite_vals.size else 1.0
     vmax = max(vmax, 1.0 / max(1, len(accepted_spills)) if args.ridge_density_normalize else 1.0)
-    cell_w = max(1, (x1 - x0 + 1) // max(1, len(centers)))
-    cell_h = max(1, (y1 - y0 + 1) // args.ridge_density_tune_bins)
     for col in range(len(centers)):
+        cx0, cx1 = raster_cell_bounds(col, len(centers), x0, x1)
         for row_idx in range(args.ridge_density_tune_bins):
             value = float(density[row_idx, col])
             frac = value / vmax if vmax else 0.0
             color = color_ramp(frac) if value > 0 else (245, 247, 248)
-            cx0 = x0 + col * cell_w
-            cy0 = y1 - (row_idx + 1) * cell_h
-            poster.rect(pixels, width, height, cx0, cy0, min(x1, cx0 + cell_w - 1), min(y1, cy0 + cell_h - 1), color)
+            cy0, cy1 = raster_cell_bounds(
+                row_idx,
+                args.ridge_density_tune_bins,
+                y0,
+                y1,
+                reverse=True,
+            )
+            poster.rect(pixels, width, height, cx0, cy0, cx1, cy1, color)
     area = (x0, y0, x1, y1)
     if args.mark_extraction_context:
         overlay_extraction_context(
@@ -748,14 +766,12 @@ def draw_density_in_area(
     columns = density.shape[1]
     rows = density.shape[0]
     for col in range(columns):
-        cx0 = x0 + int(col * (x1 - x0 + 1) / max(1, columns))
-        cx1 = x0 + int((col + 1) * (x1 - x0 + 1) / max(1, columns)) - 1
+        cx0, cx1 = raster_cell_bounds(col, columns, x0, x1)
         for row in range(rows):
             value = float(density[row, col])
-            cy0 = y1 - int((row + 1) * (y1 - y0 + 1) / max(1, rows)) + 1
-            cy1 = y1 - int(row * (y1 - y0 + 1) / max(1, rows))
+            cy0, cy1 = raster_cell_bounds(row, rows, y0, y1, reverse=True)
             color = color_ramp(value / vmax) if value > 0 else (245, 247, 248)
-            poster.rect(pixels, width, height, cx0, cy0, min(x1, cx1), min(y1, cy1), color)
+            poster.rect(pixels, width, height, cx0, cy0, cx1, cy1, color)
 
 
 def draw_legacy_pair(
@@ -1040,15 +1056,13 @@ def draw_density_difference(
     finite_vals = np.abs(diff[np.isfinite(diff)])
     vmax = float(np.percentile(finite_vals, 99)) if finite_vals.size else 1.0
     vmax = max(vmax, 1e-6)
-    cell_w = max(1, (x1 - x0 + 1) // max(1, len(centers)))
-    cell_h = max(1, (y1 - y0 + 1) // diff.shape[0])
     for col in range(len(centers)):
+        cx0, cx1 = raster_cell_bounds(col, len(centers), x0, x1)
         for row_idx in range(diff.shape[0]):
             value = float(diff[row_idx, col])
             color = diverging_color(value / vmax)
-            cx0 = x0 + col * cell_w
-            cy0 = y1 - (row_idx + 1) * cell_h
-            poster.rect(pixels, width, height, cx0, cy0, min(x1, cx0 + cell_w - 1), min(y1, cy0 + cell_h - 1), color)
+            cy0, cy1 = raster_cell_bounds(row_idx, diff.shape[0], y0, y1, reverse=True)
+            poster.rect(pixels, width, height, cx0, cy0, cx1, cy1, color)
     area = (x0, y0, x1, y1)
     if args.mark_extraction_context:
         overlay_extraction_context(

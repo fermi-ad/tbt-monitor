@@ -286,7 +286,9 @@ config ranking. Its package modules cover:
   0-50000 turn sliding spectra, and renders old-gallery-style ridge-density
   heatmaps plus per-N shared-scale H/V legacy/adaptive composites,
   exact-point-paired density differences, concentration and H-loss diagnostics,
-  and moving-turn-block legacy contrast intervals.
+  and moving-turn-block legacy contrast intervals. Density bins use
+  proportional inclusive raster bounds so color fields and tune overlays occupy
+  the same complete axis.
 - `ridge_verification.py` and `verify_ridge_density_outputs.py`: strict
   spill/window, cardinality, tune-band, exact-pair, metric, warning, PNG, and
   caption coverage checks for the full-buffer ridge gallery, tied to exact

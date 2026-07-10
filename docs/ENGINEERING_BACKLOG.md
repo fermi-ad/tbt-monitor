@@ -72,10 +72,10 @@ None.
 - Type: reliability
 - Why: the ridge renderer could exit successfully while only reporting an aggregate warning count, so missing memberships, incomplete exact pairing, or absent figure files could escape publication review.
 - Scope: persist every generation warning and verify requested-N spill/window coverage, exact member cardinality, tune-band bounds, unique ridge keys, exact 2000-spill adaptive and 1988-spill legacy coverage, finite contrast metrics, loss/role coverage, every per-N shared-scale H/V comparison and other manifest PNG/caption, and an exact match to the archived `18d321dbd4fe` tracking protocol.
-- Acceptance: the verifier fails on an incomplete synthetic output root; the full Spark 50000-turn gallery passes at the declared minimum spill and 180-center coverage; every remaining noncritical warning receives written disposition before a panel is used.
+- Acceptance: the verifier fails on an incomplete synthetic output root; proportional raster cells fill the full declared tune axis without gaps or overlay displacement; the full Spark 50000-turn gallery passes at the declared minimum spill and 180-center coverage; every remaining noncritical warning receives written disposition before a panel is used.
 - Docs: README.md, NEXT_STEPS.md, docs/USAGE.md, docs/SPARK.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
 - Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/ridge_verification.py scripts/make_best_bpm_ridge_density.py scripts/verify_ridge_density_outputs.py scripts/test_best_bpm_mining.py; PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; full Spark ridge pass and strict verifier
-- Notes: subtractive plots remain exact-pair probability redistribution diagnostics, not physical noise measurements.
+- Notes: subtractive plots remain exact-pair probability redistribution diagnostics, not physical noise measurements. The older standalone raster used floor-divided cell heights and could misalign density with percentile overlays; paired panels were unaffected, and all corrected panels use proportional inclusive cell bounds.
 
 ### [ENG-032] Non-circular block inference and matched-pairs effect size
 - Status: in_progress

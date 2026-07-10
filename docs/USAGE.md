@@ -945,6 +945,8 @@ confidence 2.0, tracking half-width and maximum step 0.005, and H/V bands
 0.620-0.680 / 0.690-0.740. The publication verifier rejects drift from those
 settings. Color in standalone panels is spill count; paired and subtractive
 panels are explicitly column-normalized probabilities.
+All density renderers use proportional inclusive cell bounds so the heatmap,
+declared tune limits, and percentile or median overlays share one pixel mapping.
 
 Verify the primary gallery before using any panel:
 

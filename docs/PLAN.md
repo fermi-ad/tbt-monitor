@@ -302,6 +302,8 @@ Current publication interpretation:
   Every requested N receives a shared-scale H/V-by-method composite in addition
   to its single-plane and subtractive diagnostics; no composite is interpreted
   without exact paired counts and sample-fraction checks.
+  Corrected native rasterization fills the complete declared tune axis with
+  proportional cells, keeping density colors and percentile overlays aligned.
 - Best-N, intensity, and full-buffer ridge passes write checksummed JSON run
   contracts before science output. Resumes reject parameter drift; merges
   require complete compatible shard sets and reject duplicate science keys.

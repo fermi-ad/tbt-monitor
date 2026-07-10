@@ -62,6 +62,12 @@ the publication audit:
     but silently capped execution at 5,000. The corrected block sign-flip test
     honors the declared count exactly (with only the existing 100-draw floor),
     so the method text and executed Monte Carlo sample size cannot diverge.
+11. Standalone ridge-density and density-difference PNGs divided the plot
+    height by the tune-bin count with integer truncation. The unused remainder
+    left the heatmap short of the declared tune axis while percentile tracks
+    used the full axis. Paired H/V panels already used proportional cell bounds;
+    the corrected renderer now applies those bounds to every density panel and
+    a regression test requires complete, gap-free axis coverage.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;

@@ -88,6 +88,7 @@ from make_best_bpm_ridge_density import (
     keyed_legacy_points,
     legacy_comparison_metrics,
     load_memberships,
+    raster_cell_bounds,
     robust_change_point,
 )
 from gpu_analyze_captured_spills import preprocess_traces, select_trace_subset
@@ -842,6 +843,16 @@ class BestBpmMiningTests(unittest.TestCase):
                 "H",
                 (0.62, 0.68),
             )
+
+    def test_ridge_raster_cells_fill_uneven_axes_without_gaps(self) -> None:
+        forward = [raster_cell_bounds(index, 160, 95, 815) for index in range(160)]
+        reverse = [raster_cell_bounds(index, 160, 95, 815, reverse=True) for index in range(160)]
+        self.assertEqual(forward[0][0], 95)
+        self.assertEqual(forward[-1][1], 815)
+        self.assertTrue(all(left[1] + 1 == right[0] for left, right in zip(forward, forward[1:])))
+        self.assertEqual(reverse[0][1], 815)
+        self.assertEqual(reverse[-1][0], 95)
+        self.assertTrue(all(left[0] - 1 == right[1] for left, right in zip(reverse, reverse[1:])))
 
     def test_ridge_memberships_reject_duplicate_spill_plane_n(self) -> None:
         best_root = self.root / "ridge_membership_best_root"

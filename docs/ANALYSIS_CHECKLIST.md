@@ -234,6 +234,8 @@ Required for the publication review:
 - exact-point-paired legacy-versus-adaptive H/V ridge panels, one shared-scale
   four-panel H/V comparison for every requested N, and subtractive
   redistribution maps
+- full-axis density raster coverage with percentile and median overlays on the
+  identical tune-to-pixel mapping
 - H-plane concentration, width, entropy, confidence, fallback, and data-derived
   loss-candidate diagnostics
 - block-aware intensity result tables and indexed review gallery
