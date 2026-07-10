@@ -234,10 +234,10 @@ Spill labels are `GOOD`, `MARGINAL`, `BAD`, `NO_SIGNAL`,
 
 ## Best-BPM 2000-Spill Mining
 
-Status: `In Progress`
+Status: `Implemented; corrected publication rerun and validation sidecars active`
 
-`BEST_BPM_2000_SPILL_MINING_IMPLEMENTATION_PLAN.md` is being implemented as
-`scripts/bpm_mining/` plus pass wrappers. The pipeline mines the two Tier A
+`BEST_BPM_2000_SPILL_MINING_IMPLEMENTATION_PLAN.md` is implemented as
+`scripts/bpm_mining/` plus pass wrappers. The pipeline mined the two Tier A
 Spark position-only collections without assuming a fixed tune, monotonic
 chronological trend, or external tune truth.
 
@@ -250,29 +250,79 @@ Implemented structure:
 - sharded per-BPM peak feature extraction and cache-backed within-spill tune
   consensus clustering
 - row-sharded exact best-1 and best-3 enumeration over valid BPMs
-- row-sharded screened-pool best-5 and best-10 enumeration with beam/random
-  audit records, live per-shard progress JSON, and a bounded CUDA worker pool
+- row-sharded screened-pool best-5 enumeration with beam/random audit records,
+  live per-shard progress JSON, and a bounded CUDA worker pool; the older
+  screened best-10 capability remains available but is not the publication
+  ensemble-size method
 - evolution/statistics/clustering/artifact/report outputs matching the plan
   layout, including cache-backed finalist re-evaluation across robust spectrum
   aggregators and paired bootstrap/permutation/FDR subset-size comparisons
+- follow-up sidecars for same-metric dynamic/fixed/all-BPM recomputation,
+  held-out spectral support, curated poster-review PNGs, BPM
+  handoff/visibility migration, and full-buffer Best-ensemble ridge-density
+  comparison
+- a narrowly scoped visibility-duration repair that reproduces the canonical
+  cache exactly and changes only the previously overstated duration field;
+  before/after row hashes make that mutation auditable
+- exact identity normalization for same-digitizer sibling channels and channel
+  token-derived ring order across every downstream reconstruction
+- contiguous leakage-controlled Best-N selection with complete window purging,
+  digitizer-disjoint later-window validation, non-circular moving-block
+  intervals, declared-count sign-flip inference, beam/fit/fold/block-length
+  sensitivity, and cross-collection
+  global-N transfer, plus a reusable seven-run sensitivity matrix and a
+  fail-closed output verifier
+- a 200-spill exact-pair intensity sidecar with block-aware paired inference,
+  10/20/40-spill block-length sensitivity, practical-effect gates,
+  payload-horizon auditing, and an indexed review gallery
+- strict intensity closure over the audited 23999-pair capture, complete
+  90-window 4096/512 spill grids, exact Best-1 weighting invariance, effect
+  decisions, and all gallery assets
 - `verify_best_bpm_outputs.py` checks required output groups, CSV schemas,
   row counts where practical, global/per-spill artifacts, and final reports
   before a Spark run is treated as complete
+- the primary and follow-up semantic verifiers reconstruct source identities,
+  result cardinalities, masks, fixed-set controls, held-out rows, handoff state
+  transitions, plane-balanced poster selection, and every recommended PNG;
+  file existence alone is not publication closure
+- the handoff review renders strict Top-1/3/5/10 state changes, global per-turn
+  membership maps, and every selected spill-plane score/rank/consensus
+  composite without imposing an extraction onset
+- `verify_best_n_outputs.py` separately checks exact N/fold coverage,
+  memberships, purged timing, finite validation metrics, summary counts,
+  recommendation boundaries, transfer rows, and figure products
 
-Current documented implementation choice to revisit:
+Current publication interpretation:
 
-- Full-buffer rolling evolution is represented by the same output schema, but
-  v1 uses cached early rolling spectra unless a longer raw/full-buffer path is
-  explicitly run. This keeps the pass runnable on Spark while preserving a clear
-  path to the more expensive full-buffer rerun.
+- The publication ridge-density sidecar recomputes 0-50000 turn spectra
+  from raw captured spills while holding fit-prefix Best-N memberships fixed.
+  This is the intended persistence comparison to the older `18d321db` plots,
+  not same-window dynamic reselection. Only the corrected rerun that passes the
+  exact coverage/pairing verifier is final; the June gallery is provisional.
+  Every requested N receives a shared-scale H/V-by-method composite in addition
+  to its single-plane and subtractive diagnostics; no composite is interpreted
+  without exact paired counts and sample-fraction checks.
+- Best-N, intensity, and full-buffer ridge passes write checksummed JSON run
+  contracts before science output. Resumes reject parameter drift; merges
+  require complete compatible shard sets and reject duplicate science keys.
+- Full-buffer galleries are publication-eligible only after their strict
+  spill/window, exact-pair, metric, warning, PNG, and caption verifier passes.
+- The old ``Best-10 deferred'' note is historical, not an active missing run.
+  The publication evaluates every N contiguously through at least N=20 (target
+  N=30) under the separate leakage-controlled protocol and extends only if the
+  validation curves have not plateaued.
+- Intensity weighting is rejected unless block-aware FDR, practical effect,
+  median tune-shift, and 95% spillwise tune-shift criteria all pass. Integrity
+  and timing diagnostics remain useful even when weighting is rejected.
 
 ## Next Milestones
 
 Post-split analysis refinement:
 
-1. Run the Best-BPM mining pipeline on Spark over the usable Tier A collections
-   and verify the output directory with `scripts/verify_best_bpm_outputs.py`
-   before reviewing `reports/strong_bpm_analysis_summary.md`.
+1. Complete the corrected exact-identity Best-1/3/5 run, Best-N curve and
+   sensitivities, exact-point-paired 50000-turn gallery, visibility-duration
+   repair, final poster/paper, and publication artifact manifest; keep
+   deficiencies tracked in GitHub issue #39.
 2. Add explicit spectral-coherence and clipping diagnostics to production
    analysis summaries when the autosweep identifies stable criteria.
 3. Export peak-width and uncertainty-oriented metrics in summaries/CSV.

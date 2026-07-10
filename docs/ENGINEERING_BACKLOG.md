@@ -33,6 +33,116 @@ None.
 
 ## In Progress
 
+### [ENG-036] Semantic publication artifacts and nonduplicating continuation
+- Status: in_progress
+- Owner: project
+- Type: fix
+- Why: subset visibility duration used the whole fit span after one visible window; compatibility plots reused unrelated data or mislabeled local index/N as ring order/compute cost; handoff top-five counts were constant even without visible channels; and the waiting `--resume` continuation would repeat the completed subset search.
+- Scope: compute duration only between actually visible windows; repair the active result rows from cached spectra before statistics with hashes; render key poster candidates with the native PNG path; derive every named compatibility plot from its actual table; classify visible-set loss/recovery/empty/handoff states; retain nested strict Top-1/3/5/10 sets and every selected-spill composite; add semantic primary/follow-up verification; invoke only downstream stages after the active search.
+- Acceptance: regression tests reproduce and repair duration, empty-set Jaccard is one, recommended poster files are real PNGs without Matplotlib, every required global/per-spill handoff asset exists, corrupted exact identities and semantic sidecars fail, cluster H/V medians are finite, and the Spark continuation contains no full-pipeline/subset-search call.
+- Docs: README.md, NEXT_STEPS.md, docs/USAGE.md, docs/SPARK.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+- Validation: python3 -m compileall -q scripts; python3 -m unittest discover -s scripts -p 'test_*.py' -v; bash -n staged Spark scripts; strict corrected primary and follow-up Spark verifiers; rendered gallery review
+- Notes: selection scores and memberships were unaffected by the duration-field defect; the repair changes only that descriptive field before dependent summaries are regenerated.
+
+### [ENG-035] Fail-closed run provenance and shard merging
+- Status: in_progress
+- Owner: project
+- Type: reliability
+- Why: resumable Best-N rows were not bound to their original parameters, and the Best-N and intensity mergers silently replaced duplicate shard keys. Either behavior could produce structurally complete output with ambiguous provenance.
+- Scope: write a checksummed JSON run contract before Best-N, intensity, and full-buffer ridge computation; reject parameter-changing output reuse; require compatible complete shard contracts and contiguous resume grids; fail on every duplicate or incomplete comparator key; carry merged statistical parameters into the merged contract; verify contract schema, identity, hashes, geometry, N, folds, tune tolerance, and block length.
+- Acceptance: regression tests reject a changed Best-N resume and a duplicate Best-N shard key; every Spark Best-N, intensity, and ridge output contains a verifier-accepted `run_contract.json`; no merger silently deduplicates rows.
+- Docs: NEXT_STEPS.md, docs/USAGE.md, docs/SPARK.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/*.py scripts/*.py; PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; strict Spark Best-N, intensity, and ridge verifiers
+- Notes: source payloads remain read-only; contracts hash configuration and source inventories rather than copying or mutating raw data.
+
+### [ENG-034] Strict intensity-study publication contract
+- Status: in_progress
+- Owner: project
+- Type: reliability
+- Why: the corrected gate and block-aware inference still need one closure check tying the audited raw capture shape, complete method grids, zero-effect control, decision rules, and broad gallery together.
+- Scope: add an explicit unweighted fallback when no selected intensity is usable, verify the known 23999 exact payload pairs, no first-50000-turn corruption or shard errors, 12800 spill-method rows, complete 90-window 4096/512 grids, exact selected cardinality, numerical Best-1 invariance across all methods, all effect decision gates, and every indexed gallery PNG/guardrail.
+- Acceptance: an incomplete synthetic root fails; all fallback windows carry a reason and matching spill-level fraction; the corrected 200-spill block-20 merge and gallery pass; Best-1 has exact zero effects; 10/20/40-spill summaries preserve the same exact retained-effect identities, not only the same count.
+- Docs: README.md, NEXT_STEPS.md, docs/USAGE.md, docs/SPARK.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/intensity_verification.py scripts/verify_intensity_outputs.py scripts/test_best_bpm_mining.py; PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; corrected Spark intensity refresh, block-20 merge/gallery, strict verifier, and 10/20/40 sensitivity comparison
+- Notes: intensity remains auxiliary; payload-horizon and lag diagnostics cannot establish beam-loss or extraction timing.
+
+### [ENG-033] Strict full-buffer ridge publication contract
+- Status: in_progress
+- Owner: project
+- Type: reliability
+- Why: the ridge renderer could exit successfully while only reporting an aggregate warning count, so missing memberships, incomplete exact pairing, or absent figure files could escape publication review.
+- Scope: persist every generation warning and verify requested-N spill/window coverage, exact member cardinality, tune-band bounds, unique ridge keys, exact 2000-spill adaptive and 1988-spill legacy coverage, finite contrast metrics, loss/role coverage, every per-N shared-scale H/V comparison and other manifest PNG/caption, and an exact match to the archived `18d321dbd4fe` tracking protocol.
+- Acceptance: the verifier fails on an incomplete synthetic output root; the full Spark 50000-turn gallery passes at the declared minimum spill and 180-center coverage; every remaining noncritical warning receives written disposition before a panel is used.
+- Docs: README.md, NEXT_STEPS.md, docs/USAGE.md, docs/SPARK.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/ridge_verification.py scripts/make_best_bpm_ridge_density.py scripts/verify_ridge_density_outputs.py scripts/test_best_bpm_mining.py; PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; full Spark ridge pass and strict verifier
+- Notes: subtractive plots remain exact-pair probability redistribution diagnostics, not physical noise measurements.
+
+### [ENG-032] Non-circular block inference and matched-pairs effect size
+- Status: in_progress
+- Owner: project
+- Type: fix
+- Why: moving-block intervals wrapped nonadjacent collection/turn endpoints, and the exported rank-biserial field used only sign counts rather than ranked absolute paired differences.
+- Scope: keep every resampled block inside the observed collection or turn ordering, compute the standard matched-pairs rank-biserial correlation, honor the configured permutation sample count without a hidden cap, and rerun affected primary, Best-N, intensity, and ridge summaries.
+- Acceptance: regression tests cover the ranked effect calculation and exact configured draw count; local intensity decisions are compared at 10/20/40-spill non-circular blocks; corrected Spark outputs and captions identify moving-block inference without endpoint wraparound.
+- Docs: NEXT_STEPS.md, docs/SPARK.md, docs/USAGE.md, docs/POSTER_ANALYSIS.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/ENGINEERING_BACKLOG.md
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; corrected Spark statistics, Best-N block remerge, intensity block re-summary, and ridge comparison metrics
+- Notes: block length remains a sensitivity parameter; no single block choice may determine a retained method or Best-N conclusion.
+
+### [ENG-031] Plane-balanced curated poster examples
+- Status: in_progress
+- Owner: project
+- Type: fix
+- Why: the first eight-example poster shortlist filled entirely with higher-priority V rows even though H limitation examples existed in the full artifact manifest.
+- Scope: deduplicate spill-plane rows, reserve scored examples from both planes, then fill by plane/category diversity and score without changing the exhaustive spill gallery.
+- Acceptance: synthetic end-to-end tests require H and V in the curated manifest; corrected Spark poster artifacts contain both planes and the contact sheet renders their real cache-backed images.
+- Docs: NEXT_STEPS.md, docs/POSTER_ANALYSIS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; corrected Spark artifact sidecar and rendered contact-sheet review
+- Notes: this balances review coverage, not the physics conclusion; V may remain the strongest final panel.
+
+### [ENG-030] Same-metric dynamic/fixed/all-BPM control recomputation
+- Status: in_progress
+- Owner: project
+- Type: fix
+- Why: the first fixed-set sidecar recomputed frozen and all-BPM rows with the evolution score but copied dynamic rows carrying the unrelated subset-search score, making plotted bar heights incomparable.
+- Scope: resolve exact dynamic memberships per spill, recompute dynamic/fixed/all-BPM spectra from the same cache, score every method with the same evolution metric, fail on incomplete cardinality, and label the comparison descriptive because original dynamic memberships reuse selection windows.
+- Acceptance: regression checks prove every output score is derived from the exported visibility and prominence fields; serial and parallel outputs match; the corrected Spark sidecar and verifier complete with exact cardinality.
+- Docs: NEXT_STEPS.md, docs/USAGE.md, docs/SPARK.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/fixed_sets.py scripts/test_best_bpm_mining.py; PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; corrected Spark fixed-set sidecar and follow-up verifier
+- Notes: do not reuse the June fixed-vs-dynamic plot or its numeric conclusion in a publication artifact.
+
+### [ENG-028] Intensity-assisted tune-quality sidecar
+- Status: in_progress
+- Owner: project
+- Type: feature
+- Why: the 200-spill raw capture contains timestamp-matched position/intensity pairs, but intensity has never been tested as a quality covariate or ensemble weight.
+- Scope: pair exact position/intensity channels, audit the valid payload horizon, select ensembles from position-only fit windows, compare unweighted/square-root/linear/gated spectral aggregation on later windows, run paired spill-level inference, estimate intensity/visibility lag associations and H-plane loss candidates, and generate a broad pure-PNG review gallery with claim guardrails.
+- Acceptance: synthetic tests prove exact pairing and N=1 weighting invariance; a 200-spill Spark pass covers the first 50000 turns; intensity is retained only when paired confidence intervals and FDR-corrected tests improve, the median tune shift stays within tolerance, and at least 95% of spillwise shifts stay within tolerance; 10/20/40-spill block lengths agree on the decision; payload corruption is not interpreted as beam loss.
+- Docs: README.md, NEXT_STEPS.md, docs/USAGE.md, docs/SPARK.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/intensity.py scripts/bpm_mining/intensity_plots.py scripts/analyze_intensity_assisted_tune.py scripts/merge_intensity_study.py scripts/make_intensity_study_plots.py scripts/compare_intensity_block_sensitivity.py scripts/test_best_bpm_mining.py; PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; Spark one-spill smoke; Spark 200-spill four-shard run, 10/20/40-spill re-summary, sensitivity comparison, and gallery render
+- Notes: raw intensity is never multiplied into position waveforms; it only changes per-window spectral aggregation weights or serves as a covariate.
+
+### [ENG-027] Time- and digitizer-disjoint Best-N model selection
+- Status: in_progress
+- Owner: project
+- Type: feature
+- Why: completed Best-1/3/5 runs do not establish the optimal ensemble size, and training score alone can improve with N without demonstrating later-window reproducibility.
+- Scope: sweep contiguous N values with a beam search, derive candidate tunes only from fit windows, evaluate selected members on unseen later windows, compare against digitizer-disjoint channels, emit bootstrap intervals and explicit non-inferiority knees, support resumable Spark shards plus deterministic merging, execute a shared-baseline seven-run beam/fit/fold sensitivity matrix, and fail closed on coverage/identity/timing/summary/plot verification.
+- Acceptance: synthetic tests cover complete N curves, two-shard merge, matrix deduplication, and strict verification; a Spark smoke produces non-saturated validation metrics; the full 2000-spill curve and disjoint validation quantify the knee through at least N=20 or document why a larger N is still required; beam/fit/fold and 10/20/40-spill block-length sensitivity do not reveal an unresolved recommendation; every full and sample output passes `verify_best_n_outputs.py`.
+- Docs: README.md, NEXT_STEPS.md, docs/USAGE.md, docs/SPARK.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/best_n.py scripts/bpm_mining/best_n_sensitivity.py scripts/bpm_mining/best_n_verification.py scripts/evaluate_best_n_curve.py scripts/merge_best_n_shards.py scripts/run_best_n_sensitivity_matrix.py scripts/verify_best_n_outputs.py scripts/test_best_bpm_mining.py; PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; Spark CuPy smoke; full Spark sharded run, block remerges, seven-run sensitivity matrix, and strict verification
+- Notes: the automatic knee is a declared reproducibility/contrast non-inferiority rule; full metric curves remain the primary evidence.
+
+### [ENG-026] Exact BPM identity and ring-order provenance correction
+- Status: in_progress
+- Owner: project
+- Type: fix
+- Why: each digitizer contributes two same-plane channels, but legacy subset artifacts serialized only the digitizer label, and ring order was parsed from the first number in the IP address. Follow-up reconstruction could select the wrong channel and the ring-span diversity term was disabled.
+- Scope: make plane-local indices, exact source keys, channel tokens, and digitizers explicit in every subset artifact; resolve legacy rows from the bit mask before names; derive ring order from the `HPnnn`/`VPnnn` token; update all downstream readers; regenerate affected results and figures.
+- Acceptance: regression tests cover ambiguous same-digitizer labels and ring ordering; no corrected finalist has a selected-channel-count mismatch; publication figures and held-out/fixed/handoff results come only from corrected exact identities; legacy affected artifacts are labeled provisional.
+- Docs: README.md, NEXT_STEPS.md, docs/USAGE.md, docs/SPARK.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/*.py scripts/gpu_analyze_captured_spills.py scripts/make_best_bpm_ridge_density.py scripts/test_best_bpm_mining.py; PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; corrected Spark Best-1/3/5 and sidecar verification
+- Notes: original Best-1/3/5 score rows remain useful diagnostics because masks preserve local indices, but downstream products that reconstructed channels from digitizer labels must be regenerated.
+
 ### [ENG-021] Autosweep parallel runner and GPU telemetry
 - Status: in_progress
 - Owner: project
@@ -45,6 +155,28 @@ None.
 - Notes: Spark two-job smoke is intentionally deferred until the current full Best-BPM run releases the GPU.
 
 ## Done
+
+### [ENG-029] Checksummed publication review packaging
+- Status: done
+- Owner: project
+- Type: feature
+- Why: final paper, poster, reports, and large review galleries need one reproducible local handoff rather than an undocumented manual copy.
+- Scope: add a repeatable `LABEL=PATH` packager that copies files and directories into a new review root and emits a source-path, byte-size, and SHA-256 manifest plus a human-readable package index.
+- Acceptance: packaging refuses missing, duplicate, nested, or non-empty destinations; a smoke package contains copied inputs, `MANIFEST.csv`, and `PACKAGE_INDEX.md`.
+- Docs: README.md, docs/USAGE.md, docs/ENGINEERING_BACKLOG.md
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/package_publication_review.py; python3 scripts/package_publication_review.py --component readme=README.md --component abstract=/Users/derekste/Downloads/abstract-54.pdf --out /tmp/tbt-publication-package-smoke-20260709
+- Notes: generated review packages remain local artifacts; only the curated publication source/deliverables belong in version control.
+
+### [ENG-025] Best-ensemble full-buffer ridge-density sidecar
+- Status: done
+- Owner: project
+- Type: feature
+- Why: the older `18d321db` ridge-density gallery plots were the strongest visual candidates, and the Best-BPM result needed a comparable full-buffer ensemble density view plus an explicit noise/concentration diagnostic.
+- Scope: add `scripts/make_best_bpm_ridge_density.py` and a poster-artifact compatibility wrapper, reuse completed Best-1/3/5 memberships over 0-50000 turn raw spectra, render Best-1/3/5 H/V ridge-density PNGs, pairwise density-difference PNGs, turn-concentration plots, captions, metrics, and a loss-candidate summary.
+- Acceptance: Spark smoke and full sidecar runs complete under `/home/derekste/best_bpm_mining_20260627_best135_from_v2/followups/next_steps_20260628/ridge_density_best_ensemble`; local review copies exist under `review-artifacts/best-bpm-ridge-density-20260628`; deficiencies are tracked in GitHub issue #39.
+- Docs: NEXT_STEPS.md, docs/SPARK.md, docs/USAGE.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/make_best_bpm_ridge_density.py scripts/gpu_analyze_captured_spills.py scripts/bpm_dgx_poster.py scripts/make_best_bpm_poster_artifacts.py; Spark CUDA full sidecar over both 1000-spill position-only collections
+- Notes: the sidecar is not a full 50k dynamic subset search; it intentionally reuses early-window memberships and documents that limitation in captions and issue #39.
 
 ### [ENG-024] Best-BPM follow-up validation sidecar stack
 - Status: done

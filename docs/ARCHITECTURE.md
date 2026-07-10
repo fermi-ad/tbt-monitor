@@ -229,14 +229,76 @@ config ranking. Its package modules cover:
   row-sharded worker execution with a bounded CUDA worker pool. Long runs emit
   live per-shard JSON progress under `subset_search/progress/` before the final
   merged CSVs are written.
+- `repair_best_bpm_visibility_duration.py`: one-purpose migration for historical
+  subset rows whose descriptive duration covered the whole fit span after one
+  visible window. It reproduces visibility from the exact cache, changes no
+  score or membership, and records row-level and hash provenance before
+  dependent summaries are regenerated.
 - `evolution.py`, `statistics.py`, `clustering.py`, `artifact_selection.py`,
   `plots.py`, and `report.py`: finalist subset re-evaluation with robust
   spectrum aggregators, downstream review tables, plots, morphology clusters,
-  and narrative-safe Markdown summaries.
+  and narrative-safe Markdown summaries. Global BPM statistics retain the
+  token-derived ring order separately from the plane-local index; ring and
+  Pareto figures consume their named `ring_order` and `compute_cost` fields.
+- `fixed_sets.py`, `heldout.py`, and `handoff.py`: sidecar validation passes for
+  direct frozen-set recomputation, held-out spectral support, and BPM
+  tune-visibility migration without mutating canonical run outputs. The fixed
+  sidecar rescores dynamic memberships, frozen memberships, and all-BPM
+  controls from the same cache with one metric; it is descriptive because the
+  original dynamic memberships reuse selection windows.
+  Handoff membership sets contain only strict visible channels; empty, loss,
+  recovery, flicker, stable, and persistent-replacement states are distinct.
+  Top-1/3/5/10 transitions, global per-turn membership frequency, and every
+  selected spill-plane visibility/consensus composite are retained. Key
+  deconstruction and handoff assets use the deterministic native PNG renderer
+  rather than an optional plotting dependency.
+- `best_n.py`: contiguous ensemble-size beam search with fit-prefix selection,
+  complete overlap purging, blind and conditioned later-window metrics,
+  digitizer-disjoint folds, moving-block intervals, sensitivity-ready shard
+  outputs, and cross-collection global-N transfer.
+- `contracts.py`: canonical JSON and SHA-256 run contracts. Resumable analyses
+  reject parameter drift, sharded merges require one compatible contract per
+  declared shard, and duplicate science keys fail instead of being silently
+  replaced.
+- `best_n_sensitivity.py` and `run_best_n_sensitivity_matrix.py`: deterministic
+  one-factor-at-a-time beam/fit/fold matrix construction, shared-baseline reuse,
+  resumable execution, comparison plots, and command/run manifests.
+- `best_n_verification.py` and `verify_best_n_outputs.py`: fail-closed coverage,
+  identity, timing, metric, summary, recommendation-boundary, transfer, and plot
+  checks for every full or sensitivity Best-N run, including the input and
+  parameter contract.
+- `intensity.py` and `intensity_plots.py`: exact position/intensity pairing,
+  position-only member selection, optional spectral aggregation weights,
+  collection-aware paired inference, payload-horizon diagnostics, and a broad
+  pure-PNG review gallery. `compare_intensity_block_sensitivity.py` separates
+  statistical detectability from practical retention across block lengths.
+  Intensity never modifies the position waveform. A window with no usable
+  selected intensity falls back explicitly to unweighted aggregation; an empty
+  finite gate retains the strongest finite selected member. Window and spill
+  outputs carry the fallback reason and frequency.
+  Pair integrity retains advertised and on-disk sample counts for both payloads;
+  unequal counts cannot be hidden by truncating to the shorter member.
+- `intensity_verification.py` and `verify_intensity_outputs.py`: audited capture
+  counts, exact identity, complete turn grids, payload horizon, N=1 invariance,
+  effect-decision, run-contract, and gallery-asset closure checks.
+- `scripts/make_best_bpm_ridge_density.py`: poster sidecar that rereads raw
+  captured spills, applies exact corrected Best-N memberships, recomputes
+  0-50000 turn sliding spectra, and renders old-gallery-style ridge-density
+  heatmaps plus per-N shared-scale H/V legacy/adaptive composites,
+  exact-point-paired density differences, concentration and H-loss diagnostics,
+  and moving-turn-block legacy contrast intervals.
+- `ridge_verification.py` and `verify_ridge_density_outputs.py`: strict
+  spill/window, cardinality, tune-band, exact-pair, metric, warning, PNG, and
+  caption coverage checks for the full-buffer ridge gallery, tied to exact
+  membership, legacy-table, manifest-inventory, and window-geometry hashes.
+  The publication contract additionally binds the adaptive pass to the archived
+  `18d321dbd4fe` 4096/256 tracking protocol and exact 2000/1988 source coverage.
 - `verification.py`: structural output-contract checks for completed or
   partially completed Best-BPM output directories, including required files,
-  CSV headers, row counts for normal-sized CSVs, and report generation under
-  `logs/`.
+  CSV headers, exact usable spill-plane/membership identity, shared-score
+  recomputation, held-out cardinality, handoff-state consistency, poster PNG
+  existence, complete nested Top-1/3/5/10 membership, required global and
+  per-spill handoff assets, row counts, and report generation under `logs/`.
 
 Best-1 and best-3 are globally exhaustive over valid BPMs for each spill/plane.
 Best-5 and best-10 are not globally exhaustive; their CSV rows carry

@@ -377,7 +377,7 @@ python3 scripts/build_best_bpm_manifest.py --config config/best_bpm_mining.yaml 
 python3 scripts/build_bpm_spectral_cache.py --config config/best_bpm_mining.yaml --manifest best_bpm_mining/manifest/spills.csv --out best_bpm_mining/cache --device cuda --workers 4 --resume
 python3 scripts/extract_per_bpm_features.py --config config/best_bpm_mining.yaml --cache best_bpm_mining/cache --manifest best_bpm_mining/manifest --out best_bpm_mining/per_bpm --workers 12
 python3 scripts/build_spill_tune_consensus.py --config config/best_bpm_mining.yaml --features best_bpm_mining/per_bpm --cache best_bpm_mining/cache --out best_bpm_mining/consensus --workers 12
-python3 scripts/search_best_bpm_subsets.py --config config/best_bpm_mining.yaml --cache best_bpm_mining/cache --manifest best_bpm_mining/manifest --features best_bpm_mining/per_bpm --consensus best_bpm_mining/consensus --subset-sizes 1 3 5 10 --out best_bpm_mining/subset_search --workers 12 --resume
+python3 scripts/search_best_bpm_subsets.py --config config/best_bpm_mining.yaml --cache best_bpm_mining/cache --manifest best_bpm_mining/manifest --features best_bpm_mining/per_bpm --consensus best_bpm_mining/consensus --subset-sizes 1 3 5 --out best_bpm_mining/subset_search --workers 12 --resume
 python3 scripts/evaluate_best_subset_evolution.py --config config/best_bpm_mining.yaml --subsets best_bpm_mining/subset_search --cache best_bpm_mining/cache --features best_bpm_mining/per_bpm --manifest best_bpm_mining/manifest --out best_bpm_mining/evolution
 python3 scripts/aggregate_best_bpm_statistics.py --config config/best_bpm_mining.yaml --inputs best_bpm_mining --out best_bpm_mining/statistics
 python3 scripts/cluster_spill_morphologies.py --config config/best_bpm_mining.yaml --inputs best_bpm_mining --out best_bpm_mining/clustering
@@ -391,9 +391,12 @@ The scope statement in the final report is intentional:
 
 - best-1 and best-3 are globally exhaustive over valid BPMs in each
   spill/plane.
-- best-5 and best-10 are exact searches within data-driven screened pools.
-- best-5 and best-10 also run independent beam/random full-space audits and
-  report whether the pool was expanded.
+- best-5 is an exact search within a data-driven screened pool and runs an
+  independent beam/random full-space audit that reports whether the pool was
+  expanded.
+- the historical screened Best-10 path is not used to choose the publication
+  ensemble size; contiguous N is evaluated separately with fit/test purging and
+  digitizer-disjoint validation.
 - per-spill consensus is an internal unsupervised reference, not ground truth.
 - expected H near `0.65` and V near `0.72` are soft priors only.
 - finalist re-evaluation compares mean power, median power, trimmed mean, and
@@ -411,10 +414,68 @@ writes `logs/best_bpm_verification.json` and
 are missing or structurally invalid.
 `statistics/paired_method_tests.csv` includes paired bootstrap confidence
 intervals, sign-flip permutation p-values, Benjamini-Hochberg q-values, and
-rank-biserial effect sizes for subset-size comparisons.
+matched-pairs rank-biserial effect sizes for subset-size comparisons.
 Artifact selection is capped by plane and includes clean consensus, best-subset
 improvement, fixed/dynamic agreement and disagreement, multimodal, low-signal,
 and cluster-representative spill-plane examples.
+The curated poster shortlist reserves scored H and V examples before
+category-diverse fill; a stronger V score cannot consume the entire review cap.
+
+For publication review, the canonical plot set is broader than the final poster
+shortlist. It includes Best-N blind agreement and selected/held-out contrast
+with block intervals, beam/fit/fold sensitivity, cross-collection transfer,
+exact-point-paired full-buffer legacy comparisons, all meaningful requested-N
+difference maps, H-loss diagnostics, and the block-aware intensity gallery.
+
+The favorite archived `18d321dbd4fe` H/V images are tracked-tune density
+plots, not spectral-power heatmaps. For each accepted spill and each 4096-turn
+Hann window stepped by 256 turns, the legacy tool selected one continuity-
+tracked `selected_tune` after a 4096-turn injection seed. It used
+`best_single_bpm`, per-BPM RMS normalization, mean subtraction, DC-bin zeroing,
+greedy tracking, a 0.005 half-width/maximum step, confidence threshold 2.0,
+160 tune bins, and the configured H/V bands. Color is spill count across 1988
+usable spills; white curves are across-spill median/percentile tracks. The
+adaptive comparison must hold this geometry and visual grammar fixed while
+changing only the declared fit-prefix Best-N aggregation.
+The primary persistence candidate is the per-N four-panel H/V comparison:
+legacy/adaptive columns, exact paired points, column-normalized pick
+probability, one shared P98-clipped color scale, and white P10/median/P90
+tracks. Keep its quantitative caption and the separate sample-fraction and
+subtractive diagnostics in the review package; the composite alone cannot
+distinguish true persistence from missing observations or establish physical
+noise removal.
+The Best-N plot set is eligible only after strict verification of the declared
+cache-row counts, contiguous N/fold coverage, exact memberships, purged timing,
+finite metrics, detail/summary agreement, cross-collection products, native
+plots, and the three-larger-N recommendation boundary. The beam/fit/fold matrix
+uses seven unique sample runs with one shared baseline; it does not replace the
+all-row primary curve.
+Every subtractive ridge caption must say that color represents probability-mass
+redistribution, not measured physical noise. The primary density figures do not
+show a fixed extraction onset; a broad 10000--20000-turn context band may appear
+only in separately named exploratory variants.
+The gallery must also pass strict spill/window coverage, selected-cardinality,
+tune-band, exact legacy-pair, contrast-metric, warning, PNG, and caption checks
+before a ridge panel enters the poster shortlist.
+The intensity gallery is held to the same closure standard: the audited capture
+counts, first-50000-turn integrity, complete method grids, exact Best-1
+zero-effect control, all statistical/practical/tune-shift gates, and every PNG
+with its claim guardrail must pass before an intensity panel is considered.
+
+Key poster candidates use the repository's deterministic native PNG renderer,
+including BPM/tune deconstruction, selected-spectrum overlays, visibility
+evolution, handoff state, and ridge-density panels. This removes a Matplotlib
+runtime dependency without weakening the plot contract. Semantic verification
+rejects reused placeholder metrics, blank scientific panels, invalid handoff
+labels, incomplete Top-1/3/5/10 state coverage, missing global membership maps,
+missing selected-spill composites, or a poster shortlist that omits either
+plane. Handoff composites encode score, strict rank, and consensus tune
+separately; none is an extraction-time marker.
+
+The final A0 poster must be built from the supplied Fermilab vertical template,
+preserve its master/header/footer, remain editable, and pass rendered visual QA.
+The poster should use four to six final evidence panels even though the complete
+indexed review gallery is intentionally much larger.
 
 ## Validation
 

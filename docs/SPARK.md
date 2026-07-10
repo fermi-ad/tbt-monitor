@@ -20,8 +20,13 @@ Tier A raw position-only inputs are:
 /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-231330
 ```
 
-Use `ssh -K` for host-to-host copies and remote commands. If direct Spark SSH
-is unavailable from a given host, route through `drbpm1`.
+The local `spark` SSH alias reaches `spark.fnal.gov` through the configured
+`outland.fnal.gov` jump host. From Spark, delegated Kerberos access to the raw
+capture host is available with `ssh -K drbpm1`; use that route for authoritative
+source-data checks or staged copies. Spark does not have unrestricted package
+internet access. Dependency downloads must use the established outland proxy or
+be staged on outland and copied to Spark; do not point `pip` directly at the
+public index and assume a timeout is a missing package.
 
 ## Direct Raw Captured-Spill GPU Analysis
 
@@ -169,9 +174,14 @@ within-spill tune evidence, not which analyzer configuration is best.
   --out /home/derekste/best_bpm_mining \
   --device cuda \
   --workers 12 \
-  --resume \
   --gpu-telemetry-interval-seconds 30
 ```
+
+`--resume` reuses spectral-cache arrays but does not checkpoint or skip later
+pipeline stages. Never call the full pipeline to continue after an externally
+completed subset search. Repair any legacy duration rows, then invoke the
+evolution, statistics, clustering, artifact-selection, artifact, and report
+wrappers explicitly. This avoids repeating the multi-hour search.
 
 Verify a completed output package:
 
@@ -186,14 +196,17 @@ Output groups:
 - `cache/`: spectral cache index and per-spill spectra.
 - `per_bpm/`: per-BPM peak/feature tables.
 - `consensus/`: unsupervised within-spill consensus tune clusters.
-- `subset_search/`: best-1, best-3, screened best-5/best-10, audits, progress.
+- `subset_search/`: best-1, best-3, screened best-5, optional legacy best-10,
+  audits, and progress.
 - `evolution/`, `statistics/`, `clustering/`: downstream ranking and stability
   products.
 - `artifact_selection/`, `artifacts/`, `reports/`: review plots and summaries.
 - `logs/`: verification reports and optional GPU telemetry.
 
-Best-1 and best-3 are globally exhaustive over valid BPMs. Best-5 and best-10
-are exact searches inside screened pools with independent audit metadata.
+Best-1 and best-3 are globally exhaustive over valid BPMs. Best-5 is exact
+inside a screened pool with independent audit metadata. The publication run
+does not use the older screened Best-10 phase; contiguous ensemble-size choice
+is handled by the leakage-controlled Best-N sidecar below.
 
 The finalist re-evaluation part of `evolution/` can run in parallel. The full
 pipeline passes `--workers` through to this stage and writes progress under
@@ -219,6 +232,7 @@ run without overwriting the canonical output tree:
 ```bash
 ROOT=/home/derekste/best_bpm_mining_20260627_best135_from_v2
 OUT="$ROOT/followups/next_steps_20260628"
+BESTN=/home/derekste/best_n_20260709
 PY=/home/derekste/venvs/cupy-spark-cu13/bin/python
 
 "$PY" scripts/evaluate_fixed_bpm_sets.py \
@@ -235,7 +249,7 @@ PY=/home/derekste/venvs/cupy-spark-cu13/bin/python
   --workers 4 \
   --tune-half-width 0.0025
 
-"$PY" scripts/make_best_bpm_artifacts.py \
+"$PY" scripts/make_best_bpm_poster_artifacts.py \
   --config config/best_bpm_mining.yaml \
   --inputs "$ROOT" \
   --manifest "$ROOT/artifact_selection/artifact_manifest.csv" \
@@ -255,19 +269,217 @@ PY=/home/derekste/venvs/cupy-spark-cu13/bin/python
 "$PY" scripts/analyze_next_steps_outputs.py \
   --root "$ROOT" \
   --followup "$OUT" \
+  --best-n "$BESTN/merged" \
+  --ridge "$OUT/ridge_density_best_ensemble" \
+  --intensity /home/derekste/tbt-intensity-study-20260709/merged \
+  --sensitivity "$BESTN/sensitivity" \
   --out "$OUT/analysis/next_steps_output_analysis.md"
 ```
+
+The optional Best-N, ridge, intensity, and sensitivity-matrix arguments make
+the final report data-derived. A supplied sensitivity root must contain the
+seven unique verified beam/fit/seed runs and nested comparison outputs. Omit
+only an input that was intentionally not run, in which case the report records
+the missing evidence rather than substituting a stale conclusion.
+When an analysis root is supplied, the report generator requires its accepted
+JSON verifier result and refuses to summarize a failed, missing, or provisional
+tree.
 
 Smoke-test the sidecar commands first with `--limit` before running the full
 follow-up stack. The fixed-set and held-out passes write shard progress under
 their output directories, while `logs/progress.csv` records top-level command
 status when launched through the wrappers.
 
+The corrected fixed-set pass recomputes dynamic, frozen, and all-BPM controls
+from the same cache with the same evolution score. Treat it as a descriptive
+control because the original dynamic memberships reuse their selection
+windows; later-window digitizer-disjoint Best-N validation is the publication
+inference.
+
 The artifact pass keeps compatibility outputs under `artifacts/global/` and
 `artifacts/spills/`, and writes the curated poster-review set under
 `artifacts/poster/` with `selected_poster_artifacts.csv`,
 `poster_artifact_index.md`, `poster_contact_sheet.png`,
 `global_topn_performance_hv.png`, and `global_bpm_inclusion_{h,v}.png`.
+`scripts/make_best_bpm_artifacts.py` remains an equivalent legacy wrapper for
+the poster-artifact command.
+
+### Leakage-Controlled Best-N Pass
+
+Run this only after the corrected exact-identity cache is verifier-clean. Use
+one output directory per shard and merge after every shard completes:
+
+```bash
+BESTN=/home/derekste/best_n_20260709
+"$PY" scripts/evaluate_best_n_curve.py \
+  --config config/best_bpm_mining.yaml \
+  --inputs "$ROOT" \
+  --out "$BESTN/shards/shard_0" \
+  --device cuda \
+  --max-n 30 \
+  --beam-width 64 \
+  --validation-beam-width 64 \
+  --folds 5 \
+  --fold-seed 20260709 \
+  --fit-windows 8 \
+  --bootstrap-block-spills 20 \
+  --shard-index 0 \
+  --shard-count 4 \
+  --resume
+
+"$PY" scripts/merge_best_n_shards.py \
+  --shards "$BESTN/shards" \
+  --out "$BESTN/merged" \
+  --bootstrap-samples 1000 \
+  --bootstrap-block-spills 20
+
+"$PY" scripts/verify_best_n_outputs.py \
+  --root "$BESTN/merged" \
+  --max-n 30 \
+  --curve-cache-rows 4000 \
+  --validation-cache-rows 1000 \
+  --folds 5
+```
+
+Repeat the evaluator for shard indices 1 through 3 before merging. Do not
+launch four concurrent CUDA evaluators on one GB10 without first measuring
+memory and utilization. Positive curve/validation limits are evenly stratified
+across collection and plane. Record any limit in the report and use the full
+curve for the final global-N recommendation.
+Every shard must contain `run_contract.json`. A resume with changed scientific
+parameters or source hashes is rejected. Merge requires the complete declared
+shard index set with compatible contracts and no duplicate science keys; do
+not remove the contracts to force reuse of an old output directory. A resumed
+spill-plane is complete only when every N and every declared fold is present
+exactly once. Sensitivity comparisons likewise require identical full key sets.
+
+Required sensitivity dimensions are beam width, fit-window count, and
+digitizer-fold seed. Also remerge the same completed shards with 10, 20, and 40
+spill bootstrap blocks; this block-length check repeats only summary inference,
+not GPU selection. Blocks are non-circular and never join collection endpoints.
+Configured sign-flip sample counts are executed without an undocumented cap.
+Merge each variant separately, then compare completed runs with
+`scripts/compare_best_n_beam_widths.py` or
+`scripts/compare_best_n_sensitivity.py`. Extend beyond N=30 only if the blind
+agreement and selected/held-out contrast curves have not reached a plateau;
+five-fold validation cannot select more channels than remain in a training
+fold.
+
+The reproducible sample sensitivity matrix is:
+
+```bash
+"$PY" scripts/run_best_n_sensitivity_matrix.py \
+  --inputs "$ROOT" \
+  --out "$BESTN/sensitivity" \
+  --device cuda \
+  --max-n 30 \
+  --curve-limit 400 \
+  --validation-limit 200 \
+  --folds 5 \
+  --beam-widths 16 32 64 \
+  --fit-windows 4 8 16 \
+  --fold-seeds 20260709 20260710 20260711 \
+  --resume
+```
+
+It runs seven unique configurations because the beam-32/fit-8/seed-20260709
+baseline is shared. Each run is verified before comparison. Keep this sample
+matrix separate from the all-4000-row primary curve; it tests numerical and
+hyperparameter stability rather than replacing full-run inference.
+The generated sensitivity gallery includes confidence-interval endpoints, so
+10/20/40-spill block comparisons expose uncertainty changes even when central
+curves are identical.
+
+### Intensity Sidecar
+
+The 200-spill intensity study is independent of the position-only primary run.
+Use `scripts/analyze_intensity_assisted_tune.py` in shards, merge with
+`scripts/merge_intensity_study.py --bootstrap-block-spills 20`, and generate
+the broad review gallery with `scripts/make_intensity_study_plots.py`.
+`scripts/resummarize_intensity_study.py` can apply corrected block-aware
+statistics to an existing merged run without repeating GPU waveform work.
+Run it at 10, 20, and 40-spill block lengths and require the retain/reject
+decision to agree across all three. The comparator checks exact effect
+identities, not only retained counts, and fails any nonzero Best-1 effect.
+Only the first 50000 turns are eligible for inference; structural corruption in
+the advertised tail is a payload-integrity result, not a beam-loss time.
+Advertised and on-disk position/intensity sample counts must also agree for
+every exact pair.
+After the corrected block-20 merge and gallery render, require:
+
+```bash
+"$PY" scripts/verify_intensity_outputs.py \
+  --root "$INTENSITY/merged_block20" \
+  --gallery "$INTENSITY/gallery" \
+  --subset-sizes 1 3 5 7 10 12 15 20 \
+  --expected-paired-payload-rows 23999 \
+  --expected-spill-rows 12800 \
+  --expected-centers 90 \
+  --minimum-spills-per-group 199 \
+  --expected-block-spills 20
+```
+
+This also proves the corrected all-zero gate fallback by requiring every Best-1
+window to be numerically invariant across all four weighting methods.
+No-usable-intensity windows explicitly use unweighted aggregation for every
+method; a finite-but-below-threshold gate keeps the strongest finite member.
+The window/spill CSVs and merged summary expose fallback reasons and frequency;
+there is no silent intensity fallback.
+
+To reproduce the old `18d321db` ridge-density visual grammar with corrected
+Best-N memberships, run the full-buffer ridge-density sidecar:
+
+```bash
+"$PY" scripts/make_best_bpm_ridge_density.py \
+  --best-root "$ROOT" \
+  --membership-csv "$BESTN/merged_block20/best_n_curve_rows.csv" \
+  --legacy-sliding-csv /path/to/18d321db/gpu_sliding_tune.csv \
+  --input \
+    /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-183119 \
+    /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-231330 \
+  --out "$OUT/ridge_density_best_ensemble" \
+  --device cuda \
+  --turn-start 0 \
+  --turn-end 50000 \
+  --window-turns 4096 \
+  --stride-turns 256 \
+  --bpm-normalization rms_per_bpm \
+  --detrend mean_subtract \
+  --dc-handling zero_dc_bin \
+  --injection-window-turns 4096 \
+  --min-peak-confidence 2.0 \
+  --track-half-width 0.005 \
+  --max-tune-step-per-window 0.005 \
+  --subset-sizes 1 3 5 10 15 20 30 \
+  --comparison-bootstrap-samples 1000 \
+  --extraction-context-variants \
+  --progress 100
+
+"$PY" scripts/verify_ridge_density_outputs.py \
+  --root "$OUT/ridge_density_best_ensemble" \
+  --subset-sizes 1 3 5 10 15 20 30 \
+  --minimum-spills 1900 \
+  --expected-centers 180
+```
+
+This writes H/V ridge-density heatmaps, all pairwise requested-N difference
+maps, exact-point-paired legacy comparisons, a shared-scale four-panel H/V
+legacy-versus-adaptive comparison for every requested N, turn-concentration and
+H-loss diagnostics, moving-turn-block contrast intervals, metrics, captions,
+and an indexed gallery. Primary figures omit the broad extraction-review marker;
+separately named context variants may show it. The method applies members chosen
+from early fit windows through the 0-50000-turn buffer. It tests persistence and
+does not perform same-window dynamic reselection.
+The legacy table contains one tracked tune pick per spill/window, not spectral
+power. The explicit settings above match archived job `18d321dbd4fe`; the
+verifier rejects protocol drift and requires all 2000 adaptive and all 1988
+legacy spill-planes on the exact 180-center grid, every per-N combined H/V
+comparison, every other manifest PNG/caption, and machine-readable disposition
+of generation warnings.
+
+If an original artifact must be revisited, Spark can reach the acquisition host
+with forwarded credentials via `ssh -K drbpm1`; copy or package the smallest
+complete source artifact rather than rerunning acquisition.
 
 ## GPU Telemetry
 

@@ -22,7 +22,14 @@ produce physically credible `Qx/Qy` evidence for Delivery Ring studies.
 
 Current capture defaults preserve `TBT_POSITION_RAW` and can derive matching
 `TBT_INTENSITY_RAW` payloads for offline study. Spark/GPU workflows include raw
-captured-spill analysis, staged autosweep ranking, and Best-BPM subset mining.
+captured-spill analysis, staged autosweep ranking, exact-identity Best-BPM
+subset mining, leakage-controlled contiguous Best-N validation, an optional
+position/intensity sidecar, full-buffer ridge-density review galleries, and
+fail-closed publication verifiers for the primary, Best-N, intensity, and ridge
+outputs.
+Publication artifacts use exact channel identities, semantic verifiers, and a
+deterministic native PNG renderer for the key deconstruction, handoff,
+intensity, Best-N, and ridge figures.
 
 ## Quick Start
 
@@ -69,9 +76,12 @@ Run the current Spark Best-BPM pipeline:
   --out /home/derekste/best_bpm_mining \
   --device cuda \
   --workers 12 \
-  --resume \
   --gpu-telemetry-interval-seconds 30
 ```
+
+`--resume` reuses completed spectral-cache arrays; it is not a whole-pipeline
+stage checkpoint and does not skip subset search. Use the stage-specific
+commands in `docs/USAGE.md` when continuing after a completed search.
 
 ## Repository Layout
 
@@ -81,8 +91,8 @@ Run the current Spark Best-BPM pipeline:
 - `src/monitor.rs`: live Redis stream monitor.
 - `src/capture.rs`: raw synchronized spill capture and capture diagnostics.
 - `src/analyze.rs`: live/offline tune analysis, studies, and batch outputs.
-- `scripts/`: poster/DGX tooling, Spark autosweep, Best-BPM mining, and
-  verification helpers.
+- `scripts/`: poster/DGX tooling, Spark autosweep, Best-BPM mining,
+  verification helpers, and checksummed publication-review packaging.
 - `config/`: example/generated runtime config.
 - `docs/`: subsystem guides, command reference, architecture, physics notes,
   backlog, and workflow docs.
