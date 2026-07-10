@@ -1,0 +1,17 @@
+Template deviation log
+
+Output slide 1
+- Duplicate source slide 1 exactly once and omit source slide 2.
+- Replace five inherited scientific image frames with verified project plots.
+- Delete four unrelated sample-logo images while preserving master branding.
+- Delete mapped authoring arrows, instructions, and clearance callouts.
+- Rewrite inherited text and captions while retaining source type styles.
+- Reposition only the two mapped caption objects that share an inspector name.
+- Fit the accepted two-line title and author within the inherited header; no
+  header or footer geometry changes are authorized.
+- Use the template's documented Arial fallback for rewritten narrative text.
+  The headless PDF renderer substitutes Helvetica with an unrelated serif face;
+  Arial preserves the intended sans-serif hierarchy in both PPTX and PDF.
+
+No palette, brand, master, footer, column-boundary, or scientific-image crop
+departure is authorized. Any later departure must be recorded before export.

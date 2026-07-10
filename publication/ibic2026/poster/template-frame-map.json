@@ -1,0 +1,32 @@
+{
+  "outputSlides": [
+    {
+      "outputSlide": 1,
+      "sourceSlide": 1,
+      "narrativeRole": "scientific evidence synthesis and conclusion",
+      "reuseMode": "duplicate-slide",
+      "editTargets": [
+        {"sourceElementId": "sh/u9knih4b", "action": "rewrite", "role": "poster title, author, and affiliation"},
+        {"sourceElementId": "sh/1gvy90je", "action": "rewrite", "role": "motivation and method heading"},
+        {"sourceElementId": "sh/je9cvixc", "action": "rewrite", "role": "motivation, data, and method body"},
+        {"sourceElementId": "im/i5sneloj", "action": "replace", "role": "horizontal Best-N validation figure"},
+        {"sourceElementId": "im/83itgfml", "action": "replace", "role": "vertical Best-N validation figure"},
+        {"sourceElementId": "sh/cvixczed", "action": "rewrite", "role": "Best-N validation caption"},
+        {"sourceElementId": "sh/udg7adsj", "action": "rewrite-and-reposition", "role": "captions for upper-right and primary evidence frames"},
+        {"sourceElementId": "im/p4r65wju", "action": "replace", "role": "primary 50000-turn ridge-density comparison"},
+        {"sourceElementId": "sh/xczed8v6", "action": "rewrite", "role": "conclusions heading"},
+        {"sourceElementId": "sh/8v6psfil", "action": "rewrite", "role": "conclusions and limitations body"},
+        {"sourceElementId": "im/ed8v6psf", "action": "replace", "role": "selected-spill ensemble evidence"},
+        {"sourceElementId": "sh/nyd0z610", "action": "rewrite", "role": "selected-spill evidence caption"},
+        {"sourceElementId": "sh/w3m94fu1", "action": "rewrite", "role": "key quantitative results body"},
+        {"sourceElementId": "im/7y1kre1w", "action": "replace", "role": "horizontal-plane tracking-loss diagnostic"},
+        {"sourceElementId": "sh/54zidony", "action": "rewrite", "role": "horizontal-plane diagnostic caption"},
+        {"sourceElementIds": ["im/7qpg3ex0", "im/0bi9s36h", "im/pwb2hwfy", "im/wjudg7ad"], "action": "delete", "role": "remove unrelated sample logos"},
+        {"sourceElementIds": ["sh/l87ed8ba", "sh/il0rqd4v", "sh/tcj6tova", "sh/oza1gvy9", "sh/hk3q5o7q", "sh/zqtcj6to", "sh/obm58z25", "sh/hwfyxobm", "sh/a9w3m94f"], "action": "delete", "role": "remove template authoring instructions and guide arrows"}
+      ]
+    }
+  ],
+  "omittedSourceSlides": [
+    {"sourceSlide": 2, "reason": "The alternate layout does not provide enough inherited evidence frames for the required visual comparison."}
+  ]
+}
