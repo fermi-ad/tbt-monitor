@@ -29,6 +29,7 @@ __pycache__/
 !/publication/
 !/publication/ibic2026/
 !/publication/ibic2026/**
+/publication/**/.DS_Store
 
 # Local reference docs (large, non-source)
 ChatGPT - Synchrotron Tune Calculation plan.pdf
