@@ -28,3 +28,8 @@ the same pass. The final source must include:
 
 The accepted abstract is intentionally quoted in the manuscript abstract until
 the corrected results justify a narrower factual update.
+
+Generate `results_table.tex` and the four files under `figures/` with
+`scripts/prepare_ibic2026_publication.py`; the script rejects any mismatch
+between the selected Best-N rows and the plane-specific full-buffer ridge
+contract.

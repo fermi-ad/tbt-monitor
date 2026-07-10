@@ -278,6 +278,9 @@ Implemented structure:
 - strict intensity closure over the audited 23999-pair capture, complete
   90-window 4096/512 spill grids, exact Best-1 weighting invariance, effect
   decisions, and all gallery assets
+- verifier-bound IBIC materialization that carries independent H/V Best-N
+  recommendations into a plane-selected ridge composite, poster copy, paper
+  table, exact figure copies, results payload, and source-hash manifest
 - `verify_best_bpm_outputs.py` checks required output groups, CSV schemas,
   row counts where practical, global/per-spill artifacts, and final reports
   before a Spark run is treated as complete
@@ -305,6 +308,9 @@ Current publication interpretation:
   Every requested N receives a shared-scale H/V-by-method composite in addition
   to its single-plane and subtractive diagnostics; no composite is interpreted
   without exact paired counts and sample-fraction checks.
+  If H and V select different N, an additional contract-bound mixed composite
+  uses the corresponding membership for each row and selected-N concentration
+  panels keep the H-loss view legible.
   Corrected native rasterization fills the complete declared tune axis with
   proportional cells, keeping density colors and percentile overlays aligned.
 - Best-N, intensity, and full-buffer ridge passes write checksummed JSON run
@@ -314,8 +320,9 @@ Current publication interpretation:
   spill/window, exact-pair, metric, warning, PNG, and caption verifier passes.
 - The old ``Best-10 deferred'' note is historical, not an active missing run.
   The publication evaluates every N contiguously through at least N=20 (target
-  N=30) under the separate leakage-controlled protocol and extends only if the
-  validation curves have not plateaued.
+  N=30) under the separate leakage-controlled protocol. The bounded N=30 trial
+  put the V knee at the upper boundary, so the definitive July pass extends
+  contiguously through N=40 under the predeclared boundary rule.
 - Intensity weighting is rejected unless block-aware FDR, practical effect,
   median tune-shift, and 95% spillwise tune-shift criteria all pass. Integrity
   and timing diagnostics remain useful even when weighting is rejected.

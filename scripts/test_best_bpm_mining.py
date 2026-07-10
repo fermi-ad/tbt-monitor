@@ -83,6 +83,7 @@ from bpm_mining.verification import verify_best_bpm_followups, verify_best_bpm_o
 from audit_intensity_capture import audit as audit_intensity_capture
 from make_best_bpm_ridge_density import (
     draw_legacy_pair_hv,
+    draw_legacy_pair_hv_selected,
     exact_paired_density_results,
     keyed_ensemble_points,
     keyed_legacy_points,
@@ -94,6 +95,7 @@ from make_best_bpm_ridge_density import (
 from gpu_analyze_captured_spills import preprocess_traces, select_trace_subset
 from audit_legacy_single_bpm_selection import selection_row as legacy_selection_row
 from package_publication_review import package_review
+from prepare_ibic2026_publication import publication_content, render_results_table
 from repair_best_bpm_visibility_duration import repair_visibility_durations
 from analyze_next_steps_outputs import fixed_score_contract_mismatches
 from compare_intensity_block_sensitivity import (
@@ -725,6 +727,47 @@ class BestBpmMiningTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "not empty"):
             package_review((("source", source),), occupied)
 
+    def test_publication_copy_and_table_are_plane_specific(self) -> None:
+        best = {
+            plane: {
+                "blind_q_agreement_rate": "0.5",
+                "blind_q_agreement_ci_low": "0.4",
+                "blind_q_agreement_ci_high": "0.6",
+                "median_blind_selected_heldout_abs_q_delta": "0.001",
+                "blind_selected_heldout_abs_q_delta_ci_low": "0.0008",
+                "blind_selected_heldout_abs_q_delta_ci_high": "0.0012",
+            }
+            for plane in ("H", "V")
+        }
+        ridge = {
+            plane: {
+                "median_iqr_delta_ensemble_minus_legacy": "-0.002",
+                "median_iqr_delta_ci_low": "-0.0025",
+                "median_iqr_delta_ci_high": "-0.0015",
+                "median_shared_ridge_mass_gain": "0.1",
+                "median_shared_ridge_mass_gain_ci_low": "0.08",
+                "median_shared_ridge_mass_gain_ci_high": "0.12",
+            }
+            for plane in ("H", "V")
+        }
+        sizes = {"H": 7, "V": 11}
+        table = render_results_table(best, ridge, sizes)
+        self.assertIn("H & 7", table)
+        self.assertIn("V & 11", table)
+        self.assertIn("concentration, not absolute tune accuracy", table)
+        content = publication_content(
+            sizes,
+            best,
+            ridge,
+            {"first_sustained_half_peak_loss_turn": "12000", "most_likely_change_turn": "14000"},
+            {"plane": "V", "category": "best5_improvement", "spill_id": "spill_1", "score": "0.8"},
+            240,
+            0,
+        )
+        self.assertIn("H Best-7", content["ridgeCaption"])
+        self.assertIn("V Best-11", content["ridgeCaption"])
+        self.assertIn("0/240", content["quantitativeBody"])
+
     def test_intensity_block_sensitivity_separates_statistical_and_practical_passes(self) -> None:
         root = self.root / "intensity-block"
         root.mkdir()
@@ -829,6 +872,16 @@ class BestBpmMiningTests(unittest.TestCase):
             },
         )
         self.assertEqual(png_dimensions(combined_path), (2400, 900))
+        selected_path = self.root / "ridge_h5_v3.png"
+        draw_legacy_pair_hv_selected(
+            selected_path,
+            {"H": "5", "V": "3"},
+            {
+                "H": (paired_baseline, paired_ensemble, (0.62, 0.68)),
+                "V": (paired_v_baseline, paired_v_ensemble, (0.69, 0.74)),
+            },
+        )
+        self.assertEqual(png_dimensions(selected_path), (2400, 900))
         with self.assertRaisesRegex(ValueError, "duplicate legacy ridge point"):
             keyed_legacy_points(
                 [("run", "1", 100, 0.650), ("run", "1", 100, 0.651)],

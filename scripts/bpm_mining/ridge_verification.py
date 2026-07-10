@@ -259,6 +259,7 @@ def verify_ridge_density_outputs(
     expected_adaptive_spills = 0
     expected_legacy_spills: dict[str, int] = {}
     expected_legacy_points: dict[str, int] = {}
+    selected_plane_sizes: dict[str, int] = {}
     contract_path = root / "run_contract.json"
     if contract_path.is_file():
         try:
@@ -272,6 +273,16 @@ def verify_ridge_density_outputs(
             _issue(issues, "error", "run_contract_analysis", "ridge run contract identifies the wrong analysis")
         if sorted(int(value) for value in contract.get("subset_sizes", [])) != sizes:
             _issue(issues, "error", "run_contract_subset_sizes", "ridge run contract subset sizes do not match verification")
+        raw_selected_sizes = contract.get("selected_plane_sizes", {})
+        if raw_selected_sizes:
+            if not isinstance(raw_selected_sizes, Mapping) or set(raw_selected_sizes) != {"H", "V"}:
+                _issue(issues, "error", "run_contract_selected_sizes", "selected ridge ensemble sizes must identify H and V")
+            else:
+                selected_plane_sizes = {
+                    plane: int(raw_selected_sizes[plane]) for plane in ("H", "V")
+                }
+                if any(value not in sizes for value in selected_plane_sizes.values()):
+                    _issue(issues, "error", "run_contract_selected_sizes", "selected ridge ensemble sizes are not in the requested N set")
         expected_contract_centers = 0
         expected_adaptive_spills = int(contract.get("manifest_count") or 0)
         raw_legacy_spills = contract.get("legacy_reference_spill_counts", {})
@@ -492,6 +503,9 @@ def verify_ridge_density_outputs(
     }
     if require_context_variants:
         expected_role_minimums["exploratory extraction-context concentration"] = 2
+    if selected_plane_sizes:
+        expected_role_minimums["plane-selected paired legacy H/V comparison"] = 1
+        expected_role_minimums["plane-selected turn concentration"] = 2
     for role, minimum in expected_role_minimums.items():
         if roles[role] < minimum:
             _issue(issues, "error", "figure_role_coverage", f"figure role '{role}' has {roles[role]} rows; expected at least {minimum}")

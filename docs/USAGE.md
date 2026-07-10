@@ -733,7 +733,7 @@ python3 scripts/evaluate_best_n_curve.py \
   --inputs /path/to/corrected-best-bpm \
   --out /path/to/best-n-shards/shard_0 \
   --device cuda \
-  --max-n 30 \
+  --max-n 40 \
   --beam-width 64 \
   --validation-beam-width 64 \
   --folds 5 \
@@ -752,7 +752,7 @@ python3 scripts/merge_best_n_shards.py \
 
 python3 scripts/verify_best_n_outputs.py \
   --root /path/to/best-n-merged \
-  --max-n 30 \
+  --max-n 40 \
   --curve-cache-rows 4000 \
   --validation-cache-rows 1000 \
   --folds 5
@@ -792,7 +792,7 @@ python3 scripts/run_best_n_sensitivity_matrix.py \
   --inputs /path/to/corrected-best-bpm \
   --out /path/to/best-n-sensitivity \
   --device cuda \
-  --max-n 30 \
+  --max-n 40 \
   --curve-limit 400 \
   --validation-limit 200 \
   --folds 5 \
@@ -942,6 +942,11 @@ comparison whose four panels use column-normalized pick probability and one
 shared P98-clipped color scale. Its caption reports exact paired counts and
 warns that visual narrowing must agree with sample-fraction, width, entropy,
 and shared-ridge-mass diagnostics.
+After the Best-N verifier selects H and V, pass both `--selected-h-n` and
+`--selected-v-n` and include both values in `--subset-sizes`. The run then
+writes `ridge_density_legacy_single_vs_best_h<H>_v<V>_hv.png` plus one clean
+selected-N concentration panel per plane. The ridge verifier requires these
+assets whenever `selected_plane_sizes` is present in the run contract.
 
 The favorite `18d321dbd4fe` images bin one tracked `selected_tune` per spill
 and window; they are not spectral-power heatmaps. For an exact paired
@@ -959,7 +964,7 @@ Verify the primary gallery before using any panel:
 ```bash
 python3 scripts/verify_ridge_density_outputs.py \
   --root /path/to/ridge-gallery \
-  --subset-sizes 1 3 5 10 15 20 30 \
+  --subset-sizes 1 3 5 10 15 20 30 40 \
   --minimum-spills 1900 \
   --expected-centers 180
 ```
@@ -970,6 +975,24 @@ points, wrong selected-member cardinality, out-of-band tune picks, incomplete ex
 pairing or contrast metrics, unresolved membership/payload warnings, and any
 missing, invalid, undersized, or uncaptioned manifest figure. Other data-quality
 warnings remain visible and require written review.
+
+Materialize final poster and paper inputs only after every analysis gate passes:
+
+```bash
+python3 scripts/prepare_ibic2026_publication.py \
+  --primary-root /path/to/corrected-best135 \
+  --followup-root /path/to/corrected-best135/followups/publication \
+  --best-n-root /path/to/best-n-full \
+  --ridge-root /path/to/ridge-50000 \
+  --intensity-root /path/to/intensity-refresh \
+  --publication-root publication/ibic2026
+```
+
+This command requires accepted 10/20/40-block Best-N outputs, four OK
+cross-collection transfer rows, seven verified beam/fit/fold sensitivity runs,
+an accepted mixed-N ridge contract, and zero retained intensity effects. It
+writes `poster/content.json`, `paper/results_table.tex`, exact figure copies,
+`results_payload.json`, `PREPARATION_REPORT.md`, and `source_manifest.csv`.
 
 Package final publication sources, rendered deliverables, reports, and broad
 review galleries into one local handoff directory:

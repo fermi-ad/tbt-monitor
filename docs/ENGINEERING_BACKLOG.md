@@ -33,6 +33,17 @@ None.
 
 ## In Progress
 
+### [ENG-037] Verifier-bound IBIC publication materialization
+- Status: in_progress
+- Owner: project
+- Type: reliability
+- Why: the A0 poster and JACoW paper scaffolds rejected placeholders but had no code path proving that their copy, selected N, tables, and five final figures came from the same accepted primary, follow-up, Best-N, intensity, and ridge roots.
+- Scope: render a plane-specific H/V ridge composite when H and V select different N; generate clean selected-N concentration panels; require the plane choices in the ridge run contract and verifier; materialize poster `content.json`, paper `results_table.tex`, exact figure copies, a machine-readable results payload, and a checksummed source manifest from accepted roots; allow valid empty LaTeX option lists while still rejecting unresolved bracket placeholders.
+- Acceptance: local tests cover mixed H/V rendering and plane-specific publication copy; corrected Spark ridge output contains the contract-bound mixed composite and selected-plane concentration panels; publication preparation rejects failed reports, mismatched N, unresolved block sensitivity, retained intensity weighting, missing cross-collection transfer, or undersized images; final A0 poster and four-page paper pass their layout/compliance gates.
+- Docs: README.md, NEXT_STEPS.md, docs/USAGE.md, docs/SPARK.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md, publication/ibic2026/README.md, publication/ibic2026/poster/README.md, publication/ibic2026/paper/README.md
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/prepare_ibic2026_publication.py scripts/make_best_bpm_ridge_density.py scripts/bpm_mining/ridge_verification.py; PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; strict Spark ridge and publication preparation pass; A0 PPTX/PDF/PNG visual QA; exact four-page JACoW PDF QA
+- Notes: plane-specific N is allowed because H and V are independent diagnostics. The mixed four-panel image still uses one shared P98-clipped color scale, but visual thickness is compared only within each plane because the tune-band widths differ.
+
 ### [ENG-036] Semantic publication artifacts and nonduplicating continuation
 - Status: in_progress
 - Owner: project

@@ -35,7 +35,7 @@ test -s "$HERE/results_table.tex" || {
 }
 
 for text_source in "$SOURCE" "$HERE/results_table.tex"; do
-  if grep -Eiq 'final manuscript will report|(^|[^[:alnum:]_])(pending|provisional|tbd|todo)([^[:alnum:]_]|$)|\[[[:space:]]*\]' "$text_source"; then
+  if grep -Eiq 'final manuscript will report|(^|[^[:alnum:]_])(pending|provisional|tbd|todo)([^[:alnum:]_]|$)|\[[[:space:]]+\]' "$text_source"; then
     echo "paper source still contains unresolved or provisional copy: $text_source" >&2
     exit 1
   fi

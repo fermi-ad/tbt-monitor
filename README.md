@@ -29,7 +29,9 @@ fail-closed publication verifiers for the primary, Best-N, intensity, and ridge
 outputs.
 Publication artifacts use exact channel identities, semantic verifiers, and a
 deterministic native PNG renderer for the key deconstruction, handoff,
-intensity, Best-N, and ridge figures.
+intensity, Best-N, and ridge figures. `prepare_ibic2026_publication.py` binds
+the final plane-specific N, numerical copy, tables, and figure files to the
+same accepted analysis roots before the poster or paper can be built.
 
 ## Quick Start
 
@@ -92,7 +94,8 @@ commands in `docs/USAGE.md` when continuing after a completed search.
 - `src/capture.rs`: raw synchronized spill capture and capture diagnostics.
 - `src/analyze.rs`: live/offline tune analysis, studies, and batch outputs.
 - `scripts/`: poster/DGX tooling, Spark autosweep, Best-BPM mining,
-  verification helpers, and checksummed publication-review packaging.
+  verification helpers, verifier-bound IBIC materialization, and checksummed
+  publication-review packaging.
 - `config/`: example/generated runtime config.
 - `docs/`: subsystem guides, command reference, architecture, physics notes,
   backlog, and workflow docs.

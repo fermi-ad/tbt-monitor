@@ -13,6 +13,10 @@ parallel visual rebuild are not permitted.
 - `content.json`: final verifier-derived copy and relative paths to five PNGs;
 - a prepared `template-starter.pptx` generated from the supplied POTX.
 
+Do not edit `content.json` or copy the five final PNGs by hand. Generate them
+with `scripts/prepare_ibic2026_publication.py`, which preserves independent H/V
+Best-N choices and records every source hash.
+
 `content.json` must provide the text and asset keys enforced by
 `build_poster.mjs`. The builder rejects missing/undersized images, unresolved
 copy, and nonnumeric result text. `build_poster.sh` runs that builder and the

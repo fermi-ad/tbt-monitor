@@ -444,6 +444,12 @@ tracks. Keep its quantitative caption and the separate sample-fraction and
 subtractive diagnostics in the review package; the composite alone cannot
 distinguish true persistence from missing observations or establish physical
 noise removal.
+If leakage-controlled model selection chooses different H and V ensemble
+sizes, use `--selected-h-n` and `--selected-v-n` to add a plane-selected H/V
+composite and one clean concentration panel per selected plane. This is not a
+cross-plane comparison: the common color scale supports method contrast, while
+the different H/V tune-band widths still forbid comparing apparent thickness
+between rows.
 Every density raster maps tune bins proportionally onto the complete declared
 axis. Integer-truncated cell heights are forbidden because they displace the
 color field from the percentile tracks even when both come from the same rows.
@@ -453,6 +459,11 @@ finite metrics, detail/summary agreement, cross-collection products, native
 plots, and the three-larger-N recommendation boundary. The beam/fit/fold matrix
 uses seven unique sample runs with one shared baseline; it does not replace the
 all-row primary curve.
+`scripts/prepare_ibic2026_publication.py` is the final provenance gate. It
+requires accepted primary/follow-up, Best-N 10/20/40-block, intensity, and
+ridge reports; checks cross-collection transfer and the seven-run matrix; and
+copies the exact figures while writing the poster JSON, paper table, results
+payload, and source manifest.
 Every subtractive ridge caption must say that color represents probability-mass
 redistribution, not measured physical noise. The primary density figures do not
 show a fixed extraction onset; a broad 10000--20000-turn context band may appear

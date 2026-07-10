@@ -55,6 +55,10 @@ Treat these as baseline rather than open TODOs:
 - strict intensity verification of the audited pair count, complete method/turn
   grids, payload horizon, exact N=1 equality, effect decisions, and gallery
   assets; 10/20/40 blocks must retain the same exact effect identities
+- verifier-bound publication materialization with independent H/V Best-N,
+  exact-paired mixed ridge comparison, selected-N H-loss panel, poster copy,
+  paper table, and source hashes; final execution remains gated on the active
+  Best-N, intensity, and ridge passes
 
 ## 2. Deferred Production Enhancements (Not Publication TODO)
 

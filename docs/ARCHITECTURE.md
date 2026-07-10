@@ -288,7 +288,7 @@ config ranking. Its package modules cover:
 - `scripts/make_best_bpm_ridge_density.py`: poster sidecar that rereads raw
   captured spills, applies exact corrected Best-N memberships, recomputes
   0-50000 turn sliding spectra, and renders old-gallery-style ridge-density
-  heatmaps plus per-N shared-scale H/V legacy/adaptive composites,
+  heatmaps plus per-N and plane-selected shared-scale H/V legacy/adaptive composites,
   exact-point-paired density differences, concentration and H-loss diagnostics,
   and moving-turn-block legacy contrast intervals. Density bins use
   proportional inclusive raster bounds so color fields and tune overlays occupy
@@ -299,6 +299,11 @@ config ranking. Its package modules cover:
   membership, legacy-table, manifest-inventory, and window-geometry hashes.
   The publication contract additionally binds the adaptive pass to the archived
   `18d321dbd4fe` 4096/256 tracking protocol and exact 2000/1988 source coverage.
+- `scripts/prepare_ibic2026_publication.py`: accepts only verifier-clean primary,
+  follow-up, three-block Best-N, intensity, and full-buffer ridge roots; checks
+  cross-collection and hyperparameter sensitivity, rejects any retained
+  intensity weighting, and materializes the exact poster/paper figures,
+  plane-specific results table, poster copy, results payload, and source hashes.
 - `verification.py`: structural output-contract checks for completed or
   partially completed Best-BPM output directories, including required files,
   CSV headers, exact usable spill-plane/membership identity, shared-score

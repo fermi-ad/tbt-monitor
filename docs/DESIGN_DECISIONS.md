@@ -460,6 +460,10 @@ Decision:
 - Render one shared-scale H/V-by-method composite per requested N, but retain
   the per-plane, subtraction, sample-fraction, and quantitative tables needed
   to prevent a visually narrow ridge from becoming a stand-alone claim.
+- When leakage-controlled selection recommends different N for H and V, render
+  one additional plane-selected composite rather than silently applying one
+  plane's knee to both. Bind those two choices into the ridge run contract and
+  keep a selected-N concentration panel for each plane.
 
 Why:
 - The machine configuration changed during acquisition and the spills are
@@ -563,6 +567,9 @@ Decision:
   indexed gallery asset before closing the intensity question.
 - Compare exact retained-effect identities across 10/20/40-spill summaries;
   equal counts with different retained methods are a failed sensitivity gate.
+- Materialize poster copy, paper tables, and final figure filenames from the
+  accepted roots in one command. Placeholder rejection alone does not prove
+  that a manually copied image and a reported number share provenance.
 
 Why:
 - Adaptive training score alone is vulnerable to look-elsewhere bias and can

@@ -25,6 +25,11 @@ horizontal whitespace; the tracked form is semantically identical and has
 SHA-256
 `e902c3c4ff34a98604d17ba3dd44989b9ed6c042bfdd179eb4f1b700515f291c`.
 
+`scripts/prepare_ibic2026_publication.py` is the numerical and figure
+materialization gate. It accepts only verifier-clean analysis roots and writes
+the exact poster JSON, paper table/figures, results payload, preparation report,
+and source manifest used by the two build pipelines.
+
 ## Deliverables
 
 The completed directory contains:
