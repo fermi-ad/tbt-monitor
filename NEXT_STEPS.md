@@ -373,6 +373,19 @@ the publication audit:
     hash and per-collection incomplete topology, and rejects any drift from the
     observed 263,983/23,999 contract. This is capture completeness evidence, not
     permission to fabricate or zero-fill absent channels.
+44. The first full corrected intensity refresh completed all four waveform
+    shards, all 1,152,000 window rows, all three block summaries, and the
+    369-image gallery, but its strict verifier rejected 4,105 Best-1 weighted
+    rows. A read-only exact-field audit found no tune-bin, visibility,
+    intensity, or member-count change: only nonlinear spectral-shape metrics
+    moved after multiplying and dividing the sole float32 spectrum (2,574
+    linear-weight rows and 1,531 square-root-weight rows; maximum absolute
+    delta `7.6e-6`). The singleton combiner now copies the usable spectrum
+    directly and tests require bit-exact equality. The rejected root remains
+    immutable evidence; publication closure requires a clean source-bound
+    four-shard rerun, all three block summaries, gallery regeneration, and a
+    passing strict verifier. Loosening the tolerance or editing CSV rows in
+    place is prohibited.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;
@@ -486,7 +499,7 @@ Completion status:
 | Corrected Best-1/3/5 primary and downstream rerun | complete | primary and follow-up strict verifiers both report zero failures and zero warnings; every required fixed, held-out, artifact, and handoff product is present |
 | Best-N curve through at least N=20 | in progress | full N=1-40 run and 10/20/40-block merges complete; H Best-5 and V Best-12 on the accepted block-20 curve; five of seven reduced-sample sensitivity runs verified before the clock correction, with two bounded evaluators still active at the last network-confirmed probe |
 | Leakage-controlled Best-N versus all-training control | pending | implementation, strict verifier, 18-image native gallery, publication binding, and exact four-page paper smoke pass locally; full 1000-spill-plane CPU/cache run waits for the active Spark publication chain to become idle |
-| 200-spill intensity hypothesis test | in progress | initial 199-spill pass and block-aware re-summary found 0 FDR-significant/0 practical effects; corrected all-zero gate fallback, exact N=1 contract, and strict payload/window/effect/gallery verifier pass locally; 200-spill gate-refresh merge/gallery pending |
+| 200-spill intensity hypothesis test | in progress | all four corrected waveform shards completed and still found 0 FDR-significant/0 practical effects, but strict closure exposed singleton float32 scale/divide roundoff in 4,105 Best-1 rows; bit-exact pass-through passes locally and a clean source-bound rerun is required |
 | Delivery Ring producer and raw-payload integrity audit | in progress | live raw/scaled separation and HP303/VP304 roll behavior confirmed read-only on drbpm2; exhaustive first-50000-turn scan over all three publication collections pending on Spark |
 | Corrected 50000-turn ridge/difference/concentration gallery | pending | exact-source-key full-buffer sidecar plus strict spill/window/pair/metric/PNG/caption verifier |
 | All required handoff, fixed, held-out, artifact, and report tasks below | complete | corrected follow-up verifier passes 32,000 fixed, 800,000 held-out, 201,240 visibility, 13,104 handoff-event, 4,680 summary rows, and every required artifact |

@@ -113,7 +113,7 @@ The work reports BPM-only tune candidates and internal reproducibility. It does
 not claim absolute tune calibration, physical noise removal, or a measured
 extraction-onset turn. Ridge subtraction is exact-paired probability
 redistribution. Intensity is retained as a tune weight only if the corrected
-200-spill test passes every statistical, practical-effect, and tune-stability
-gate. Best-N improvement relative to adaptive Best-1 is reported separately
+200-spill test passes every statistical, practical-effect, tune-stability, and
+bit-exact Best-1 zero-effect gate. Best-N improvement relative to adaptive Best-1 is reported separately
 from the same-protocol all-training mean/median control. That control remains
 internal reproducibility evidence and may favor either method or be unresolved.

@@ -284,8 +284,8 @@ Implemented structure:
   10/20/40-spill block-length sensitivity, practical-effect gates,
   payload-horizon auditing, and an indexed review gallery
 - strict intensity closure over the audited 23999-pair capture, complete
-  90-window 4096/512 spill grids, exact Best-1 weighting invariance, effect
-  decisions, and all gallery assets
+  90-window 4096/512 spill grids, bit-exact Best-1 weighting invariance via
+  singleton spectrum pass-through, effect decisions, and all gallery assets
 - verifier-bound IBIC materialization that carries independent H/V Best-N
   recommendations into a plane-selected ridge composite, poster copy, paper
   table, exact figure copies, results payload, and source-hash manifest

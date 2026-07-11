@@ -300,7 +300,9 @@ config ranking. Its package modules cover:
   Intensity never modifies the position waveform. A window with no usable
   selected intensity falls back explicitly to unweighted aggregation; an empty
   finite gate retains the strongest finite selected member. Window and spill
-  outputs carry the fallback reason and frequency.
+  outputs carry the fallback reason and frequency. A one-member ensemble uses
+  an exact spectrum pass-through, preserving the Best-1 zero-effect control
+  without scale/divide roundoff in nonlinear spectral metrics.
   Density-difference figures join methods on exact
   collection/spill/plane/N/window/center keys and retain only common finite
   in-band picks before column normalization; their absolute-P99 color clip is

@@ -51,7 +51,9 @@ capabilities rather than re-track them as new software tasks:
   200-spill refresh passes strict closure, and intensity remains auxiliary to
   position tune extraction
 - strict intensity closure requires exact Best-1 zero-effect behavior, complete
-  first-50000-turn grids, and recomputation of every retain/reject gate
+  first-50000-turn grids, and recomputation of every retain/reject gate; the
+  singleton spectrum is passed through directly so float32 cancellation cannot
+  masquerade as a physical weighting effect
 
 ## 2. Core Physics Question
 

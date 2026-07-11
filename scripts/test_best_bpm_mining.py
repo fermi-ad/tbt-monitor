@@ -892,14 +892,23 @@ class BestBpmMiningTests(unittest.TestCase):
 
         spectra = np.arange(24, dtype=np.float32).reshape(1, 3, 8) + 1.0
         relative = np.asarray([[0.2, 1.0, 3.0]], dtype=np.float32)
-        baseline, _ = combine_weighted_spectra(spectra, method_weights(relative, "unweighted"))
+        baseline, baseline_effective = combine_weighted_spectra(spectra, method_weights(relative, "unweighted"))
         for method in ("sqrt_intensity", "linear_intensity", "intensity_gate_50pct"):
-            weighted, _ = combine_weighted_spectra(spectra, method_weights(relative, method))
-            np.testing.assert_allclose(weighted, baseline)
+            weighted, effective = combine_weighted_spectra(spectra, method_weights(relative, method))
+            np.testing.assert_array_equal(weighted, baseline)
+            np.testing.assert_array_equal(effective, baseline_effective)
         relative_with_missing = np.asarray([[math.nan, 1.0, math.nan]], dtype=np.float32)
         for method in ("sqrt_intensity", "linear_intensity", "intensity_gate_50pct"):
-            weighted, _ = combine_weighted_spectra(spectra, method_weights(relative_with_missing, method))
-            np.testing.assert_allclose(weighted, baseline)
+            weighted, effective = combine_weighted_spectra(spectra, method_weights(relative_with_missing, method))
+            np.testing.assert_array_equal(weighted, baseline)
+            np.testing.assert_array_equal(effective, baseline_effective)
+        invalid_weighted, invalid_effective = combine_weighted_spectra(
+            spectra,
+            np.asarray([[1.0, 0.0, math.nan]], dtype=np.float32),
+        )
+        np.testing.assert_array_equal(invalid_weighted[0], spectra[0, 0])
+        self.assertTrue(np.all(np.isnan(invalid_weighted[1:])))
+        np.testing.assert_array_equal(invalid_effective, np.asarray([1.0, 0.0, 0.0], dtype=np.float32))
         self.assertEqual(
             method_weight_fallbacks(relative_with_missing, "sqrt_intensity"),
             ["NO_USABLE_INTENSITY_UNWEIGHTED", "", "NO_USABLE_INTENSITY_UNWEIGHTED"],

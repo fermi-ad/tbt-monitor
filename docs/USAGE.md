@@ -998,7 +998,10 @@ identical method spill populations and memberships, exact contracted
 spill/window center grids, finite global ridge picks, zero errors or invalid first-50000-turn payloads,
 equal advertised and on-disk position/intensity sample counts, member
 cardinality, every effect decision gate, exact Best-1 weighting
-invariance, and every indexed gallery PNG/claim guardrail.
+invariance, and every indexed gallery PNG/claim guardrail. The singleton
+combiner is an exact pass-through when its weight is usable; multiplying and
+dividing the sole float32 spectrum is prohibited because it can perturb
+downstream spectral-shape metrics despite leaving the tune bin unchanged.
 If no selected channel has usable intensity in a window, every weighted method
 uses an explicit unweighted fallback. When finite values exist but the 50%
 gate would be empty, only the strongest finite selected channel is retained.

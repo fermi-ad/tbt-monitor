@@ -600,7 +600,9 @@ Decision:
 - Preserve the position-only estimator when intensity is unusable: all weighted
   methods fall back to unweighted aggregation for an all-nonfinite window, while
   a finite but empty 50% gate retains its strongest finite selected member.
-  Export both the per-window reason and per-spill fallback fraction.
+  Export both the per-window reason and per-spill fallback fraction. For N=1,
+  return the sole usable spectrum directly so weighting is an exact zero-effect
+  control rather than a numerically approximate multiply/divide identity.
 - Join every intensity density subtraction on identical exact
   collection/spill/plane/N/window/center keys and use only common finite in-band
   picks. Describe red/blue as higher/lower column-normalized ridge-pick

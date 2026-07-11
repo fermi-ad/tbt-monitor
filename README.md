@@ -54,7 +54,9 @@ unresolved, but it must be reported before materialization.
 Subtractive intensity and ridge panels require exact common spill/window
 points and describe only ridge-pick probability redistribution; display color
 clipping is disclosed and does not alter exported metrics. Native heatmap cells
-cover their complete declared axes without floor-division gaps.
+cover their complete declared axes without floor-division gaps. For Best-1,
+every weighting method passes the sole spectrum through without scale/divide
+arithmetic so the required zero-effect control is bit-exact.
 `finalize_ibic2026_publication.py` then requires explicit visual-QA passes and
 rechecks immutable references, page geometry, payload closure, checksums, and
 the final PPTX slide XML for empty structural placeholders before writing the

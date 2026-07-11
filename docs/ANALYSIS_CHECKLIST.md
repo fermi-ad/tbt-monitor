@@ -61,8 +61,9 @@ Treat these as baseline rather than open TODOs:
   fallback plus an explicit no-usable-intensity unweighted fallback restore N=1
   invariance and require one final 200-spill refresh.
 - strict intensity verification of the audited pair count, complete method/turn
-  grids, payload horizon, exact N=1 equality, effect decisions, and gallery
-  assets; 10/20/40 blocks must retain the same exact effect identities
+  grids, payload horizon, bit-exact N=1 equality from direct singleton spectrum
+  pass-through, effect decisions, and gallery assets; 10/20/40 blocks must
+  retain the same exact effect identities
 - verifier-bound publication materialization with independent H/V Best-N,
   exact-paired mixed ridge comparison, selected-N H-loss panel, poster copy,
   paper table, and source hashes; final execution remains gated on the active

@@ -508,7 +508,9 @@ After the corrected block-20 merge and gallery render, require:
 ```
 
 This also proves the corrected all-zero gate fallback by requiring every Best-1
-window to be numerically invariant across all four weighting methods.
+window to be bit-exact across all four weighting methods. The singleton path
+copies the position spectrum directly; do not weaken this gate to accommodate
+float32 multiply/divide cancellation.
 No-usable-intensity windows explicitly use unweighted aggregation for every
 method; a finite-but-below-threshold gate keeps the strongest finite member.
 The window/spill CSVs and merged summary expose fallback reasons and frequency;

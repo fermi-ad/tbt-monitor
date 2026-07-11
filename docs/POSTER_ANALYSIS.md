@@ -547,6 +547,8 @@ The intensity gallery is held to the same closure standard: the audited capture
 counts, first-50000-turn integrity, complete method grids, exact Best-1
 zero-effect control, all statistical/practical/tune-shift gates, and every PNG
 with its claim guardrail must pass before an intensity panel is considered.
+Best-1 is computed by direct singleton spectrum pass-through; scale/divide
+roundoff is not accepted as a weighting effect or hidden by verifier tolerance.
 Its subtraction panels additionally require identical exact
 collection/spill/plane/N/window/center keys and common finite in-band ridge
 picks. Red and blue mean higher and lower column-normalized ridge-pick

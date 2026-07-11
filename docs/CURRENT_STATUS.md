@@ -26,7 +26,7 @@ locally package:
 ```text
 accepted primary root: /home/derekste/best_bpm_mining_20260709_corrected_best135
 active Best-N root: /home/derekste/best_n_20260710_full40
-active continuation code: /home/derekste/tbt-monitor-publication-code-25c41237
+active continuation code: /home/derekste/tbt-monitor-publication-code-a83fe503
 python: /home/derekste/venvs/cupy-spark-cu13/bin/python
 data: two 1000-spill position-only collections, 120 exact channels
 ```
@@ -51,10 +51,12 @@ sensitivity COMPLETE marker: present, source commit 1f6cc645
 sensitivity matrix: seven verified outputs, seven reused, zero evaluator launches
 recovery receipt SHA-256: 2490f0a6e8c1add64fb414cb5b291dde91bc0c5c04ff6e1a4544a04aa4ab5106
 active CUDA evaluators: none
-payload audit: scan pass, wrapper rejected stale 263999-row assumption
+payload audit: COMPLETE under exact 263983-row contract
 observed corpus: 263983 captured position rows, 23999 exact pairs
 partial captures: 13 manifests, 17 absent position streams
-intensity/ridge/ANALYSIS_COMPLETE markers: absent
+intensity waveforms: four serial shards complete, 1152000 window rows
+intensity verifier: failed only 4105 Best-1 singleton-invariance rows
+ridge/all-training/ANALYSIS_COMPLETE markers: absent
 memory watchdog: clear
 ```
 
@@ -65,15 +67,24 @@ evaluator. Eligible recommendations are available in 5/7 H runs (N=2-13) and
 6/7 V runs (N=10-28), satisfying the declared majority gate while retaining two
 H and one V unresolved tradeoffs.
 
-The first exhaustive payload scan then exposed a stale corpus assumption. All
+The first exhaustive payload scan exposed and then corrected a stale corpus assumption. All
 263983 listed position payloads and all 23999 exact intensity pairs pass the
 first-50000-turn finite/count/plateau/fallback checks, but 13 manifests already
 record `Partial` capture state and omit 17 position streams. The exact split is
 6/10/1 absent rows across the two position collections and intensity
 collection. A read-only join confirms none of the 16 position-only absences is
 in the accepted per-spill H Best-5 or V Best-12 membership. The corrected audit
-adds a hashed absent-stream inventory and exact manifest/topology contract; it
-must rerun before the payload `COMPLETE` marker is written.
+adds a hashed absent-stream inventory and exact manifest/topology contract and
+now passes with its `COMPLETE` marker.
+
+The first full corrected intensity refresh completed every shard, merge,
+10/20/40-block summary, and gallery render. It retained zero intensity methods,
+but strict verification rejected 4105 Best-1 weighted windows. A read-only field
+audit found no tune-bin or classification changes; multiplying and dividing the
+sole float32 spectrum perturbed only continuous nonlinear shape metrics by at
+most `7.6e-6`. The source now uses exact singleton pass-through and local tests
+require bit equality. Preserve the rejected root and rerun the four shards into
+a clean, source-bound root before ridge processing.
 
 The machine clock was corrected by roughly 80 minutes during this run. Hashes,
 row counts, and Linux process elapsed time remain valid; wall-clock log stamps
