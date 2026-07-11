@@ -101,6 +101,24 @@ test, PNG inspection, publication-binding test, and exact four-page offline
 paper smoke pass. Do not start the full control until the current GPU chain is
 idle.
 
+The immutable post-chain handoff is prepared locally:
+
+```text
+source commit: cf43cb1d9277443a6bece1d310d692f8f59c4467
+source archive: /private/tmp/tbt-monitor-publication-code-cf43cb1d.tar.gz
+source archive SHA-256: c07e3e2da4689ade5d0e25baf7a8b0f0d44863a2ff8f89243bc14bf798259b7c
+post-chain wrapper: /private/tmp/spark_all_training_post_chain_cf43cb1d.sh
+post-chain wrapper SHA-256: b2d47c9467382a7b410b58c2d95e5cb686b2626be61cec705661472774871772
+```
+
+The wrapper waits for `ANALYSIS_COMPLETE` containing exact prerequisite commit
+`25c41237`, verifies and extracts the archive, reruns the local gates on Spark,
+waits for at least 48 GiB available memory, executes one resumable evaluator
+under a three-sample 32 GiB abort floor, verifies the 24-file result inventory,
+regenerates the executive report and publication materialization, rebuilds and
+verifies the source-side review package, and writes commit-bound
+`FINAL_ANALYSIS_COMPLETE`. It does not overlap the active GPU stages.
+
 At the latest local check after the clock correction, DNS still did not resolve
 `outland.fnal.gov` and the Kerberos cache returned an I/O error. No SSH retry was
 made. When connectivity returns, renew credentials if needed, reconcile the
