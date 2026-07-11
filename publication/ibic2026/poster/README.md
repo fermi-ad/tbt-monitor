@@ -25,6 +25,10 @@ copy, and nonnumeric result text. `build_poster.sh` runs that builder and the
 complete delivery gate: editable PPTX, one-page A0 PDF, full-size PNG, PDF
 raster, layout JSON, template-fidelity report, overflow check, embedded-font
 check, and checksums.
+The named full-size PNG is copied from the 150 dpi PDF raster and must remain
+byte-identical to it. This preserves master-level Fermilab/DOE artwork that the
+artifact-tool geometry preview does not render; the direct artifact preview is
+retained separately as `*-artifact-preview.png` for layout diagnostics.
 
 ## Build
 
@@ -56,8 +60,8 @@ Before delivery:
    exceed PowerPoint's 56-inch limit;
 2. run `check_template_fidelity.mjs` against the starter, final PPTX, frame map,
    and final layout;
-3. inspect the full-size PNG for hierarchy, axis/legend readability, clipping,
-   and unintended overlap;
+3. inspect the PDF-derived full-size PNG for hierarchy, authentic footer
+   branding, axis/legend readability, clipping, and unintended overlap;
 4. inspect exported slide XML for empty structural placeholders;
 5. render the PPTX to PDF and confirm one A0 portrait page with all fonts and
    authentic Fermilab branding preserved.

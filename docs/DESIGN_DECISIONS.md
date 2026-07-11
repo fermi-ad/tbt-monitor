@@ -648,6 +648,9 @@ Decision:
   case counts separately. Generate those values from the accepted verifier and
   reject a final payload whose case, fold, N, or evaluation-row counts differ
   from the definitive design.
+- Keep the artifact-tool direct PNG as a geometry diagnostic. The named poster
+  PNG must instead be the byte-identical 150 dpi PDF raster so inherited
+  master-level Fermilab/DOE artwork is present in both rendered deliverables.
 
 Why:
 - Correct filenames and valid CSV headers do not prove that a figure visualizes
@@ -656,6 +659,9 @@ Why:
   handoff structure where no channel passed the visibility threshold.
 - Repeating a multi-hour search after completion wastes scarce GPU time and can
   overwrite a validated result with a parameter-drifted rerun.
+- Artifact-tool preserves master media in the editable PPTX but does not render
+  that media in its direct slide PNG. A PDF-derived final PNG avoids presenting
+  a brand-incomplete preview as the poster deliverable.
 
 Tradeoffs:
 - Semantic verification reads more small/medium tables and intentionally fails

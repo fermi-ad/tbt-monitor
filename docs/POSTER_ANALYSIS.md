@@ -521,6 +521,9 @@ separately; none is an extraction-time marker.
 
 The final A0 poster must be built from the supplied Fermilab vertical template,
 preserve its master/header/footer, remain editable, and pass rendered visual QA.
+The named full-size PNG is the 150 dpi PDF raster and must remain byte-identical
+to it; the direct artifact-tool PNG is retained only as a geometry diagnostic
+because it does not render master-level footer media.
 The poster should use four to six final evidence panels even though the complete
 indexed review gallery is intentionally much larger.
 

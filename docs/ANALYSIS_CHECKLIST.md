@@ -257,6 +257,8 @@ Required for the publication review:
 - editable A0 poster, poster PDF/render, four-page paper source/PDF, source data,
   generated numerical macros, checksums, commands, captions, and compliance
   notes
+- byte-identical named poster PNG and 150 dpi PDF raster, with authentic
+  master-level Fermilab/DOE artwork visible in the reviewed render
 - final `compliance_report.md` and `publication_manifest.csv` produced only
   after explicit visual-QA pass flags and page/payload/hash verification
 

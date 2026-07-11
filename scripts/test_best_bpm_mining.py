@@ -132,7 +132,7 @@ from compare_intensity_block_sensitivity import (
 )
 from compare_best_n_beam_widths import compare_table as compare_best_n_beam_table
 from compare_best_n_sensitivity import comparison_rows as compare_best_n_sensitivity_rows
-from finalize_ibic2026_publication import parse_pdfinfo
+from finalize_ibic2026_publication import parse_pdfinfo, require_identical_files
 
 
 def synthetic_collection(root: Path, spills: int = 3, bpms: int = 8, turns: int = 1024) -> None:
@@ -963,6 +963,16 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertEqual(info["height_points"], 792.0)
         with self.assertRaisesRegex(ValueError, "missing page count"):
             parse_pdfinfo("Title: no geometry\n")
+
+    def test_publication_requires_pdf_derived_poster_preview(self) -> None:
+        preview = self.root / "poster.png"
+        render = self.root / "poster-render.png"
+        preview.write_bytes(b"same-png")
+        render.write_bytes(b"same-png")
+        require_identical_files("poster preview", preview, render)
+        render.write_bytes(b"different-png")
+        with self.assertRaisesRegex(ValueError, "files differ"):
+            require_identical_files("poster preview", preview, render)
 
     def test_publication_copy_and_table_are_plane_specific(self) -> None:
         best = {

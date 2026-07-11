@@ -40,6 +40,13 @@ def require_file(path: Path) -> Path:
     return path
 
 
+def require_identical_files(label: str, left: Path, right: Path) -> None:
+    require_file(left)
+    require_file(right)
+    if left.stat().st_size != right.stat().st_size or sha256(left) != sha256(right):
+        raise ValueError(f"{label} files differ: {left} != {right}")
+
+
 def read_json(path: Path) -> dict[str, object]:
     require_file(path)
     try:
@@ -194,6 +201,11 @@ def finalize(
         root / "poster" / "build" / "rendered" / "poster-1.png",
         (4500, 6500),
     )
+    require_identical_files(
+        "poster preview and PDF raster",
+        root / "poster" / "build" / "ibic2026-abstract54-poster.png",
+        root / "poster" / "build" / "rendered" / "poster-1.png",
+    )
     paper_renders = [
         require_png(root / "paper" / "build" / "rendered" / f"page-{page}.png", (1000, 1400))
         for page in range(1, 5)
@@ -287,6 +299,7 @@ def finalize(
         f"- paper: {paper_info['pages']} pages, {paper_info['width_points']} x {paper_info['height_points']} pt",
         f"- poster preview pixels: {poster_preview[0]} x {poster_preview[1]}",
         f"- poster PDF render pixels: {poster_render[0]} x {poster_render[1]}",
+        "- poster preview source: byte-identical 150 dpi PDF raster with inherited master artwork",
         "- paper render pixels: " + ", ".join(f"{width} x {height}" for width, height in paper_renders),
         f"- poster visual QA: {poster_visual_qa}",
         f"- paper visual QA: {paper_visual_qa}",

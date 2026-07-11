@@ -325,7 +325,8 @@ config ranking. Its package modules cover:
   digitizer-disjoint validation sample.
 - `scripts/finalize_ibic2026_publication.py`: final human-QA acknowledgment and
   delivery closure gate. It verifies immutable references, PDF geometry, render
-  dimensions, required sources/figures, selected-N and sensitivity payload
+  dimensions, byte identity between the named poster PNG and the authoritative
+  PDF raster, required sources/figures, selected-N and sensitivity payload
   state, zero retained intensity effects, exact corpus-wide raw-payload audit,
   and unresolved copy before writing
   the complete publication inventory and compliance report.

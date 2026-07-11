@@ -170,13 +170,13 @@ single-plane poster artifacts.
 ## Current Local Validation
 
 ```text
-Best-BPM Python tests: 63 run, 57 passed, 6 process-pool tests skipped by local sandbox
+Best-BPM Python tests: 64 run, 58 passed, 6 process-pool tests skipped by local sandbox
 Autosweep Python tests: 9 passed
 Rust tests: 44 passed
 GPU analyzer self-test: passed
 poster/DGX self-test: passed
 git diff --check: passed
-current A0 template frame map: 0 validation issues; one-slide starter reproduced from the supplied POTX
+current A0 template frame map: 0 validation issues; full A0 smoke passes overflow, fidelity, PDF/font, and branded PNG identity gates
 JACoW layout smoke: exactly four 595 x 792 bp pages, no overfull boxes or unresolved references, all fonts embedded/subset/Unicode-mapped
 ```
 

@@ -331,8 +331,9 @@ Current publication interpretation:
   static in the manuscript source.
 - Final delivery is not inferred from build exit codes alone. A separate
   finalizer requires explicit poster and paper visual-QA passes, rechecks page
-  geometry and payload closure, and inventories every delivered publication
-  file by SHA-256.
+  geometry and payload closure, requires the named poster PNG to be the
+  byte-identical PDF raster with inherited master artwork, and inventories every
+  delivered publication file by SHA-256.
 - Full-buffer galleries are publication-eligible only after their strict
   spill/window, exact-pair, metric, warning, PNG, and caption verifier passes.
 - Publication materialization also requires the independent Delivery Ring raw

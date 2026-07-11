@@ -48,7 +48,8 @@ validation cases evaluated across five digitizer folds.
 The completed directory contains:
 
 - `poster/`: artifact-tool source, content, source manifest, editable A0 PPTX,
-  PDF, and full-size PNG render;
+  PDF, PDF-derived full-size PNG render, and separate artifact-tool geometry
+  preview;
 - `paper/`: JACoW TeX source, exact figure files, source manifest, and a
   four-page PDF;
 - `publication_manifest.csv`: SHA-256 inventory for every delivered source and

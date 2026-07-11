@@ -23,6 +23,7 @@ BASE=ibic2026-abstract54-poster
 PPTX="$OUT_DIR/$BASE.pptx"
 PDF="$OUT_DIR/$BASE.pdf"
 PREVIEW="$OUT_DIR/$BASE.png"
+ARTIFACT_PREVIEW="$OUT_DIR/$BASE-artifact-preview.png"
 MANIFEST="$OUT_DIR/source_manifest.json"
 FINAL_LAYOUT_DIR="$WORK/final-layout"
 FINAL_LAYOUT="$FINAL_LAYOUT_DIR/final-slide-01.layout.json"
@@ -66,7 +67,7 @@ cp "$HERE/build_poster.mjs" "$WORK/build_poster.mjs"
   --starter "$STARTER_PPTX" \
   --content "$CONTENT" \
   --out "$PPTX" \
-  --preview "$PREVIEW" \
+  --preview "$ARTIFACT_PREVIEW" \
   --layout "$FINAL_LAYOUT" \
   --manifest "$MANIFEST"
 
@@ -111,10 +112,19 @@ else
   exit 1
 fi
 
-rm -f "$RENDER_DIR"/poster-*.png
+rm -f "$RENDER_DIR"/poster-*.png "$PREVIEW"
 "$PDFTOPPM" -png -r 150 "$PDF" "$RENDER_DIR/poster"
-"$SHASUM" -a 256 "$PPTX" "$PDF" "$PREVIEW" "$MANIFEST" \
+test -s "$RENDER_DIR/poster-1.png" || {
+  echo "PDF rasterizer did not produce the poster PNG" >&2
+  exit 1
+}
+cp "$RENDER_DIR/poster-1.png" "$PREVIEW"
+cmp -s "$PREVIEW" "$RENDER_DIR/poster-1.png" || {
+  echo "poster preview does not match the authoritative PDF raster" >&2
+  exit 1
+}
+"$SHASUM" -a 256 "$PPTX" "$PDF" "$PREVIEW" "$ARTIFACT_PREVIEW" "$MANIFEST" \
   >"$OUT_DIR/deliverable-sha256.txt"
 
-printf 'poster_pptx=%s\nposter_pdf=%s\nposter_preview=%s\n' \
-  "$PPTX" "$PDF" "$PREVIEW"
+printf 'poster_pptx=%s\nposter_pdf=%s\nposter_preview=%s\nposter_artifact_preview=%s\n' \
+  "$PPTX" "$PDF" "$PREVIEW" "$ARTIFACT_PREVIEW"
