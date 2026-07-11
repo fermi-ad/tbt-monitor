@@ -1716,8 +1716,10 @@ selected_vs_heldout_delta
 
 ### Task F: Add BPM handoff / tune-visibility migration analysis
 
-Status: implemented locally as a strict-visibility sidecar; corrected Spark
-execution and semantic verification remain part of the publication gate.
+Status: done. The corrected Spark sidecar and semantic verifier pass over the
+complete fixed, held-out, visibility, handoff-event, summary, and artifact
+outputs; the strict thresholds remain a qualitative limitation rather than an
+unfinished implementation task.
 Implemented in `scripts/bpm_mining/handoff.py` and
 `scripts/run_bpm_handoff_analysis.py`. Current thresholds are useful for
 qualitative review but too strict for primary poster claims, and this
