@@ -1,6 +1,6 @@
 # Current Publication Handoff
 
-Last updated: 2026-07-10 21:48 CDT.
+Last updated: 2026-07-10 21:55 CDT.
 
 This file records the live publication run state. Permanent behavior and
 rationale remain in `docs/ARCHITECTURE.md`, `docs/DESIGN_DECISIONS.md`, and
@@ -104,11 +104,11 @@ SHA-256 `1754858edbbaf3b0a2437e9fa1163385476d26ae2da2406bcfa71aaa8d9c63d4`.
 No intensity or ridge computation can begin merely because the earlier marker
 appears; the selected-N and sensitivity preflight must pass first.
 
-The latest local publication source is commit `3f3b9fc6`. Its prepared archive
+The latest local publication source is commit `5692b1cd`. Its prepared archive
 SHA-256 is
-`cc16ddecdc0295783aeb2eeb9b5f0505490d37b0535539d4ea035ced4a93b6f2`,
+`7716e40d77dafa278d8d630fcfeb6be5184758e0901d858a52a5bfd504c7cef2`,
 and its prepared continuation-wrapper SHA-256 is
-`a0e1591ee334732bf7d16add4b317db18300262e4eb75cd8f7264099df001566`.
+`20f18730015be0fa75b1d70483b44ca0299d015f3c5ac9954dedc2116f9616b3`.
 That version includes exact-zero control labels, common/detail intensity
 gallery scales, citation-order polish, shorter ridge diagnostic labels, and a
 read-only final-PPTX empty-placeholder gate. It also preserves and verifies the
@@ -116,6 +116,8 @@ poster layout/overflow/template-fidelity evidence, portable poster/paper build
 manifests, and both flagged and unflagged macOS Bash 3.2 Tectonic invocation
 paths. Staging is temporarily deferred by the local Codex remote-execution
 approval window until 23:45 CDT, not by Spark or SSH.
+The wrapper now also reruns the exact review-package verifier against every
+copied path, hash, and gallery image before it creates the source-side tarball.
 If the older wrapper reaches intensity first, its waveform rows remain reusable;
 the expanded gallery and strict verifier can be rerun deterministically without
 another GPU waveform pass.
@@ -218,6 +220,7 @@ current A0 template frame map: 0 validation issues; full A0 smoke passes overflo
 template-derived smoke PPTX: 0 empty structural placeholders under the finalizer's read-only slide-XML gate
 poster build provenance smoke: portable 10-entry manifest, audited starter hash, delivered layout/inspection, 0 fidelity issues
 paper build routing smoke: flagged and unflagged shell paths plus portable 10-entry manifest pass without claiming a new TeX compile
+review-package transfer smoke: 13 files, 3 images, exact manifest/gallery/receipt verification passes; same-size tampering is detected
 JACoW layout smoke: exactly four 595 x 792 bp pages, no overfull boxes or unresolved references, all fonts embedded/subset/Unicode-mapped
 ```
 
