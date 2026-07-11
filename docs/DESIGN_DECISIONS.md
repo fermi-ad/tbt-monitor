@@ -404,9 +404,11 @@ Tradeoffs:
   reveal; full-stage reruns should therefore include baseline and top H/V/poster
   configs.
 - Parallel autosweep jobs improve host/GPU utilization but can increase
-  contention for a single GPU. The older autosweep may start with 2 concurrent
-  jobs and use telemetry before raising that to 3-4; this does not apply to the
-  max-N=40 evaluator.
+  contention for a single unified-memory GPU. Two concurrent jobs are the
+  current Spark ceiling and remain gated on a watchdog-bounded smoke; telemetry
+  utilization alone cannot authorize 3-4 jobs. Any higher count needs its own
+  memory qualification. This autosweep limit is separate from the max-N=40
+  evaluator contract.
 - Best-N max-N=40 evaluators run at no more than two processes on Spark's
   single GB10. Four measured processes exceeded 115 GiB of unified memory and
   made the host unresponsive. A watchdog-bounded two-process qualification

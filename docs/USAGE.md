@@ -572,9 +572,11 @@ Autosweep outputs include `dataset_manifest.csv`, `spill_health.csv`,
 `elite_rejected_config_diagnostics.csv`, `elite_full_summary.md`,
 `elite_artifacts_manifest.csv`, and `poster_candidate_gallery/`.
 
-`run_autosweep.py` runs serially by default. Use `--parallel-jobs 2` to start
-conservatively on Spark, then try 3-4 if GPU telemetry shows the device is still
-underused. The scheduler runs independent config/view jobs concurrently while
+`run_autosweep.py` runs serially by default. `--parallel-jobs 2` is the maximum
+currently permitted on Spark's single unified-memory GB10, and only after the
+guarded two-job smoke passes. Do not raise it to 3-4 from utilization alone;
+that requires a separate memory-watchdog qualification. The scheduler runs
+independent config/view jobs concurrently while
 keeping each job in its isolated `jobs/<config_hash>/<view>/` directory. It also
 keeps at most one active view per config so a timed-out config can still mark
 later views as `prior_view_too_slow`.
@@ -1179,6 +1181,7 @@ review galleries into one local handoff directory:
 python3 scripts/package_publication_review.py \
   --component publication=publication/ibic2026 \
   --component report=/path/to/final-analysis-report \
+  --component run-handoff=review-artifacts/publication-run-handoff \
   --component legacy-candidate-gallery=review-artifacts/poster_candidate_gallery \
   --component best-n-gallery=/path/to/best-n-gallery \
   --component all-training=/path/to/best-n-all-training \
@@ -1211,6 +1214,9 @@ handoff. `review-artifacts/` is intentionally ignored by Git and absent from the
 Spark source archive, so the final local repack is where the complete 80-image
 candidate gallery and the two immutable `18d321dbd4fe` favorite PNGs enter the
 verified package.
+The `run-handoff` component is also required. It preserves the checksummed
+source archive, guarded all-training and autosweep wrappers, and prepared
+GitHub handoff text outside ephemeral local temp storage.
 
 After visually inspecting the final poster and all four paper pages, close the
 publication directory with the explicit human-QA gate:

@@ -160,8 +160,10 @@ python3 scripts/make_elite_full_summary.py \
   --elite-dir /home/derekste/tbt-spills-2000-autosweep/elite-full
 ```
 
-`run_autosweep.py` is serial by default. Start with `--parallel-jobs 2` on
-Spark and increase only after telemetry shows remaining headroom.
+`run_autosweep.py` is serial by default. Two jobs are the current maximum on
+Spark's single unified-memory GB10 and remain gated on the guarded parallel
+smoke. Do not infer that 3-4 jobs are safe from GPU utilization alone; higher
+concurrency requires a separate memory-watchdog qualification.
 
 ## Best-BPM Mining
 

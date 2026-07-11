@@ -114,9 +114,9 @@ The immutable post-chain handoff is prepared locally:
 
 ```text
 source commit: cf43cb1d9277443a6bece1d310d692f8f59c4467
-source archive: /private/tmp/tbt-monitor-publication-code-cf43cb1d.tar.gz
+source archive: review-artifacts/publication-run-handoff/tbt-monitor-publication-code-cf43cb1d.tar.gz
 source archive SHA-256: c07e3e2da4689ade5d0e25baf7a8b0f0d44863a2ff8f89243bc14bf798259b7c
-post-chain wrapper: /private/tmp/spark_all_training_post_chain_cf43cb1d.sh
+post-chain wrapper: review-artifacts/publication-run-handoff/spark_all_training_post_chain_cf43cb1d.sh
 post-chain wrapper SHA-256: b2d47c9467382a7b410b58c2d95e5cb686b2626be61cec705661472774871772
 ```
 
@@ -127,6 +127,21 @@ under a three-sample 32 GiB abort floor, verifies the 24-file result inventory,
 regenerates the executive report and publication materialization, rebuilds and
 verifies the source-side review package, and writes commit-bound
 `FINAL_ANALYSIS_COMPLETE`. It does not overlap the active GPU stages.
+
+The separate deferred autosweep acceptance smoke is also prepared locally:
+
+```text
+wrapper: review-artifacts/publication-run-handoff/spark_autosweep_parallel_smoke_cf43cb1d.sh
+wrapper SHA-256: 059258579881d539911033c7b5b54c0d704d6ddec67ae12540b16a8084901886
+```
+
+It waits for the exact `FINAL_ANALYSIS_COMPLETE` marker from `cf43cb1d`, verifies
+the autosweep, telemetry, and analyzer file hashes in that staged source,
+requires three consecutive 48 GiB `MemAvailable` preflight samples, and aborts
+the two-job process group after three consecutive samples below 32 GiB. The
+receipt must contain exactly two successful run rows and telemetry observing at
+least two compute processes before ENG-021 and issue #30 can close. It must not
+overlap the all-training control merely because the GPU appears idle.
 
 At the latest local check after the clock correction, DNS still did not resolve
 `outland.fnal.gov` and the Kerberos cache returned an I/O error. No SSH retry was
@@ -305,7 +320,7 @@ executive text and a detached, explicitly descriptive native-PNG panel.
 
 ## Access And Handoff
 
-- At the 2026-07-11 01:35 CDT local check, DNS still did not resolve either
+- At the latest post-correction local check, DNS still did not resolve either
   `api.github.com` or `outland.fnal.gov`, and `klist` reported a credential-cache
   I/O failure after the clock correction. Do not infer a Spark failure from
   local connectivity. Renew Kerberos only after network service returns, then

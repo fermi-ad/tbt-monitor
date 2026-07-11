@@ -473,6 +473,10 @@ The final local review package must include the complete 80-image
 `review-artifacts/poster_candidate_gallery` component. Git and the Spark source
 archive intentionally exclude that directory, so the two hash-bound favorite
 H/V ridge references otherwise would be missing from the delivered gallery.
+The same verified local package must include
+`review-artifacts/publication-run-handoff`, which preserves the source archive,
+both marker-gated wrappers, prepared GitHub text, and their checksum manifest
+outside ephemeral temp storage.
 
 ## 2026-06-28 Final Review Update
 

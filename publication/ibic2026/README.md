@@ -97,6 +97,9 @@ The separate final local review package must also include
 the two immutable H/V visual references named in
 `LEGACY_RIDGE_PROVENANCE.md`; it is intentionally absent from the Git/source
 archive and therefore cannot be supplied by the Spark-side package alone.
+Include `review-artifacts/publication-run-handoff/` as a separate
+`run-handoff` component so the exact source archive, guarded wrappers, and
+prepared issue/PR handoff text remain checksummed in the local review package.
 
 The working paper name is `ABSTRACT54` until IBIC assigns a programme code.
 Rename the TeX and PDF together when that code becomes available.

@@ -197,7 +197,9 @@ module boundaries, data flow, synchronization policy, and artifact contracts.
    analyzer with explicit turn range, BPM-combination, normalization,
    detrending, DC-handling, tune-band, and ridge-anchor settings. The runner is
    serial by default, but `--parallel-jobs` can overlap independent config/view
-   jobs while keeping each job in an isolated output directory.
+   jobs while keeping each job in an isolated output directory. Spark's current
+   operational ceiling is two jobs after a watchdog-bounded qualification;
+   higher concurrency is not inferred from GPU utilization alone.
 7. The ranker reads each job's `gpu_spills_summary.csv`, scores spill/config
    rows, assigns stable labels, and writes handoff CSVs for full-stage analysis.
 8. The elite summary writer collates ranked tables and heavy GPU plots for the

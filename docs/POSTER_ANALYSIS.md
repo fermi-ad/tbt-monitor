@@ -311,9 +311,11 @@ roles (`top_physics`, `top10_robust`, `median_or_trimmed`,
 rejected/flagged pilot rows in diagnostics. Full mode consumes the supplied
 config list exactly.
 
-Parallel autosweep execution is opt-in with `--parallel-jobs`; use 2 as the
-initial Spark setting and increase to 3-4 only after telemetry shows remaining
-headroom. Each analyzer job writes into its own config/view directory, and the
+Parallel autosweep execution is opt-in with `--parallel-jobs`; 2 is the current
+Spark ceiling and remains gated on the guarded two-job smoke. GPU utilization
+alone is not permission to raise the count: any 3-4 job attempt requires a
+separate unified-memory watchdog qualification. Each analyzer job writes into
+its own config/view directory, and the
 run log remains sorted by deterministic job id. `--gpu-telemetry-interval-seconds`
 records run-level GPU samples and summaries under `logs/`.
 

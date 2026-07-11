@@ -185,7 +185,7 @@ None.
 - Acceptance: local tests cover parallel dry-run scheduling, timeout handling, and telemetry summaries; a Spark smoke with 2 concurrent autosweep jobs completes cleanly before GitHub issue #30 is closed.
 - Docs: README.md, docs/USAGE.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/ENGINEERING_BACKLOG.md
 - Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/gpu_run_telemetry.py scripts/run_autosweep.py scripts/bpm_mining/pipeline.py scripts/test_autosweep.py scripts/test_best_bpm_mining.py; python3 scripts/test_autosweep.py; python3 scripts/test_best_bpm_mining.py
-- Notes: Spark two-job smoke is intentionally deferred until the current full Best-BPM run releases the GPU.
+- Notes: Spark two-job smoke is intentionally deferred until the complete publication chain, including the CPU/cache all-training control, releases unified memory. The prepared marker-gated wrapper is `review-artifacts/publication-run-handoff/spark_autosweep_parallel_smoke_cf43cb1d.sh`, SHA-256 `059258579881d539911033c7b5b54c0d704d6ddec67ae12540b16a8084901886`; it verifies source hashes, requires three 48 GiB preflight samples, and aborts after three consecutive samples below 32 GiB. Two jobs are the current ceiling; 3-4 require a separate guarded qualification.
 
 ## Done
 

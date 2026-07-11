@@ -204,6 +204,8 @@ Implemented pieces:
 - `scripts/run_autosweep.py`: deterministic baseline/factor/pilot/full runner
   with config hashes, manifest lists, resume/cached detection, run logs,
   opt-in parallel config/view execution, and optional GPU telemetry summaries.
+  Spark remains serial by default; two jobs are the current ceiling pending a
+  guarded smoke, and any higher count requires separate memory qualification.
 - `scripts/rank_autosweep_results.py`: required weighted scores, spill/config
   labels, ranked spill/config/collection tables, rejected configs, and
   `top_configs_for_full.csv`.
