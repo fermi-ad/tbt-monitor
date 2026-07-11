@@ -110,7 +110,7 @@ from bpm_mining.report import make_report
 from bpm_mining.verification import verify_best_bpm_followups, verify_best_bpm_outputs
 from audit_intensity_capture import audit as audit_intensity_capture
 from audit_delivery_ring_payloads import audit_manifest as audit_delivery_ring_manifest
-from run_best_n_sensitivity_matrix import _RunJob, _execute_jobs
+from run_best_n_sensitivity_matrix import _RunJob, _comparison_command, _execute_jobs
 from make_best_bpm_ridge_density import (
     adaptive_comparison_by_turn_rows,
     adaptive_comparison_metrics,
@@ -360,6 +360,28 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertEqual([label for label, _run in dimensions["beam_width"]], ["beam16", "beam32", "beam64"])
         baseline = [run for run in runs if run.beam_width == 32 and run.fit_windows == 8 and run.fold_seed == 20260709]
         self.assertEqual(len(baseline), 1)
+
+    def test_best_n_beam_comparison_command_uses_numeric_width_labels(self) -> None:
+        _runs, dimensions = build_sensitivity_matrix(
+            [16, 32, 64],
+            [4, 8, 16],
+            [20260709, 20260710, 20260711],
+            32,
+            8,
+            20260709,
+        )
+        command = _comparison_command(
+            "scripts/compare_best_n_beam_widths.py",
+            "beam_width",
+            dimensions["beam_width"],
+            Path("/runs"),
+            "beam64",
+            Path("/out"),
+        )
+        run_values = [command[index + 1] for index, value in enumerate(command) if value == "--run"]
+        self.assertEqual([value.split("=", 1)[0] for value in run_values], ["16", "32", "64"])
+        reference_index = command.index("--reference-width")
+        self.assertEqual(command[reference_index + 1], "64")
 
     def test_best_n_sensitivity_parallel_controls_and_memavailable(self) -> None:
         validate_parallel_run_controls(1, 32.0, 5.0, 3)

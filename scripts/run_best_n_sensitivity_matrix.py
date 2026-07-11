@@ -129,11 +129,13 @@ def _comparison_command(
     output: Path,
 ) -> list[str]:
     command = [sys.executable, script]
+    is_beam_width_comparison = script.endswith("compare_best_n_beam_widths.py")
     if script.endswith("compare_best_n_sensitivity.py"):
         command.extend(["--dimension", dimension])
     for label, run in entries:
-        command.extend(["--run", f"{label}={run_root / run.slug}"])
-    if script.endswith("compare_best_n_beam_widths.py"):
+        comparison_label = label.removeprefix("beam") if is_beam_width_comparison else label
+        command.extend(["--run", f"{comparison_label}={run_root / run.slug}"])
+    if is_beam_width_comparison:
         command.extend(["--reference-width", reference_label.removeprefix("beam")])
     else:
         command.extend(["--reference-label", reference_label])

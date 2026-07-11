@@ -43,20 +43,25 @@ consecutive five-second low-memory samples. The two-worker qualification peaked
 near 83 GB (77 GiB) host use with about 44 GiB available and mostly 70-96% GPU
 utilization.
 
-Checkpoint after the system clock correction:
+Connected checkpoint after the system clock correction:
 
 ```text
 full-run COMPLETE marker: present
 sensitivity COMPLETE marker: absent
-sensitivity matrix: active, two bounded CUDA evaluators
-verified cases: 5/7
-active cases: beam32/fit16/seed20260709 and beam64/fit8/seed20260709
-fit16 progress at 00:12: validation 100/200, 20000 rows
-beam64 progress at 00:12: curve 140/400, 5600 rows
-MemAvailable at 00:12 probe: 43090360 KiB
+sensitivity matrix: all seven evaluator outputs verified; final coordinator exited 1
+failure: beam-width comparer received beam16/beam32/beam64 labels instead of integers
+active CUDA evaluators: none
+MemAvailable at the connected probe: 119928056 KiB
 payload-audit/intensity/ridge/ANALYSIS_COMPLETE markers: absent
 memory watchdog: clear
 ```
+
+This is an orchestration failure after the expensive work, not a failed science
+run. `sensitivity_run_manifest.csv` contains exactly seven `verified` rows and
+there is no memory-abort marker. The local matrix runner now translates only the
+beam-width comparer labels to `16/32/64`. Recovery stages a new source hash and
+runs the same matrix with `--resume`; no evaluator may be recomputed unless its
+existing parameter contract or strict verification fails.
 
 The machine clock was corrected by roughly 80 minutes during this run. Hashes,
 row counts, and Linux process elapsed time remain valid; wall-clock log stamps
@@ -143,13 +148,13 @@ receipt must contain exactly two successful run rows and telemetry observing at
 least two compute processes before ENG-021 and issue #30 can close. It must not
 overlap the all-training control merely because the GPU appears idle.
 
-At the latest local check after the clock correction, macOS reported no
-registered network interface, DNS did not resolve `outland.fnal.gov`, and
-`klist -l` showed no credential cache. No SSH retry was made. When connectivity
-returns, obtain fresh credentials, reconcile the
-existing chain by marker/source hash/row count rather than wall-clock stamps,
-then stage the current branch and run the all-training control only after exact
-`ANALYSIS_COMPLETE` from the earlier chain.
+Connectivity and forwarded Kerberos credentials are restored. A bounded
+`ssh -K spark` probe found the payload-audit coordinator and publication tail
+alive in separate sessions, both waiting on the missing sensitivity marker. The
+GPU was idle and no evaluator, intensity, ridge, all-training, or autosweep
+process was active. Resume the corrected comparison first; the existing marker
+chain then remains authoritative. Continue to reconcile by marker, source hash,
+strict verifier, and row count rather than wall-clock stamps.
 
 ## Autonomous Continuation
 

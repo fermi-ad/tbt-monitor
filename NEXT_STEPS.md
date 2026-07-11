@@ -344,6 +344,21 @@ the publication audit:
     all acceptable results, but no result may be omitted or used to retune the
     declared Best-N selector. Publication preparation, poster copy, manuscript
     macros, finalization, and the review package now require this control.
+41. The final local review package could omit the complete ignored
+    `poster_candidate_gallery`, including the two immutable favorite legacy
+    ridge-density references, even when every tracked publication artifact was
+    present. The packaging gate now requires all 80 legacy gallery images and
+    verifies the favorite H/V hashes separately from the current generated
+    gallery.
+42. All seven reduced-sample Best-N sensitivity configurations completed and
+    passed their strict per-run verifiers, but the matrix coordinator failed in
+    its final beam-width comparison. It forwarded internal labels such as
+    `beam16=/path` to a documented `WIDTH=/path` interface that parses the key as
+    an integer. The runner now strips the internal `beam` prefix only for that
+    comparer, with a regression test over the exact three-run command. Recovery
+    must use `--resume`, preserve all seven verified run directories, regenerate
+    only the comparison/gallery/index products, and write `COMPLETE` only after
+    the full matrix command exits successfully.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;
