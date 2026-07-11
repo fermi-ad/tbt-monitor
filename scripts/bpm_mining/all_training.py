@@ -842,6 +842,18 @@ def evaluate(
     report_path = out / "best_n_vs_all_training_report.md"
     contract_cfg = {key: value for key, value in runtime_cfg.items() if key != "_manifest_dir"}
     source_hashes = {
+        "all_training_algorithm": {
+            "path": str(Path(__file__).resolve()),
+            "sha256": file_sha256(Path(__file__)),
+        },
+        "all_training_plots": {
+            "path": str(Path(__file__).with_name("all_training_plots.py").resolve()),
+            "sha256": file_sha256(Path(__file__).with_name("all_training_plots.py")),
+        },
+        "best_n_primitives": {
+            "path": str(Path(__file__).with_name("best_n.py").resolve()),
+            "sha256": file_sha256(Path(__file__).with_name("best_n.py")),
+        },
         "best_n_contract": {
             "path": str((best_n_root / "run_contract.json").resolve()),
             "sha256": file_sha256(best_n_root / "run_contract.json"),
