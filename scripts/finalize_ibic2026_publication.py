@@ -444,6 +444,75 @@ def validate_sensitivity_payload(value: object) -> dict[str, object]:
     return value
 
 
+def validate_publication_coverage_payload(
+    payload: Mapping[str, object],
+) -> tuple[dict[str, int], dict[str, dict[str, int]]]:
+    selected_sizes = payload.get("selected_sizes")
+    if not isinstance(selected_sizes, Mapping) or set(selected_sizes) != {"H", "V"}:
+        raise ValueError("publication coverage lacks exact H/V selected sizes")
+    primary_raw = payload.get("primary_capture")
+    if not isinstance(primary_raw, Mapping):
+        raise ValueError("publication payload is missing primary capture completeness")
+    primary = {
+        field: int(primary_raw.get(field) or 0)
+        for field in (
+            "spill_count",
+            "nominal_h_channels",
+            "nominal_v_channels",
+            "partial_capture_count",
+            "source_absence_count",
+        )
+    }
+    expected_primary = {
+        "spill_count": 2_000,
+        "nominal_h_channels": 60,
+        "nominal_v_channels": 60,
+        "partial_capture_count": 12,
+        "source_absence_count": 16,
+    }
+    if primary != expected_primary:
+        raise ValueError(f"publication primary capture completeness mismatch: {primary}")
+
+    coverage_raw = payload.get("ridge_coverage")
+    if not isinstance(coverage_raw, Mapping) or set(coverage_raw) != {"H", "V"}:
+        raise ValueError("publication payload is missing selected H/V ridge coverage")
+    coverage: dict[str, dict[str, int]] = {}
+    for plane in ("H", "V"):
+        raw = coverage_raw[plane]
+        if not isinstance(raw, Mapping):
+            raise ValueError(f"publication {plane} ridge coverage is invalid")
+        values = {
+            field: int(raw.get(field) or 0)
+            for field in (
+                "subset_size",
+                "spill_count",
+                "center_count",
+                "sliding_rows",
+                "ridge_points",
+                "missing_tune_rows",
+                "edge_excluded_rows",
+                "legacy_spill_count",
+                "legacy_point_count",
+            )
+        }
+        if (
+            values["subset_size"] != int(selected_sizes[plane])
+            or values["spill_count"] != 2_000
+            or values["center_count"] != 180
+            or values["sliding_rows"] != 360_000
+            or values["ridge_points"] <= 0
+            or values["sliding_rows"]
+            != values["ridge_points"]
+            + values["missing_tune_rows"]
+            + values["edge_excluded_rows"]
+            or values["legacy_spill_count"] != 1_988
+            or values["legacy_point_count"] <= 0
+        ):
+            raise ValueError(f"publication {plane} ridge coverage does not close: {values}")
+        coverage[plane] = values
+    return primary, coverage
+
+
 def finalize(
     root: Path,
     abstract: Path,
@@ -580,6 +649,7 @@ def finalize(
         raise ValueError("results payload is missing exact H/V selected sizes")
     if any(int(selected_sizes[plane]) <= 0 for plane in ("H", "V")):
         raise ValueError("results payload contains a nonpositive selected size")
+    primary_capture, ridge_coverage = validate_publication_coverage_payload(payload)
     all_training = payload.get("all_training_control")
     if (
         not isinstance(all_training, dict)
@@ -686,6 +756,35 @@ def finalize(
     ):
         raise ValueError("publication payload does not contain four OK transfer rows")
 
+    poster_content = read_json(root / "poster" / "content.json")
+    poster_evidence = poster_content.get("evidence")
+    if (
+        not isinstance(poster_evidence, dict)
+        or poster_evidence.get("primaryCapture") != primary_capture
+        or poster_evidence.get("ridgeCoverage") != ridge_coverage
+    ):
+        raise ValueError("poster evidence does not match publication capture/ridge coverage")
+    macros_text = (root / "paper" / "results_macros.tex").read_text(encoding="utf-8")
+    expected_macros = {
+        "PrimarySpillCount": primary_capture["spill_count"],
+        "PrimaryNominalHChannels": primary_capture["nominal_h_channels"],
+        "PrimaryNominalVChannels": primary_capture["nominal_v_channels"],
+        "PrimaryPartialCaptures": primary_capture["partial_capture_count"],
+        "PrimarySourceAbsences": primary_capture["source_absence_count"],
+        "RidgeHStructuralRows": ridge_coverage["H"]["sliding_rows"],
+        "RidgeHFinitePicks": ridge_coverage["H"]["ridge_points"],
+        "RidgeHBlankPicks": ridge_coverage["H"]["missing_tune_rows"],
+        "RidgeHEdgeExcludedPicks": ridge_coverage["H"]["edge_excluded_rows"],
+        "RidgeVStructuralRows": ridge_coverage["V"]["sliding_rows"],
+        "RidgeVFinitePicks": ridge_coverage["V"]["ridge_points"],
+        "RidgeVBlankPicks": ridge_coverage["V"]["missing_tune_rows"],
+        "RidgeVEdgeExcludedPicks": ridge_coverage["V"]["edge_excluded_rows"],
+    }
+    for command, value in expected_macros.items():
+        definition = rf"\newcommand{{\{command}}}{{{value}}}"
+        if definition not in macros_text:
+            raise ValueError(f"paper results macros do not bind {command}")
+
     for path in (
         root / "poster" / "content.json",
         root / "paper" / "ABSTRACT54.tex",
@@ -714,6 +813,21 @@ def finalize(
         "- retained intensity weighting effects: 0",
         "- Best-N design: 4000 full-curve spill-plane cases; 1000 validation cases x 5 folds",
         "- raw payload audit: 263983 captured streams through turn 50000; 17 manifest-level absences across 13 recorded partial captures; no blocking payload findings",
+        (
+            "- primary capture: "
+            f"{primary_capture['spill_count']} spills, nominal "
+            f"{primary_capture['nominal_h_channels']} H + "
+            f"{primary_capture['nominal_v_channels']} V, "
+            f"{primary_capture['partial_capture_count']} partial captures, "
+            f"{primary_capture['source_absence_count']} source absences"
+        ),
+        (
+            "- selected full-buffer ridge coverage: "
+            f"H {ridge_coverage['H']['ridge_points']}/{ridge_coverage['H']['sliding_rows']} finite "
+            f"(blank {ridge_coverage['H']['missing_tune_rows']}, edge {ridge_coverage['H']['edge_excluded_rows']}); "
+            f"V {ridge_coverage['V']['ridge_points']}/{ridge_coverage['V']['sliding_rows']} finite "
+            f"(blank {ridge_coverage['V']['missing_tune_rows']}, edge {ridge_coverage['V']['edge_excluded_rows']})"
+        ),
         (
             "- Best-N sensitivity: 7 verified runs; "
             f"H {len(sensitivity_recommendations['H'])}/7 available "

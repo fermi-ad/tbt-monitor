@@ -93,7 +93,8 @@ render dimensions, results payload, and final PPTX slide XML. It rejects any
 empty structural placeholder without rewriting the OOXML package and records
 the accepted zero count in the compliance report. It also recomputes exact
 package-relative poster/paper build manifests, the publication materialization
-manifest, poster content/asset/output hashes and dimensions, and the delivered
+manifest, poster content/asset/output hashes and dimensions, primary/coverage
+payload-to-poster/macro bindings, and the delivered
 zero-issue template-fidelity report.
 `publication_manifest.csv` inventories every file under this directory except
 itself.

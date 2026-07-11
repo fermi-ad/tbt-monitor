@@ -384,7 +384,8 @@ config ranking. Its package modules cover:
   PDF raster, required sources/figures, selected-N, all-training, and sensitivity payload
   majority/range/run-detail consistency,
   state, zero retained intensity effects, exact corpus-wide raw-payload audit,
-  unresolved copy, and read-only slide-OOXML absence of empty structural
+  primary-capture and selected-ridge closure with matching poster evidence and
+  manuscript macros, unresolved copy, and read-only slide-OOXML absence of empty structural
   placeholders. It also recomputes the poster/paper portable checksum
   inventories, validates the fixed publication materialization-manifest schema
   and exact output inventory, re-hashes all materialized outputs, checks poster

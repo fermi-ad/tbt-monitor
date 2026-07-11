@@ -1265,7 +1265,9 @@ python3 scripts/finalize_ibic2026_publication.py \
 The finalizer verifies immutable reference hashes, required source and render
 files, A0 poster and four-page paper geometry, PNG dimensions, byte identity
 between the named poster PNG and its 150 dpi PDF raster, the selected H/V
-payload, seven sensitivity runs, four OK transfer rows, zero retained intensity
+payload, verifier-derived primary completeness and selected-ridge closure,
+matching poster evidence and manuscript macros, seven sensitivity runs, four
+OK transfer rows, zero retained intensity
 effects, strict-majority sensitivity coverage with consistent run details, the
 exact raw-payload corpus, unresolved-copy gates, and every final
 slide XML placeholder. It reads the PPTX as a ZIP package without modifying it

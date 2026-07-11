@@ -546,6 +546,9 @@ Best-12 structural rows must be split into finite in-band picks,
 blank-confidence rows, and bounded edge exclusions; this is especially
 important when visually comparing planes because density columns normalize the
 available finite picks rather than proving equal observation coverage.
+Final closure compares those structured poster evidence fields with the results
+payload and the corresponding generated manuscript macros, then writes the
+exact counts into the compliance report.
 Every subtractive ridge caption must say that color represents probability-mass
 redistribution, not measured physical noise. The primary density figures do not
 show a fixed extraction onset; a broad 10000--20000-turn context band may appear

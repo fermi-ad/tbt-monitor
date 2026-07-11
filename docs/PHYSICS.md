@@ -301,3 +301,5 @@ The BPM tune monitor is successful when:
    zero-filling
 7. the all-training control passes exact fold, source-hash, paired-spill,
    interval, and native-PNG verification and its H/V outcomes are reported
+8. final poster evidence, manuscript macros, and compliance copy all match the
+   accepted primary capture and selected-ridge coverage payload

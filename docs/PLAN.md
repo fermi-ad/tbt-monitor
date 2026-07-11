@@ -355,7 +355,8 @@ Current publication interpretation:
   byte-identical PDF raster with inherited master artwork, rejects empty
   structural placeholders found by a read-only scan of final slide XML, and
   recomputes the publication materialization manifest, portable poster/paper
-  build manifests, and zero-issue template fidelity before inventorying every
+  build manifests, primary/coverage payload-to-artifact bindings, and zero-issue
+  template fidelity before inventorying every
   delivered publication file by SHA-256.
 - Full-buffer galleries are publication-eligible only after their strict
   spill/window, exact-pair, metric, warning, PNG, and caption verifier passes.

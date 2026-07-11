@@ -68,7 +68,9 @@ cover their complete declared axes without floor-division gaps. For Best-1,
 every weighting method passes the sole spectrum through without scale/divide
 arithmetic so the required zero-effect control is bit-exact.
 `finalize_ibic2026_publication.py` then requires explicit visual-QA passes and
-rechecks immutable references, page geometry, payload closure, checksums, and
+rechecks immutable references, page geometry, payload closure, checksums,
+primary capture completeness, selected H/V ridge-row closure, and matching
+poster evidence/manuscript macros, and
 the final PPTX slide XML for empty structural placeholders before writing the
 final compliance report and publication inventory. Build provenance remains in
 the delivered tree: portable source/deliverable checksum manifests, poster

@@ -82,7 +82,8 @@ Before delivery:
    compliance report records zero empty structural placeholders;
 5. confirm the finalizer recomputes the delivered source/deliverable manifests
    and zero-issue fidelity report, and validates every materialized output in
-   the publication-level `source_manifest.csv`;
+   the publication-level `source_manifest.csv`, including equality between the
+   poster's structured capture/coverage evidence and the results payload;
 6. render the PPTX to PDF and confirm one A0 portrait page with all fonts and
    authentic Fermilab branding preserved.
 

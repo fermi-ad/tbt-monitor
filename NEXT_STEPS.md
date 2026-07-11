@@ -430,7 +430,9 @@ the publication audit:
     reports. Generated poster copy reports finite coverage, uses exact paired
     support counts for the legacy visual, labels selector repair, and narrows
     the conclusion to internal blind agreement and selected/held-out tune delta.
-    The accepted abstract remains byte-for-byte unchanged.
+    Finalization independently requires the same payload, poster-evidence, and
+    manuscript-macro counts and records them in the compliance report. The
+    accepted abstract remains byte-for-byte unchanged.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;

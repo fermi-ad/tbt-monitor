@@ -172,6 +172,7 @@ from finalize_ibic2026_publication import (
     parse_pdfinfo,
     require_identical_files,
     sha256 as publication_sha256,
+    validate_publication_coverage_payload,
     validate_sensitivity_payload,
     verify_poster_source_manifest,
     verify_publication_source_manifest,
@@ -1634,6 +1635,8 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertIn("V 80.0%", content["quantitativeBody"])
         self.assertNotIn("cases x5", content["quantitativeBody"])
         self.assertIn("1,000 stratified spill-plane", content["methodBody"])
+        self.assertEqual(content["evidence"]["primaryCapture"]["source_absence_count"], 16)
+        self.assertEqual(content["evidence"]["ridgeCoverage"]["V"]["ridge_points"], 288000)
 
     def test_publication_numeric_macros_are_generated_from_accepted_rows(self) -> None:
         primary = [
@@ -1752,6 +1755,49 @@ class BestBpmMiningTests(unittest.TestCase):
         broken["coverage"][1]["edge_excluded_rows"] -= 1
         with self.assertRaisesRegex(ValueError, "does not close"):
             selected_ridge_coverage(broken, {"H": 5, "V": 12})
+
+    def test_finalizer_binds_primary_and_ridge_coverage(self) -> None:
+        payload = {
+            "selected_sizes": {"H": 5, "V": 12},
+            "primary_capture": {
+                "spill_count": 2000,
+                "nominal_h_channels": 60,
+                "nominal_v_channels": 60,
+                "partial_capture_count": 12,
+                "source_absence_count": 16,
+            },
+            "ridge_coverage": {
+                "H": {
+                    "subset_size": 5,
+                    "spill_count": 2000,
+                    "center_count": 180,
+                    "sliding_rows": 360000,
+                    "ridge_points": 359018,
+                    "missing_tune_rows": 14,
+                    "edge_excluded_rows": 968,
+                    "legacy_spill_count": 1988,
+                    "legacy_point_count": 355688,
+                },
+                "V": {
+                    "subset_size": 12,
+                    "spill_count": 2000,
+                    "center_count": 180,
+                    "sliding_rows": 360000,
+                    "ridge_points": 289210,
+                    "missing_tune_rows": 69684,
+                    "edge_excluded_rows": 1106,
+                    "legacy_spill_count": 1988,
+                    "legacy_point_count": 286646,
+                },
+            },
+        }
+        primary, coverage = validate_publication_coverage_payload(payload)
+        self.assertEqual(primary["source_absence_count"], 16)
+        self.assertEqual(coverage["V"]["ridge_points"], 289210)
+        broken = json.loads(json.dumps(payload))
+        broken["ridge_coverage"]["V"]["missing_tune_rows"] -= 1
+        with self.assertRaisesRegex(ValueError, "does not close"):
+            validate_publication_coverage_payload(broken)
 
     def test_publication_requires_majority_best_n_sensitivity_coverage(self) -> None:
         root = self.root / "best-n-sensitivity"
@@ -2198,6 +2244,7 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertEqual(payload["best_n_design"]["validation_spill_plane_count"], 1000)
         self.assertEqual(payload["all_training_control"]["comparison_count"], 16)
         self.assertEqual(payload["ridge_coverage"]["H"]["ridge_points"], 359000)
+        self.assertEqual(payload["ridge_coverage"]["H"]["subset_size"], 1)
         self.assertEqual(payload["primary_capture"]["partial_capture_count"], 12)
         self.assertEqual(payload["primary_capture"]["source_absence_count"], 16)
         missing_inventory_path = payload_audit / "missing_position_streams.csv"

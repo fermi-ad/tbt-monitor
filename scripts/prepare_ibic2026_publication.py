@@ -260,17 +260,20 @@ def selected_ridge_coverage(
         if raw is None:
             raise ValueError(f"ridge verification coverage is missing selected {plane} Best-{key[1]}")
         values = {
-            field: int(raw.get(field) or 0)
-            for field in (
-                "spill_count",
-                "center_count",
-                "sliding_rows",
-                "ridge_points",
-                "missing_tune_rows",
-                "edge_excluded_rows",
-                "legacy_spill_count",
-                "legacy_point_count",
-            )
+            "subset_size": key[1],
+            **{
+                field: int(raw.get(field) or 0)
+                for field in (
+                    "spill_count",
+                    "center_count",
+                    "sliding_rows",
+                    "ridge_points",
+                    "missing_tune_rows",
+                    "edge_excluded_rows",
+                    "legacy_spill_count",
+                    "legacy_point_count",
+                )
+            },
         }
         if (
             values["spill_count"] != 2_000
@@ -873,6 +876,10 @@ def publication_content(
             "ridgeHV": "assets/ridge_density_comparison.png",
             "ridgeContrast": "assets/ridge_width_contrast_hv.png",
             "hLoss": "assets/horizontal_loss_diagnostic.png",
+        },
+        "evidence": {
+            "primaryCapture": dict(primary_capture),
+            "ridgeCoverage": {plane: dict(ridge_coverage[plane]) for plane in ("H", "V")},
         },
     }
 

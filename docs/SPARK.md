@@ -659,7 +659,8 @@ the selected-H/V turn-width contrast, and the other four contract-bound PNGs;
 the final paper build rejects a missing macro or figure file. The generated
 `source_manifest.csv` includes exact numerical source hashes and the complete
 14-output materialization inventory; finalization re-hashes that inventory
-after copy-back.
+after copy-back and independently matches primary/coverage payload fields to the
+poster's structured evidence and manuscript macros.
 Materialization reads the selected-N coverage rows directly from the accepted
 ridge verifier and emits finite, blank-confidence, and bounded edge-excluded
 counts for both planes. It also reads the corpus audit's collection split so

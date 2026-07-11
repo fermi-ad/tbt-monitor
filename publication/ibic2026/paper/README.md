@@ -74,4 +74,5 @@ passes. `build_paper.sh` writes package-relative logical labels in
 `build/source_manifest.sha256`; finalization requires the exact expected entry
 set and recomputes every digest. It independently validates the publication-
 level materialization manifest covering this table, macro file, figures,
-payload, and poster inputs.
+payload, and poster inputs. It also requires every primary-capture and selected-
+ridge macro definition to equal the payload and poster evidence values.

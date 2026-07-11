@@ -308,7 +308,8 @@ Required for the publication review:
   finalizer-verified 14-file materialized-output inventory
 - final `compliance_report.md` and `publication_manifest.csv` produced only
   after explicit visual-QA pass flags, page/payload/hash verification, and a
-  read-only final-PPTX scan reporting zero empty structural placeholders
+  read-only final-PPTX scan reporting zero empty structural placeholders; the
+  report must repeat the payload-bound primary and selected-ridge coverage
 
 Optional but useful:
 

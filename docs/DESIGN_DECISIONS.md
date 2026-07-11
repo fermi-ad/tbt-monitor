@@ -729,6 +729,9 @@ Decision:
   exact structural-row closure and publish finite, blank-confidence, and
   bounded edge-exclusion counts for each plane. A column-normalized ridge map
   cannot by itself establish equal finite-pick coverage across H and V.
+- Finalization must compare these payload values with structured poster evidence
+  and exact generated LaTeX macro definitions, then preserve the accepted
+  counts in the compliance report.
 
 Why:
 - Correct filenames and valid CSV headers do not prove that a figure visualizes
