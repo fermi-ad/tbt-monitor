@@ -176,6 +176,16 @@ the publication audit:
     that the map does not isolate physical noise. The strict verifier also binds
     every method to the same spill keys, memberships, contracted window centers,
     and finite global ridge picks.
+25. The intensity ridge, subtraction, and binned relationship heatmaps still
+    floor-divided plot width and height by the raster-bin count. As with the
+    earlier standalone ridge defect, a non-divisible axis could leave an
+    unpainted strip and misregister color against percentile or median tracks.
+    Every intensity raster now maps bins to proportional inclusive pixel bounds
+    that cover the complete declared axes without gaps. Standalone ridge and
+    binned relationship captions and visible legends disclose their nonzero-P98
+    display clip; subtractive captions retain the absolute-P99 disclosure. A
+    regression checks complete coverage in both normal and reversed axes, and
+    strict gallery verification rejects missing clip disclosures.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;

@@ -287,6 +287,9 @@ config ranking. Its package modules cover:
   collection/spill/plane/N/window/center keys and retain only common finite
   in-band picks before column normalization; their absolute-P99 color clip is
   display-only and cannot be interpreted as physical noise removal.
+  Every intensity heatmap uses proportional inclusive raster-cell bounds;
+  standalone count rasters disclose nonzero-P98 clipping and subtraction
+  rasters disclose absolute-P99 clipping.
   Pair integrity retains advertised and on-disk sample counts for both payloads;
   unequal counts cannot be hidden by truncating to the shorter member.
 - `intensity_verification.py` and `verify_intensity_outputs.py`: audited capture

@@ -585,6 +585,7 @@ def verify_intensity_outputs(
     if len(figure_paths) != len(set(figure_paths)):
         _issue(issues, "error", "duplicate_gallery_paths", "intensity gallery manifest contains duplicate paths", len(figure_paths) - len(set(figure_paths)))
     subtractive_caption_failures: list[str] = []
+    p98_caption_failures: list[str] = []
     for row, path in zip(figures, figure_paths):
         if not path.is_absolute():
             path = gallery / path
@@ -603,6 +604,10 @@ def verify_intensity_outputs(
                 or "weighted adds" in copy
             ):
                 subtractive_caption_failures.append(path.name)
+        if row.get("category") in {"ridge_density", "intensity_relationship"}:
+            copy = f"{row.get('description', '')} {row.get('claim_guardrail', '')}".lower()
+            if "p98" not in copy:
+                p98_caption_failures.append(path.name)
     if subtractive_caption_failures:
         _issue(
             issues,
@@ -611,6 +616,15 @@ def verify_intensity_outputs(
             "intensity subtraction captions must state exact-common probability redistribution and P99 display clipping without suppression language",
             len(subtractive_caption_failures),
             subtractive_caption_failures,
+        )
+    if p98_caption_failures:
+        _issue(
+            issues,
+            "error",
+            "gallery_p98_disclosure",
+            "count-density gallery captions must disclose nonzero-P98 display clipping",
+            len(p98_caption_failures),
+            p98_caption_failures,
         )
     categories = Counter(row.get("category", "") for row in figures)
     expected_category_minimums = {

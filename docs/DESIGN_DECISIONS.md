@@ -584,6 +584,9 @@ Decision:
   picks. Describe red/blue as higher/lower column-normalized ridge-pick
   probability versus unweighted aggregation; absolute-P99 clipping is a
   display choice, not evidence of physical denoising.
+- Map intensity ridge, subtraction, and binned relationship rasters with
+  proportional inclusive pixel bounds. Disclose nonzero-P98 count clipping and
+  absolute-P99 subtraction clipping in both visible or indexed figure copy.
 - Require advertised and on-disk sample counts to agree for both members of
   every position/intensity pair; shorter-member truncation is not a valid way
   to hide a payload-length mismatch.

@@ -90,6 +90,7 @@ from bpm_mining.intensity_plots import (
     DENSITY_DELTA_GUARDRAIL,
     DENSITY_DELTA_NOTE,
     exact_paired_density_rows as exact_paired_intensity_density_rows,
+    raster_cell_bounds as intensity_raster_cell_bounds,
 )
 from bpm_mining.payload_integrity import (
     device_fallback_values,
@@ -938,6 +939,18 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertIn("P99", DENSITY_DELTA_DESCRIPTION)
         self.assertNotIn("suppresses", copy.lower())
         self.assertNotIn("weighted adds", copy.lower())
+
+    def test_intensity_raster_cells_fill_uneven_axes_without_gaps(self) -> None:
+        for reverse in (False, True):
+            cells = [
+                intensity_raster_cell_bounds(index, 7, 13, 113, reverse=reverse)
+                for index in range(7)
+            ]
+            ordered = sorted(cells)
+            self.assertEqual(ordered[0][0], 13)
+            self.assertEqual(ordered[-1][1], 113)
+            for left, right in zip(ordered, ordered[1:]):
+                self.assertEqual(left[1] + 1, right[0])
 
     def test_intensity_best1_zero_effect_has_numeric_null_inference(self) -> None:
         rows = []

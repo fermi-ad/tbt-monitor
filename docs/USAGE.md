@@ -939,6 +939,9 @@ exact collection/spill/plane/N/window/center keys. They retain only common
 finite in-band picks, show higher/lower column-normalized ridge-pick probability
 versus unweighted aggregation, and use a disclosed symmetric absolute-P99
 display clip; they do not measure physical noise removal.
+All intensity heatmaps use proportional inclusive raster cells so the color
+field fills the declared axes. Standalone ridge and binned relationship figures
+disclose their nonzero-P98 count-color clip in the visible/indexed copy.
 
 Build a filterable, lazy-loading HTML index for any generated review directory:
 

@@ -158,6 +158,27 @@ def _normalized_columns(density: np.ndarray) -> np.ndarray:
     return density / np.where(total > 0, total, 1.0)
 
 
+def raster_cell_bounds(
+    index: int,
+    count: int,
+    start: int,
+    end: int,
+    *,
+    reverse: bool = False,
+) -> tuple[int, int]:
+    """Map one raster bin onto an inclusive pixel interval without gaps."""
+    if count <= 0 or index < 0 or index >= count or end < start:
+        raise ValueError("invalid raster cell geometry")
+    span = end - start + 1
+    if reverse:
+        low = end - ((index + 1) * span // count) + 1
+        high = end - (index * span // count)
+    else:
+        low = start + index * span // count
+        high = start + (index + 1) * span // count - 1
+    return low, high
+
+
 def exact_paired_density_rows(
     baseline_rows: Sequence[Mapping[str, object]],
     method_rows: Sequence[Mapping[str, object]],
@@ -225,22 +246,20 @@ def ridge_plot(
     x0, y0, x1, y1 = poster.draw_axes(pixels, width, height, title, "TURN", "TUNE")
     positive = density[density > 0]
     maximum = max(1.0, float(np.percentile(positive, 98))) if positive.size else 1.0
-    cell_width = max(1, (x1 - x0 + 1) // len(centers))
-    cell_height = max(1, (y1 - y0 + 1) // bins)
     for column in range(len(centers)):
+        left, right = raster_cell_bounds(column, len(centers), x0, x1)
         for row_index in range(bins):
             value = float(density[row_index, column])
             color = _sequential_color(value / maximum) if value > 0 else (245, 247, 248)
-            left = x0 + column * cell_width
-            top = y1 - (row_index + 1) * cell_height
-            poster.rect(pixels, width, height, left, top, min(x1, left + cell_width - 1), min(y1, top + cell_height - 1), color)
+            top, bottom = raster_cell_bounds(row_index, bins, y0, y1, reverse=True)
+            poster.rect(pixels, width, height, left, top, right, bottom, color)
     x_range = float(min(centers)), float(max(centers) or min(centers) + 1)
     for fraction, thickness, color in ((0.10, 1, (255, 255, 255)), (0.90, 1, (255, 255, 255)), (0.50, 3, (255, 255, 255))):
         points = [(float(center), _percentile(grouped[center], fraction)) for center in centers if grouped[center]]
         _polyline(pixels, width, height, points, x_range, band, (x0, y0, x1, y1), color, thickness)
     poster.draw_text(pixels, width, height, x0, y1 + 8, str(min(centers)), poster.MUTED, 2)
     poster.draw_text(pixels, width, height, x1 - 110, y1 + 8, str(max(centers)), poster.MUTED, 2)
-    poster.draw_text(pixels, width, height, x0, y0 - 28, "COLOR: SPILL COUNT; WHITE: P10 MED P90", poster.MUTED, 2)
+    poster.draw_text(pixels, width, height, x0, y0 - 28, "COLOR: SPILL COUNT (P98 CLIP); WHITE: P10 MED P90", poster.MUTED, 2)
     poster.write_png(path, width, height, pixels)
 
 
@@ -264,14 +283,12 @@ def density_delta_plot(
     width, height = 1400, 900
     pixels = poster.new_canvas(width, height)
     x0, y0, x1, y1 = poster.draw_axes(pixels, width, height, title, "TURN", "TUNE")
-    cell_width = max(1, (x1 - x0 + 1) // len(centers_a))
-    cell_height = max(1, (y1 - y0 + 1) // bins)
     for column in range(len(centers_a)):
+        left, right = raster_cell_bounds(column, len(centers_a), x0, x1)
         for row_index in range(bins):
-            left = x0 + column * cell_width
-            top = y1 - (row_index + 1) * cell_height
             color = _diverging_color(float(difference[row_index, column]), maximum)
-            poster.rect(pixels, width, height, left, top, min(x1, left + cell_width - 1), min(y1, top + cell_height - 1), color)
+            top, bottom = raster_cell_bounds(row_index, bins, y0, y1, reverse=True)
+            poster.rect(pixels, width, height, left, top, right, bottom, color)
     x_range = float(min(centers_a)), float(max(centers_a) or min(centers_a) + 1)
     for grouped, color, thickness in ((grouped_a, poster.INK, 2), (grouped_b, (255, 255, 255), 3)):
         points = [(float(center), _percentile(grouped[center], 0.50)) for center in centers_a if grouped[center]]
@@ -339,22 +356,20 @@ def binned_scatter_plot(
     pixels = poster.new_canvas(width, height)
     x0, y0, x1, y1 = poster.draw_axes(pixels, width, height, title, "NORMALIZED INTENSITY", y_label)
     maximum = max(1.0, float(np.percentile(histogram[histogram > 0], 98))) if np.any(histogram > 0) else 1.0
-    cell_width = max(1, (x1 - x0 + 1) // xbins)
-    cell_height = max(1, (y1 - y0 + 1) // ybins)
     for x_index in range(xbins):
+        left, right = raster_cell_bounds(x_index, xbins, x0, x1)
         for y_index in range(ybins):
             value = float(histogram[y_index, x_index])
             color = _sequential_color(value / maximum) if value else (245, 247, 248)
-            left = x0 + x_index * cell_width
-            top = y1 - (y_index + 1) * cell_height
-            poster.rect(pixels, width, height, left, top, min(x1, left + cell_width - 1), min(y1, top + cell_height - 1), color)
+            top, bottom = raster_cell_bounds(y_index, ybins, y0, y1, reverse=True)
+            poster.rect(pixels, width, height, left, top, right, bottom, color)
     median_points = [
         (xmin + (index + 0.5) / xbins * (xmax - xmin), _median(values))
         for index, values in sorted(grouped.items())
     ]
     _polyline(pixels, width, height, median_points, (xmin, xmax), (ymin, ymax), (x0, y0, x1, y1), (255, 255, 255), 3)
     poster.draw_numeric_axis_labels(pixels, width, height, (x0, y0, x1, y1), (xmin, xmax), (ymin, ymax))
-    poster.draw_text(pixels, width, height, x0, y0 - 28, "COLOR: WINDOW COUNT; WHITE: BIN MEDIAN", poster.MUTED, 2)
+    poster.draw_text(pixels, width, height, x0, y0 - 28, "COLOR: WINDOW COUNT (P98 CLIP); WHITE: BIN MEDIAN", poster.MUTED, 2)
     poster.write_png(path, width, height, pixels)
 
 
@@ -615,7 +630,7 @@ def make_intensity_gallery(
                         "subset_size": subset_size,
                         "method": method,
                         "path": str(path),
-                        "description": "Global spectral maximum per spill/window; color is spill count and white lines are P10/median/P90.",
+                        "description": "Global spectral maximum per spill/window; color is spill count clipped at nonzero P98 for display, and white lines are P10/median/P90.",
                         "claim_guardrail": "Shows repeatability of the strongest in-band ridge, not absolute tune accuracy.",
                     }
                 )
@@ -663,7 +678,7 @@ def make_intensity_gallery(
                         "subset_size": subset_size,
                         "method": "unweighted",
                         "path": str(scatter_path),
-                        "description": f"Binned later-window relationship between normalized intensity and {label.lower()}.",
+                        "description": f"Binned later-window relationship between normalized intensity and {label.lower()}; window-count color is clipped at nonzero P98 for display.",
                         "claim_guardrail": "Pooled windows are autocorrelated and turn-confounded; spill-level rank correlations are the inferential result.",
                     }
                 )

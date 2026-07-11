@@ -510,6 +510,9 @@ collection/spill/plane/N/window/center keys and common finite in-band ridge
 picks. Red and blue mean higher and lower column-normalized ridge-pick
 probability versus unweighted aggregation, not physical noise added or removed;
 the symmetric absolute-P99 clip changes display color only.
+All intensity heatmaps use proportional inclusive raster bounds so color fills
+the complete axis and remains registered to overlaid tracks. Standalone ridge
+and binned relationship captions disclose their nonzero-P98 display clips.
 The independent raw-payload audit also covers both position-only collections;
 passing intensity-pair checks cannot waive a position source failure.
 Held-out support captions and tables must state their evaluable numerator and

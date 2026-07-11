@@ -352,7 +352,9 @@ Current publication interpretation:
   and timing diagnostics remain useful even when weighting is rejected.
   Subtractive intensity figures require identical exact finite spill/window
   points and may claim only higher/lower column-normalized ridge-pick
-  probability; their absolute-P99 color clip is display-only.
+  probability; their absolute-P99 color clip is display-only. All intensity
+  heatmaps fill the complete axis with proportional cells, and count-density
+  captions disclose nonzero-P98 display clipping.
 
 ## Next Milestones
 

@@ -181,6 +181,8 @@ Resolved findings:
 - intensity subtraction panels are exact-key paired across methods, use only
   common finite in-band ridge picks, and describe red/blue as higher/lower
   column-normalized pick probability with an absolute-P99 display clip
+- intensity heatmap bins cover the complete axes without truncation gaps, and
+  standalone count-density captions disclose nonzero-P98 display clipping
 - lag and crossing-turn plots remain exploratory and do not identify a fixed
   extraction boundary or establish causation
 

@@ -463,6 +463,8 @@ ridge picks. Intensity subtraction then joins exact
 collection/spill/plane/N/window/center keys, retains common finite in-band
 points, and labels red/blue only as higher/lower column-normalized ridge-pick
 probability. Its symmetric absolute-P99 clip is display-only, not denoising.
+All intensity rasters use proportional inclusive cell bounds; count-density
+captions and legends disclose their nonzero-P98 display clip.
 
 Before interpreting either the intensity or 50000-turn ridge products, scan
 the complete publication corpus independently of the FFT paths:
