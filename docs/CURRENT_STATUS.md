@@ -235,6 +235,10 @@ The final local repack must additionally include the complete 80-image
 ignored by Git and absent from the Spark source archive; its two selected H/V
 ridge references match the immutable hashes recorded in
 `publication/ibic2026/LEGACY_RIDGE_PROVENANCE.md`.
+The required `review-artifacts/publication-run-handoff` component also preserves
+exact copies of the accepted abstract, supplied Fermilab POTX, audited poster
+starter/layout/preview, coherent offline Tectonic bundle, source archive,
+guarded wrappers, and prepared GitHub text under one checksum manifest.
 If the older wrapper reaches intensity first, its waveform rows remain reusable;
 the expanded gallery and strict verifier can be rerun deterministically without
 another GPU waveform pass.

@@ -1215,8 +1215,10 @@ Spark source archive, so the final local repack is where the complete 80-image
 candidate gallery and the two immutable `18d321dbd4fe` favorite PNGs enter the
 verified package.
 The `run-handoff` component is also required. It preserves the checksummed
-source archive, guarded all-training and autosweep wrappers, and prepared
-GitHub handoff text outside ephemeral local temp storage.
+accepted abstract, supplied Fermilab POTX, audited poster starter/layout,
+coherent offline Tectonic bundle, source archive, guarded all-training and
+autosweep wrappers, and prepared GitHub handoff text outside ephemeral local
+temp storage.
 
 After visually inspecting the final poster and all four paper pages, close the
 publication directory with the explicit human-QA gate:
