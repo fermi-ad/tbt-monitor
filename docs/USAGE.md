@@ -1133,10 +1133,12 @@ python3 scripts/audit_delivery_ring_payloads.py \
   --plateau-turns 128
 ```
 
-Publication acceptance requires 2200 manifests, 263999 position rows, 23999
-paired position/intensity rows, the 120-channel/30-digitizer union topology in
-each collection, and no first-50000-turn corruption, long exact plateau, or
-repeated device-coded raw fallback pair. Then bind every accepted root:
+Publication acceptance requires the immutable 2200-manifest inventory, 263983
+captured position rows, 23999 paired position/intensity rows, the
+120-channel/30-digitizer union topology in each collection, and an exact hashed
+inventory of the 17 manifest-level absences across 13 recorded partial captures.
+It also requires no first-50000-turn corruption, long exact plateau, or repeated
+device-coded raw fallback pair. Then bind every accepted root:
 
 ```bash
 python3 scripts/prepare_ibic2026_publication.py \

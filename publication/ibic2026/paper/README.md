@@ -52,7 +52,8 @@ Generate `results_table.tex`, `results_macros.tex`, and the four files under
 `figures/` with `scripts/prepare_ibic2026_publication.py`; the script rejects any mismatch
 between the selected Best-N rows and the plane-specific full-buffer ridge
 contract and requires the passing all-training and 2200-manifest raw-payload
-audits.
+audits, including the exact 263983 captured position rows and hashed 17-row
+absent-stream inventory.
 The data-derived horizontal tracking-loss diagnostic remains a required poster
 and review-gallery asset, but it is deliberately not a manuscript figure: it
 is a noncausal, plane-specific diagnostic and would displace references from

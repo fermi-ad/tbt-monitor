@@ -49,7 +49,8 @@ in poster, paper, preparation, and compliance copy. The majority gate prevents
 one weak reduced sample from being coerced into a false knee while still
 blocking publication when a plane lacks reproducible recommendation coverage.
 It also requires a passing first-50000-turn audit over the exact 2200-manifest,
-263999-position-row, and 23999-paired-row publication corpus.
+263983-captured-position-row, and 23999-paired-row publication corpus, including
+the hash-bound 17-row absent-stream inventory from 13 recorded partial captures.
 The paper figure set includes the selected-plane turn-resolved P10-P90 ridge-
 width contrast against corrected adaptive Best-1, copied from the same accepted
 ridge root. Its source CSV is unsmoothed, its rendered five-window smoothing is

@@ -150,7 +150,7 @@ the publication audit:
     in both `TBT_*_RAW` arrays and 221,215 fallback values in both scaled
     arrays, with one shared Redis ID. Active dataflow30 logs repeatedly report
     the HP303/VP304 one-turn correction. Publication closure now additionally
-    requires an exhaustive first-50000-turn scan of all 263,999 raw position
+    requires an exhaustive first-50000-turn scan of all 263,983 captured raw position
     rows and 23,999 paired raw intensity rows; any nonfinite sample, long exact
     plateau, or repeated device-coded raw fallback pair is fatal.
 22. The poster and manuscript identified 2,000 primary spills and five folds
@@ -359,6 +359,19 @@ the publication audit:
     must use `--resume`, preserve all seven verified run directories, regenerate
     only the comparison/gallery/index products, and write `COMPLETE` only after
     the full matrix command exits successfully.
+43. The first corpus-wide payload wrapper assumed that only the intensity
+    collection contained an incomplete manifest and therefore required 263,999
+    position rows. The read-only scan found the exact corpus instead contains
+    263,983 captured position rows: 17 manifest-level absences across 13
+    explicitly `Partial` captures (6/10/1 missing rows across the two
+    position-only collections and intensity collection). Every listed payload
+    passes the first-50,000-turn finite/count/plateau/fallback checks, and none
+    of the 16 position-only absences intersects the accepted per-spill H Best-5
+    or V Best-12 membership. The audit now writes and hashes an exact
+    `missing_position_streams.csv`, binds the immutable 2,200-manifest inventory
+    hash and per-collection incomplete topology, and rejects any drift from the
+    observed 263,983/23,999 contract. This is capture completeness evidence, not
+    permission to fabricate or zero-fill absent channels.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;

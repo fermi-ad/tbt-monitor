@@ -518,7 +518,8 @@ unresolved. Only this second control can support a same-protocol comparison.
 `scripts/prepare_ibic2026_publication.py` is the final provenance gate. It
 requires accepted primary/follow-up, Best-N 10/20/40-block, all-training,
 intensity, and
-ridge reports plus the exact 2200-manifest raw-payload audit; checks
+    ridge reports plus the exact 2200-manifest/263983-position-row raw-payload
+    audit and its hashed 17-row absent-stream inventory; checks
 cross-collection transfer and the seven-run matrix; and
 copies the exact figures while writing the poster JSON, paper table, generated
 all-training outcome macros, results
@@ -569,7 +570,9 @@ Lag correlations retain both the common -1 to 1 Spearman scale and a symmetric
 panel-detail scale. The detail variant exposes small lag-shape changes but does
 not change the overlapping-window, exploratory, noncausal interpretation.
 The independent raw-payload audit also covers both position-only collections;
-passing intensity-pair checks cannot waive a position source failure.
+passing intensity-pair checks cannot waive a position source failure. The 13
+recorded partial captures remain explicit, and absent streams are not converted
+to zero-valued waveforms.
 Held-out support captions and tables must state their evaluable numerator and
 denominator. A finalist row without finite `q_hat` is retained as an explicitly
 flagged unavailable observation; it contributes neither a zero candidate

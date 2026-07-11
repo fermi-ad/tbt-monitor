@@ -240,8 +240,9 @@ Every final publication plot must satisfy:
    cross-collection transfer; require the full and seven-run sample outputs to
    pass `verify_best_n_outputs.py`, retain every unavailable sensitivity reason,
    and require eligible knees from at least four of seven runs per plane
-3. pass the independent 2200-manifest raw-payload audit over all 263999
-   position rows and 23999 exact intensity pairs through turn 50000
+3. pass the independent 2200-manifest raw-payload audit over all 263983 captured
+   position rows and 23999 exact intensity pairs through turn 50000; retain the
+   hashed 17-row absent-stream inventory for the 13 recorded partial captures
 4. run and verify the CPU/cache-only all-training mean/median control over the
    exact accepted Best-N validation keys; retain all 10,000 fold rows, 8,000
    spill pairs, 16 comparison rows, and 18 native PNGs

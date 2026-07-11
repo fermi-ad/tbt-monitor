@@ -109,7 +109,10 @@ from bpm_mining.plots import make_artifacts
 from bpm_mining.report import make_report
 from bpm_mining.verification import verify_best_bpm_followups, verify_best_bpm_outputs
 from audit_intensity_capture import audit as audit_intensity_capture
-from audit_delivery_ring_payloads import audit_manifest as audit_delivery_ring_manifest
+from audit_delivery_ring_payloads import (
+    audit as audit_delivery_ring_corpus,
+    audit_manifest as audit_delivery_ring_manifest,
+)
 from run_best_n_sensitivity_matrix import _RunJob, _comparison_command, _execute_jobs
 from make_best_bpm_ridge_density import (
     adaptive_comparison_by_turn_rows,
@@ -140,6 +143,9 @@ from gpu_analyze_captured_spills import (
 from audit_legacy_single_bpm_selection import selection_row as legacy_selection_row
 from package_publication_review import package_review, verify_review_package
 from prepare_ibic2026_publication import (
+    PAYLOAD_AUDIT_MANIFEST_SHA256,
+    PAYLOAD_AUDIT_TOPOLOGY_EXPECTED,
+    PAYLOAD_MISSING_ROWS_BY_COLLECTION,
     best_n_design_summary,
     prepare_publication,
     publication_content,
@@ -992,6 +998,29 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertIn("LONG_EXACT_PAIRED_PLATEAU", rows[0]["quality_flags"])
         self.assertIn("RAW_DEVICE_FALLBACK_PAIR", rows[0]["quality_flags"])
 
+    def test_delivery_ring_corpus_audit_enumerates_manifest_level_absences(self) -> None:
+        collection = self.root / "payload-corpus"
+        synthetic_collection(collection, spills=2, bpms=2, turns=256)
+        partial = collection / "spill_1001" / "manifest.json"
+        data = json.loads(partial.read_text(encoding="utf-8"))
+        missing_key = data["streams"][-1]["stream_key"]
+        data["streams"] = data["streams"][:-1]
+        data["warnings"] = ["incomplete near-target capture"]
+        data["capture_diagnostics"] = {"status": "Partial", "missing_streams": 1}
+        partial.write_text(json.dumps(data), encoding="utf-8")
+
+        out = self.root / "payload-corpus-audit"
+        report = audit_delivery_ring_corpus([collection], out, analysis_turns=128, plateau_turns=64)
+        missing = read_csv(out / "missing_position_streams.csv")
+        self.assertEqual(report["missing_position_stream_rows"], 1)
+        self.assertEqual(len(missing), 1)
+        self.assertEqual(missing[0]["missing_position_source_key"], missing_key)
+        self.assertEqual(missing[0]["capture_status"], "Partial")
+        self.assertEqual(
+            report["missing_position_stream_inventory_sha256"],
+            publication_sha256(out / "missing_position_streams.csv"),
+        )
+
     def test_tiny_intensity_entropy_shift_is_not_practically_retained(self) -> None:
         rows = []
         for spill in range(32):
@@ -1622,6 +1651,19 @@ class BestBpmMiningTests(unittest.TestCase):
                 "validation_row_count": 200000,
             },
         )
+        missing_rows = [
+            {
+                "collection": collection,
+                "spill_id": f"spill_{index}",
+                "capture_status": "Partial",
+                "expected_position_streams": 120,
+                "missing_position_source_key": f"{{MUON:BPM:10.200.22.10}}:VP{index:03d}:TBT_POSITION_RAW",
+            }
+            for collection, count in PAYLOAD_MISSING_ROWS_BY_COLLECTION.items()
+            for index in range(count)
+        ]
+        csv_file(payload_audit / "missing_position_streams.csv", missing_rows)
+        missing_inventory_sha = publication_sha256(payload_audit / "missing_position_streams.csv")
         json_file(
             payload_audit / "delivery_ring_payload_audit.json",
             {
@@ -1630,15 +1672,18 @@ class BestBpmMiningTests(unittest.TestCase):
                 "analysis_turns": 50000,
                 "plateau_turns": 128,
                 "manifest_count": 2200,
-                "stream_rows": 263999,
+                "stream_rows": 263983,
                 "paired_stream_rows": 23999,
-                "incomplete_manifests": 1,
+                "incomplete_manifests": 13,
+                "missing_position_stream_rows": 17,
+                "warning_count": 13,
                 "flagged_rows": 0,
                 "position_plateau_rows": 0,
                 "paired_plateau_rows": 0,
                 "raw_device_fallback_pair_rows": 0,
                 "error_count": 0,
-                "manifest_inventory_sha256": "a" * 64,
+                "manifest_inventory_sha256": PAYLOAD_AUDIT_MANIFEST_SHA256,
+                "missing_position_stream_inventory_sha256": missing_inventory_sha,
                 "topology": {
                     name: {
                         "unique_position_streams": 120,
@@ -1646,8 +1691,9 @@ class BestBpmMiningTests(unittest.TestCase):
                         "unique_v_streams": 60,
                         "unique_digitizers": 30,
                         "bad_digitizers": [],
+                        **expected,
                     }
-                    for name in ("a", "b", "intensity")
+                    for name, expected in PAYLOAD_AUDIT_TOPOLOGY_EXPECTED.items()
                 },
             },
         )
@@ -1897,9 +1943,24 @@ class BestBpmMiningTests(unittest.TestCase):
         )
         self.assertEqual(payload["selected_sizes"], {"H": 1, "V": 1})
         self.assertEqual(payload["numeric_summary"]["intensity_effect_count"], 1)
-        self.assertEqual(payload["payload_integrity"]["stream_rows"], 263999)
+        self.assertEqual(payload["payload_integrity"]["stream_rows"], 263983)
         self.assertEqual(payload["best_n_design"]["validation_spill_plane_count"], 1000)
         self.assertEqual(payload["all_training_control"]["comparison_count"], 16)
+        missing_inventory_path = payload_audit / "missing_position_streams.csv"
+        missing_inventory_bytes = missing_inventory_path.read_bytes()
+        missing_inventory_path.write_bytes(missing_inventory_bytes + b" ")
+        with self.assertRaisesRegex(ValueError, "missing-position inventory hash mismatch"):
+            prepare_publication(
+                primary,
+                followup,
+                best_n,
+                all_training,
+                ridge,
+                intensity,
+                payload_audit,
+                publication,
+            )
+        missing_inventory_path.write_bytes(missing_inventory_bytes)
         all_training_comparison_path = all_training / "best_n_vs_all_training_comparison.csv"
         all_training_comparison_bytes = all_training_comparison_path.read_bytes()
         all_training_comparison_path.write_bytes(all_training_comparison_bytes + b" ")

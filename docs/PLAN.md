@@ -354,8 +354,10 @@ Current publication interpretation:
 - Full-buffer galleries are publication-eligible only after their strict
   spill/window, exact-pair, metric, warning, PNG, and caption verifier passes.
 - Publication materialization also requires the independent Delivery Ring raw
-  payload audit over all 2200 manifests and first 50000 turns; no spectral
-  result can waive a payload-integrity failure.
+  payload audit over the immutable 2200-manifest inventory and first 50000
+  turns. It binds all 263983 captured position streams, 23999 exact intensity
+  pairs, and the 17 manifest-level absences across 13 recorded partial captures;
+  no spectral result can waive a payload-integrity failure.
 - All seven reduced-sample beam/fit/fold sensitivity runs must verify. A plane
   may proceed only when at least four runs produce an eligible knee; every
   unavailable run and its non-inferiority reason remains in the payload and

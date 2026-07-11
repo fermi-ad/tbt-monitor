@@ -9,6 +9,7 @@ import hashlib
 import json
 import math
 import shutil
+from collections import Counter
 from pathlib import Path
 from statistics import median
 from typing import Mapping, Sequence
@@ -29,13 +30,44 @@ PAYLOAD_AUDIT_EXPECTED = {
     "analysis_turns": 50_000,
     "plateau_turns": 128,
     "manifest_count": 2_200,
-    "stream_rows": 263_999,
+    "stream_rows": 263_983,
     "paired_stream_rows": 23_999,
-    "incomplete_manifests": 1,
+    "incomplete_manifests": 13,
+    "missing_position_stream_rows": 17,
+    "warning_count": 13,
     "flagged_rows": 0,
     "position_plateau_rows": 0,
     "paired_plateau_rows": 0,
     "raw_device_fallback_pair_rows": 0,
+}
+PAYLOAD_AUDIT_MANIFEST_SHA256 = "32fd1d82992db9a024a9c00adb385787fc56d92b8150ea8b618dee7a57fff644"
+PAYLOAD_AUDIT_TOPOLOGY_EXPECTED = {
+    "tbt-capture-positiononly-1000-20260608-183119": {
+        "manifests": 1_000,
+        "incomplete_manifests": 5,
+        "position_streams_per_manifest_min": 118,
+        "position_streams_per_manifest_median": 120,
+        "position_streams_per_manifest_max": 120,
+    },
+    "tbt-capture-positiononly-1000-20260608-231330": {
+        "manifests": 1_000,
+        "incomplete_manifests": 7,
+        "position_streams_per_manifest_min": 118,
+        "position_streams_per_manifest_median": 120,
+        "position_streams_per_manifest_max": 120,
+    },
+    "tbt-capture-intensityraw-200-20260611-214939": {
+        "manifests": 200,
+        "incomplete_manifests": 1,
+        "position_streams_per_manifest_min": 119,
+        "position_streams_per_manifest_median": 120,
+        "position_streams_per_manifest_max": 120,
+    },
+}
+PAYLOAD_MISSING_ROWS_BY_COLLECTION = {
+    "tbt-capture-positiononly-1000-20260608-183119": 6,
+    "tbt-capture-positiononly-1000-20260608-231330": 10,
+    "tbt-capture-intensityraw-200-20260611-214939": 1,
 }
 
 SENSITIVITY_RUN_COUNT = 7
@@ -97,8 +129,10 @@ def require_payload_audit(path: Path) -> dict[str, object]:
     }
     if mismatches:
         raise ValueError(f"Delivery Ring payload audit does not match the publication corpus: {mismatches}")
+    if report.get("manifest_inventory_sha256") != PAYLOAD_AUDIT_MANIFEST_SHA256:
+        raise ValueError("Delivery Ring payload audit does not match the exact manifest inventory")
     topology = report.get("topology")
-    if not isinstance(topology, Mapping) or len(topology) != 3:
+    if not isinstance(topology, Mapping) or set(topology) != set(PAYLOAD_AUDIT_TOPOLOGY_EXPECTED):
         raise ValueError("Delivery Ring payload audit must cover all three publication collections")
     for collection, raw in topology.items():
         if not isinstance(raw, Mapping):
@@ -108,6 +142,7 @@ def require_payload_audit(path: Path) -> dict[str, object]:
             "unique_h_streams": 60,
             "unique_v_streams": 60,
             "unique_digitizers": 30,
+            **PAYLOAD_AUDIT_TOPOLOGY_EXPECTED[collection],
         }
         mismatches = {
             field: (int(raw.get(field) or 0), value)
@@ -116,8 +151,25 @@ def require_payload_audit(path: Path) -> dict[str, object]:
         }
         if mismatches or raw.get("bad_digitizers"):
             raise ValueError(f"Delivery Ring payload topology mismatch for {collection}: {mismatches}")
-    if len(str(report.get("manifest_inventory_sha256") or "")) != 64:
-        raise ValueError("Delivery Ring payload audit is missing its manifest-inventory hash")
+    missing_path = path.parent / "missing_position_streams.csv"
+    missing_rows = read_csv(missing_path)
+    missing_sha = str(report.get("missing_position_stream_inventory_sha256") or "")
+    if len(missing_sha) != 64 or sha256(missing_path) != missing_sha:
+        raise ValueError("Delivery Ring missing-position inventory hash mismatch")
+    identities = {
+        (row.get("collection", ""), row.get("spill_id", ""), row.get("missing_position_source_key", ""))
+        for row in missing_rows
+    }
+    rows_by_collection = Counter(row.get("collection", "") for row in missing_rows)
+    if (
+        len(missing_rows) != 17
+        or len(identities) != 17
+        or dict(rows_by_collection) != PAYLOAD_MISSING_ROWS_BY_COLLECTION
+        or any(row.get("capture_status") != "Partial" for row in missing_rows)
+        or any(int(row.get("expected_position_streams") or 0) != 120 for row in missing_rows)
+        or any(not row.get("missing_position_source_key", "").endswith(":TBT_POSITION_RAW") for row in missing_rows)
+    ):
+        raise ValueError("Delivery Ring missing-position inventory does not match the publication corpus")
     return report
 
 

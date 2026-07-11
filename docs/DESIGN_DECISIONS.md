@@ -748,9 +748,10 @@ Decision:
 - Scan every publication raw stream through turn 50000 independently of the
   spectral analysis. Reject nonfinite samples, byte/sample-count drift, exact
   plateaus of at least 128 turns, and repeated device-coded fallback pairs.
-- Require the exact 2200-manifest, 263999-position-row, 23999-paired-row report
-  in publication materialization and finalization. Report the known incomplete
-  intensity manifest rather than silently normalizing it away.
+- Require the exact 2200-manifest, 263983-captured-position-row,
+  23999-paired-row report in publication materialization and finalization. Bind
+  the manifest hash, per-collection partial-capture topology, and all 17 absent
+  stream identities rather than silently normalizing or zero-filling them.
 
 Why:
 - Finite sentinels can evade ordinary numerical plausibility checks and create

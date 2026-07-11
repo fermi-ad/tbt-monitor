@@ -266,7 +266,10 @@ measured absence of support.
   threshold in scaled streams. A same-ID live comparison found those values in
   scaled HP101 arrays but not either raw array, so raw captures are the correct
   analysis boundary. Source/runtime drift still requires the independent
-  first-50000-turn corpus scan before publication
+  first-50000-turn corpus scan before publication. That scan found 17
+  manifest-level absences across 13 captures already marked `Partial`, but no
+  listed-payload corruption and no overlap between the 16 position-only
+  absences and the accepted per-spill H Best-5/V Best-12 memberships
 - no SVD/PCA tune path in the Rust production flow yet; the standalone poster
   analyzer has opt-in SVD/PCA comparison plots that still need physics review
 - autosweep scoring uses pragmatic proxy metrics until independent tune labels
@@ -281,7 +284,9 @@ The BPM tune monitor is successful when:
 3. sliding tune evolution is smooth for accepted-quality spills
 4. subset/coherence checks support ring-wide beam-motion interpretation
 5. BPM-vs-reference residuals are operationally acceptable
-6. every publication raw payload passes the exact topology, count, finite-data,
-   plateau, and fallback-pair audit through turn 50000
+6. every listed publication raw payload passes the exact topology, count,
+   finite-data, plateau, and fallback-pair audit through turn 50000, and every
+   manifest-level absence is identity-enumerated and hash-bound without
+   zero-filling
 7. the all-training control passes exact fold, source-hash, paired-spill,
    interval, and native-PNG verification and its H/V outcomes are reported

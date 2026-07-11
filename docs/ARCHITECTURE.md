@@ -496,7 +496,10 @@ Raw payload policy:
   publication payload through turn 50000. It checks the exact 120-channel,
   30-digitizer topology; advertised/on-disk counts; finite samples; long exact
   plateaus; and the producer's device-coded fallback pairs. Its report is a
-  required publication input rather than an optional diagnostic.
+  required publication input rather than an optional diagnostic. The exact
+  manifest hash, per-collection partial-capture counts, and deterministic
+  `missing_position_streams.csv` distinguish streams absent from a manifest
+  from payload files missing after capture; neither case is silently zero-filled.
 - `capture-spills` writes `capture_index.csv` as the run-level bundle index,
   keyed by `redis_timestamp_ms` / `target_ms`, and also writes
   `capture_spill_diagnostics.csv`, `capture_stream_diagnostics.csv`,

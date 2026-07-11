@@ -47,21 +47,33 @@ Connected checkpoint after the system clock correction:
 
 ```text
 full-run COMPLETE marker: present
-sensitivity COMPLETE marker: absent
-sensitivity matrix: all seven evaluator outputs verified; final coordinator exited 1
-failure: beam-width comparer received beam16/beam32/beam64 labels instead of integers
+sensitivity COMPLETE marker: present, source commit 1f6cc645
+sensitivity matrix: seven verified outputs, seven reused, zero evaluator launches
+recovery receipt SHA-256: 2490f0a6e8c1add64fb414cb5b291dde91bc0c5c04ff6e1a4544a04aa4ab5106
 active CUDA evaluators: none
-MemAvailable at the connected probe: 119928056 KiB
-payload-audit/intensity/ridge/ANALYSIS_COMPLETE markers: absent
+payload audit: scan pass, wrapper rejected stale 263999-row assumption
+observed corpus: 263983 captured position rows, 23999 exact pairs
+partial captures: 13 manifests, 17 absent position streams
+intensity/ridge/ANALYSIS_COMPLETE markers: absent
 memory watchdog: clear
 ```
 
-This is an orchestration failure after the expensive work, not a failed science
-run. `sensitivity_run_manifest.csv` contains exactly seven `verified` rows and
-there is no memory-abort marker. The local matrix runner now translates only the
-beam-width comparer labels to `16/32/64`. Recovery stages a new source hash and
-runs the same matrix with `--resume`; no evaluator may be recomputed unless its
-existing parameter contract or strict verification fails.
+The sensitivity failure was orchestration after the expensive work, not failed
+science. The hash-bound recovery strictly verified and reused all seven run
+directories, regenerated the 178-figure comparison gallery, and launched no
+evaluator. Eligible recommendations are available in 5/7 H runs (N=2-13) and
+6/7 V runs (N=10-28), satisfying the declared majority gate while retaining two
+H and one V unresolved tradeoffs.
+
+The first exhaustive payload scan then exposed a stale corpus assumption. All
+263983 listed position payloads and all 23999 exact intensity pairs pass the
+first-50000-turn finite/count/plateau/fallback checks, but 13 manifests already
+record `Partial` capture state and omit 17 position streams. The exact split is
+6/10/1 absent rows across the two position collections and intensity
+collection. A read-only join confirms none of the 16 position-only absences is
+in the accepted per-spill H Best-5 or V Best-12 membership. The corrected audit
+adds a hashed absent-stream inventory and exact manifest/topology contract; it
+must rerun before the payload `COMPLETE` marker is written.
 
 The machine clock was corrected by roughly 80 minutes during this run. Hashes,
 row counts, and Linux process elapsed time remain valid; wall-clock log stamps
@@ -115,7 +127,8 @@ expanded conclusion fits cleanly. This remains layout proof only: the final
 poster must be rebuilt and visually reviewed with verifier-bound real-data
 figures and exact accepted counts.
 
-The immutable post-chain handoff is prepared locally:
+The earlier post-chain handoff remains preserved locally but is superseded by
+the sensitivity and exact-corpus repairs:
 
 ```text
 source commit: cf43cb1d9277443a6bece1d310d692f8f59c4467
@@ -125,7 +138,9 @@ post-chain wrapper: review-artifacts/publication-run-handoff/spark_all_training_
 post-chain wrapper SHA-256: b2d47c9467382a7b410b58c2d95e5cb686b2626be61cec705661472774871772
 ```
 
-The wrapper waits for `ANALYSIS_COMPLETE` containing exact prerequisite commit
+Do not launch these `cf43cb1d` wrappers. Regenerate both wrappers from the next
+committed source identity after the corrected payload audit passes. The intended
+all-training wrapper waits for `ANALYSIS_COMPLETE` containing exact prerequisite commit
 `25c41237`, verifies and extracts the archive, reruns the local gates on Spark,
 waits for at least 48 GiB available memory, executes one resumable evaluator
 under a three-sample 32 GiB abort floor, verifies the 24-file result inventory,
@@ -148,13 +163,13 @@ receipt must contain exactly two successful run rows and telemetry observing at
 least two compute processes before ENG-021 and issue #30 can close. It must not
 overlap the all-training control merely because the GPU appears idle.
 
-Connectivity and forwarded Kerberos credentials are restored. A bounded
-`ssh -K spark` probe found the payload-audit coordinator and publication tail
-alive in separate sessions, both waiting on the missing sensitivity marker. The
-GPU was idle and no evaluator, intensity, ridge, all-training, or autosweep
-process was active. Resume the corrected comparison first; the existing marker
-chain then remains authoritative. Continue to reconcile by marker, source hash,
-strict verifier, and row count rather than wall-clock stamps.
+Connectivity and forwarded Kerberos credentials are restored. The original
+payload coordinator exited only after the complete scan because its wrapper
+expected the wrong row count; the original publication tail remains alive and
+waiting for the corrected payload marker. The GPU is idle and no evaluator,
+intensity, ridge, all-training, or autosweep process is active. Continue to
+reconcile by marker, source hash, strict verifier, and row count rather than
+wall-clock stamps.
 
 ## Autonomous Continuation
 
@@ -168,12 +183,11 @@ The active chain is marker-gated and survives loss of the client SSH session:
    lock, waits for that marker, rejects a watchdog-aborted state, and starts the
    seven-run beam/fit/fold sensitivity matrix with at most two evaluators under
    the same 32 GiB memory floor.
-3. `/home/derekste/spark_post_sensitivity_payload_audit_3832ee84.sh` holds a
-   separate lock and waits for sensitivity completion before scanning all 2200
-   manifests through turn 50000. It writes only under
-   `/home/derekste/tbt-publication-20260710/delivery_ring_payload_audit` and
-   requires the exact 263999-position-row/23999-paired-row contract before its
-   own `COMPLETE` marker.
+3. `/home/derekste/spark_post_sensitivity_payload_audit_3832ee84.sh` completed
+   the 2200-manifest scan and then exited because its stale wrapper expected
+   263999 rather than the observed 263983 position rows. A new source-bound
+   recovery must rerun the audit, require the hashed 17-row absent-stream
+   inventory plus exact 23999-pair contract, and only then write `COMPLETE`.
 4. `/home/derekste/spark_publication_tail_25c41237.sh` holds the final launch
    lock and waits for the payload-audit marker. It requires passing
    10/20/40-block Best-N reports, four OK transfer rows, all seven verified

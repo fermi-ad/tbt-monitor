@@ -16,6 +16,10 @@ from pathlib import Path, PurePosixPath
 from typing import Mapping, Sequence
 
 from bpm_mining.ridge_verification import png_dimensions
+from prepare_ibic2026_publication import (
+    PAYLOAD_AUDIT_MANIFEST_SHA256,
+    PAYLOAD_AUDIT_TOPOLOGY_EXPECTED,
+)
 
 
 ABSTRACT_SHA256 = "e125b5889dbd28e35e17154297a0abb7abd2ce2ec26538a6c7d5301c67b8eea4"
@@ -640,9 +644,11 @@ def finalize(
         ("analysis_turns", 50_000),
         ("plateau_turns", 128),
         ("manifest_count", 2_200),
-        ("stream_rows", 263_999),
+        ("stream_rows", 263_983),
         ("paired_stream_rows", 23_999),
-        ("incomplete_manifests", 1),
+        ("incomplete_manifests", 13),
+        ("missing_position_stream_rows", 17),
+        ("warning_count", 13),
         ("flagged_rows", 0),
         ("position_plateau_rows", 0),
         ("paired_plateau_rows", 0),
@@ -651,21 +657,26 @@ def finalize(
         if int(payload_integrity.get(field) or 0) != expected:
             raise ValueError(f"publication raw-payload audit mismatch: {field}")
     topology = payload_integrity.get("topology")
-    if not isinstance(topology, dict) or len(topology) != 3:
+    if not isinstance(topology, dict) or set(topology) != set(PAYLOAD_AUDIT_TOPOLOGY_EXPECTED):
         raise ValueError("publication raw-payload audit is missing three collection topologies")
     for collection, raw in topology.items():
         if not isinstance(raw, dict):
             raise ValueError(f"publication raw-payload topology is invalid: {collection}")
-        if (
-            int(raw.get("unique_position_streams") or 0) != 120
-            or int(raw.get("unique_h_streams") or 0) != 60
-            or int(raw.get("unique_v_streams") or 0) != 60
-            or int(raw.get("unique_digitizers") or 0) != 30
-            or raw.get("bad_digitizers")
+        expected = {
+            "unique_position_streams": 120,
+            "unique_h_streams": 60,
+            "unique_v_streams": 60,
+            "unique_digitizers": 30,
+            **PAYLOAD_AUDIT_TOPOLOGY_EXPECTED[collection],
+        }
+        if any(int(raw.get(field) or 0) != value for field, value in expected.items()) or raw.get(
+            "bad_digitizers"
         ):
             raise ValueError(f"publication raw-payload topology mismatch: {collection}")
-    if len(str(payload_integrity.get("manifest_inventory_sha256") or "")) != 64:
-        raise ValueError("publication raw-payload audit is missing its manifest hash")
+    if payload_integrity.get("manifest_inventory_sha256") != PAYLOAD_AUDIT_MANIFEST_SHA256:
+        raise ValueError("publication raw-payload audit has the wrong manifest hash")
+    if len(str(payload_integrity.get("missing_position_stream_inventory_sha256") or "")) != 64:
+        raise ValueError("publication raw-payload audit is missing its absent-stream inventory hash")
     sensitivity = validate_sensitivity_payload(payload.get("sensitivity"))
     sensitivity_recommendations = sensitivity.get("recommendations")
     assert isinstance(sensitivity_recommendations, dict)
@@ -702,7 +713,7 @@ def finalize(
         ),
         "- retained intensity weighting effects: 0",
         "- Best-N design: 4000 full-curve spill-plane cases; 1000 validation cases x 5 folds",
-        "- raw payload audit: 263999 streams through turn 50000, no blocking findings",
+        "- raw payload audit: 263983 captured streams through turn 50000; 17 manifest-level absences across 13 recorded partial captures; no blocking payload findings",
         (
             "- Best-N sensitivity: 7 verified runs; "
             f"H {len(sensitivity_recommendations['H'])}/7 available "

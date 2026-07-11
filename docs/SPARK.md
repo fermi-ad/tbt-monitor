@@ -543,12 +543,15 @@ the complete publication corpus independently of the FFT paths:
   --plateau-turns 128
 ```
 
-The audit must cover 2200 manifests, 263999 raw position rows, and 23999 exact
-raw position/intensity pairs. It fails on first-50000-turn nonfinite samples,
+The audit must cover the immutable 2200-manifest inventory, 263983 captured raw
+position rows, and 23999 exact raw position/intensity pairs. It binds all 17
+manifest-level absences across 13 recorded partial captures in a hashed CSV and
+fails on first-50000-turn nonfinite samples,
 advertised/on-disk count differences, exact plateaus of 128 turns or more, and
-repeated device-coded threshold fallback pairs. The one known incomplete
-120-channel intensity manifest remains counted and visible; it is not silently
-dropped. See `docs/DELIVERY_RING_SOURCE_AUDIT.md` for the upstream live audit.
+repeated device-coded threshold fallback pairs. The five/seven/one incomplete
+manifest distribution across the two position collections and intensity
+collection remains counted and visible; absent channels are never zero-filled.
+See `docs/DELIVERY_RING_SOURCE_AUDIT.md` for the upstream live audit.
 
 To reproduce the old `18d321db` ridge-density visual grammar with corrected
 Best-N memberships, run the full-buffer ridge-density sidecar:

@@ -30,7 +30,9 @@ full-buffer ridge-density review galleries, and fail-closed publication
 verifiers for the primary, Best-N, all-training, intensity, and ridge outputs. A
 separate raw-payload gate scans every publication stream through turn
 50000 for nonfinite data, sample-count drift, long exact plateaus, and
-device-coded threshold fallback pairs.
+device-coded threshold fallback pairs. It also binds the exact manifest hash
+and enumerates manifest-level channel absences from recorded partial captures;
+absent channels are never fabricated or zero-filled.
 Publication artifacts use exact channel identities, semantic verifiers, and a
 deterministic native PNG renderer for the key deconstruction, handoff,
 intensity, Best-N, and ridge figures. `prepare_ibic2026_publication.py` binds
