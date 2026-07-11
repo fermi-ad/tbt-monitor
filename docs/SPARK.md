@@ -457,6 +457,12 @@ No-usable-intensity windows explicitly use unweighted aggregation for every
 method; a finite-but-below-threshold gate keeps the strongest finite member.
 The window/spill CSVs and merged summary expose fallback reasons and frequency;
 there is no silent intensity fallback.
+The verifier also binds all four methods to identical exact spill keys,
+selected memberships, and contracted 4096/512 center grids with finite global
+ridge picks. Intensity subtraction then joins exact
+collection/spill/plane/N/window/center keys, retains common finite in-band
+points, and labels red/blue only as higher/lower column-normalized ridge-pick
+probability. Its symmetric absolute-P99 clip is display-only, not denoising.
 
 Before interpreting either the intensity or 50000-turn ridge products, scan
 the complete publication corpus independently of the FFT paths:

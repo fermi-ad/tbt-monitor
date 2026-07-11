@@ -178,6 +178,9 @@ Resolved findings:
   within tune tolerance and zero practical effects with 20-spill blocks
 - square-root, linear, and gated intensity weighting are rejected for tune
   extraction
+- intensity subtraction panels are exact-key paired across methods, use only
+  common finite in-band ridge picks, and describe red/blue as higher/lower
+  column-normalized pick probability with an absolute-P99 display clip
 - lag and crossing-turn plots remain exploratory and do not identify a fixed
   extraction boundary or establish causation
 

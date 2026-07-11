@@ -25,6 +25,17 @@ FIGURE_FIELDS = [
 
 METHODS = ("unweighted", "sqrt_intensity", "linear_intensity", "intensity_gate_50pct")
 
+DENSITY_DELTA_NOTE = "RED: HIGHER PICK PROBABILITY; BLUE: LOWER VS UNWEIGHTED"
+DENSITY_DELTA_DESCRIPTION = (
+    "Exact-common spill/window difference of per-turn, column-normalized "
+    "global-ridge-pick distributions; raster color is symmetrically clipped "
+    "at absolute P99 for display only."
+)
+DENSITY_DELTA_GUARDRAIL = (
+    "Red/blue are higher/lower ridge-pick probability at exact common "
+    "spill/window points; they do not isolate physical noise."
+)
+
 METHOD_LABELS = {
     "sqrt_intensity": "SQRT",
     "linear_intensity": "LINEAR",
@@ -147,6 +158,56 @@ def _normalized_columns(density: np.ndarray) -> np.ndarray:
     return density / np.where(total > 0, total, 1.0)
 
 
+def exact_paired_density_rows(
+    baseline_rows: Sequence[Mapping[str, object]],
+    method_rows: Sequence[Mapping[str, object]],
+    band: tuple[float, float],
+) -> tuple[list[Mapping[str, object]], list[Mapping[str, object]]]:
+    def keyed(
+        rows: Sequence[Mapping[str, object]],
+        label: str,
+    ) -> dict[tuple[str, str, str, int, int, int], Mapping[str, object]]:
+        result = {}
+        for row in rows:
+            key = (
+                str(row.get("collection") or ""),
+                str(row.get("spill_id") or ""),
+                str(row.get("plane") or ""),
+                int(float(str(row.get("subset_size") or 0))),
+                int(float(str(row.get("window_index") or 0))),
+                int(float(str(row.get("center_turn") or 0))),
+            )
+            if key in result:
+                raise ValueError(f"duplicate {label} intensity ridge point: {key}")
+            result[key] = row
+        return result
+
+    baseline = keyed(baseline_rows, "unweighted")
+    method = keyed(method_rows, "weighted")
+    if baseline.keys() != method.keys():
+        baseline_only = len(baseline.keys() - method.keys())
+        method_only = len(method.keys() - baseline.keys())
+        raise ValueError(
+            "intensity ridge subtraction requires identical exact spill/window keys: "
+            f"unweighted_only={baseline_only} weighted_only={method_only}"
+        )
+    paired = []
+    for key in sorted(baseline):
+        baseline_q = _f(baseline[key].get("q_global"))
+        method_q = _f(method[key].get("q_global"))
+        if not (
+            math.isfinite(baseline_q)
+            and math.isfinite(method_q)
+            and band[0] <= baseline_q <= band[1]
+            and band[0] <= method_q <= band[1]
+        ):
+            continue
+        paired.append((baseline[key], method[key]))
+    if not paired:
+        raise ValueError("intensity ridge subtraction has no exact common finite in-band points")
+    return [row[0] for row in paired], [row[1] for row in paired]
+
+
 def ridge_plot(
     path: Path,
     title: str,
@@ -192,11 +253,11 @@ def density_delta_plot(
     bins: int = 192,
 ) -> None:
     poster = _poster()
+    baseline_rows, method_rows = exact_paired_density_rows(baseline_rows, method_rows, band)
     centers_a, density_a, grouped_a = _density(baseline_rows, band, bins)
     centers_b, density_b, grouped_b = _density(method_rows, band, bins)
     if not centers_a or centers_a != centers_b:
-        poster.no_data_png(path, title, "MISMATCHED WINDOWS")
-        return
+        raise ValueError("intensity ridge subtraction produced mismatched turn centers")
     difference = _normalized_columns(density_b) - _normalized_columns(density_a)
     finite = np.abs(difference[np.isfinite(difference)])
     maximum = max(1e-6, float(np.percentile(finite, 99))) if finite.size else 1.0
@@ -215,7 +276,7 @@ def density_delta_plot(
     for grouped, color, thickness in ((grouped_a, poster.INK, 2), (grouped_b, (255, 255, 255), 3)):
         points = [(float(center), _percentile(grouped[center], 0.50)) for center in centers_a if grouped[center]]
         _polyline(pixels, width, height, points, x_range, band, (x0, y0, x1, y1), color, thickness)
-    poster.draw_text(pixels, width, height, x0, y0 - 28, "RED: WEIGHTED ADDS; BLUE: WEIGHTED SUPPRESSES", poster.MUTED, 2)
+    poster.draw_text(pixels, width, height, x0, y0 - 28, DENSITY_DELTA_NOTE, poster.MUTED, 2)
     poster.draw_text(pixels, width, height, x1 - 420, y0 - 28, "WHITE: WEIGHTED MED; DARK: UNWEIGHTED MED", poster.MUTED, 2)
     poster.write_png(path, width, height, pixels)
 
@@ -574,8 +635,8 @@ def make_intensity_gallery(
                             "subset_size": subset_size,
                             "method": method,
                             "path": str(delta_path),
-                            "description": "Difference of per-turn, column-normalized tune-density distributions.",
-                            "claim_guardrail": "Blue means probability mass suppressed and red added; it does not isolate physical noise without external truth.",
+                            "description": DENSITY_DELTA_DESCRIPTION,
+                            "claim_guardrail": DENSITY_DELTA_GUARDRAIL,
                         }
                     )
             path = out / "concentration" / f"{plane.lower()}_best{subset_size}_method_concentration.png"

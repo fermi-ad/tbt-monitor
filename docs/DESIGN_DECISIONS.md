@@ -579,6 +579,11 @@ Decision:
   methods fall back to unweighted aggregation for an all-nonfinite window, while
   a finite but empty 50% gate retains its strongest finite selected member.
   Export both the per-window reason and per-spill fallback fraction.
+- Join every intensity density subtraction on identical exact
+  collection/spill/plane/N/window/center keys and use only common finite in-band
+  picks. Describe red/blue as higher/lower column-normalized ridge-pick
+  probability versus unweighted aggregation; absolute-P99 clipping is a
+  display choice, not evidence of physical denoising.
 - Require advertised and on-disk sample counts to agree for both members of
   every position/intensity pair; shorter-member truncation is not a valid way
   to hide a payload-length mismatch.
@@ -606,6 +611,9 @@ Why:
   actually performed.
 - Exact point pairing prevents missing difficult windows from masquerading as
   contrast improvement in a density-difference image.
+- Binding all intensity methods to the same spill population, selected members,
+  and contracted center grid makes that exact-pair statement independently
+  verifiable rather than an assumption about producer loop order.
 
 Tradeoffs:
 - The held-out median-power pool is a conservative internal reference, not an

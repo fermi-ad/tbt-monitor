@@ -350,6 +350,9 @@ Current publication interpretation:
 - Intensity weighting is rejected unless block-aware FDR, practical effect,
   median tune-shift, and 95% spillwise tune-shift criteria all pass. Integrity
   and timing diagnostics remain useful even when weighting is rejected.
+  Subtractive intensity figures require identical exact finite spill/window
+  points and may claim only higher/lower column-normalized ridge-pick
+  probability; their absolute-P99 color clip is display-only.
 
 ## Next Milestones
 

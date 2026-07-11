@@ -164,6 +164,18 @@ the publication audit:
     subtractive absolute-P99 color clips, and exported counts/metrics remain
     unclipped. A regression keeps subtractive copy on ridge-pick probability
     and explicitly rejects physical-noise language.
+24. The intensity-weighting subtraction renderer normalized each turn column
+    but only checked that the two methods exposed the same center-turn list. The
+    producer emits all four methods in one loop, yet the figure code itself
+    could still compare different spill/window populations if an upstream table
+    were damaged. The corrected renderer requires identical exact
+    collection/spill/plane/N/window/center keys, keeps only common finite in-band
+    pairs, and fails instead of drawing a mismatched panel. Its visible legend
+    now says higher/lower ridge-pick probability rather than `adds`/`suppresses`;
+    the manifest discloses the symmetric absolute-P99 display clip and states
+    that the map does not isolate physical noise. The strict verifier also binds
+    every method to the same spill keys, memberships, contracted window centers,
+    and finite global ridge picks.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;
@@ -212,6 +224,9 @@ The active publication protocol adds two independent tests:
   predeclared minimum practical effect, a median tune shift within tolerance,
   and at least 95% of spillwise tune shifts within tolerance. Re-summary at
   10, 20, and 40-spill block lengths must not reverse the decision.
+  Every intensity density-difference panel must compare the same exact finite
+  spill/window points and describe color only as column-normalized ridge-pick
+  probability redistribution, with absolute-P99 clipping limited to display.
 
 The first payload audit found that the intensity arrays advertise 250000 samples
 but become structurally unreliable near turn 64000. The first 50000 turns are

@@ -505,6 +505,11 @@ The intensity gallery is held to the same closure standard: the audited capture
 counts, first-50000-turn integrity, complete method grids, exact Best-1
 zero-effect control, all statistical/practical/tune-shift gates, and every PNG
 with its claim guardrail must pass before an intensity panel is considered.
+Its subtraction panels additionally require identical exact
+collection/spill/plane/N/window/center keys and common finite in-band ridge
+picks. Red and blue mean higher and lower column-normalized ridge-pick
+probability versus unweighted aggregation, not physical noise added or removed;
+the symmetric absolute-P99 clip changes display color only.
 The independent raw-payload audit also covers both position-only collections;
 passing intensity-pair checks cannot waive a position source failure.
 Held-out support captions and tables must state their evaluable numerator and

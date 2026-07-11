@@ -923,7 +923,8 @@ Payload corruption after the declared analysis horizon is an integrity
 finding, not beam-loss evidence.
 The 4096/512 full-buffer geometry contains 90 windows. The strict verifier
 checks the audited capture shape, exact source identities,
-complete spill/window grids, zero errors or invalid first-50000-turn payloads,
+identical method spill populations and memberships, exact contracted
+spill/window center grids, finite global ridge picks, zero errors or invalid first-50000-turn payloads,
 equal advertised and on-disk position/intensity sample counts, member
 cardinality, every effect decision gate, exact Best-1 weighting
 invariance, and every indexed gallery PNG/claim guardrail.
@@ -933,6 +934,11 @@ gate would be empty, only the strongest finite selected channel is retained.
 `intensity_window_metrics.csv` records the reason in `weight_fallback`, and
 `intensity_spill_metrics.csv` records `weight_fallback_window_fraction`; the
 merged summary reports the total fallback-window count.
+Density-difference plots fail unless unweighted and weighted rows have identical
+exact collection/spill/plane/N/window/center keys. They retain only common
+finite in-band picks, show higher/lower column-normalized ridge-pick probability
+versus unweighted aggregation, and use a disclosed symmetric absolute-P99
+display clip; they do not measure physical noise removal.
 
 Build a filterable, lazy-loading HTML index for any generated review directory:
 

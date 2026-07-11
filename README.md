@@ -37,6 +37,9 @@ the final plane-specific N, numerical copy, tables, and figure files to the
 same accepted analysis roots before the poster or paper can be built. It also
 binds the full-curve and stratified-validation sample counts so the two Best-N
 populations cannot be conflated in publication copy.
+Subtractive intensity and ridge panels require exact common spill/window
+points and describe only ridge-pick probability redistribution; display color
+clipping is disclosed and does not alter exported metrics.
 `finalize_ibic2026_publication.py` then requires explicit visual-QA passes and
 rechecks immutable references, page geometry, payload closure, and checksums
 before writing the final compliance report and publication inventory.

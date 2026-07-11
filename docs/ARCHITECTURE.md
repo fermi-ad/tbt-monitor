@@ -283,11 +283,16 @@ config ranking. Its package modules cover:
   selected intensity falls back explicitly to unweighted aggregation; an empty
   finite gate retains the strongest finite selected member. Window and spill
   outputs carry the fallback reason and frequency.
+  Density-difference figures join methods on exact
+  collection/spill/plane/N/window/center keys and retain only common finite
+  in-band picks before column normalization; their absolute-P99 color clip is
+  display-only and cannot be interpreted as physical noise removal.
   Pair integrity retains advertised and on-disk sample counts for both payloads;
   unequal counts cannot be hidden by truncating to the shorter member.
 - `intensity_verification.py` and `verify_intensity_outputs.py`: audited capture
-  counts, exact identity, complete turn grids, payload horizon, N=1 invariance,
-  effect-decision, run-contract, and gallery-asset closure checks.
+  counts, exact identity, identical method spill populations and memberships,
+  contracted turn-center grids, finite global picks, payload horizon, N=1
+  invariance, effect-decision, run-contract, and gallery-asset closure checks.
 - `scripts/make_best_bpm_ridge_density.py`: poster sidecar that rereads raw
   captured spills, applies exact corrected Best-N memberships, recomputes
   0-50000 turn sliding spectra, and renders old-gallery-style ridge-density

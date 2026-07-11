@@ -85,6 +85,12 @@ from bpm_mining.intensity import (
     paired_channels,
 )
 from bpm_mining.intensity_verification import verify_intensity_outputs
+from bpm_mining.intensity_plots import (
+    DENSITY_DELTA_DESCRIPTION,
+    DENSITY_DELTA_GUARDRAIL,
+    DENSITY_DELTA_NOTE,
+    exact_paired_density_rows as exact_paired_intensity_density_rows,
+)
 from bpm_mining.payload_integrity import (
     device_fallback_values,
     longest_finite_exact_run,
@@ -899,6 +905,39 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertEqual(float(prominence["q_shift_within_tolerance_fraction"]), 0.9)
         self.assertEqual(prominence["statistical_benefit_pass"], "false")
         self.assertEqual(prominence["retain_method_for_tune_analysis"], "false")
+
+    def test_intensity_density_subtraction_is_exact_paired_probability(self) -> None:
+        baseline = [
+            {
+                "collection": "a",
+                "spill_id": str(spill),
+                "plane": "V",
+                "subset_size": 5,
+                "window_index": 0,
+                "center_turn": 2048,
+                "q_global": 0.720 + spill * 0.001,
+            }
+            for spill in range(2)
+        ]
+        weighted = [{**row, "q_global": float(row["q_global"]) + 0.0005} for row in baseline]
+        paired_baseline, paired_weighted = exact_paired_intensity_density_rows(
+            baseline,
+            weighted,
+            (0.69, 0.74),
+        )
+        self.assertEqual(len(paired_baseline), 2)
+        self.assertEqual(len(paired_weighted), 2)
+        with self.assertRaisesRegex(ValueError, "identical exact spill/window keys"):
+            exact_paired_intensity_density_rows(baseline, weighted[:-1], (0.69, 0.74))
+        with self.assertRaisesRegex(ValueError, "duplicate unweighted intensity ridge point"):
+            exact_paired_intensity_density_rows([*baseline, baseline[0]], weighted, (0.69, 0.74))
+
+        copy = " ".join((DENSITY_DELTA_NOTE, DENSITY_DELTA_DESCRIPTION, DENSITY_DELTA_GUARDRAIL))
+        self.assertIn("probability", copy.lower())
+        self.assertIn("exact common", copy.lower())
+        self.assertIn("P99", DENSITY_DELTA_DESCRIPTION)
+        self.assertNotIn("suppresses", copy.lower())
+        self.assertNotIn("weighted adds", copy.lower())
 
     def test_intensity_best1_zero_effect_has_numeric_null_inference(self) -> None:
         rows = []

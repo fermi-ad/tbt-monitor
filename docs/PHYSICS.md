@@ -156,6 +156,11 @@ Notes:
   Because the legacy normalized-single selector was defective, corrected
   Best-1 must appear beside the selected Best-N before a visual change is
   attributed to ensemble size.
+- Intensity-weighting subtraction uses the same rule independently: methods
+  must share exact collection/spill/plane/N/window/center keys, and only common
+  finite in-band global ridge picks enter each column. Red/blue therefore means
+  higher/lower ridge-pick probability versus unweighted aggregation, not
+  physical signal or noise added/removed; absolute-P99 clipping is display-only.
 - `scripts/verify_best_bpm_outputs.py` is an artifact completeness and schema
   gate for Best-BPM runs. The associated semantic verifier also reconstructs
   identities, masks, fixed/held-out controls, handoff states, and poster PNGs.
