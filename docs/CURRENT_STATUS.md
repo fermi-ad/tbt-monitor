@@ -14,6 +14,7 @@ locally package:
 - a corrected, verifier-clean Best-1/3/5 analysis and all downstream sidecars,
 - a leakage-controlled contiguous Best-N study with convergence and sensitivity
   evidence,
+- a same-protocol Best-N versus all-training mean/median control,
 - the corrected 200-spill intensity test,
 - the exact-paired 50000-turn legacy-versus-adaptive ridge gallery,
 - an editable Fermilab-template A0 poster and rendered PDF/PNG,
@@ -25,8 +26,7 @@ locally package:
 ```text
 accepted primary root: /home/derekste/best_bpm_mining_20260709_corrected_best135
 active Best-N root: /home/derekste/best_n_20260710_full40
-full-run science code: /home/derekste/tbt-monitor-publication-code-20260710-final
-post-run code: /home/derekste/tbt-monitor-publication-code-3832ee84
+active continuation code: /home/derekste/tbt-monitor-publication-code-25c41237
 python: /home/derekste/venvs/cupy-spark-cu13/bin/python
 data: two 1000-spill position-only collections, 120 exact channels
 ```
@@ -89,13 +89,24 @@ the same three agreement margins across all nine power-floor pairs. This
 supports a V low-to-mid-teen region and records H criterion sensitivity; the
 boxed 0.02/95%/90% cell remains the publication selector.
 
-The full-run source archive SHA-256 is
-`588705e83934ffa3a379eaf6b9ab746fb12d8cb5ef2620469eaff71198486a30`.
-The post-run source archive is commit `3832ee84`, with SHA-256
-`e5557d6512154da0ad4e079cc966ee4186f8eae782d4d744abb7d74f28a01c46`;
-the local and Spark copies matched before extraction. Pull request #52 changed
-the sensitivity scheduler and its tests/docs, not the full-run evaluator,
-merger, verifier, or Best-N science implementation.
+The local branch now implements the final all-BPM question as a separate
+CPU/cache-only control. It reuses the accepted block-20 validation cache keys,
+fit/test purge, digitizer folds, tune tolerance, and block length; all
+training-side channels are aggregated by mean and median while held-out
+digitizers remain independent. The strict contract requires 10000 detail rows,
+8000 fold-collapsed spill pairs, 16 method/metric comparisons, four summary
+rows, and 18 native PNGs. Publication preparation and finalization require the
+accepted control but do not require Best-N to win. The synthetic end-to-end
+test, PNG inspection, publication-binding test, and exact four-page offline
+paper smoke pass. Do not start the full control until the current GPU chain is
+idle.
+
+At the latest local check after the clock correction, DNS still did not resolve
+`outland.fnal.gov` and the Kerberos cache returned an I/O error. No SSH retry was
+made. When connectivity returns, renew credentials if needed, reconcile the
+existing chain by marker/source hash/row count rather than wall-clock stamps,
+then stage the current branch and run the all-training control only after exact
+`ANALYSIS_COMPLETE` from the earlier chain.
 
 ## Autonomous Continuation
 
@@ -126,6 +137,12 @@ The active chain is marker-gated and survives loss of the client SSH session:
    gallery serially, materializes the publication inputs, and creates a
    source-side review archive. The 32 GiB three-sample memory watchdog remains
    active throughout the GPU stages.
+5. A post-chain all-training launch is intentionally not attached yet because
+   the implementation did not exist in source commit `25c41237` and local
+   connectivity is absent. Its watcher must wait for the exact commit-bound
+   `ANALYSIS_COMPLETE`, use the newly staged source hash, run serially, verify
+   every table and PNG, and rematerialize/repackage publication inputs with the
+   new required `--all-training-root`.
 
 The final continuation is detached as PID/PGID/SID `869490` in its own session
 and process group. Its script SHA-256 is

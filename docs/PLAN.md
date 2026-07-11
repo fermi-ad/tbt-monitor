@@ -274,6 +274,10 @@ Implemented structure:
   fail-closed output verifier. The matrix remains serial by default and exposes
   only the measured two-evaluator Spark mode, guarded by a sustained Linux
   `MemAvailable` floor and resumable per-run checkpoints.
+- a leakage-controlled all-training-channel control that reuses the exact
+  accepted Best-N fit/test purge and digitizer folds, compares mean and median
+  aggregation on four paired metrics, and fail-closes on source, row, fold,
+  interval, or 18-image gallery drift
 - a 200-spill exact-pair intensity sidecar with block-aware paired inference,
   10/20/40-spill block-length sensitivity, practical-effect gates,
   payload-horizon auditing, and an indexed review gallery
@@ -357,7 +361,9 @@ Current publication interpretation:
 - Same-metric adaptive/frozen/all-BPM controls remain descriptive because they
   reuse selection windows. Their executive table and PNG must include all-BPM
   mean and median; the current stronger all-BPM rows limit the inferential claim
-  to Best-N versus Best-1 and frozen small sets.
+  until the separate same-protocol all-training control completes. That control
+  may favor either method or remain unresolved and must be reported without
+  changing the accepted Best-N selector.
 - Poster and paper Best-N panels use only blind full-band selected-versus-held-
   out agreement on a shared zero-based H/V scale. Conditioned near-training
   agreement remains in the review gallery and cannot carry the headline claim.
@@ -387,7 +393,7 @@ Current publication interpretation:
 Post-split analysis refinement:
 
 1. Complete the corrected exact-identity Best-1/3/5 run, Best-N curve and
-   sensitivities, exact-point-paired 50000-turn gallery, visibility-duration
+   sensitivities, all-training control, exact-point-paired 50000-turn gallery, visibility-duration
    repair, corpus-wide raw-payload audit, final poster/paper, and publication
    artifact manifest plus post-transfer review-package verification; keep
    deficiencies tracked in GitHub issue #39.

@@ -25,9 +25,10 @@ Current capture defaults preserve `TBT_POSITION_RAW` and can derive matching
 `TBT_INTENSITY_RAW` payloads for offline study. Spark/GPU workflows include raw
 captured-spill analysis, staged autosweep ranking, exact-identity Best-BPM
 subset mining, leakage-controlled contiguous Best-N validation, an optional
-position/intensity sidecar, full-buffer ridge-density review galleries, and
-fail-closed publication verifiers for the primary, Best-N, intensity, and ridge
-outputs. A separate raw-payload gate scans every publication stream through turn
+same-protocol all-training-channel control, a position/intensity sidecar,
+full-buffer ridge-density review galleries, and fail-closed publication
+verifiers for the primary, Best-N, all-training, intensity, and ridge outputs. A
+separate raw-payload gate scans every publication stream through turn
 50000 for nonfinite data, sample-count drift, long exact plateaus, and
 device-coded threshold fallback pairs.
 Publication artifacts use exact channel identities, semantic verifiers, and a
@@ -44,8 +45,10 @@ Poster-facing Best-N panels isolate blind full-band selected-versus-held-out
 agreement on one shared H/V scale. Near-training-tune agreement remains a
 separate conditioned diagnostic and is never overlaid as equivalent evidence.
 The reused-window direct-control gallery keeps all-BPM mean/median beside
-adaptive and frozen small sets; those controls are descriptive and currently
-preclude a claim that the small ensemble is the best aggregation method.
+adaptive and frozen small sets. A separate leakage-controlled control aggregates
+every training-side channel by mean and median under the exact Best-N purge and
+held-out-digitizer folds. Its outcome may favor either method or remain
+unresolved, but it must be reported before materialization.
 Subtractive intensity and ridge panels require exact common spill/window
 points and describe only ridge-pick probability redistribution; display color
 clipping is disclosed and does not alter exported metrics. Native heatmap cells

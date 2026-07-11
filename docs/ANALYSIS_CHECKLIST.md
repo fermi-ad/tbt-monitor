@@ -242,13 +242,16 @@ Every final publication plot must satisfy:
    and require eligible knees from at least four of seven runs per plane
 3. pass the independent 2200-manifest raw-payload audit over all 263999
    position rows and 23999 exact intensity pairs through turn 50000
-4. render the exact-point-paired 50000-turn legacy/Best-N ridge gallery and
+4. run and verify the CPU/cache-only all-training mean/median control over the
+   exact accepted Best-N validation keys; retain all 10,000 fold rows, 8,000
+   spill pairs, 16 comparison rows, and 18 native PNGs
+5. render the exact-point-paired 50000-turn legacy/Best-N ridge gallery and
    inspect H-loss diagnostics without forcing an extraction onset; require the
    strict spill/window/pair/figure verifier to pass
-5. freeze the executive interpretation and issue #39 deficiency disposition
-6. build and visually verify the Fermilab-template A0 poster and four-page JACoW
+6. freeze the executive interpretation and issue #39 deficiency disposition
+7. build and visually verify the Fermilab-template A0 poster and four-page JACoW
    paper
-7. package the exhaustive review gallery and curated publication source bundle,
+8. package the exhaustive review gallery and curated publication source bundle,
    rerun its exact manifest/gallery verifier after local transfer, then merge
    scoped PRs and leave a clean repository
 
@@ -262,6 +265,9 @@ Required for the publication review:
 
 - corrected verifier and follow-up-verifier reports
 - Best-N summary, sensitivity, and cross-collection transfer tables/plots
+- all-training fold detail, exact spill pairs, comparison table/report, strict
+  verification receipt, H/V scoreboards, paired scatters, and favorable-delta
+  CDFs
 - exact-point-paired legacy-versus-adaptive H/V ridge panels, one shared-scale
   four-panel H/V comparison for every requested N, and subtractive
   redistribution maps

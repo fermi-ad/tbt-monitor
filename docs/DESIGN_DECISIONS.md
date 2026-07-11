@@ -762,6 +762,39 @@ Tradeoffs:
   serial I/O pass. It does not alter source data and is cheaper than accepting
   an untraceable publication artifact.
 
+## DD-025: Compare Best-N with all channels under the identical held-out protocol
+
+Decision:
+- Do not use the reused-window all-BPM evolution score to claim that a selected
+  small ensemble is better or worse than all-channel aggregation.
+- After the accepted Best-N block-20 merge chooses H and V, replay its exact
+  validation cache keys, fit prefix, overlapping-window purge, digitizer folds,
+  tune tolerance, and moving-block length. Aggregate every training-side channel
+  by both mean and median, while leaving the held-out digitizers untouched.
+- Collapse folds within each spill before paired inference. Compare blind
+  agreement by mean and blind absolute tune error, later prominence, and later
+  power by median. Classify a method only when the paired collection-preserving
+  block interval excludes zero in the metric's favorable direction.
+- Treat `SELECTED_FAVORED`, `BASELINE_FAVORED`, and `UNRESOLVED` as equally valid
+  scientific outputs. Bind all 16 outcomes and their 18 native review PNGs into
+  publication preparation; do not change the predeclared Best-N selector after
+  observing this control.
+
+Why:
+- The descriptive all-BPM control reused selection windows and scored a
+  different question. A same-protocol training-side aggregate isolates member
+  selection from sample, timing, and held-out-reference differences.
+- Literal all-60 aggregation would consume the channels needed as an independent
+  fold reference. "All training channels" is the maximum fair baseline for this
+  internal validation design.
+- Raw-unit paired scatters preserve scale and outliers; sign-oriented CDFs make
+  the lower-is-better tune-error direction explicit without mixing metric units.
+
+Tradeoffs:
+- This adds a serial CPU/cache pass and roughly 18 review images, but no new
+  waveform FFT or GPU search. It still establishes only internal reproducibility,
+  not tune accuracy against Schottky or another external instrument.
+
 ## Decision Update Rule
 
 When changing one of these decisions, update:

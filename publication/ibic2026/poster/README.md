@@ -22,8 +22,10 @@ every source hash. The generated copy distinguishes the full Best-N curve
 population from the smaller stratified held-out validation population. It also
 prints the eligible-count and N range from seven verified sensitivity runs;
 unavailable reduced-sample knees remain explicit rather than being assigned N.
-Conclusion copy must say Best-N improves on adaptive Best-1 and must retain
-all-BPM aggregation as a strong descriptive baseline.
+Conclusion copy must separate Best-N improvement over adaptive Best-1 from the
+same-protocol all-training control and report the H/V selected-favored and
+all-training-favored counts. An unresolved or baseline-favored result is not
+removed to simplify the poster story.
 The H/V Best-N frames use blind full-band selected-versus-held-out agreement on
 one shared zero-based scale. Do not substitute or overlay conditioned
 near-training agreement in those frames.

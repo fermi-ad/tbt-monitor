@@ -164,6 +164,7 @@ def main() -> int:
     parser.add_argument("--root", type=Path, required=True, help="Canonical Best-BPM run root")
     parser.add_argument("--followup", type=Path, required=True, help="NEXT_STEPS sidecar root")
     parser.add_argument("--best-n", type=Path, default=None, help="optional merged leakage-controlled Best-N root")
+    parser.add_argument("--all-training", type=Path, default=None, help="optional leakage-controlled all-training root")
     parser.add_argument("--ridge", type=Path, default=None, help="optional full-buffer ridge-density output root")
     parser.add_argument("--intensity", type=Path, default=None, help="optional merged block-aware intensity-study root")
     parser.add_argument("--sensitivity", type=Path, action="append", default=[], help="optional Best-N sensitivity output root; repeat as needed")
@@ -179,6 +180,13 @@ def main() -> int:
     ]
     if args.best_n:
         verification_reports.append(require_verification(args.best_n / "best_n_verification.json", {"pass"}))
+    if args.all_training:
+        verification_reports.append(
+            require_verification(
+                args.all_training / "best_n_all_training_verification.json",
+                {"pass"},
+            )
+        )
     if args.ridge:
         verification_reports.append(require_verification(args.ridge / "ridge_density_verification.json", {"pass"}))
     if args.intensity:
@@ -215,6 +223,11 @@ def main() -> int:
 
     best_n_summary = read_rows(args.best_n / "best_n_summary.csv") if args.best_n else []
     best_n_transfer = read_rows(args.best_n / "best_n_cross_collection_transfer.csv") if args.best_n else []
+    all_training_comparisons = (
+        read_rows(args.all_training / "best_n_vs_all_training_comparison.csv")
+        if args.all_training
+        else []
+    )
     best_n_tune_half_width = 0.0025
     if args.best_n:
         best_n_contract = json.loads((args.best_n / "run_contract.json").read_text(encoding="utf-8"))
@@ -281,6 +294,8 @@ def main() -> int:
     ]
     if args.best_n:
         evidence_rows.extend([["Best-N summary rows", len(best_n_summary)], ["Best-N transfer rows", len(best_n_transfer)]])
+    if args.all_training:
+        evidence_rows.append(["Best-N versus all-training comparisons", len(all_training_comparisons)])
     if args.sensitivity:
         evidence_rows.append(["Best-N sensitivity recommendation rows", len(sensitivity_recommendations)])
     if args.ridge:
@@ -324,6 +339,18 @@ def main() -> int:
                     f"- **{plane} beam/fit/fold sensitivity:** {len(values)}/{sensitivity_run_count} runs "
                     f"produce eligible knees ({value_range}); {sensitivity_unavailable[plane]} unresolved."
                 )
+    if args.all_training:
+        for plane in ("H", "V"):
+            counts = Counter(
+                row.get("result", "")
+                for row in all_training_comparisons
+                if row.get("plane") == plane
+            )
+            lines.append(
+                f"- **{plane} same-protocol all-training control:** selected Best-N favored in "
+                f"{counts['SELECTED_FAVORED']}/8 comparisons, all-training favored in "
+                f"{counts['BASELINE_FAVORED']}/8, unresolved in {counts['UNRESOLVED']}/8."
+            )
     if args.ridge and selected_best_n:
         adaptive_by_key = {
             (
@@ -445,7 +472,7 @@ def main() -> int:
                 f"`{best_all_bpm.get('test_collection', '')}` versus strongest matched adaptive "
                 f"`{best_dynamic.get('method', '') if best_dynamic else 'NA'}` "
                 f"{fmt(fnum(best_dynamic.get('median_score')), 5) if best_dynamic else 'NA'}. "
-                "This descriptive control forbids claiming that a small adaptive set outperforms all-BPM aggregation; the leakage-controlled result establishes only Best-N reproducibility and improvement over Best-1."
+                "This reused-window control cannot establish adaptive superiority; the separate same-protocol all-training result is authoritative for that comparison."
             )
 
         heldout_plane = [row for row in heldout_summary if row.get("plane") == plane]
@@ -827,6 +854,53 @@ def main() -> int:
                         row.get("status", ""),
                     ]
                     for row in sensitivity_recommendations
+                ],
+            )
+        )
+        lines.append("")
+
+    if args.all_training:
+        lines.append("## Leakage-Controlled Best-N Versus All Training Channels")
+        lines.append("")
+        lines.append(
+            "Every baseline aggregates all training-side channels while preserving the accepted Best-N fit/test purge and held-out digitizers. Positive/negative interval direction is interpreted per metric; this is internal reproducibility, not external tune calibration."
+        )
+        lines.extend(
+            md_table(
+                [
+                    "Plane",
+                    "Best-N",
+                    "Baseline",
+                    "Metric",
+                    "Direction",
+                    "Paired spills",
+                    "Selected",
+                    "All training",
+                    "Selected - baseline [95% CI]",
+                    "Result",
+                ],
+                [
+                    [
+                        row.get("plane", ""),
+                        row.get("selected_n", ""),
+                        row.get("baseline_method", ""),
+                        row.get("metric", ""),
+                        row.get("favorable_direction", ""),
+                        row.get("paired_spill_count", ""),
+                        row.get("selected_estimate", ""),
+                        row.get("baseline_estimate", ""),
+                        f"{row.get('paired_delta_selected_minus_baseline', '')} "
+                        f"[{row.get('paired_delta_ci_low', '')}, {row.get('paired_delta_ci_high', '')}]",
+                        row.get("result", ""),
+                    ]
+                    for row in sorted(
+                        all_training_comparisons,
+                        key=lambda row: (
+                            row.get("plane", ""),
+                            row.get("baseline_method", ""),
+                            row.get("metric", ""),
+                        ),
+                    )
                 ],
             )
         )

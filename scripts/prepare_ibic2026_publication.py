@@ -39,6 +39,13 @@ PAYLOAD_AUDIT_EXPECTED = {
 }
 
 SENSITIVITY_RUN_COUNT = 7
+ALL_TRAINING_METHODS = ("all_training_mean", "all_training_median")
+ALL_TRAINING_METRICS = (
+    "blind_agreement",
+    "blind_abs_q_delta",
+    "later_prominence",
+    "later_power",
+)
 
 
 def read_csv(path: Path) -> list[dict[str, str]]:
@@ -139,6 +146,103 @@ def best_n_design_summary(report: Mapping[str, object]) -> dict[str, int]:
     if mismatches:
         raise ValueError(f"Best-N verification report does not match the definitive study design: {mismatches}")
     return fields
+
+
+def all_training_control_summary(
+    root: Path,
+    selected_sizes: Mapping[str, int],
+) -> dict[str, object]:
+    report_path = root / "best_n_all_training_verification.json"
+    report = require_report(report_path)
+    if report.get("schema") != "tbt-monitor.best-n-all-training-verification/v1":
+        raise ValueError(f"unsupported all-training verification schema: {report_path}")
+    expected_report = {
+        "detail_rows": 10_000,
+        "complete_cache_keys": 1_000,
+        "summary_rows": 4,
+        "paired_spill_rows": 8_000,
+        "comparison_rows": 16,
+        "plot_rows": 18,
+    }
+    mismatches = {
+        field: (int(report.get(field) or 0), expected)
+        for field, expected in expected_report.items()
+        if int(report.get(field) or 0) != expected
+    }
+    if mismatches or int(report.get("issue_count") or 0) != 0:
+        raise ValueError(f"all-training control does not match the definitive study design: {mismatches}")
+    plot_manifest = read_csv(root / "plots" / "all_training_plot_manifest.csv")
+    if len(plot_manifest) != 18:
+        raise ValueError("all-training plot manifest must contain exactly 18 rows")
+    plot_names = [row.get("filename", "") for row in plot_manifest]
+    if len(set(plot_names)) != 18 or any(
+        not name or Path(name).name != name or not name.endswith(".png") for name in plot_names
+    ):
+        raise ValueError("all-training plot manifest contains an invalid filename inventory")
+    expected_hash_paths = {
+        "best_n_all_training_validation.csv",
+        "best_n_all_training_summary.csv",
+        "best_n_vs_all_training_paired_spills.csv",
+        "best_n_vs_all_training_comparison.csv",
+        "best_n_vs_all_training_report.md",
+        "plots/all_training_plot_manifest.csv",
+        *(f"plots/{name}" for name in plot_names),
+    }
+    output_hashes = report.get("output_sha256")
+    if not isinstance(output_hashes, Mapping) or set(output_hashes) != expected_hash_paths:
+        raise ValueError("all-training verification receipt has an incomplete output hash inventory")
+    for relative, expected_hash in output_hashes.items():
+        path = root / str(relative)
+        if len(str(expected_hash)) != 64 or not path.is_file() or sha256(path) != expected_hash:
+            raise ValueError(f"all-training output changed after verification: {relative}")
+    contract = read_json(root / "run_contract.json")
+    if contract.get("analysis") != "best_n_all_training":
+        raise ValueError("all-training run contract has the wrong analysis identity")
+    contract_sizes = {
+        str(plane): int(value)
+        for plane, value in (contract.get("selected_sizes") or {}).items()
+    }
+    if contract_sizes != dict(selected_sizes):
+        raise ValueError(
+            f"all-training selected sizes do not match accepted Best-N: {contract_sizes} != {dict(selected_sizes)}"
+        )
+    comparisons = read_csv(root / "best_n_vs_all_training_comparison.csv")
+    expected_keys = {
+        (plane, method, metric)
+        for plane in ("H", "V")
+        for method in ALL_TRAINING_METHODS
+        for metric in ALL_TRAINING_METRICS
+    }
+    observed_keys = {
+        (row.get("plane", ""), row.get("baseline_method", ""), row.get("metric", ""))
+        for row in comparisons
+    }
+    if observed_keys != expected_keys or len(comparisons) != len(expected_keys):
+        raise ValueError("all-training comparison does not contain the exact 16 method/metric rows")
+    by_plane: dict[str, dict[str, int]] = {}
+    for plane in ("H", "V"):
+        plane_rows = [row for row in comparisons if row.get("plane") == plane]
+        if any(int(row.get("selected_n") or 0) != int(selected_sizes[plane]) for row in plane_rows):
+            raise ValueError(f"all-training comparison selected N differs for {plane}")
+        result_counts = {
+            result.lower(): sum(row.get("result") == result for row in plane_rows)
+            for result in ("SELECTED_FAVORED", "BASELINE_FAVORED", "UNRESOLVED")
+        }
+        if sum(result_counts.values()) != 8:
+            raise ValueError(f"all-training comparison contains an invalid result for {plane}")
+        by_plane[plane] = {
+            "selected_favored": result_counts["selected_favored"],
+            "baseline_favored": result_counts["baseline_favored"],
+            "unresolved": result_counts["unresolved"],
+            "total": 8,
+        }
+    return {
+        "schema": "tbt-monitor.ibic2026-all-training-control/v1",
+        "selected_sizes": dict(selected_sizes),
+        "comparison_count": len(comparisons),
+        "by_plane": by_plane,
+        "comparisons": comparisons,
+    }
 
 
 def finite(value: object) -> float:
@@ -371,6 +475,7 @@ def publication_numeric_summary(
     intensity_effects: Sequence[dict[str, str]],
     best_n_design: Mapping[str, int],
     sensitivity: Mapping[str, object],
+    all_training: Mapping[str, object],
 ) -> dict[str, object]:
     output: dict[str, object] = {}
     for plane in ("H", "V"):
@@ -416,6 +521,15 @@ def publication_numeric_summary(
             raise ValueError(f"publication sensitivity summary is missing {plane} range")
         for field in ("available", "unavailable", "minimum", "maximum"):
             output[f"sensitivity_{plane.lower()}_{field}"] = int(raw[field])
+    raw_all_training = all_training.get("by_plane")
+    if not isinstance(raw_all_training, Mapping):
+        raise ValueError("publication all-training control is missing plane summaries")
+    for plane in ("H", "V"):
+        raw = raw_all_training.get(plane)
+        if not isinstance(raw, Mapping):
+            raise ValueError(f"publication all-training control is missing {plane}")
+        for field in ("selected_favored", "baseline_favored", "unresolved"):
+            output[f"all_training_{plane.lower()}_{field}"] = int(raw[field])
     return output
 
 
@@ -446,6 +560,12 @@ def render_results_macros(values: Mapping[str, object]) -> str:
         ("BestNVSensitivityUnavailable", "sensitivity_v_unavailable", 0),
         ("BestNVSensitivityMinimum", "sensitivity_v_minimum", 0),
         ("BestNVSensitivityMaximum", "sensitivity_v_maximum", 0),
+        ("AllTrainingHSelectedFavored", "all_training_h_selected_favored", 0),
+        ("AllTrainingHBaselineFavored", "all_training_h_baseline_favored", 0),
+        ("AllTrainingHUnresolved", "all_training_h_unresolved", 0),
+        ("AllTrainingVSelectedFavored", "all_training_v_selected_favored", 0),
+        ("AllTrainingVBaselineFavored", "all_training_v_baseline_favored", 0),
+        ("AllTrainingVUnresolved", "all_training_v_unresolved", 0),
     )
     lines = ["% Generated by scripts/prepare_ibic2026_publication.py; do not edit."]
     for command, key, digits in commands:
@@ -467,6 +587,7 @@ def publication_content(
     loss_row: Mapping[str, object],
     best_n_design: Mapping[str, int],
     sensitivity: Mapping[str, object],
+    all_training: Mapping[str, object],
     intensity_effect_count: int,
     retained_intensity_effects: int,
 ) -> dict[str, object]:
@@ -479,6 +600,9 @@ def publication_content(
     sensitivity_ranges = sensitivity["ranges"]
     h_sensitivity = sensitivity_ranges["H"]
     v_sensitivity = sensitivity_ranges["V"]
+    all_training_by_plane = all_training["by_plane"]
+    h_all_training = all_training_by_plane["H"]
+    v_all_training = all_training_by_plane["V"]
     adaptive_status = {}
     for plane, row in (("H", h_adaptive), ("V", v_adaptive)):
         low = finite(row.get("median_iqr_delta_ci_low"))
@@ -536,7 +660,10 @@ def publication_content(
         "conclusionBody": (
             "Relative to adaptive Best-1, plane-specific ensembles improve later-window internal reproducibility.\n"
             f"Full-buffer ensemble-size contrast: H {adaptive_status['H']}; V {adaptive_status['V']}.\n"
-            "All-BPM aggregation remains a strong descriptive control; no external tune calibration is claimed."
+            f"Same-protocol all-training control favors Best-N in H {h_all_training['selected_favored']}/8 and "
+            f"V {v_all_training['selected_favored']}/8 comparisons; it favors all-training in H "
+            f"{h_all_training['baseline_favored']}/8 and V {v_all_training['baseline_favored']}/8. "
+            "No external tune calibration is claimed."
         ),
         "ridgeContrastCaption": (
             f"Selected H Best-{selected_sizes['H']} and V Best-{selected_sizes['V']} P10-P90 width "
@@ -575,6 +702,7 @@ def prepare_publication(
     primary_root: Path,
     followup_root: Path,
     best_n_root: Path,
+    all_training_root: Path,
     ridge_root: Path,
     intensity_root: Path,
     payload_audit_root: Path,
@@ -586,6 +714,7 @@ def prepare_publication(
         primary_root / "logs" / "best_bpm_verification.json",
         followup_root / "logs" / "best_bpm_followup_verification.json",
         *(best_n_root / f"merged_block{block}" / "best_n_verification.json" for block in (10, 20, 40)),
+        all_training_root / "best_n_all_training_verification.json",
         ridge_root / "ridge_density_verification.json",
         intensity_block20 / "intensity_verification.json",
         payload_audit_root / "delivery_ring_payload_audit.json",
@@ -600,6 +729,7 @@ def prepare_publication(
     tune_half_width = float(best_n_contract.get("tune_half_width") or 0.0025)
     best_n_summary = read_csv(best_n_block20 / "best_n_summary.csv")
     selected_sizes, best_n_rows, rationales = selected_best_n_rows(best_n_summary, tune_half_width)
+    all_training = all_training_control_summary(all_training_root, selected_sizes)
 
     transfers = read_csv(best_n_block20 / "best_n_cross_collection_transfer.csv")
     if len(transfers) != 4 or any(row.get("status") != "OK" for row in transfers):
@@ -655,6 +785,7 @@ def prepare_publication(
         intensity_effects,
         best_n_design,
         sensitivity,
+        all_training,
     )
     retained_effects = [
         row for row in intensity_effects if row.get("retain_method_for_tune_analysis", "").lower() == "true"
@@ -687,6 +818,14 @@ def prepare_publication(
         "analysis:best_n_sensitivity_manifest": best_n_root
         / "sensitivity"
         / "sensitivity_run_manifest.csv",
+        "analysis:all_training_contract": all_training_root / "run_contract.json",
+        "analysis:all_training_comparison": all_training_root
+        / "best_n_vs_all_training_comparison.csv",
+        "analysis:all_training_pairs": all_training_root
+        / "best_n_vs_all_training_paired_spills.csv",
+        "analysis:all_training_plot_manifest": all_training_root
+        / "plots"
+        / "all_training_plot_manifest.csv",
         "analysis:ridge_contract": ridge_root / "run_contract.json",
         "analysis:ridge_legacy_metrics": ridge_root
         / "ridge_density_legacy_comparison_metrics.csv",
@@ -747,6 +886,7 @@ def prepare_publication(
         h_loss,
         best_n_design,
         sensitivity,
+        all_training,
         len(intensity_effects),
         len(retained_effects),
     )
@@ -774,6 +914,7 @@ def prepare_publication(
         "cross_collection_transfer": transfers,
         "sensitivity": sensitivity,
         "block_recommendations": block_recommendations,
+        "all_training_control": all_training,
         "ridge_rows": selected_ridge_rows,
         "adaptive_ridge_rows": selected_adaptive_rows,
         "h_loss": h_loss,
@@ -822,6 +963,15 @@ def prepare_publication(
         f"- selected V ensemble: `Best-{selected_sizes['V']}`",
         *sensitivity_text,
         f"- retained intensity effects: `{len(retained_effects)}/{len(intensity_effects)}`",
+        (
+            "- same-protocol all-training control: "
+            f"H selected/all-training/unresolved `{all_training['by_plane']['H']['selected_favored']}/"
+            f"{all_training['by_plane']['H']['baseline_favored']}/"
+            f"{all_training['by_plane']['H']['unresolved']}`; "
+            f"V `{all_training['by_plane']['V']['selected_favored']}/"
+            f"{all_training['by_plane']['V']['baseline_favored']}/"
+            f"{all_training['by_plane']['V']['unresolved']}`"
+        ),
         f"- Best-N full curve spill-plane cases: `{best_n_design['curve_spill_plane_count']}`",
         f"- Best-N validation spill-plane cases: `{best_n_design['validation_spill_plane_count']}` across `{best_n_design['digitizer_fold_count']}` digitizer folds",
         f"- raw payload rows scanned through 50000 turns: `{payload_audit['stream_rows']}`",
@@ -853,6 +1003,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--primary-root", type=Path, required=True)
     parser.add_argument("--followup-root", type=Path, required=True)
     parser.add_argument("--best-n-root", type=Path, required=True)
+    parser.add_argument("--all-training-root", type=Path, required=True)
     parser.add_argument("--ridge-root", type=Path, required=True)
     parser.add_argument("--intensity-root", type=Path, required=True)
     parser.add_argument("--payload-audit-root", type=Path, required=True)
@@ -867,6 +1018,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.primary_root.resolve(),
             args.followup_root.resolve(),
             args.best_n_root.resolve(),
+            args.all_training_root.resolve(),
             args.ridge_root.resolve(),
             args.intensity_root.resolve(),
             args.payload_audit_root.resolve(),

@@ -817,6 +817,42 @@ exactly one contiguous row for every N and fold; a row at the maximum N alone
 is not treated as completion. Sensitivity comparators require identical full
 key sets and never take silent intersections.
 
+After the definitive block-20 merge selects H and V, evaluate every channel on
+the training side of each fold under the same protocol. This is the fair
+all-BPM head-to-head control; held-out digitizers remain excluded from the
+aggregate and continue to provide the independent reference.
+
+```bash
+python3 scripts/evaluate_best_n_all_training.py \
+  --config config/best_bpm_mining.yaml \
+  --inputs /path/to/corrected-best-bpm \
+  --best-n-root /path/to/best-n-full/merged_block20 \
+  --out /path/to/best-n-all-training
+
+python3 scripts/verify_best_n_all_training.py \
+  --root /path/to/best-n-all-training
+```
+
+The evaluator is CPU/cache-only and runs only after the GPU publication chain
+is idle. For each exact accepted validation spill-plane and fold it compares the
+selected Best-N ensemble with both the mean and median spectrum over every
+training-side channel. Fit-window tune selection, overlapping-window purge,
+later-window evaluation, held-out digitizer assignment, tolerance, and
+collection-preserving moving-block interval all come from the accepted Best-N
+contract. It refuses a failed verifier, missing recommendation, changed source
+hash, incomplete key set, or selected-N mismatch.
+
+Outputs include 10,000 fold-detail rows, 8,000 fold-collapsed exact spill pairs,
+16 plane/method/metric comparisons, a report, and 18 native-PNG review figures.
+The metrics are blind agreement, blind absolute tune difference, later-window
+prominence, and later-window power support. Paired scatter plots retain raw
+metric units; favorable-delta CDFs flip only lower-is-better tune error so that
+positive always favors Best-N. H/V scoreboards classify each paired block
+interval as `SELECTED_FAVORED`, `BASELINE_FAVORED`, or `UNRESOLVED`. These are
+internal reproducibility outcomes, not external tune calibration. No particular
+winner is required for structural acceptance, but every outcome is required in
+the publication payload and review package.
+
 Run the declared beam-width, fit-prefix, and fold-seed sample matrix with one
 shared baseline:
 
@@ -858,7 +894,7 @@ The intensity and full-buffer ridge sidecars use the same fail-closed contract
 rule. Their verifiers check the merged block length or ridge window geometry
 and the SHA-256 source inventory before accepting plots.
 `scripts/analyze_next_steps_outputs.py` also refuses supplied primary,
-follow-up, Best-N, ridge, or intensity roots unless their JSON verifier reports
+follow-up, Best-N, all-training, ridge, or intensity roots unless their JSON verifier reports
 are accepted; the executive interpretation cannot silently consume a
 provisional tree. A supplied sensitivity root must contain exactly seven unique
 verified runs; the report discovers all nested beam/fit/seed recommendation
@@ -1105,6 +1141,7 @@ python3 scripts/prepare_ibic2026_publication.py \
   --primary-root /path/to/corrected-best135 \
   --followup-root /path/to/corrected-best135/followups/publication \
   --best-n-root /path/to/best-n-full \
+  --all-training-root /path/to/best-n-all-training \
   --ridge-root /path/to/ridge-50000 \
   --intensity-root /path/to/intensity-refresh \
   --payload-audit-root /path/to/delivery-ring-payload-audit \
@@ -1114,7 +1151,8 @@ python3 scripts/prepare_ibic2026_publication.py \
 This command requires accepted 10/20/40-block Best-N outputs, four OK
 cross-collection transfer rows, seven verified beam/fit/fold sensitivity runs
 with eligible H and V recommendations in at least four runs per plane,
-an accepted mixed-N ridge contract, zero retained intensity effects, and the
+the accepted 10,000-row/8,000-pair/16-comparison all-training control, an
+accepted mixed-N ridge contract, zero retained intensity effects, and the
 exact corpus-bound raw-payload audit. It
 writes `poster/content.json`, `paper/results_table.tex`, verifier-derived
 `paper/results_macros.tex`, exact figure copies, `results_payload.json`,
@@ -1123,12 +1161,14 @@ Best-1/3/5 scores and intensity effect counts to the accepted tables instead of
 preserving literals from an earlier run. They also bind 4000 full-curve
 spill-plane cases, 1000 stratified validation cases, and five digitizer folds
 from the accepted block-20 Best-N verifier; materialization rejects any other
-study design.
+study design. Six additional macros bind the selected-favored,
+all-training-favored, and unresolved comparison counts for each plane.
 Every sensitivity run's recommendation or unavailable reason is retained in
 `results_payload.json`; poster and paper copy disclose the available count and
 observed range rather than hiding an unresolved reduced sample.
-The source manifest also hashes the exact primary, Best-N, sensitivity, ridge,
-and intensity tables used for numerical materialization. Finalization parses
+The source manifest also hashes the exact primary, Best-N, all-training,
+sensitivity, ridge, and intensity tables used for numerical materialization.
+Finalization parses
 its fixed schema and re-hashes the exact 14 materialized content/table/payload/
 report/figure outputs; mere manifest-file presence is not sufficient.
 
@@ -1140,6 +1180,7 @@ python3 scripts/package_publication_review.py \
   --component publication=publication/ibic2026 \
   --component report=/path/to/final-analysis-report \
   --component best-n-gallery=/path/to/best-n-gallery \
+  --component all-training=/path/to/best-n-all-training \
   --component ridge-gallery=/path/to/ridge-gallery \
   --component intensity-gallery=/path/to/intensity-gallery \
   --component payload-audit=/path/to/delivery-ring-payload-audit \

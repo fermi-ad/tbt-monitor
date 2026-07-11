@@ -5,7 +5,7 @@ This directory is the versioned source and final-deliverable home for abstract
 Mu2e Delivery Ring."
 
 Final numerical copy and figures are accepted only from roots that pass the
-repository's primary, follow-up, Best-N, intensity, full-buffer ridge, and
+repository's primary, follow-up, Best-N, all-training, intensity, full-buffer ridge, and
 corpus-wide raw-payload verifiers. June 2026 downstream figures may be used for
 layout development but not as publication evidence.
 
@@ -32,6 +32,11 @@ the exact poster JSON, paper table/figures, results payload, preparation report,
 and source manifest used by the two build pipelines. The manifest hashes the
 exact numerical source tables and all 14 materialized outputs; finalization
 parses its fixed schema and re-hashes the complete output inventory.
+The all-training input must contain the accepted 10000 fold rows, 8000 exact
+spill pairs, 16 method/metric comparisons, and 18 native review PNGs under the
+same purge and held-out-digitizer protocol as Best-N. Materialization records
+selected-favored, all-training-favored, and unresolved counts without requiring
+a predetermined winner.
 The materializer regenerates the H/V Best-N panels from the accepted summary:
 the publication pair contains only blind held-out agreement on a common scale,
 while conditioned near-training agreement and an exact criterion-by-N gate
@@ -54,7 +59,8 @@ visual anchor and is not the ensemble-size estimator.
 Primary adaptive-score values and intensity-effect counts in manuscript prose
 are generated into `results_macros.tex` from the same accepted roots. The macro
 set also distinguishes 4000 full-curve spill-plane cases from 1000 stratified
-validation cases evaluated across five digitizer folds.
+validation cases evaluated across five digitizer folds and binds the six H/V
+all-training outcome counts quoted in the manuscript.
 
 ## Deliverables
 
@@ -95,6 +101,6 @@ not claim absolute tune calibration, physical noise removal, or a measured
 extraction-onset turn. Ridge subtraction is exact-paired probability
 redistribution. Intensity is retained as a tune weight only if the corrected
 200-spill test passes every statistical, practical-effect, and tune-stability
-gate. Best-N improvement is relative to adaptive Best-1; stronger descriptive
-all-BPM controls remain an explicit baseline and have not been defeated by a
-leakage-controlled head-to-head test.
+gate. Best-N improvement relative to adaptive Best-1 is reported separately
+from the same-protocol all-training mean/median control. That control remains
+internal reproducibility evidence and may favor either method or be unresolved.

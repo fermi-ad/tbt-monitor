@@ -576,6 +576,27 @@ def finalize(
         raise ValueError("results payload is missing exact H/V selected sizes")
     if any(int(selected_sizes[plane]) <= 0 for plane in ("H", "V")):
         raise ValueError("results payload contains a nonpositive selected size")
+    all_training = payload.get("all_training_control")
+    if (
+        not isinstance(all_training, dict)
+        or all_training.get("schema") != "tbt-monitor.ibic2026-all-training-control/v1"
+        or all_training.get("selected_sizes") != selected_sizes
+        or int(all_training.get("comparison_count") or 0) != 16
+    ):
+        raise ValueError("results payload is missing the accepted all-training control")
+    all_training_by_plane = all_training.get("by_plane")
+    if not isinstance(all_training_by_plane, dict) or set(all_training_by_plane) != {"H", "V"}:
+        raise ValueError("results payload has incomplete all-training plane summaries")
+    for plane in ("H", "V"):
+        row = all_training_by_plane[plane]
+        if not isinstance(row, dict):
+            raise ValueError(f"results payload has an invalid {plane} all-training summary")
+        counts = [
+            int(row.get(field) or 0)
+            for field in ("selected_favored", "baseline_favored", "unresolved")
+        ]
+        if any(value < 0 for value in counts) or sum(counts) != 8 or int(row.get("total") or 0) != 8:
+            raise ValueError(f"results payload has an invalid {plane} all-training result count")
     adaptive_ridge_rows = payload.get("adaptive_ridge_rows")
     if not isinstance(adaptive_ridge_rows, dict) or set(adaptive_ridge_rows) != {"H", "V"}:
         raise ValueError("results payload is missing exact H/V corrected-Best-1 ridge contrasts")
@@ -670,6 +691,15 @@ def finalize(
         "All checks below passed. Visual QA was explicitly completed on the final rendered artifacts.",
         "",
         f"- selected ensembles: H Best-{selected_sizes['H']}, V Best-{selected_sizes['V']}",
+        (
+            "- same-protocol all-training control, selected/all-training/unresolved: "
+            f"H {all_training_by_plane['H']['selected_favored']}/"
+            f"{all_training_by_plane['H']['baseline_favored']}/"
+            f"{all_training_by_plane['H']['unresolved']}; "
+            f"V {all_training_by_plane['V']['selected_favored']}/"
+            f"{all_training_by_plane['V']['baseline_favored']}/"
+            f"{all_training_by_plane['V']['unresolved']}"
+        ),
         "- retained intensity weighting effects: 0",
         "- Best-N design: 4000 full-curve spill-plane cases; 1000 validation cases x 5 folds",
         "- raw payload audit: 263999 streams through turn 50000, no blocking findings",

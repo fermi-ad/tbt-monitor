@@ -281,6 +281,15 @@ config ranking. Its package modules cover:
   identity, timing, metric, summary, recommendation-boundary, transfer, and plot
   checks for every full or sensitivity Best-N run, including the input and
   parameter contract.
+- `all_training.py`, `all_training_plots.py`,
+  `evaluate_best_n_all_training.py`, and `verify_best_n_all_training.py`: a
+  CPU/cache-only, leakage-controlled head-to-head control. Each accepted Best-N
+  fold is reused exactly, every training-side channel is aggregated by mean and
+  median, and the held-out digitizers remain independent. Exact fold rows are
+  collapsed within spill before paired moving-block inference. The verifier
+  binds source hashes, 10,000 detail rows, 8,000 spill pairs, 16 metric
+  comparisons, and 18 native PNGs; it accepts any scientifically valid winner or
+  unresolved result but rejects missing coverage.
 - `intensity.py` and `intensity_plots.py`: exact position/intensity pairing,
   position-only member selection, optional spectral aggregation weights,
   collection-aware paired inference, payload-horizon diagnostics, and a broad
@@ -339,7 +348,7 @@ config ranking. Its package modules cover:
   The publication contract additionally binds the adaptive pass to the archived
   `18d321dbd4fe` 4096/256 tracking protocol and exact 2000/1988 source coverage.
 - `scripts/prepare_ibic2026_publication.py`: accepts only verifier-clean primary,
-  follow-up, three-block Best-N, intensity, full-buffer ridge, and raw-payload
+  follow-up, three-block Best-N, all-training, intensity, full-buffer ridge, and raw-payload
   audit roots; checks cross-collection transfer and all seven verified
   hyperparameter-sensitivity runs, requires eligible knees from a strict
   majority per plane while preserving every unavailable run and reason, rejects any retained
@@ -347,7 +356,7 @@ config ranking. Its package modules cover:
   plane-specific results table including selected-versus-Best-1 and legacy
   ridge-width intervals, verifier-derived manuscript macros, poster
   copy, results payload, and source hashes. The macros prevent primary-score or
-  intensity-count prose from drifting when the accepted run grid changes and
+  intensity-count or all-training outcome prose from drifting when the accepted run grid changes and
   distinguish the full Best-N curve population from the stratified
   digitizer-disjoint validation sample.
 - `scripts/package_publication_review.py`: copies labeled publication, report,
@@ -358,7 +367,7 @@ config ranking. Its package modules cover:
 - `scripts/finalize_ibic2026_publication.py`: final human-QA acknowledgment and
   delivery closure gate. It verifies immutable references, PDF geometry, render
   dimensions, byte identity between the named poster PNG and the authoritative
-  PDF raster, required sources/figures, selected-N and sensitivity payload
+  PDF raster, required sources/figures, selected-N, all-training, and sensitivity payload
   majority/range/run-detail consistency,
   state, zero retained intensity effects, exact corpus-wide raw-payload audit,
   unresolved copy, and read-only slide-OOXML absence of empty structural

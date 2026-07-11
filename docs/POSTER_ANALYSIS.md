@@ -423,7 +423,8 @@ category-diverse fill; a stronger V score cannot consume the entire review cap.
 
 For publication review, the canonical plot set is broader than the final poster
 shortlist. It includes Best-N blind agreement and selected/held-out contrast
-with block intervals, beam/fit/fold sensitivity, cross-collection transfer,
+with block intervals, beam/fit/fold sensitivity, cross-collection transfer, the
+same-protocol all-training mean/median control,
 exact-point-paired full-buffer legacy comparisons, all meaningful requested-N
 difference maps, H-loss diagnostics, and the block-aware intensity gallery.
 
@@ -507,13 +508,18 @@ count and N range; no unresolved case is silently assigned an N.
 The same-metric direct-control gallery must also include all-BPM mean and median
 beside adaptive and frozen N=1/3/5. All-BPM median currently scores higher in
 both planes, and all-BPM mean does so vertically, under the reused-window
-evolution metric. They remain an explicit limitation panel rather than being
-omitted to simplify the adaptive story.
+evolution metric. Keep that descriptive panel, then review the independent
+all-training control under the exact Best-N purge and held-out folds. Its two H/V
+scoreboards, eight raw-unit paired scatters, and eight favorable-delta CDFs must
+remain in the exhaustive gallery whether selected Best-N wins, loses, or is
+unresolved. Only this second control can support a same-protocol comparison.
 `scripts/prepare_ibic2026_publication.py` is the final provenance gate. It
-requires accepted primary/follow-up, Best-N 10/20/40-block, intensity, and
+requires accepted primary/follow-up, Best-N 10/20/40-block, all-training,
+intensity, and
 ridge reports plus the exact 2200-manifest raw-payload audit; checks
 cross-collection transfer and the seven-run matrix; and
-copies the exact figures while writing the poster JSON, paper table, results
+copies the exact figures while writing the poster JSON, paper table, generated
+all-training outcome macros, results
 payload, and source manifest. The paper copy additionally binds the selected-H
 and selected-V exact-paired P10-P90 width-contrast plots so the time-resolved
 method comparison cannot drift from the ridge contract.

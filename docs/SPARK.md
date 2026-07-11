@@ -270,13 +270,14 @@ PY=/home/derekste/venvs/cupy-spark-cu13/bin/python
   --root "$ROOT" \
   --followup "$OUT" \
   --best-n "$BESTN/merged" \
+  --all-training "$BESTN/all_training" \
   --ridge "$OUT/ridge_density_best_ensemble" \
   --intensity /home/derekste/tbt-intensity-study-20260709/merged \
   --sensitivity "$BESTN/sensitivity" \
   --out "$OUT/analysis/next_steps_output_analysis.md"
 ```
 
-The optional Best-N, ridge, intensity, and sensitivity-matrix arguments make
+The optional Best-N, all-training, ridge, intensity, and sensitivity-matrix arguments make
 the final report data-derived. A supplied sensitivity root must contain the
 seven unique verified beam/fit/seed runs and nested comparison outputs. Omit
 only an input that was intentionally not run, in which case the report records
@@ -298,7 +299,7 @@ inference.
 The control summary and executive report must include all-BPM mean/median. The
 all-BPM median currently exceeds the small-set scores in both planes, and mean
 does so vertically, so the publication claim is Best-N versus Best-1 and frozen
-small sets, not Best-N versus all BPMs.
+small sets until the same-protocol all-training control below is complete.
 No-visible fixed/control rows and no-`q_hat` held-out rows are retained with
 explicit quality flags and blank unavailable metrics. The held-out summary
 reports evaluable coverage; the semantic verifier accepts those states only
@@ -430,6 +431,37 @@ contract.
 The generated sensitivity gallery includes confidence-interval endpoints, so
 10/20/40-spill block comparisons expose uncertainty changes even when central
 curves are identical.
+
+### Leakage-Controlled All-Training Control
+
+Run this CPU/cache-only control after the Best-N block-20 verifier has selected
+both planes and after the GPU publication chain is idle:
+
+```bash
+ALL_TRAINING=/home/derekste/best_n_20260709_all_training
+"$PY" scripts/evaluate_best_n_all_training.py \
+  --config config/best_bpm_mining.yaml \
+  --inputs "$ROOT" \
+  --best-n-root "$BESTN/merged_block20" \
+  --out "$ALL_TRAINING"
+
+"$PY" scripts/verify_best_n_all_training.py --root "$ALL_TRAINING"
+```
+
+This is not a literal all-60 result because each fold keeps complete digitizers
+held out. It is the leakage-controlled counterpart: every available
+training-side channel is aggregated by mean and median, while fit/test purge,
+fold identity, later windows, and held-out reference exactly match the accepted
+selected Best-N rows. The run contract hashes the accepted Best-N contract,
+validation, summary, verifier, BPM index, and spectral-cache index.
+
+The definitive 1000-spill-plane validation population produces 10,000 detail
+rows, 8,000 exact fold-collapsed spill pairs, 16 paired method/metric intervals,
+and 18 native PNGs. The verifier requires those exact counts, source hashes,
+fold/timing/cardinality coverage, finite intervals, and complete PNG geometry.
+Do not require Best-N to win: a baseline-favored or unresolved interval is a
+scientific result. Require every result to remain visible in the publication
+payload, manuscript macros, and review gallery.
 
 ### Intensity Sidecar
 
@@ -587,16 +619,17 @@ height; this keeps standalone and subtractive heatmaps aligned with their tune
 axis and percentile overlays when the pixel height is not divisible by the bin
 count.
 
-After the raw-payload, intensity, and ridge verifiers pass, run
+After the raw-payload, all-training, intensity, and ridge verifiers pass, run
 `scripts/prepare_ibic2026_publication.py` with the corrected primary/follow-up,
-Best-N parent, ridge, intensity parent, and payload-audit roots. Run it on Spark before
+Best-N parent, all-training, ridge, intensity parent, and payload-audit roots.
+Run it on Spark before
 copy-back when the large ridge CSVs remain in place; only the generated
 publication tree and review galleries need transfer to the local checkout.
 The generated paper tree includes `results_table.tex`, `results_macros.tex`,
 the selected-H/V turn-width contrast, and the other four contract-bound PNGs;
 the final paper build rejects a missing macro or figure file. The generated
 `source_manifest.csv` includes exact numerical source hashes and the complete
-15-output materialization inventory; finalization re-hashes that inventory
+14-output materialization inventory; finalization re-hashes that inventory
 after copy-back.
 
 If an original artifact must be revisited, Spark can reach the acquisition host

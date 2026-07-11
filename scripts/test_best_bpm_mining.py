@@ -29,7 +29,7 @@ from bpm_mining.subset_score import (
     subset_mask,
     visibility_fraction_and_duration,
 )
-from bpm_mining.subset_search import supplement_pool
+from bpm_mining.subset_search import metadata_for_bpms, supplement_pool
 from bpm_mining.peaks import extract_per_bpm_features
 from bpm_mining.consensus import build_consensus
 from bpm_mining.subset_search import search_best_bpm_subsets
@@ -73,6 +73,8 @@ from bpm_mining.best_n_sensitivity import (
     validate_parallel_run_controls,
 )
 from bpm_mining.best_n_verification import verify_best_n_outputs
+from bpm_mining.all_training import evaluate as evaluate_all_training
+from bpm_mining.all_training import verify_outputs as verify_all_training_outputs
 from bpm_mining.ridge_verification import (
     audit_sliding_file,
     contracted_center_grid,
@@ -1340,6 +1342,12 @@ class BestBpmMiningTests(unittest.TestCase):
                     "V": {"available": 7, "unavailable": 0, "minimum": 10, "maximum": 26},
                 }
             },
+            {
+                "by_plane": {
+                    "H": {"selected_favored": 2, "baseline_favored": 1, "unresolved": 5},
+                    "V": {"selected_favored": 3, "baseline_favored": 2, "unresolved": 3},
+                }
+            },
             240,
             0,
         )
@@ -1350,7 +1358,8 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertIn("minus corrected adaptive Best-1", content["ridgeContrastCaption"])
         self.assertIn("H narrower than corrected Best-1", content["conclusionBody"])
         self.assertIn("V narrower than corrected Best-1", content["conclusionBody"])
-        self.assertIn("All-BPM aggregation remains", content["conclusionBody"])
+        self.assertIn("Same-protocol all-training control", content["conclusionBody"])
+        self.assertIn("H 2/8", content["conclusionBody"])
         self.assertIn("6/7 runs; 1 unresolved", content["bestNHCaption"])
         self.assertIn("7/7 runs; 0 unresolved", content["bestNVCaption"])
         self.assertIn("Median IQR change vs corrected Best-1", content["quantitativeBody"])
@@ -1395,7 +1404,20 @@ class BestBpmMiningTests(unittest.TestCase):
                 "V": {"available": 7, "unavailable": 0, "minimum": 10, "maximum": 26},
             }
         }
-        summary = publication_numeric_summary(primary, paired, intensity, design, sensitivity)
+        all_training = {
+            "by_plane": {
+                "H": {"selected_favored": 2, "baseline_favored": 1, "unresolved": 5},
+                "V": {"selected_favored": 3, "baseline_favored": 2, "unresolved": 3},
+            }
+        }
+        summary = publication_numeric_summary(
+            primary,
+            paired,
+            intensity,
+            design,
+            sensitivity,
+            all_training,
+        )
         macros = render_results_macros(summary)
         self.assertIn(r"\newcommand{\PrimaryHBestOneScore}{0.300}", macros)
         self.assertIn(r"\newcommand{\PrimaryVThreeToFiveGain}{0.0300}", macros)
@@ -1407,6 +1429,8 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertIn(r"\newcommand{\BestNDigitizerFoldCount}{5}", macros)
         self.assertIn(r"\newcommand{\BestNHSensitivityAvailable}{6}", macros)
         self.assertIn(r"\newcommand{\BestNVSensitivityMaximum}{26}", macros)
+        self.assertIn(r"\newcommand{\AllTrainingHSelectedFavored}{2}", macros)
+        self.assertIn(r"\newcommand{\AllTrainingVUnresolved}{3}", macros)
         with self.assertRaisesRegex(ValueError, "definitive study design"):
             best_n_design_summary({"curve_cache_key_count": 4000})
 
@@ -1501,6 +1525,7 @@ class BestBpmMiningTests(unittest.TestCase):
         primary = self.root / "primary"
         followup = self.root / "followup"
         best_n = self.root / "best-n"
+        all_training = self.root / "all-training"
         ridge = self.root / "ridge"
         intensity = self.root / "intensity"
         payload_audit = self.root / "payload-audit"
@@ -1563,6 +1588,73 @@ class BestBpmMiningTests(unittest.TestCase):
                     for name in ("a", "b", "intensity")
                 },
             },
+        )
+
+        json_file(
+            all_training / "best_n_all_training_verification.json",
+            {
+                "schema": "tbt-monitor.best-n-all-training-verification/v1",
+                "status": "pass",
+                "issue_count": 0,
+                "detail_rows": 10000,
+                "complete_cache_keys": 1000,
+                "summary_rows": 4,
+                "paired_spill_rows": 8000,
+                "comparison_rows": 16,
+                "plot_rows": 18,
+            },
+        )
+        json_file(
+            all_training / "run_contract.json",
+            {
+                "analysis": "best_n_all_training",
+                "selected_sizes": {"H": 1, "V": 1},
+            },
+        )
+        all_training_comparisons = []
+        for plane in ("H", "V"):
+            for method in ("all_training_mean", "all_training_median"):
+                for metric in (
+                    "blind_agreement",
+                    "blind_abs_q_delta",
+                    "later_prominence",
+                    "later_power",
+                ):
+                    all_training_comparisons.append(
+                        {
+                            "plane": plane,
+                            "selected_n": 1,
+                            "baseline_method": method,
+                            "metric": metric,
+                            "result": "UNRESOLVED",
+                        }
+                    )
+        csv_file(
+            all_training / "best_n_vs_all_training_comparison.csv",
+            all_training_comparisons,
+        )
+        csv_file(
+            all_training / "best_n_vs_all_training_paired_spills.csv",
+            [{"collection": "A", "spill_id": "1"}],
+        )
+        csv_file(
+            all_training / "best_n_all_training_validation.csv",
+            [{"method": "all_training_mean"}],
+        )
+        csv_file(
+            all_training / "best_n_all_training_summary.csv",
+            [{"method": "all_training_mean"}],
+        )
+        (all_training / "best_n_vs_all_training_report.md").write_text(
+            "# All-training control\n",
+            encoding="utf-8",
+        )
+        all_training_plot_rows = [
+            {"filename": f"review_{index:02d}.png"} for index in range(18)
+        ]
+        csv_file(
+            all_training / "plots" / "all_training_plot_manifest.csv",
+            all_training_plot_rows,
         )
 
         best_rows = []
@@ -1666,6 +1758,7 @@ class BestBpmMiningTests(unittest.TestCase):
             ridge / "ridge_concentration_selected_best1_h.png",
             ridge / "ridge_p10_p90_delta_vs_turn_best1_to_selected_h1_v1_hv.png",
             ridge / "ridge_p10_p90_delta_vs_turn_best1_to_selected_h1_v1_hv_poster.png",
+            *(all_training / "plots" / row["filename"] for row in all_training_plot_rows),
         )
         for path in figure_paths:
             draw_turn_metric_plot(
@@ -1681,6 +1774,22 @@ class BestBpmMiningTests(unittest.TestCase):
                 "VALUE",
                 zero_reference=True,
             )
+        all_training_hash_paths = (
+            all_training / "best_n_all_training_validation.csv",
+            all_training / "best_n_all_training_summary.csv",
+            all_training / "best_n_vs_all_training_paired_spills.csv",
+            all_training / "best_n_vs_all_training_comparison.csv",
+            all_training / "best_n_vs_all_training_report.md",
+            all_training / "plots" / "all_training_plot_manifest.csv",
+            *(all_training / "plots" / row["filename"] for row in all_training_plot_rows),
+        )
+        all_training_receipt_path = all_training / "best_n_all_training_verification.json"
+        all_training_receipt = json.loads(all_training_receipt_path.read_text(encoding="utf-8"))
+        all_training_receipt["output_sha256"] = {
+            path.relative_to(all_training).as_posix(): publication_sha256(path)
+            for path in all_training_hash_paths
+        }
+        json_file(all_training_receipt_path, all_training_receipt)
 
         csv_file(
             primary / "evolution" / "subset_size_comparison.csv",
@@ -1714,11 +1823,36 @@ class BestBpmMiningTests(unittest.TestCase):
             [{"label": "block20", "retained_effects": 0}],
         )
 
-        payload = prepare_publication(primary, followup, best_n, ridge, intensity, payload_audit, publication)
+        payload = prepare_publication(
+            primary,
+            followup,
+            best_n,
+            all_training,
+            ridge,
+            intensity,
+            payload_audit,
+            publication,
+        )
         self.assertEqual(payload["selected_sizes"], {"H": 1, "V": 1})
         self.assertEqual(payload["numeric_summary"]["intensity_effect_count"], 1)
         self.assertEqual(payload["payload_integrity"]["stream_rows"], 263999)
         self.assertEqual(payload["best_n_design"]["validation_spill_plane_count"], 1000)
+        self.assertEqual(payload["all_training_control"]["comparison_count"], 16)
+        all_training_comparison_path = all_training / "best_n_vs_all_training_comparison.csv"
+        all_training_comparison_bytes = all_training_comparison_path.read_bytes()
+        all_training_comparison_path.write_bytes(all_training_comparison_bytes + b" ")
+        with self.assertRaisesRegex(ValueError, "all-training output changed after verification"):
+            prepare_publication(
+                primary,
+                followup,
+                best_n,
+                all_training,
+                ridge,
+                intensity,
+                payload_audit,
+                publication,
+            )
+        all_training_comparison_path.write_bytes(all_training_comparison_bytes)
         self.assertEqual(
             payload["adaptive_ridge_rows"]["H"][
                 "median_iqr_delta_ensemble_minus_baseline"
@@ -1778,7 +1912,16 @@ class BestBpmMiningTests(unittest.TestCase):
         incomplete_audit["stream_rows"] = 263998
         audit_path.write_text(json.dumps(incomplete_audit), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "does not match the publication corpus"):
-            prepare_publication(primary, followup, best_n, ridge, intensity, payload_audit, publication)
+            prepare_publication(
+                primary,
+                followup,
+                best_n,
+                all_training,
+                ridge,
+                intensity,
+                payload_audit,
+                publication,
+            )
 
     def test_intensity_block_sensitivity_separates_statistical_and_practical_passes(self) -> None:
         root = self.root / "intensity-block"
@@ -2462,7 +2605,7 @@ class BestBpmMiningTests(unittest.TestCase):
                 root,
                 shards / f"shard_{shard_index}",
                 device="cpu",
-                max_n=3,
+                max_n=4,
                 beam_width=4,
                 curve_limit=2,
                 validation_limit=2,
@@ -2479,8 +2622,8 @@ class BestBpmMiningTests(unittest.TestCase):
         curve = read_csv(out / "best_n_curve_rows.csv")
         validation = read_csv(out / "best_n_disjoint_validation.csv")
         summary = read_csv(out / "best_n_summary.csv")
-        self.assertEqual({int(row["subset_size"]) for row in curve}, {1, 2, 3})
-        self.assertEqual({int(row["subset_size"]) for row in validation}, {1, 2, 3})
+        self.assertEqual({int(row["subset_size"]) for row in curve}, {1, 2, 3, 4})
+        self.assertEqual({int(row["subset_size"]) for row in validation}, {1, 2, 3, 4})
         self.assertTrue(all(len(row["bpm_indices"].split(",")) == int(row["subset_size"]) for row in validation))
         self.assertTrue(all(int(row["test_window_count"]) > 0 for row in validation))
         self.assertTrue(all(row["q_agreement_within_tolerance"] in {"0", "1"} for row in validation))
@@ -2497,7 +2640,7 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertTrue((out / "best_n_cross_collection_transfer.md").exists())
         verification = verify_best_n_outputs(
             out,
-            expected_max_n=3,
+            expected_max_n=4,
             expected_curve_cache_keys=2,
             expected_validation_cache_keys=2,
             expected_folds=3,
@@ -2508,13 +2651,97 @@ class BestBpmMiningTests(unittest.TestCase):
         contract = json.loads((out / "run_contract.json").read_text(encoding="utf-8"))
         self.assertEqual(contract["analysis"], "best_n_merged")
         self.assertEqual(contract["source_shard_indices"], [0, 1])
+        accepted_summary = read_csv(out / "best_n_summary.csv")
+        for row in accepted_summary:
+            row.update(
+                {
+                    "blind_q_agreement_rate": "0.5",
+                    "median_blind_selected_heldout_abs_q_delta": "0.01",
+                    "median_test_peak_prominence": "5",
+                    "median_test_power_support": "5",
+                    "median_heldout_prominence": "5",
+                    "median_heldout_power_support": "5",
+                }
+            )
+        write_csv(out / "best_n_summary.csv", accepted_summary, list(accepted_summary[0]))
+        accepted_verification = verify_best_n_outputs(
+            out,
+            expected_max_n=4,
+            expected_curve_cache_keys=2,
+            expected_validation_cache_keys=2,
+            expected_folds=3,
+            require_cross_collection=False,
+        )
+        self.assertEqual(accepted_verification["status"], "pass")
+        self.assertEqual(accepted_verification["recommendations"]["H"]["recommended_n"], 1)
+        self.assertEqual(accepted_verification["recommendations"]["V"]["recommended_n"], 1)
+        all_training = self.root / "best_n_all_training"
+        all_training_verification = evaluate_all_training(
+            cfg,
+            root,
+            out,
+            all_training,
+            progress_every=0,
+        )
+        self.assertEqual(all_training_verification["status"], "pass")
+        detail = read_csv(all_training / "best_n_all_training_validation.csv")
+        comparisons = read_csv(all_training / "best_n_vs_all_training_comparison.csv")
+        self.assertEqual(len(detail), 2 * 3 * 2)
+        self.assertEqual(
+            {row["method"] for row in detail},
+            {"all_training_mean", "all_training_median"},
+        )
+        cache_by_key = {
+            (row["collection"], row["spill_id"], row["plane"]): row
+            for row in read_csv(root / "cache" / "index" / "spectral_cache.csv")
+            if row["status"] == "ok"
+        }
+        for row in detail:
+            cache = cache_by_key[(row["collection"], row["spill_id"], row["plane"])]
+            bpm_indices = [int(value) for value in np.load(cache["bpm_indices_path"])]
+            bpm_meta = metadata_for_bpms(root / "manifest", row["plane"])
+            assigned = fold_by_digitizer(bpm_indices, bpm_meta, 3, 20260709)
+            expected_train = {idx for idx in bpm_indices if assigned[idx] != int(row["fold"])}
+            exported_train = {int(value) for value in row["bpm_indices"].split(",")}
+            self.assertEqual(exported_train, expected_train)
+        self.assertEqual(len(comparisons), 16)
+        plot_manifest = read_csv(all_training / "plots" / "all_training_plot_manifest.csv")
+        self.assertEqual(len(plot_manifest), 18)
+        self.assertTrue(
+            all((all_training / "plots" / row["filename"]).is_file() for row in plot_manifest)
+        )
+        self.assertTrue(all(int(row["exact_paired_row_count"]) == 3 for row in comparisons))
+        self.assertTrue(all(int(row["paired_spill_count"]) == 1 for row in comparisons))
+        self.assertEqual(verify_all_training_outputs(all_training, write_outputs=False)["status"], "pass")
+        source_verification = out / "best_n_verification.json"
+        source_verification_bytes = source_verification.read_bytes()
+        source_verification.write_bytes(source_verification_bytes + b" ")
+        changed_source = verify_all_training_outputs(all_training, write_outputs=False)
+        self.assertEqual(changed_source["status"], "fail")
+        self.assertTrue(any(issue["code"] == "source_hash" for issue in changed_source["issues"]))
+        source_verification.write_bytes(source_verification_bytes)
+        tampered = list(detail)
+        tampered[0] = {**tampered[0], "fold": "9"}
+        write_csv(
+            all_training / "best_n_all_training_validation.csv",
+            tampered,
+            list(tampered[0]),
+        )
+        failed_all_training = verify_all_training_outputs(all_training, write_outputs=False)
+        self.assertEqual(failed_all_training["status"], "fail")
+        self.assertTrue(
+            any(
+                issue["code"] in {"detail_coverage", "fold_coverage"}
+                for issue in failed_all_training["issues"]
+            )
+        )
         with self.assertRaisesRegex(ValueError, "run contract mismatch"):
             evaluate_best_n(
                 cfg,
                 root,
                 shards / "shard_0",
                 device="cpu",
-                max_n=3,
+                max_n=4,
                 beam_width=5,
                 curve_limit=2,
                 validation_limit=2,
@@ -2530,7 +2757,7 @@ class BestBpmMiningTests(unittest.TestCase):
         write_csv(out / "best_n_curve_rows.csv", curve[:-1], list(curve[0]))
         incomplete = verify_best_n_outputs(
             out,
-            expected_max_n=3,
+            expected_max_n=4,
             expected_curve_cache_keys=2,
             expected_validation_cache_keys=2,
             expected_folds=3,

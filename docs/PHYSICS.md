@@ -43,6 +43,9 @@ capabilities rather than re-track them as new software tasks:
   validation, collection-block intervals, sensitivity checks, and
   cross-collection global-N transfer; publication use requires the strict
   Best-N coverage/identity/timing/summary verifier, not only completed CSV files
+- a same-protocol all-training mean/median control that preserves the accepted
+  Best-N purge and held-out digitizers and reports paired blind/later-window
+  outcomes without requiring adaptive selection to win
 - an exact-pair intensity-study implementation with practical-effect gates and
   payload-horizon auditing; the June result is provisional until the corrected
   200-spill refresh passes strict closure, and intensity remains auxiliary to
@@ -162,8 +165,12 @@ Notes:
 - Same-metric reused-window controls show whether a dynamic small set beats a
   frozen small set, but they do not support a small-set-versus-all-BPM claim.
   The corrected all-BPM median is the strongest descriptive row in both planes,
-  and all-BPM mean also leads vertically. These rows must remain visible until
-  a leakage-controlled head-to-head comparison establishes otherwise.
+  and all-BPM mean also leads vertically. These rows remain visible beside a
+  separate leakage-controlled control that gives all training-side channels the
+  exact Best-N fit prefix, purge, later windows, and held-out-digitizer folds.
+  That control compares mean and median aggregation over blind agreement, blind
+  tune error, later prominence, and later power. Baseline-favored and unresolved
+  intervals are valid outcomes; none supplies external tune truth.
 - Exact common spill/window pairing is required for ridge-density subtraction.
   Narrowing or probability-mass redistribution can be described as reduced
   diffuse ridge-pick probability, not physical noise removal or absolute tune
@@ -237,6 +244,9 @@ measured absence of support.
 ## 6. Known Limitations
 
 - no direct Schottky ingestion/auto-sync path in this repository
+- the definitive same-protocol all-training control is implemented but its full
+  accepted 1000-spill-plane run remains pending the active Spark publication
+  chain; descriptive all-BPM rankings cannot substitute for it
 - no dedicated cross-BPM coherence metric exported as first-class batch field
 - no dedicated clipping/saturation diagnostic exported yet
 - the provisional June block-aware intensity sidecar found no FDR-significant
@@ -273,3 +283,5 @@ The BPM tune monitor is successful when:
 5. BPM-vs-reference residuals are operationally acceptable
 6. every publication raw payload passes the exact topology, count, finite-data,
    plateau, and fallback-pair audit through turn 50000
+7. the all-training control passes exact fold, source-hash, paired-spill,
+   interval, and native-PNG verification and its H/V outcomes are reported

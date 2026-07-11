@@ -1,6 +1,6 @@
 # Next Steps For Best-BPM Mining And IBIC Poster
 
-Last updated: 2026-07-10.
+Last updated: 2026-07-11.
 
 This file is a handoff for the next Codex/DevSpace pass. It consolidates the current repo review, Spark run status, physics assumptions, validation gaps, and the most important next analysis questions for the Delivery Ring BPM tune-tracking work.
 
@@ -330,6 +330,20 @@ the publication audit:
     pairs. This strengthens the V low-to-mid-teen region and confirms that H is
     criterion-sensitive; the diagnostic is not permission to retune the
     published selector.
+40. The corrected reused-window control showed all-BPM aggregation above the
+    adaptive small sets, but that comparison did not use the Best-N purge or
+    held-out digitizers. A definitive head-to-head is now required: for every
+    accepted block-20 Best-N spill-plane/fold, aggregate every training-side
+    channel by mean and median, retain the held-out digitizers as the independent
+    reference, and compare blind agreement, blind absolute tune difference,
+    later prominence, and later power on fold-collapsed exact spill pairs. The
+    implemented CPU/cache-only pass fail-closes on the accepted Best-N verifier
+    and source hashes and must produce 10,000 detail rows, 8,000 paired-spill
+    rows, 16 comparison rows, four summary rows, and 18 verifier-bound native
+    PNGs. Selected-favored, all-training-favored, and unresolved intervals are
+    all acceptable results, but no result may be omitted or used to retune the
+    declared Best-N selector. Publication preparation, poster copy, manuscript
+    macros, finalization, and the review package now require this control.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;
@@ -338,7 +352,7 @@ not the primary mask-backed score rows. Corrected code now serializes
 `bpm_indices`, exact `HPnnn`/`VPnnn` tokens, full source keys, and digitizers,
 and all legacy normalization resolves the bit mask before labels.
 
-The active publication protocol adds two independent tests:
+The active publication protocol adds three independent tests:
 
 - Best-N: select members from a fit-window prefix, purge every overlapping
   window, evaluate on later windows, and compare the inferred tune with channels
@@ -365,6 +379,13 @@ The active publication protocol adds two independent tests:
 - Resume completeness requires exactly one contiguous row for every requested
   N and fold; beam and sensitivity comparisons require identical full key sets
   rather than silently taking intersections.
+- All-training: reuse the exact accepted block-20 validation keys and fold
+  assignment, but replace selected membership with every training-side channel.
+  Mean and median aggregation each receive their own train-only tune estimate;
+  both are evaluated on the same later windows and held-out digitizers as
+  selected Best-N. Collapse folds within spill before paired moving-block
+  intervals. This is the maximum fair all-channel baseline under the internal
+  validation design, not a literal all-60 result and not external calibration.
 - Intensity: use the 200-spill capture with exact raw position/intensity pairs;
   never multiply the position waveform by intensity; compare unweighted,
   square-root, linear, and gated spectral aggregation on purged later windows.
@@ -434,7 +455,8 @@ Completion status:
 | --- | --- | --- |
 | Exact identity/ring-order implementation and regression tests | complete | local 71-test Best-BPM suite (65 pass, 6 expected process-pool sandbox skips), 9 autosweep tests, 44 Rust tests, and Python byte compilation pass; staged-source Spark rerun remains part of final handoff |
 | Corrected Best-1/3/5 primary and downstream rerun | complete | primary and follow-up strict verifiers both report zero failures and zero warnings; every required fixed, held-out, artifact, and handoff product is present |
-| Best-N curve through at least N=20 | in progress | bounded N=30 trial put V at the boundary; four-way N=40 exceeded unified memory and forced a reboot, while the watchdog-bounded two-way recovery has completed shards 0/1 and is advancing shards 2/3 before block and seven-run beam/fit/fold sensitivity |
+| Best-N curve through at least N=20 | in progress | full N=1-40 run and 10/20/40-block merges complete; H Best-5 and V Best-12 on the accepted block-20 curve; five of seven reduced-sample sensitivity runs verified before the clock correction, with two bounded evaluators still active at the last network-confirmed probe |
+| Leakage-controlled Best-N versus all-training control | pending | implementation, strict verifier, 18-image native gallery, publication binding, and exact four-page paper smoke pass locally; full 1000-spill-plane CPU/cache run waits for the active Spark publication chain to become idle |
 | 200-spill intensity hypothesis test | in progress | initial 199-spill pass and block-aware re-summary found 0 FDR-significant/0 practical effects; corrected all-zero gate fallback, exact N=1 contract, and strict payload/window/effect/gallery verifier pass locally; 200-spill gate-refresh merge/gallery pending |
 | Delivery Ring producer and raw-payload integrity audit | in progress | live raw/scaled separation and HP303/VP304 roll behavior confirmed read-only on drbpm2; exhaustive first-50000-turn scan over all three publication collections pending on Spark |
 | Corrected 50000-turn ridge/difference/concentration gallery | pending | exact-source-key full-buffer sidecar plus strict spill/window/pair/metric/PNG/caption verifier |
