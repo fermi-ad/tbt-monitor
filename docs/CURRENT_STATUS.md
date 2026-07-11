@@ -108,7 +108,7 @@ The latest local publication source is commit `5692b1cd`. Its prepared archive
 SHA-256 is
 `7716e40d77dafa278d8d630fcfeb6be5184758e0901d858a52a5bfd504c7cef2`,
 and its prepared continuation-wrapper SHA-256 is
-`20f18730015be0fa75b1d70483b44ca0299d015f3c5ac9954dedc2116f9616b3`.
+`bfbca3cb14fd3d2843cec94752dd0e6b0628215dfb584d7b1767b053e9f6cddc`.
 That version includes exact-zero control labels, common/detail intensity
 gallery scales, citation-order polish, shorter ridge diagnostic labels, and a
 read-only final-PPTX empty-placeholder gate. It also preserves and verifies the
@@ -118,6 +118,9 @@ paths. Staging is temporarily deferred by the local Codex remote-execution
 approval window until 23:45 CDT, not by Spark or SSH.
 The wrapper now also reruns the exact review-package verifier against every
 copied path, hash, and gallery image before it creates the source-side tarball.
+That package includes the exact analysis source tree/archive and continuation
+script, corrected primary/follow-up/handoff visual directories, and all new
+Best-N, sensitivity, ridge, intensity, payload, report, and publication roots.
 If the older wrapper reaches intensity first, its waveform rows remain reusable;
 the expanded gallery and strict verifier can be rerun deterministically without
 another GPU waveform pass.
