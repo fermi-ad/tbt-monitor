@@ -108,7 +108,7 @@ The latest local publication source is commit `b4896a50`. Its prepared archive
 SHA-256 is
 `3a4ded10519956843a2cb50d717ddaefec329d22923d3d9d68920dcf871a4a0e`,
 and its prepared continuation-wrapper SHA-256 is
-`b6bfe1fc5ec476fab9fdd1cc7622c0fb289c23311fda47816e5c773170dcc3c8`.
+`0dd002f5625119bc4ae4d854ea8e9f688c67abc88162fd10fce54d1a855e0910`.
 That version adds exact-paired metrics and complete turn grids for every
 adaptive N pair plus the zero Best-1 self-control, binds the paper/poster width
 contrast to selected Best-N minus corrected Best-1, and strictly verifies the
@@ -119,6 +119,10 @@ layout/overflow/template-fidelity evidence, portable poster/paper build
 manifests, and both flagged and unflagged macOS Bash 3.2 Tectonic invocation
 paths. Publication preparation now records exact numerical source-table hashes,
 and finalization re-hashes the fixed 15-file materialized-output inventory.
+The wrapper accepts an existing ridge root only after the current strict
+verifier passes, preserves any incompatible ridge/publication tree under a
+timestamped `.incomplete` name, and trusts `ANALYSIS_COMPLETE` only when it
+contains the exact source commit.
 Staging is temporarily deferred by the local Codex remote-execution
 approval window until 23:45 CDT, not by Spark or SSH.
 The wrapper now also reruns the exact review-package verifier against every
