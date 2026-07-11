@@ -240,7 +240,8 @@ Every final publication plot must satisfy:
 6. build and visually verify the Fermilab-template A0 poster and four-page JACoW
    paper
 7. package the exhaustive review gallery and curated publication source bundle,
-   then merge scoped PRs and leave a clean repository
+   rerun its exact manifest/gallery verifier after local transfer, then merge
+   scoped PRs and leave a clean repository
 
 SVD/PCA remains deferred for production Rust tune extraction. The standalone
 poster analyzer can already produce opt-in representative-spill SVD/PCA

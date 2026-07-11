@@ -130,7 +130,7 @@ from gpu_analyze_captured_spills import (
     select_trace_subset,
 )
 from audit_legacy_single_bpm_selection import selection_row as legacy_selection_row
-from package_publication_review import package_review
+from package_publication_review import package_review, verify_review_package
 from prepare_ibic2026_publication import (
     best_n_design_summary,
     prepare_publication,
@@ -1010,9 +1010,18 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertEqual(len(manifest), 2)
         self.assertTrue(all(len(row["sha256"]) == 64 for row in manifest))
         self.assertTrue((out / "PACKAGE_INDEX.md").exists())
+        verification_path = out / "PACKAGE_VERIFICATION.json"
+        self.assertTrue(verification_path.exists())
+        verification = verify_review_package(out)
+        self.assertEqual(verification["status"], "pass")
+        self.assertEqual(verification["manifest_rows"], 2)
+        self.assertEqual(verification["gallery_images"], 1)
         gallery = (out / "index.html").read_text(encoding="utf-8")
         self.assertIn("Publication Review Gallery", gallery)
         self.assertIn("gallery/figure.png", gallery)
+        (out / "gallery" / "figure.png").write_bytes(b"change")
+        with self.assertRaisesRegex(ValueError, "SHA-256 mismatch"):
+            verify_review_package(out)
 
     def test_publication_review_package_rejects_unsafe_destinations(self) -> None:
         source = self.root / "source.txt"
@@ -1024,6 +1033,10 @@ class BestBpmMiningTests(unittest.TestCase):
         (occupied / "keep.txt").write_text("keep", encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "not empty"):
             package_review((("source", source),), occupied)
+        occupied_file = self.root / "occupied-file"
+        occupied_file.write_text("file", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "not a directory"):
+            package_review((("source", source),), occupied_file)
 
     def test_publication_pdfinfo_parser_requires_geometry(self) -> None:
         info = parse_pdfinfo(

@@ -47,6 +47,8 @@ the final PPTX slide XML for empty structural placeholders before writing the
 final compliance report and publication inventory. Build provenance remains in
 the delivered tree: portable source/deliverable checksum manifests, poster
 layout and overflow inspection, and the zero-issue template-fidelity reports.
+The final review packager verifies every copied path, size, hash, and gallery
+image both when it is created and again after transfer with `--verify-only`.
 
 ## Quick Start
 

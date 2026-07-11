@@ -339,6 +339,11 @@ config ranking. Its package modules cover:
   intensity-count prose from drifting when the accepted run grid changes and
   distinguish the full Best-N curve population from the stratified
   digitizer-disjoint validation sample.
+- `scripts/package_publication_review.py`: copies labeled publication, report,
+  and gallery components into one lazy-loading review index. It records every
+  copied path, size, and hash, rejects unsafe or unmanifested paths, proves each
+  raster has one gallery card, and supports the same read-only verification
+  after archive transfer.
 - `scripts/finalize_ibic2026_publication.py`: final human-QA acknowledgment and
   delivery closure gate. It verifies immutable references, PDF geometry, render
   dimensions, byte identity between the named poster PNG and the authoritative

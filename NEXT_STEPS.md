@@ -222,6 +222,17 @@ the publication audit:
     harness over the already verified four-page smoke PDF exercises both paths
     and the portable manifest writer; a real cached Tectonic rebuild remains a
     separate final-paper gate.
+29. The review packager emitted per-file SHA-256 values but had no independent
+    verification mode after archive transfer. A missing, extra, truncated, or
+    same-size modified file could therefore survive until a reviewer noticed it
+    manually, and there was no proof that every copied image appeared in the
+    scrollable gallery. Packaging now recomputes the complete copied-file set,
+    safe component paths, sizes, hashes, image count, and one-card-per-image
+    gallery coverage before writing `PACKAGE_VERIFICATION.json`.
+    `--verify-only PATH` repeats those checks read-only after copy-back and also
+    verifies that the receipt matches current state. The CLI smoke passes over
+    the complete template-derived poster build, and a regression detects
+    same-size content tampering.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;

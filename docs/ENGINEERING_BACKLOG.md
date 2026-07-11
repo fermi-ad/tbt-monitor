@@ -183,11 +183,11 @@ None.
 - Owner: project
 - Type: feature
 - Why: final paper, poster, reports, and large review galleries need one reproducible local handoff rather than an undocumented manual copy.
-- Scope: add a repeatable `LABEL=PATH` packager that copies files and directories into a new review root and emits a source-path, byte-size, and SHA-256 manifest, a human-readable package index, and one searchable/lazy-loading HTML gallery over every packaged image.
-- Acceptance: packaging refuses missing, duplicate, nested, or non-empty destinations; a smoke package contains copied inputs, `MANIFEST.csv`, `PACKAGE_INDEX.md`, and a filterable `index.html` with the copied figures.
+- Scope: add a repeatable `LABEL=PATH` packager that copies files and directories into a new review root and emits a source-path, byte-size, and SHA-256 manifest, a human-readable package index, and one searchable/lazy-loading HTML gallery over every packaged image; verify the exact copied-file inventory and one-card-per-image coverage both at creation and read-only after transfer.
+- Acceptance: packaging refuses missing, duplicate, nested, non-directory, or non-empty destinations; a smoke package contains copied inputs, `MANIFEST.csv`, `PACKAGE_INDEX.md`, `PACKAGE_VERIFICATION.json`, and a filterable `index.html` with every copied figure; `--verify-only` rejects missing, extra, truncated, same-size modified, unsafe, or unindexed files and a stale receipt.
 - Docs: README.md, docs/USAGE.md, docs/ENGINEERING_BACKLOG.md
-- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/package_publication_review.py; python3 scripts/package_publication_review.py --component readme=README.md --component abstract=/Users/derekste/Downloads/abstract-54.pdf --out /tmp/tbt-publication-package-smoke-20260709
-- Notes: generated review packages remain local artifacts; only the curated publication source/deliverables belong in version control.
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/package_publication_review.py; python3 scripts/package_publication_review.py --component readme=README.md --component abstract=/Users/derekste/Downloads/abstract-54.pdf --out /tmp/tbt-publication-package-smoke-20260709; python3 scripts/package_publication_review.py --verify-only /tmp/tbt-publication-package-smoke-20260709
+- Notes: generated review packages remain local artifacts; only the curated publication source/deliverables belong in version control. `MANIFEST.csv` inventories copied components, while the package metadata and recomputed counts are covered by the enclosing archive hash and verification receipt.
 
 ### [ENG-025] Best-ensemble full-buffer ridge-density sidecar
 - Status: done

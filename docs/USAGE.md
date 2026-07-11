@@ -1104,7 +1104,15 @@ file's original path, byte size, and SHA-256 checksum, while
 `PACKAGE_INDEX.md` summarizes the package. The generated `index.html` is a
 self-contained, lazy-loading gallery with text and category filters across
 every packaged image; use `--title` to set its heading. The output must be new
-or empty so an older review bundle cannot be silently overwritten.
+or empty so an older review bundle cannot be silently overwritten. Creation
+also writes `PACKAGE_VERIFICATION.json` after recomputing every safe packaged
+path, size, SHA-256 value, and one-card-per-image gallery entry. After transfer,
+repeat that verification without changing the package:
+
+```bash
+python3 scripts/package_publication_review.py \
+  --verify-only review-artifacts/ibic2026-final-review-YYYYMMDD
+```
 
 After visually inspecting the final poster and all four paper pages, close the
 publication directory with the explicit human-QA gate:

@@ -370,7 +370,7 @@ Post-split analysis refinement:
 1. Complete the corrected exact-identity Best-1/3/5 run, Best-N curve and
    sensitivities, exact-point-paired 50000-turn gallery, visibility-duration
    repair, corpus-wide raw-payload audit, final poster/paper, and publication
-   artifact manifest; keep
+   artifact manifest plus post-transfer review-package verification; keep
    deficiencies tracked in GitHub issue #39.
 2. Add explicit spectral-coherence and clipping diagnostics to production
    analysis summaries when the autosweep identifies stable criteria.
