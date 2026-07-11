@@ -143,9 +143,10 @@ receipt must contain exactly two successful run rows and telemetry observing at
 least two compute processes before ENG-021 and issue #30 can close. It must not
 overlap the all-training control merely because the GPU appears idle.
 
-At the latest local check after the clock correction, DNS still did not resolve
-`outland.fnal.gov` and the Kerberos cache returned an I/O error. No SSH retry was
-made. When connectivity returns, renew credentials if needed, reconcile the
+At the latest local check after the clock correction, macOS reported no
+registered network interface, DNS did not resolve `outland.fnal.gov`, and
+`klist -l` showed no credential cache. No SSH retry was made. When connectivity
+returns, obtain fresh credentials, reconcile the
 existing chain by marker/source hash/row count rather than wall-clock stamps,
 then stage the current branch and run the all-training control only after exact
 `ANALYSIS_COMPLETE` from the earlier chain.
