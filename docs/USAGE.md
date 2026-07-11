@@ -793,6 +793,12 @@ agreement only, on one shared zero-based H/V scale. The separate
 `best_n_conditioned_agreement_h/v.png` retains the near-training diagnostic.
 `best_n_decision_gates_h/v.png` shows every exact criterion as pass/fail across
 N; its blue all-gates row identifies the eligible range and earliest knee.
+`best_n_gate_margin_sensitivity.csv` and
+`best_n_gate_margin_sensitivity_h/v.png` rerun that earliest-all-gates rule over
+blind-agreement margins 0.01/0.02/0.03, selected-power floors 90/95/98%, and
+held-out-power floors 85/90/95%. The black cell is the declared 0.02/95/90
+protocol. This is explicitly post-selection criterion sensitivity: it can show
+whether a plane has a stable N region, but it cannot replace the declared knee.
 
 The verifier is fail-closed: expected cache-row counts are explicit, every
 spill-plane and fold must contain exactly one row for every contiguous N,
@@ -1123,7 +1129,7 @@ Every sensitivity run's recommendation or unavailable reason is retained in
 observed range rather than hiding an unresolved reduced sample.
 The source manifest also hashes the exact primary, Best-N, sensitivity, ridge,
 and intensity tables used for numerical materialization. Finalization parses
-its fixed schema and re-hashes the exact 15 materialized content/table/payload/
+its fixed schema and re-hashes the exact 14 materialized content/table/payload/
 report/figure outputs; mere manifest-file presence is not sufficient.
 
 Package final publication sources, rendered deliverables, reports, and broad

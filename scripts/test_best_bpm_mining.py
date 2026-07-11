@@ -60,6 +60,7 @@ from bpm_mining.best_n import (
     merge_best_n_shards,
     purged_window_split,
     recommendation_gate_status,
+    recommendation_margin_sensitivity,
     recommended_n,
     stratified_limit,
     training_candidates,
@@ -678,16 +679,31 @@ class BestBpmMiningTests(unittest.TestCase):
                 )
         out = self.root / "best-n-plots"
         write_best_n_plots(rows, out, 0.0025)
+        margin_rows = recommendation_margin_sensitivity(rows, "H", 0.0025)
+        self.assertEqual(len(margin_rows), 27)
+        declared = next(row for row in margin_rows if row["is_declared"] == "true")
+        declared_choice, _reason = recommended_n(rows, "H", 0.0025)
+        self.assertIsNotNone(declared_choice)
+        self.assertEqual(int(declared["recommended_n"]), int(declared_choice["subset_size"]))
+        exported_margin_rows = read_csv(out / "best_n_gate_margin_sensitivity.csv")
+        self.assertEqual(len(exported_margin_rows), 54)
         for plane in ("h", "v"):
             blind = out / f"best_n_validation_{plane}.png"
             conditioned = out / f"best_n_conditioned_agreement_{plane}.png"
             gates = out / f"best_n_decision_gates_{plane}.png"
+            margins = out / f"best_n_gate_margin_sensitivity_{plane}.png"
             self.assertEqual(png_dimensions(blind), (1400, 800))
             self.assertEqual(png_dimensions(conditioned), (1400, 800))
             self.assertEqual(png_dimensions(gates), (1400, 640))
+            self.assertEqual(png_dimensions(margins), (1400, 720))
             self.assertNotEqual(blind.read_bytes(), conditioned.read_bytes())
             caption = gates.with_name(f"{gates.stem}_caption.md").read_text(encoding="utf-8")
             self.assertIn("earliest eligible value", caption)
+            margin_caption = margins.with_name(f"{margins.stem}_caption.md").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("post-selection diagnostic", margin_caption)
+            self.assertIn("does not replace", margin_caption)
             statuses, _context, reason = recommendation_gate_status(rows, plane.upper(), 0.0025)
             self.assertEqual(reason, "")
             chosen, _reason = recommended_n(rows, plane.upper(), 0.0025)

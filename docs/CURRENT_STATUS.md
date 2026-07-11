@@ -80,6 +80,15 @@ and all-gates result used by the recommendation. This is reporting-only and
 does not change the Spark selection, validation rows, recommendation, or active
 continuation.
 
+A second reporting-only matrix now probes nearby gate margins after the
+declared analysis. Across the 27 agreement/power-floor combinations per plane,
+H selects Best-13 at a 0.01 blind-agreement margin, Best-5 at the declared 0.02,
+and is unresolved at 0.03; selected/held-out power-floor variation does not
+change those outcomes. V remains finite at Best-18, Best-12, and Best-10 for
+the same three agreement margins across all nine power-floor pairs. This
+supports a V low-to-mid-teen region and records H criterion sensitivity; the
+boxed 0.02/95%/90% cell remains the publication selector.
+
 The full-run source archive SHA-256 is
 `588705e83934ffa3a379eaf6b9ab746fb12d8cb5ef2620469eaff71198486a30`.
 The post-run source archive is commit `3832ee84`, with SHA-256
@@ -278,6 +287,7 @@ review-package transfer smoke: 13 files, 3 images, exact manifest/gallery/receip
 JACoW layout smoke: the current manuscript is exactly four 595 x 792 bp pages after keeping the noncausal H-loss diagnostic in the poster/gallery; no overfull boxes or unresolved references, and all fonts are embedded/subset/Unicode-mapped
 accepted references: abstract and poster-template hashes reverified; manuscript title and abstract match abstract 54
 local branch: `dev/ibic2026-final-delivery` contains unpushed reporting, layout, and provenance commits; inspect `git log origin/dev/ibic2026-final-delivery..HEAD` after reconnecting
+accepted-summary gate-margin CSV and H/V native PNGs: rendered and visually inspected; declared cell and post-selection guardrail present
 ```
 
 The six process-pool probes passed on Spark in the accepted staged source tree.

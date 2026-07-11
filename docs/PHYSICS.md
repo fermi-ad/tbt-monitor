@@ -151,6 +151,10 @@ Notes:
   zero-based scale; a separate conditioned panel preserves the secondary check.
   A separate gate matrix exposes all six non-inferiority tests across N; the
   earliest all-gate pass, not the visually highest agreement point, is selected.
+  A bounded gate-margin matrix is retained as post-selection robustness
+  evidence. It may show that the V result occupies a stable low-to-mid-N region
+  or that H trades selected power against prominence, but it cannot retune the
+  declared protocol or turn internal agreement into absolute tune accuracy.
 - A reduced-sample sensitivity run with no automatic knee is a physical-analysis
   limitation, not a missing-data value. All seven runs must verify, a strict
   majority per plane must yield eligible knees, and unavailable runs must retain

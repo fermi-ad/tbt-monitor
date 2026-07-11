@@ -52,6 +52,9 @@ Treat these as baseline rather than open TODOs:
   with the conditioned near-training diagnostic retained separately
 - criterion-by-N Best-N gate matrices whose all-gates row matches the declared
   recommendation exactly
+- post-selection Best-N gate-margin matrices over the bounded agreement and
+  selected/held-out power floors, with the declared cell identified and an
+  explicit prohibition on replacing the published knee
 - an initial exact-pair intensity weighting/covariate study over 199 complete
   spills; that provisional block-aware result rejects intensity weighting and retains only
   integrity and exploratory timing diagnostics. A corrected all-zero gate
@@ -284,7 +287,7 @@ Required for the publication review:
 - delivered poster layout inventory, PPTX overflow inspection, and zero-issue
   template-fidelity reports, with exact portable poster/paper checksum manifests
 - publication source manifest with exact numerical source hashes and a
-  finalizer-verified 15-file materialized-output inventory
+  finalizer-verified 14-file materialized-output inventory
 - final `compliance_report.md` and `publication_manifest.csv` produced only
   after explicit visual-QA pass flags, page/payload/hash verification, and a
   read-only final-PPTX scan reporting zero empty structural placeholders

@@ -318,6 +318,18 @@ the publication audit:
     exactly four `595 x 792 bp` pages. A regression binds the manuscript figure
     references to the paper build manifest so unused or missing figures cannot
     silently change the submission dependency set.
+39. The declared Best-N gate exposed every pass/fail decision but did not show
+    whether the exact knee was stable to nearby non-inferiority margins. The
+    accepted-summary renderer now exports a 54-row post-selection criterion
+    grid and native H/V matrices over blind-agreement margins 0.01/0.02/0.03,
+    selected-power floors 90/95/98%, and held-out-power floors 85/90/95% while
+    retaining the tune-difference and prominence rules. The declared
+    0.02/95/90 cell remains boxed and authoritative. On the accepted full curve,
+    H yields Best-13, Best-5, or unresolved as the agreement margin changes;
+    V remains finite at Best-18, Best-12, or Best-10 across all nine power-floor
+    pairs. This strengthens the V low-to-mid-teen region and confirms that H is
+    criterion-sensitive; the diagnostic is not permission to retune the
+    published selector.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;

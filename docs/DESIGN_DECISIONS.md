@@ -548,6 +548,10 @@ Decision:
 - Render a criterion-by-N pass/fail matrix from the recommendation function's
   exact gate statuses. Its all-gates row must identify every eligible N and the
   earliest declared knee; do not infer eligibility from plotted curve shape.
+- Preserve the declared 0.02 blind-agreement, 95% selected-power, and 90%
+  held-out-power margins as the publication selector. A bounded post-selection
+  matrix may vary those margins to characterize criterion sensitivity, but it
+  must identify the declared cell and may not replace or tune the published N.
 - Collapse repeated folds within each spill before a moving-block bootstrap
   within acquisition collection. Require beam-width, fit-window, fold-seed,
   bootstrap-block-length, and cross-collection global-N sensitivity checks.

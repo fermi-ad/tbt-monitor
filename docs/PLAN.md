@@ -299,6 +299,9 @@ Implemented structure:
 - `verify_best_n_outputs.py` separately checks exact N/fold coverage,
   memberships, purged timing, finite validation metrics, summary counts,
   recommendation boundaries, transfer rows, and figure products
+- accepted-summary reporting also writes a bounded post-selection gate-margin
+  CSV and native PNG matrix. It distinguishes a stable N region from a
+  criterion-sensitive tradeoff without changing the declared Best-N selector.
 
 Current publication interpretation:
 

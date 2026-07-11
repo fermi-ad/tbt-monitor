@@ -493,6 +493,12 @@ The review gallery also carries a pass/fail matrix for blind agreement, blind
 tune difference, selected prominence/power, held-out prominence/power, and the
 combined all-gates result at every N. It explains why the earliest eligible N
 is selected even when a later point has a slightly higher agreement rate.
+Keep the separate gate-margin matrix in the exhaustive review gallery. It
+varies the blind-agreement and selected/held-out power non-inferiority margins
+around the declared cell while retaining the tune-difference and prominence
+rules. It is post-selection robustness evidence only: use it to distinguish a
+stable low-to-mid-N region from an H-plane tradeoff, never to retune the
+published selector after seeing the result.
 Every matrix run must verify, but a reduced sample may legitimately have no
 automatic knee when selected-power and prominence margins do not intersect.
 Publication requires eligible knees from at least four of seven runs in each
@@ -511,7 +517,7 @@ copies the exact figures while writing the poster JSON, paper table, results
 payload, and source manifest. The paper copy additionally binds the selected-H
 and selected-V exact-paired P10-P90 width-contrast plots so the time-resolved
 method comparison cannot drift from the ridge contract.
-The source manifest includes the exact numerical source-table hashes and all 15
+The source manifest includes the exact numerical source-table hashes and all 14
 materialized outputs. Finalization must parse that manifest and re-hash every
 declared output rather than treating the CSV's presence as provenance proof.
 Poster and manuscript copy must distinguish the 4000 H/V spill-plane cases in
