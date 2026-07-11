@@ -148,8 +148,9 @@ Notes:
 - Blind full-band selected/held-out agreement is the ensemble-size guardrail.
   Near-training-tune support is useful but conditioned and cannot replace it.
 - Exact common spill/window pairing is required for ridge-density subtraction.
-  Narrowing or probability-mass redistribution can be described as suppressed
-  diffuse ridge picks, not physical noise removal or absolute tune accuracy.
+  Narrowing or probability-mass redistribution can be described as reduced
+  diffuse ridge-pick probability, not physical noise removal or absolute tune
+  accuracy. Display-only P98/P99 clipping does not apply to exported metrics.
   The shared-scale H/V composite uses column-normalized pick probability, so
   exact paired counts and sample-fraction diagnostics must accompany it.
   Because the legacy normalized-single selector was defective, corrected

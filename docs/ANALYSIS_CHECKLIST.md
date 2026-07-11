@@ -202,6 +202,9 @@ Every final publication plot must satisfy:
 - confidence intervals or an explicit descriptive-only label where inference
   is not supported
 - exact support counts and point-pairing disclosure for comparisons
+- disclosure of display-only color clipping, with unclipped exported metrics
+- higher/lower ridge-pick probability language for subtractive maps; never a
+  physical-noise or denoising label
 - no extraction marker in the primary plot; broad review context may appear
   only in a separately named variant
 - a verifier-accepted `run_contract.json` binding the figure rows to exact

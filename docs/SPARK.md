@@ -531,6 +531,9 @@ broad extraction-review marker;
 separately named context variants may show it. The method applies members chosen
 from early fit windows through the 0-50000-turn buffer. It tests persistence and
 does not perform same-window dynamic reselection.
+P98 standalone/pair color clipping and absolute-P99 subtractive clipping affect
+only raster contrast; exported counts, probabilities, and metrics are not
+clipped. Visible difference legends use higher/lower pick probability wording.
 The plane-selected outputs also include a corrected Best-1-versus-selected H/V
 comparison and a legacy/corrected-Best-1/selected-Best-N three-column control,
 both exact-paired with one probability scale. The first isolates ensemble-size

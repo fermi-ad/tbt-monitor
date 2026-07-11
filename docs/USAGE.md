@@ -955,6 +955,11 @@ common spill/window ridge points. They quantify ridge-pick redistribution, not
 physical noise removal. Primary figures are unmarked; optional
 `--extraction-context-variants` add a separately named broad review band that
 is never used by the data-derived loss heuristic.
+Standalone densities clip nonzero cells above P98 only for color rendering;
+subtractive maps symmetrically clip absolute differences above P99. Exported
+counts, probabilities, percentiles, and contrast metrics remain unclipped, and
+the on-image subtraction legend describes higher/lower pick probability rather
+than suppression or noise removal.
 For each requested N the sidecar also writes
 `ridge_density_legacy_single_vs_best<N>_hv.png`, a primary H/V-by-method
 comparison whose four panels use column-normalized pick probability and one

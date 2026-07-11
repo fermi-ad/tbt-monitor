@@ -318,6 +318,9 @@ Current publication interpretation:
   panels keep the H-loss view legible.
   Corrected native rasterization fills the complete declared tune axis with
   proportional cells, keeping density colors and percentile overlays aligned.
+  Disclosed P98 density and absolute-P99 subtraction clips affect only display
+  contrast; visible legends and captions describe higher/lower pick
+  probability, and exported quantitative rows remain unclipped.
   Exact-paired turn tables retain unsmoothed adaptive-minus-legacy width,
   entropy, peak-bin, and shared-ridge-mass contrasts; review PNGs apply only
   five-window visual smoothing. These locate changes in ridge-pick

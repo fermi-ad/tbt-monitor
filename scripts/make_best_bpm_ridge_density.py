@@ -1300,7 +1300,7 @@ def draw_density_difference(
     poster.draw_text(pixels, width, height, x1 - 110, y1 + 8, str(max(centers)), poster.MUTED, 2)
     poster.draw_text(pixels, width, height, 22, y0 - 8, f"{band[1]:.3f}", poster.MUTED, 2)
     poster.draw_text(pixels, width, height, 22, y1 - 10, f"{band[0]:.3f}", poster.MUTED, 2)
-    poster.draw_text(pixels, width, height, x0, y0 - 28, "RED: ENSEMBLE ADDS DENSITY  BLUE: SUPPRESSED VS BASE", poster.MUTED, 2)
+    poster.draw_text(pixels, width, height, x0, y0 - 28, "RED: HIGHER PICK PROBABILITY  BLUE: LOWER VS BASE", poster.MUTED, 2)
     poster.draw_text(pixels, width, height, x1 - 330, y0 - 28, "WHITE: ENSEMBLE MED, DARK: BASE MED", poster.MUTED, 2)
     poster.write_png(path, width, height, pixels)
 
@@ -1755,7 +1755,7 @@ Image: `ridge_density_best{subset_size}_{plane.lower()}.png`
 
 ## What It Shows
 
-This image bins one tracked Best-{subset_size} ensemble tune candidate per accepted spill and sliding turn window. The x-axis is window center turn over the `{turn_start}-{turn_end}` turn range, the y-axis is fractional tune, color is {color_quantity}, and white curves show per-window median and percentile envelopes.
+This image bins one tracked Best-{subset_size} ensemble tune candidate per accepted spill and sliding turn window. The x-axis is window center turn over the `{turn_start}-{turn_end}` turn range, the y-axis is fractional tune, color is {color_quantity}, and white curves show per-window median and percentile envelopes. Nonzero cells above the 98th percentile are clipped only for color rendering; the exported counts and tracks are unchanged.
 
 ## How It Was Made
 
@@ -1763,7 +1763,7 @@ The completed Best-BPM membership table selected the BPMs for each spill and pla
 
 ## Why It Matters
 
-This is the closest visual comparison to the older `18d321db` favorite plots. If the adaptive ensemble is better, the density should become narrower, more coherent, or higher contrast than Best-1 or all-BPM-style baselines.
+This is the closest visual comparison to the older `18d321db` favorite plots. If the adaptive method concentrates ridge picks more strongly, the density should become narrower, more coherent, or higher contrast than Best-1 or all-BPM-style baselines.
 
 ## Extraction Context Marker
 
@@ -1815,11 +1815,11 @@ Image: `ridge_density_best{ensemble_size}_minus_best{baseline_size}_{plane.lower
 
 ## What It Shows
 
-This subtractive image compares column-normalized ridge-density distributions on exactly paired observations: `{common_points}` common spill/window ridge points from `{common_spills}` spills. Red means Best-{ensemble_size} places more ridge probability in that turn/tune bin than Best-{baseline_size}; blue means it places less. The white line is the Best-{ensemble_size} median ridge and the dark line is the Best-{baseline_size} median ridge.
+This subtractive image compares column-normalized ridge-density distributions on exactly paired observations: `{common_points}` common spill/window ridge points from `{common_spills}` spills. Red means Best-{ensemble_size} places more ridge probability in that turn/tune bin than Best-{baseline_size}; blue means it places less. Absolute differences above the 99th percentile are clipped only for color rendering. The white line is the Best-{ensemble_size} median ridge and the dark line is the Best-{baseline_size} median ridge.
 
 ## How To Read It
 
-If the ensemble suppresses diffuse noise while preserving a coherent ridge, the useful pattern is blue spread away from the ridge plus red concentrated near the ridge. If red and blue simply trade places between unrelated tune bands, the methods are selecting different structures rather than cleanly removing noise.
+A concentration pattern is blue probability away from a persistent ridge plus red probability near it. If red and blue simply trade places between unrelated tune bands, the methods are selecting different structures rather than concentrating the same one. The map contains ridge-pick probabilities, not measured noise power.
 
 ## Scope
 
@@ -1882,7 +1882,7 @@ This plot compares the audited legacy normalized-single ridge picks with adaptiv
 
 {interpretation}
 
-These are changes in the cross-spill distribution of tracked ridge picks. They can characterize concentration or suppression of diffuse picks under fixed binning, but they do not measure physical noise removal, absolute tune accuracy, or an extraction mechanism.
+These are changes in the cross-spill distribution of tracked ridge picks. They can characterize concentration or reduced diffuse-pick probability under fixed binning, but they do not measure physical noise removal, absolute tune accuracy, or an extraction mechanism.
 """
 
 
@@ -1927,7 +1927,7 @@ Both panels use the exact legacy tune band, 4096-turn Hann windows, 256-turn str
 
 ## Claim Guardrail
 
-Narrower width, lower density entropy, or greater mass near the shared ridge means stronger cross-spill concentration under fixed binning. The intervals resample ordered turn centers in blocks of `{metrics.get('turn_block_windows', '')}` windows to account approximately for window overlap; they measure persistence over the analyzed buffer, not uncertainty over the spill population. The result may be described as suppression of diffuse ridge picks, not as physical noise removal or absolute tune improvement without an external reference.
+Narrower width, lower density entropy, or greater mass near the shared ridge means stronger cross-spill concentration under fixed binning. The intervals resample ordered turn centers in blocks of `{metrics.get('turn_block_windows', '')}` windows to account approximately for window overlap; they measure persistence over the analyzed buffer, not uncertainty over the spill population. The result may be described as reduced diffuse ridge-pick probability, not as physical noise removal or absolute tune improvement without an external reference.
 """
 
 
@@ -2044,9 +2044,9 @@ def caption_for_legacy_difference(
 
 Image: `ridge_density_best{subset_size}_minus_legacy_single_{plane.lower()}.png`
 
-This subtractive map uses `{common_points}` exactly paired spill/window ridge points from `{common_spills}` spills and the same column-normalized tune-density distributions as the paired side-by-side figure. Red bins gain probability under adaptive Best-{subset_size}; blue bins lose probability relative to the legacy normalized-single method. The white line is the adaptive median and the dark line is the legacy median.
+This subtractive map uses `{common_points}` exactly paired spill/window ridge points from `{common_spills}` spills and the same column-normalized tune-density distributions as the paired side-by-side figure. Red bins gain probability under adaptive Best-{subset_size}; blue bins lose probability relative to the legacy normalized-single method. Absolute differences above the 99th percentile are clipped only for color rendering. The white line is the adaptive median and the dark line is the legacy median.
 
-A favorable concentration pattern is blue diffuse mass away from a persistent ridge and red mass close to it. This is descriptive BPM-only evidence: it does not identify physical noise, establish absolute tune truth, or prove that every suppressed structure was undesirable.
+A favorable concentration pattern is lower probability away from a persistent ridge and higher probability close to it. This is descriptive BPM-only evidence: it does not identify physical noise, establish absolute tune truth, or prove that every lower-probability structure was undesirable.
 """
 
 
@@ -2603,7 +2603,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "p10_p90_delta_ensemble_minus_legacy",
             "ADAPTIVE MINUS LEGACY P10-P90",
             "DELTA TUNE P10-P90",
-            "Negative values mean adaptive selection suppresses the outer diffuse pick population.",
+            "Negative values mean the adaptive cross-spill P10-P90 ridge-pick width is narrower.",
         ),
         (
             "ridge_peak_bin_gain_vs_turn",

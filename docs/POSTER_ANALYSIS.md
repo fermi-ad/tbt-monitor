@@ -452,7 +452,7 @@ legacy-to-Best-1 transition is selector repair.
 The turn-resolved legacy contrast must also retain its unsmoothed exact-paired
 CSV. Review the adaptive-minus-legacy IQR and P10-P90 widths together with
 peak-bin-fraction, normalized-entropy, and shared-center-mass changes. The
-five-window-smoothed PNGs can locate intervals of diffuse-pick suppression,
+five-window-smoothed PNGs can locate intervals of lower diffuse-pick probability,
 but neither their sign nor a visual change point establishes beam noise,
 absolute tune accuracy, or extraction onset.
 The selected-H/V versions use stacked panels and one shared y scale. This is
@@ -495,6 +495,9 @@ Every subtractive ridge caption must say that color represents probability-mass
 redistribution, not measured physical noise. The primary density figures do not
 show a fixed extraction onset; a broad 10000--20000-turn context band may appear
 only in separately named exploratory variants.
+Standalone and paired density rasters use a nonzero P98 display clip;
+subtractive rasters use a symmetric absolute-P99 display clip. These clips must
+be disclosed in captions and must never alter the exported quantitative rows.
 The gallery must also pass strict spill/window coverage, selected-cardinality,
 tune-band, exact legacy-pair, contrast-metric, warning, PNG, and caption checks
 before a ridge panel enters the poster shortlist.

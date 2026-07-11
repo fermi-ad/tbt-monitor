@@ -97,6 +97,9 @@ from audit_intensity_capture import audit as audit_intensity_capture
 from audit_delivery_ring_payloads import audit_manifest as audit_delivery_ring_manifest
 from run_best_n_sensitivity_matrix import _RunJob, _execute_jobs
 from make_best_bpm_ridge_density import (
+    caption_for_density,
+    caption_for_difference,
+    caption_for_legacy_difference,
     draw_legacy_pair_hv,
     draw_legacy_pair_hv_selected,
     draw_paired_density_grid_hv,
@@ -1380,6 +1383,29 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertLess(float(metrics["median_iqr_delta_ci_high"]), 0.0)
         self.assertGreater(float(metrics["median_shared_ridge_mass_gain_ci_low"]), 0.0)
         self.assertEqual(int(metrics["turn_block_windows"]), 16)
+
+    def test_ridge_subtractive_copy_stays_on_pick_probability(self) -> None:
+        density = caption_for_density(
+            "H",
+            "5",
+            {"spill_count": 2000},
+            0,
+            50000,
+            4096,
+            256,
+            10000,
+            20000,
+            False,
+        )
+        difference = caption_for_difference("H", "1", "5", 1988, 357840)
+        legacy = caption_for_legacy_difference("H", "5", 1988, 357840)
+        self.assertIn("98th percentile", density)
+        self.assertIn("99th percentile", difference)
+        self.assertIn("99th percentile", legacy)
+        for text in (difference, legacy):
+            self.assertIn("probability", text.lower())
+            self.assertNotIn("suppresses diffuse noise", text.lower())
+            self.assertNotIn("cleanly removing noise", text.lower())
 
     def test_ridge_contrasts_use_exact_common_spill_window_points(self) -> None:
         baseline = keyed_legacy_points(

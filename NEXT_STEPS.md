@@ -156,6 +156,14 @@ the publication audit:
     160,000/200,000 curve/validation evaluation-row totals from the accepted
     block-20 verifier, generates manuscript macros, writes them into the result
     payload, and requires the finalizer to recheck the exact study design.
+23. The subtractive ridge math was exact-paired probability redistribution, but
+    one visible legend said `suppressed vs base` and one caption described
+    suppressing diffuse noise. That language could make a visually attractive
+    map sound like a physical denoising measurement. Corrected legends now say
+    higher/lower ridge-pick probability, captions state the standalone P98 and
+    subtractive absolute-P99 color clips, and exported counts/metrics remain
+    unclipped. A regression keeps subtractive copy on ridge-pick probability
+    and explicitly rejects physical-noise language.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;

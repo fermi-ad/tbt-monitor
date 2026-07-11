@@ -181,7 +181,7 @@ single-plane poster artifacts.
 ## Current Local Validation
 
 ```text
-Best-BPM Python tests: 64 run, 58 passed, 6 process-pool tests skipped by local sandbox
+Best-BPM Python tests: 65 run, 59 passed, 6 process-pool tests skipped by local sandbox
 Autosweep Python tests: 9 passed
 Rust tests: 44 passed
 GPU analyzer self-test: passed

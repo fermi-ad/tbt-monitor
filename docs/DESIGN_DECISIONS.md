@@ -614,8 +614,10 @@ Tradeoffs:
   result and no automatic knee is reported when the curves remain unresolved.
 - The 50000-turn plot holds early-selected members fixed. It tests persistence,
   not same-window dynamic reselection.
-- Ridge concentration and subtractive maps can support a claim of suppressed
-  diffuse ridge picks, but not physical noise removal or absolute tune accuracy.
+- Ridge concentration and subtractive maps can support a claim of reduced
+  diffuse ridge-pick probability, but not physical noise removal or absolute
+  tune accuracy. P98/P99 clipping is a disclosed raster-only display choice;
+  exported values remain unclipped.
 - The intensity sidecar can produce useful integrity and timing diagnostics
   even when weighting is rejected; lag and crossing plots remain exploratory.
 

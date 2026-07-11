@@ -303,7 +303,9 @@ config ranking. Its package modules cover:
   and poster placement do not rely on cropping or excessive contain padding.
   Density bins use
   proportional inclusive raster bounds so color fields and tune overlays occupy
-  the same complete axis.
+  the same complete axis. Nonzero P98 density clipping and absolute-P99
+  subtractive clipping apply only to raster colors; source probabilities,
+  percentiles, and contrast metrics remain unclipped.
 - `ridge_verification.py` and `verify_ridge_density_outputs.py`: strict
   spill/window, cardinality, tune-band, exact-pair, metric, warning, PNG, and
   caption coverage checks for the full-buffer ridge gallery, tied to exact
