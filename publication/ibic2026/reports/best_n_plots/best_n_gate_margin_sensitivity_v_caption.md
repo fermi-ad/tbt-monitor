@@ -1,0 +1,3 @@
+# V Best-N Gate-Margin Sensitivity
+
+This post-selection diagnostic reruns the same earliest-all-gates rule over blind-agreement margins 0.01, 0.02, and 0.03; selected-channel power floors 90%, 95%, and 98%; and held-out-channel power floors 85%, 90%, and 95%. Prominence and tune-difference rules remain unchanged. The black cell is the declared 0.02/95%/90% protocol and selects Best-12. Across the grid: Best-10 in 9/27 cells, Best-12 in 9/27 cells, Best-18 in 9/27 cells. This characterizes criterion sensitivity after the declared analysis; it does not replace the published knee or provide external tune calibration.

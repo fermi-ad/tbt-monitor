@@ -367,7 +367,7 @@ def publication_files(root: Path) -> list[Path]:
 
 def write_manifest(path: Path, root: Path, files: Sequence[Path]) -> None:
     with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=MANIFEST_FIELDS)
+        writer = csv.DictWriter(handle, fieldnames=MANIFEST_FIELDS, lineterminator="\n")
         writer.writeheader()
         for file in files:
             writer.writerow(

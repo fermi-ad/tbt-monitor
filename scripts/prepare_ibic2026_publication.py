@@ -886,7 +886,7 @@ def publication_content(
 
 def write_manifest(path: Path, rows: Sequence[dict[str, str]]) -> None:
     with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=MANIFEST_FIELDS)
+        writer = csv.DictWriter(handle, fieldnames=MANIFEST_FIELDS, lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
 

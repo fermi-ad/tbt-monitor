@@ -97,8 +97,8 @@ The legacy comparator uses identical tune bands and binning but came from a norm
 \IfFileExists{figures/ridge_width_contrast_hv.png}{%
 \begin{figure*}[!htb]
   \centering
-  \includegraphics[width=0.94\textwidth]{figures/ridge_width_contrast_hv.png}
-  \caption{Exact-paired selected-Best-$N$ minus corrected-Best-1 P10--P90 ridge-pick width for the horizontal and vertical planes. Negative values indicate a narrower selected-ensemble cross-spill pick distribution at that turn center. Both panels use one y scale. Exported values are unsmoothed; the curves use five-window visual smoothing. This isolates ensemble size under the fixed protocol but does not establish physical noise removal, absolute tune accuracy, or extraction timing.}
+  \includegraphics[width=0.82\textwidth]{figures/ridge_width_contrast_hv.png}
+  \caption{Exact-paired selected-Best-$N$ minus corrected-Best-1 P10--P90 ridge-pick width; negative values indicate a narrower selected-ensemble distribution. Panels share one y scale, and curves are five-window visual smooths of unsmoothed exports. This isolates ensemble size, not physical noise removal, absolute tune accuracy, or extraction timing.}
   \label{fig:ridgewidth}
 \end{figure*}
 }{}
@@ -115,13 +115,13 @@ The vertical plane gives the clearest sustained, channel-disjoint structure. Hor
 
 \section{Limitations and operational use}
 
-The study has four principal limits. First, internal BPM agreement is not an independent tune calibration. Second, captures span unlabeled machine states; block-aware uncertainty does not replace controlled scans. Third, early-window membership is held fixed in the 50,000-turn visualization, so that figure tests persistence rather than full-spill reselection. Fourth, ridge-density concentration can improve even if all methods follow the same biased candidate. These limits motivate a future matched Schottky or tune-meter comparison and controlled tune-knob study.
+The study has four principal limits. First, internal BPM agreement is not an independent tune calibration. Second, unlabeled machine states limit block-aware uncertainty; controlled scans remain necessary. Third, fixed early-window membership makes the 50,000-turn visualization a persistence test, not full-spill reselection. Fourth, ridge concentration can improve if all methods follow the same biased candidate. A matched Schottky or tune-meter reference and controlled tune-knob study are therefore required.
 
-Within those limits, adaptive ensembles are preferable to a single preferred BPM or static small list when channel identity and quality diagnostics are required. All-training aggregation should remain an explicit same-protocol control. A practical monitor should expose the selected exact channels, ensemble size, tune candidate, prominence and ambiguity measures, later-window support, and a no-reliable-tune state. Horizontal and vertical quality decisions should remain independent.
+Within those limits, adaptive ensembles are preferable to a single BPM or static list when channel identity and quality diagnostics matter. All-training aggregation remains an explicit same-protocol control. An operational monitor should expose exact members, ensemble size, tune candidate, prominence and ambiguity, later-window support, and a no-reliable-tune state, with plane-independent quality decisions.
 
 \section{Conclusion}
 
-Adaptive BPM ensembles recover repeatable tune-like spectral structure. Leakage-controlled, digitizer-disjoint validation selects a useful size knee relative to Best-1; vertical evidence is strongest and horizontal tracking remains a limitation. Frozen sets and intensity weighting do not replace adaptive selection, while same-protocol all-training outcomes are explicit. This BPM-only internal diagnostic still requires external tune calibration.
+Adaptive BPM ensembles recover repeatable tune-like structure. Leakage-controlled, digitizer-disjoint validation selects a useful size knee relative to Best-1; vertical evidence is strongest and horizontal tracking remains limited. Frozen sets and intensity weighting do not replace adaptation, while same-protocol all-training outcomes remain explicit. This BPM-only diagnostic still requires external tune calibration.
 
 \begin{thebibliography}{9}
 

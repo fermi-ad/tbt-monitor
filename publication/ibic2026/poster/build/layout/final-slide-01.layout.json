@@ -1,0 +1,1791 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/y90nupkv",
+    "id": "y90nupkv",
+    "slide": 1,
+    "layoutId": "/ppt/slideLayouts/slideLayout1.xml",
+    "layoutName": "2 column ",
+    "masterLayoutId": "/ppt/slideMasters/slideMaster1.xml",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 3177.67,
+      "height": 4492.83
+    }
+  },
+  "theme": {
+    "colorSchemeName": "Office",
+    "colors": {
+      "accent1": "#4F81BD",
+      "accent2": "#C0504D",
+      "accent3": "#9BBB59",
+      "accent4": "#8064A2",
+      "accent5": "#4BACC6",
+      "accent6": "#F79646",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#1F497D",
+      "lt2": "#EEECE1",
+      "hlink": "#0000FF",
+      "folHlink": "#800080"
+    },
+    "fontScheme": {
+      "name": "Office",
+      "majorFont": {
+        "latinTypeface": "Calibri"
+      },
+      "minorFont": {
+        "latinTypeface": "Calibri"
+      }
+    },
+    "typefaces": [
+      "Arial",
+      "Calibri"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "/ppt/slideLayouts/slideLayout1.xml",
+      "name": "2 column ",
+      "parentLayoutId": "/ppt/slideMasters/slideMaster1.xml",
+      "elements": [
+        {
+          "order": 1,
+          "kind": "shape",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout1.xml/9",
+          "id": "9",
+          "name": "Picture Placeholder 8",
+          "bbox": [
+            94.35,
+            2433.67,
+            2015.55,
+            588.11
+          ],
+          "geometry": "rect",
+          "text": "Click icon to add picture",
+          "textPreview": "Click icon to add picture",
+          "resolvedTextStyle": {
+            "vertical": 1
+          },
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "Click icon to add picture",
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "Click icon to add picture"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "order": 2,
+          "kind": "shape",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout1.xml/72",
+          "id": "72",
+          "name": "Picture Placeholder 6",
+          "bbox": [
+            2203.4,
+            809,
+            878.4,
+            888.8
+          ],
+          "geometry": "rect",
+          "text": "Click icon to add picture",
+          "textPreview": "Click icon to add picture",
+          "resolvedTextStyle": {
+            "vertical": 1
+          },
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "Click icon to add picture",
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "Click icon to add picture"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "order": 3,
+          "kind": "shape",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout1.xml/13",
+          "id": "13",
+          "name": "Picture Placeholder 12",
+          "bbox": [
+            2202.27,
+            2875.74,
+            878.4,
+            568.75
+          ],
+          "geometry": "rect",
+          "text": "Click icon to add picture",
+          "textPreview": "Click icon to add picture",
+          "resolvedTextStyle": {
+            "vertical": 1
+          },
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "Click icon to add picture",
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "Click icon to add picture"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "order": 4,
+          "kind": "shape",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout1.xml/38",
+          "id": "38",
+          "name": "Picture Placeholder 37",
+          "bbox": [
+            2203.4,
+            3815.96,
+            185.41,
+            159.38
+          ],
+          "geometry": "rect",
+          "text": "Click icon to add picture",
+          "textPreview": "Click icon to add picture",
+          "resolvedTextStyle": {
+            "vertical": 1
+          },
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "Click icon to add picture",
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "Click icon to add picture"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "order": 5,
+          "kind": "shape",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout1.xml/40",
+          "id": "40",
+          "name": "Picture Placeholder 37",
+          "bbox": [
+            2909.96,
+            3813.94,
+            185.41,
+            163.89
+          ],
+          "geometry": "rect",
+          "text": "Click icon to add picture",
+          "textPreview": "Click icon to add picture",
+          "resolvedTextStyle": {
+            "vertical": 1
+          },
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "Click icon to add picture",
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "Click icon to add picture"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "order": 6,
+          "kind": "shape",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout1.xml/41",
+          "id": "41",
+          "name": "Picture Placeholder 37",
+          "bbox": [
+            2435.87,
+            3819.62,
+            185.41,
+            159.38
+          ],
+          "geometry": "rect",
+          "text": "Click icon to add picture",
+          "textPreview": "Click icon to add picture",
+          "resolvedTextStyle": {
+            "vertical": 1
+          },
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "Click icon to add picture",
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "Click icon to add picture"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "order": 7,
+          "kind": "shape",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout1.xml/42",
+          "id": "42",
+          "name": "Picture Placeholder 37",
+          "bbox": [
+            2675.52,
+            3815.96,
+            185.41,
+            162.48
+          ],
+          "geometry": "rect",
+          "text": "Click icon to add picture",
+          "textPreview": "Click icon to add picture",
+          "resolvedTextStyle": {
+            "vertical": 1
+          },
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "Click icon to add picture",
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "Click icon to add picture"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "order": 8,
+          "kind": "shape",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout1.xml/46",
+          "id": "46",
+          "name": "Text Placeholder 45",
+          "bbox": [
+            97.37,
+            100.79,
+            2983.3,
+            552
+          ],
+          "geometry": "rect",
+          "text": "Click to edit Master text styles",
+          "textPreview": "Click to edit Master text styles",
+          "resolvedTextStyle": {
+            "vertical": 1
+          },
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "Click to edit Master text styles",
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "Click to edit Master text styles"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "order": 9,
+          "kind": "shape",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout1.xml/51",
+          "id": "51",
+          "name": "Text Placeholder 49",
+          "bbox": [
+            91.33,
+            3262.32,
+            2020.8,
+            129.6
+          ],
+          "geometry": "rect",
+          "text": "Click to edit Master text styles",
+          "textPreview": "Click to edit Master text styles",
+          "resolvedTextStyle": {
+            "anchor": 2,
+            "vertical": 1,
+            "verticalAlignment": "middle"
+          },
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "Click to edit Master text styles",
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "Click to edit Master text styles"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "order": 10,
+          "kind": "shape",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout1.xml/62",
+          "id": "62",
+          "name": "Text Placeholder 59",
+          "bbox": [
+            94.35,
+            3021.77,
+            2015.7,
+            152.23
+          ],
+          "geometry": "rect",
+          "text": "Click to edit Master text styles",
+          "textPreview": "Click to edit Master text styles",
+          "resolvedTextStyle": {
+            "vertical": 1,
+            "insets": {
+              "top": 28.8,
+              "right": 28.8,
+              "bottom": 28.8,
+              "left": 0
+            }
+          },
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "Click to edit Master text styles",
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "Click to edit Master text styles"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "order": 11,
+          "kind": "shape",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout1.xml/67",
+          "id": "67",
+          "name": "Picture Placeholder 6",
+          "bbox": [
+            91.33,
+            1496.67,
+            1305.6,
+            633.08
+          ],
+          "geometry": "rect",
+          "text": "Click icon to add picture",
+          "textPreview": "Click icon to add picture",
+          "resolvedTextStyle": {
+            "vertical": 1
+          },
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "Click icon to add picture",
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "Click icon to add picture"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "order": 12,
+          "kind": "shape",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout1.xml/69",
+          "id": "69",
+          "name": "Picture Placeholder 6",
+          "bbox": [
+            1481,
+            1496.67,
+            630.03,
+            633.08
+          ],
+          "geometry": "rect",
+          "text": "Click icon to add picture",
+          "textPreview": "Click icon to add picture",
+          "resolvedTextStyle": {
+            "vertical": 1
+          },
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "Click icon to add picture",
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "Click icon to add picture"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "order": 13,
+          "kind": "shape",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout1.xml/73",
+          "id": "73",
+          "name": "Text Placeholder 49",
+          "bbox": [
+            91.33,
+            809,
+            2020.8,
+            129.09
+          ],
+          "geometry": "rect",
+          "text": "Click to edit Master text styles",
+          "textPreview": "Click to edit Master text styles",
+          "resolvedTextStyle": {
+            "anchor": 2,
+            "vertical": 1,
+            "verticalAlignment": "middle"
+          },
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "Click to edit Master text styles",
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "Click to edit Master text styles"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "order": 14,
+          "kind": "shape",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout1.xml/75",
+          "id": "75",
+          "name": "Text Placeholder 74",
+          "bbox": [
+            91.33,
+            938.09,
+            2020.33,
+            457.17
+          ],
+          "geometry": "rect",
+          "text": "Click to edit Master text styles",
+          "textPreview": "Click to edit Master text styles",
+          "resolvedTextStyle": {
+            "vertical": 1
+          },
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "Click to edit Master text styles",
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "Click to edit Master text styles"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "order": 15,
+          "kind": "shape",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout1.xml/76",
+          "id": "76",
+          "name": "Text Placeholder 74",
+          "bbox": [
+            91.33,
+            3399.98,
+            2020.33,
+            617.85
+          ],
+          "geometry": "rect",
+          "text": "Click to edit Master text styles",
+          "textPreview": "Click to edit Master text styles",
+          "resolvedTextStyle": {
+            "vertical": 1
+          },
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "Click to edit Master text styles",
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "Click to edit Master text styles"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "order": 16,
+          "kind": "shape",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout1.xml/77",
+          "id": "77",
+          "name": "Text Placeholder 74",
+          "bbox": [
+            2203.4,
+            2080.75,
+            878.4,
+            705.84
+          ],
+          "geometry": "rect",
+          "text": "Click to edit Master text styles",
+          "textPreview": "Click to edit Master text styles",
+          "resolvedTextStyle": {
+            "vertical": 1
+          },
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "Click to edit Master text styles",
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "Click to edit Master text styles"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "order": 17,
+          "kind": "shape",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout1.xml/68",
+          "id": "68",
+          "name": "Text Placeholder 59",
+          "bbox": [
+            91.33,
+            2129.75,
+            1305.6,
+            213.92
+          ],
+          "geometry": "rect",
+          "text": "Click to edit Master text styles",
+          "textPreview": "Click to edit Master text styles",
+          "resolvedTextStyle": {
+            "vertical": 1,
+            "insets": {
+              "top": 28.8,
+              "right": 28.8,
+              "bottom": 28.8,
+              "left": 0
+            }
+          },
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "Click to edit Master text styles",
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "Click to edit Master text styles"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "order": 18,
+          "kind": "shape",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout1.xml/70",
+          "id": "70",
+          "name": "Text Placeholder 59",
+          "bbox": [
+            1481,
+            2129.75,
+            630.67,
+            213.92
+          ],
+          "geometry": "rect",
+          "text": "Click to edit Master text styles",
+          "textPreview": "Click to edit Master text styles",
+          "resolvedTextStyle": {
+            "vertical": 1,
+            "insets": {
+              "top": 28.8,
+              "right": 28.8,
+              "bottom": 28.8,
+              "left": 0
+            }
+          },
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "Click to edit Master text styles",
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "Click to edit Master text styles"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "order": 19,
+          "kind": "shape",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout1.xml/61",
+          "id": "61",
+          "name": "Text Placeholder 59",
+          "bbox": [
+            2203.4,
+            1707.37,
+            878.4,
+            301.55
+          ],
+          "geometry": "rect",
+          "text": "Click to edit Master text styles",
+          "textPreview": "Click to edit Master text styles",
+          "resolvedTextStyle": {
+            "vertical": 1,
+            "insets": {
+              "top": 28.8,
+              "right": 28.8,
+              "bottom": 28.8,
+              "left": 0
+            }
+          },
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "Click to edit Master text styles",
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "Click to edit Master text styles"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "order": 20,
+          "kind": "shape",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout1.xml/63",
+          "id": "63",
+          "name": "Text Placeholder 59",
+          "bbox": [
+            2203.4,
+            3444.49,
+            878.4,
+            226.67
+          ],
+          "geometry": "rect",
+          "text": "Click to edit Master text styles",
+          "textPreview": "Click to edit Master text styles",
+          "resolvedTextStyle": {
+            "vertical": 1,
+            "insets": {
+              "top": 28.8,
+              "right": 28.8,
+              "bottom": 28.8,
+              "left": 0
+            }
+          },
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "Click to edit Master text styles",
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "Click to edit Master text styles"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "scope": "master",
+      "id": "/ppt/slideMasters/slideMaster1.xml",
+      "type": "master",
+      "elements": [
+        {
+          "order": 1,
+          "kind": "shape",
+          "scope": "master",
+          "aid": "template/master//ppt/slideMasters/slideMaster1.xml/7",
+          "id": "7",
+          "name": "Rectangle 6",
+          "bbox": [
+            0,
+            4160.15,
+            3180.17,
+            336
+          ],
+          "geometry": "rect",
+          "resolvedTextStyle": {
+            "anchor": 2,
+            "verticalAlignment": "middle"
+          },
+          "fillColor": "#004C97"
+        },
+        {
+          "order": 2,
+          "kind": "image",
+          "scope": "master",
+          "aid": "template/master//ppt/slideMasters/slideMaster1.xml/10",
+          "id": "10",
+          "name": "Picture 19",
+          "bbox": [
+            0,
+            4289.17,
+            3084,
+            104
+          ],
+          "contentType": "image/png",
+          "imageCrop": {
+            "left": 0,
+            "top": 0,
+            "right": 0,
+            "bottom": 0
+          },
+          "asset": {
+            "assetId": "/ppt/media/image.png",
+            "contentType": "image/png",
+            "byteLength": 32914
+          },
+          "fillImage": {
+            "assetId": "/ppt/media/image.png",
+            "contentType": "image/png",
+            "byteLength": 32914
+          }
+        },
+        {
+          "order": 3,
+          "kind": "shape",
+          "scope": "master",
+          "aid": "template/master//ppt/slideMasters/slideMaster1.xml/9",
+          "id": "9",
+          "name": "Rectangle 8",
+          "bbox": [
+            0,
+            0,
+            3180.17,
+            720
+          ],
+          "geometry": "rect",
+          "resolvedTextStyle": {
+            "anchor": 2,
+            "verticalAlignment": "middle"
+          },
+          "fillColor": "#004C97"
+        }
+      ]
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/fu94fe98",
+      "id": "8",
+      "name": "Text Placeholder 7",
+      "bbox": [
+        97.37,
+        100.79,
+        2983.3,
+        552
+      ],
+      "text": "Turn-by-turn tune analysis using adaptive BPM ensembles in the Fermilab Mu2e Delivery Ring\nDerek Steinkamp | Fermi National Accelerator Laboratory\n",
+      "textPreview": "Turn-by-turn tune analysis using adaptive BPM ensembles in the Fermilab Mu2e Delivery Ring | Derek Steinkamp | Fermi National Accelerator...",
+      "resolvedFontSize": 146.67,
+      "resolvedTextStyle": {
+        "vertical": 1,
+        "fontSize": 146.67,
+        "typeface": "Arial",
+        "color": "bg1",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 4,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Turn-by-turn tune analysis using adaptive BPM"
+          },
+          {
+            "index": 2,
+            "text": "ensembles in the Fermilab Mu2e Delivery Ring"
+          },
+          {
+            "index": 3,
+            "text": "Derek Steinkamp | Fermi National Accelerator Laboratory"
+          },
+          {
+            "index": 4,
+            "text": ""
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Turn-by-turn tune analysis using adaptive BPM ensembles in the Fermilab Mu2e Delivery Ring",
+          "resolvedTextStyle": {
+            "typeface": "Arial"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Turn-by-turn tune analysis using adaptive BPM ensembles in the Fermilab Mu2e Delivery Ring",
+              "fontSize": 120,
+              "typeface": "Arial"
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0
+        },
+        {
+          "index": 2,
+          "text": "Derek Steinkamp | Fermi National Accelerator Laboratory",
+          "resolvedTextStyle": {
+            "typeface": "Arial"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Derek Steinkamp | Fermi National Accelerator Laboratory",
+              "fontSize": 69.33,
+              "typeface": "Arial"
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0
+        }
+      ]
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/y5wjip0z",
+      "id": "38",
+      "name": "Text Placeholder 9",
+      "bbox": [
+        91.33,
+        3490.11,
+        2020.8,
+        129.6
+      ],
+      "text": "RESULT AND LIMIT",
+      "textPreview": "RESULT AND LIMIT",
+      "resolvedFontSize": 66.67,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "vertical": 1,
+        "fontSize": 66.67,
+        "typeface": "Arial",
+        "color": "#004C97",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "RESULT AND LIMIT"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "RESULT AND LIMIT",
+          "resolvedTextStyle": {
+            "typeface": "Arial"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "RESULT AND LIMIT",
+              "typeface": "Arial"
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0
+        }
+      ]
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ul4vaxgb",
+      "id": "12",
+      "name": "Text Placeholder 11",
+      "bbox": [
+        2203.4,
+        3465.75,
+        878.4,
+        152.23
+      ],
+      "text": "Best-5 H concentration is tracked over 50,000 turns. Sustained half-peak loss begins near turn 5632. The multimetric change candidate is turn 5760. No extraction timestamp or cause is inferred.",
+      "textPreview": "Best-5 H concentration is tracked over 50,000 turns. Sustained half-peak loss begins near turn 5632. The multimetric change candidate is ...",
+      "resolvedFontSize": 32,
+      "resolvedTextStyle": {
+        "vertical": 1,
+        "fontSize": 32,
+        "typeface": "Arial",
+        "color": "#004C97",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 28.8,
+          "right": 28.8,
+          "bottom": 28.8,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 4,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Best-5 H concentration is tracked over 50,000 turns."
+          },
+          {
+            "index": 2,
+            "text": "Sustained half-peak loss begins near turn 5632. The"
+          },
+          {
+            "index": 3,
+            "text": "multimetric change candidate is turn 5760. No"
+          },
+          {
+            "index": 4,
+            "text": "extraction timestamp or cause is inferred."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Best-5 H concentration is tracked over 50,000 turns. Sustained half-peak loss begins near turn 5632. The multimetric change candidate is turn 5760. No extraction timestamp or cause is inferred.",
+          "resolvedTextStyle": {
+            "typeface": "Arial"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Best-5 H concentration is tracked over 50,000 turns. Sustained half-peak loss begins near turn 5632. The multimetric change candidate is turn 5760. No extraction timestamp or cause is inferred.",
+              "typeface": "Arial"
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0
+        }
+      ]
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/i1gje90j",
+      "id": "34",
+      "name": "Text Placeholder 17",
+      "bbox": [
+        91.33,
+        809,
+        2020.8,
+        129.09
+      ],
+      "text": "ADAPTIVE, LEAKAGE-CONTROLLED BPM ENSEMBLES",
+      "textPreview": "ADAPTIVE, LEAKAGE-CONTROLLED BPM ENSEMBLES",
+      "resolvedFontSize": 66.67,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "vertical": 1,
+        "fontSize": 66.67,
+        "typeface": "Arial",
+        "color": "#004C97",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "ADAPTIVE, LEAKAGE-CONTROLLED BPM ENSEMBLES"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "ADAPTIVE, LEAKAGE-CONTROLLED BPM ENSEMBLES",
+          "resolvedTextStyle": {
+            "typeface": "Arial"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "ADAPTIVE, LEAKAGE-CONTROLLED BPM ENSEMBLES",
+              "typeface": "Arial"
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0
+        }
+      ]
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/43y1gji9",
+      "id": "36",
+      "name": "Text Placeholder 18",
+      "bbox": [
+        91.33,
+        956.17,
+        2020.33,
+        368.59
+      ],
+      "text": "Synchronized 2,000-spill raw snapshots use a nominal 60 H / 60 V topology; 16 source absences across 12 flagged partial captures are hash-bound.\nScaled threshold-substituted streams are excluded; members use eight fit windows with overlap purged.\nLater validation uses 1,000 stratified spill-plane cases across 5 held-out-digitizer folds.",
+      "textPreview": "Synchronized 2,000-spill raw snapshots use a nominal 60 H / 60 V topology; 16 source absences across 12 flagged partial captures are hash...",
+      "resolvedFontSize": 53.33,
+      "resolvedTextStyle": {
+        "vertical": 1,
+        "fontSize": 53.33,
+        "typeface": "Arial",
+        "color": "tx1",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 6,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Synchronized 2,000-spill raw snapshots use a nominal 60 H / 60 V topology; 16"
+          },
+          {
+            "index": 2,
+            "text": "source absences across 12 flagged partial captures are hash-bound."
+          },
+          {
+            "index": 3,
+            "text": "Scaled threshold-substituted streams are excluded; members use eight fit windows"
+          },
+          {
+            "index": 4,
+            "text": "with overlap purged."
+          },
+          {
+            "index": 5,
+            "text": "Later validation uses 1,000 stratified spill-plane cases across 5 held-out-digitizer"
+          },
+          {
+            "index": 6,
+            "text": "folds."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Synchronized 2,000-spill raw snapshots use a nominal 60 H / 60 V topology; 16 source absences across 12 flagged partial captures are hash-bound.",
+          "resolvedTextStyle": {
+            "typeface": "Arial"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Synchronized 2,000-spill raw snapshots use a nominal 60 H / 60 V topology; 16 source absences across 12 flagged partial captures are hash-bound.",
+              "typeface": "Arial"
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0
+        },
+        {
+          "index": 2,
+          "text": "Scaled threshold-substituted streams are excluded; members use eight fit windows with overlap purged.",
+          "resolvedTextStyle": {
+            "typeface": "Arial"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Scaled threshold-substituted streams are excluded; members use eight fit windows with overlap purged.",
+              "typeface": "Arial"
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0
+        },
+        {
+          "index": 3,
+          "text": "Later validation uses 1,000 stratified spill-plane cases across 5 held-out-digitizer folds.",
+          "resolvedTextStyle": {
+            "typeface": "Arial"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Later validation uses 1,000 stratified spill-plane cases across 5 held-out-digitizer folds.",
+              "typeface": "Arial"
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0
+        }
+      ]
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/z650ba1k",
+      "id": "39",
+      "name": "Text Placeholder 19",
+      "bbox": [
+        91.33,
+        3627.2,
+        2020.33,
+        315.22
+      ],
+      "text": "Versus adaptive Best-1, H Best-5 and V Best-12 improve blind agreement and median selected/held-out tune delta, with power-support tradeoffs.\nFull-buffer ensemble-size contrast: H narrower than corrected Best-1; V broader than corrected Best-1.\nSame-protocol all-training control favors Best-N in H 2/8 and V 3/8 comparisons; it favors all-training in H 3/8 and V 3/8. No external tune calibration is claimed.",
+      "textPreview": "Versus adaptive Best-1, H Best-5 and V Best-12 improve blind agreement and median selected/held-out tune delta, with power-support tradeo...",
+      "resolvedFontSize": 53.33,
+      "resolvedTextStyle": {
+        "vertical": 1,
+        "fontSize": 53.33,
+        "typeface": "Arial",
+        "color": "tx1",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 6,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Versus adaptive Best-1, H Best-5 and V Best-12 improve blind agreement and"
+          },
+          {
+            "index": 2,
+            "text": "median selected/held-out tune delta, with power-support tradeoffs."
+          },
+          {
+            "index": 3,
+            "text": "Full-buffer ensemble-size contrast: H narrower than corrected Best-1; V broader"
+          },
+          {
+            "index": 4,
+            "text": "than corrected Best-1."
+          },
+          {
+            "index": 5,
+            "text": "Same-protocol all-training control favors Best-N in H 2/8 and V 3/8 comparisons; it"
+          },
+          {
+            "index": 6,
+            "text": "favors all-training in H 3/8 and V 3/8. No external tune calibration is claimed."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Versus adaptive Best-1, H Best-5 and V Best-12 improve blind agreement and median selected/held-out tune delta, with power-support tradeoffs.",
+          "resolvedTextStyle": {
+            "typeface": "Arial"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Versus adaptive Best-1, H Best-5 and V Best-12 improve blind agreement and median selected/held-out tune delta, with power-support tradeoffs.",
+              "typeface": "Arial"
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0
+        },
+        {
+          "index": 2,
+          "text": "Full-buffer ensemble-size contrast: H narrower than corrected Best-1; V broader than corrected Best-1.",
+          "resolvedTextStyle": {
+            "typeface": "Arial"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Full-buffer ensemble-size contrast: H narrower than corrected Best-1; V broader than corrected Best-1.",
+              "typeface": "Arial"
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0
+        },
+        {
+          "index": 3,
+          "text": "Same-protocol all-training control favors Best-N in H 2/8 and V 3/8 comparisons; it favors all-training in H 3/8 and V 3/8. No external tune calibration is claimed.",
+          "resolvedTextStyle": {
+            "typeface": "Arial"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Same-protocol all-training control favors Best-N in H 2/8 and V 3/8 comparisons; it favors all-training in H 3/8 and V 3/8. No external tune calibration is claimed.",
+              "typeface": "Arial"
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0
+        }
+      ]
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/z2xgf6to",
+      "id": "40",
+      "name": "Text Placeholder 20",
+      "bbox": [
+        2203.4,
+        2114.79,
+        878.4,
+        637.75
+      ],
+      "text": "2,000 spills; 4,000 H/V curve cases; 1,000 stratified validation cases; 5 held-out-digitizer folds. H Best-5 blind agreement 9.1%; V Best-12 26.3%. Median IQR change vs corrected Best-1: H -0.0024, V 0.001. Finite full-buffer pick coverage: H 99.7%, V 80.3%. Intensity weighting retained 0/240 tested effects.",
+      "textPreview": "2,000 spills; 4,000 H/V curve cases; 1,000 stratified validation cases; 5 held-out-digitizer folds. H Best-5 blind agreement 9.1%; V Best...",
+      "resolvedFontSize": 53.33,
+      "resolvedTextStyle": {
+        "vertical": 1,
+        "fontSize": 53.33,
+        "typeface": "Arial",
+        "color": "tx1",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 10,
+        "lines": [
+          {
+            "index": 1,
+            "text": "2,000 spills; 4,000 H/V curve cases;"
+          },
+          {
+            "index": 2,
+            "text": "1,000 stratified validation cases; 5"
+          },
+          {
+            "index": 3,
+            "text": "held-out-digitizer folds. H Best-5"
+          },
+          {
+            "index": 4,
+            "text": "blind agreement 9.1%; V Best-12"
+          },
+          {
+            "index": 5,
+            "text": "26.3%. Median IQR change vs"
+          },
+          {
+            "index": 6,
+            "text": "corrected Best-1: H -0.0024, V"
+          },
+          {
+            "index": 7,
+            "text": "0.001. Finite full-buffer pick"
+          },
+          {
+            "index": 8,
+            "text": "coverage: H 99.7%, V 80.3%."
+          },
+          {
+            "index": 9,
+            "text": "Intensity weighting retained 0/240"
+          },
+          {
+            "index": 10,
+            "text": "tested effects."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "2,000 spills; 4,000 H/V curve cases; 1,000 stratified validation cases; 5 held-out-digitizer folds. H Best-5 blind agreement 9.1%; V Best-12 26.3%. Median IQR change vs corrected Best-1: H -0.0024, V 0.001. Finite full-buffer pick coverage: H 99.7%, V 80.3%. Intensity weighting retained 0/240 tested effects.",
+          "resolvedTextStyle": {
+            "typeface": "Arial"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "2,000 spills; 4,000 H/V curve cases; 1,000 stratified validation cases; 5 held-out-digitizer folds. H Best-5 blind agreement 9.1%; V Best-12 26.3%. Median IQR change vs corrected Best-1: H -0.0024, V 0.001. Finite full-buffer pick coverage: H 99.7%, V 80.3%. Intensity weighting retained 0/240 tested effects.",
+              "typeface": "Arial"
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0
+        }
+      ]
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/hofulsf2",
+      "id": "11",
+      "name": "Text Placeholder 10",
+      "bbox": [
+        95.33,
+        3330.24,
+        2015.7,
+        152.23
+      ],
+      "text": "Exact-paired 50,000-turn density versus the audited legacy selector: H Best-5 355,688 picks; V Best-12 286,646. Legacy-to-selected change includes selector repair; color is pick probability, not power.",
+      "textPreview": "Exact-paired 50,000-turn density versus the audited legacy selector: H Best-5 355,688 picks; V Best-12 286,646. Legacy-to-selected change...",
+      "resolvedFontSize": 32,
+      "resolvedTextStyle": {
+        "vertical": 1,
+        "fontSize": 32,
+        "typeface": "Arial",
+        "color": "#004C97",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 28.8,
+          "right": 28.8,
+          "bottom": 28.8,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Exact-paired 50,000-turn density versus the audited legacy selector: H Best-5 355,688 picks; V Best-12 286,646. Legacy-to-selected"
+          },
+          {
+            "index": 2,
+            "text": "change includes selector repair; color is pick probability, not power."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Exact-paired 50,000-turn density versus the audited legacy selector: H Best-5 355,688 picks; V Best-12 286,646. Legacy-to-selected change includes selector repair; color is pick probability, not power.",
+          "resolvedTextStyle": {
+            "typeface": "Arial"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Exact-paired 50,000-turn density versus the audited legacy selector: H Best-5 355,688 picks; V Best-12 286,646. Legacy-to-selected change includes selector repair; color is pick probability, not power.",
+              "typeface": "Arial"
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0
+        }
+      ]
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/547294r6",
+      "id": "2",
+      "name": "Text Placeholder 1",
+      "bbox": [
+        101.56,
+        2213.32,
+        927.03,
+        167.62
+      ],
+      "text": "H Best-5: blind full-band selected/held-out agreement 9.1% [7.9%, 9.8%]; median |Delta q| 0.0161. Reduced-sample knees span 2-13 in 5/7 runs; 2 unresolved.",
+      "textPreview": "H Best-5: blind full-band selected/held-out agreement 9.1% [7.9%, 9.8%]; median |Delta q| 0.0161. Reduced-sample knees span 2-13 in 5/7 r...",
+      "resolvedFontSize": 32,
+      "resolvedTextStyle": {
+        "vertical": 1,
+        "fontSize": 32,
+        "typeface": "Arial",
+        "color": "#004C97",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 28.8,
+          "right": 28.8,
+          "bottom": 28.8,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "H Best-5: blind full-band selected/held-out agreement 9.1%"
+          },
+          {
+            "index": 2,
+            "text": "[7.9%, 9.8%]; median |Delta q| 0.0161. Reduced-sample"
+          },
+          {
+            "index": 3,
+            "text": "knees span 2-13 in 5/7 runs; 2 unresolved."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "H Best-5: blind full-band selected/held-out agreement 9.1% [7.9%, 9.8%]; median |Delta q| 0.0161. Reduced-sample knees span 2-13 in 5/7 runs; 2 unresolved.",
+          "resolvedTextStyle": {
+            "typeface": "Arial"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "H Best-5: blind full-band selected/held-out agreement 9.1% [7.9%, 9.8%]; median |Delta q| 0.0161. Reduced-sample knees span 2-13 in 5/7 runs; 2 unresolved.",
+              "typeface": "Arial"
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0
+        }
+      ]
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/7qp4be9c",
+      "id": "4",
+      "name": "Text Placeholder 3",
+      "bbox": [
+        1150.22,
+        2213.32,
+        940.44,
+        167.62
+      ],
+      "text": "V Best-12: blind full-band selected/held-out agreement 26.3% [19.1%, 33.0%]; median |Delta q| 0.0107. Reduced-sample knees span 10-28 in 6/7 runs; 1 unresolved.",
+      "textPreview": "V Best-12: blind full-band selected/held-out agreement 26.3% [19.1%, 33.0%]; median |Delta q| 0.0107. Reduced-sample knees span 10-28 in ...",
+      "resolvedFontSize": 32,
+      "resolvedTextStyle": {
+        "vertical": 1,
+        "fontSize": 32,
+        "typeface": "Arial",
+        "color": "#004C97",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 28.8,
+          "right": 28.8,
+          "bottom": 28.8,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 4,
+        "lines": [
+          {
+            "index": 1,
+            "text": "V Best-12: blind full-band selected/held-out agreement"
+          },
+          {
+            "index": 2,
+            "text": "26.3% [19.1%, 33.0%]; median |Delta q| 0.0107."
+          },
+          {
+            "index": 3,
+            "text": "Reduced-sample knees span 10-28 in 6/7 runs; 1"
+          },
+          {
+            "index": 4,
+            "text": "unresolved."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "V Best-12: blind full-band selected/held-out agreement 26.3% [19.1%, 33.0%]; median |Delta q| 0.0107. Reduced-sample knees span 10-28 in 6/7 runs; 1 unresolved.",
+          "resolvedTextStyle": {
+            "typeface": "Arial"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "V Best-12: blind full-band selected/held-out agreement 26.3% [19.1%, 33.0%]; median |Delta q| 0.0107. Reduced-sample knees span 10-28 in 6/7 runs; 1 unresolved.",
+              "typeface": "Arial"
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0
+        }
+      ]
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/65g3298r",
+      "id": "5",
+      "name": "Text Placeholder 4",
+      "bbox": [
+        2203.4,
+        1825.24,
+        878.4,
+        221.17
+      ],
+      "text": "Selected H Best-5 and V Best-12 P10-P90 width minus corrected adaptive Best-1 on exact paired spill/windows. Negative is narrower; zero is no ensemble-size difference.",
+      "textPreview": "Selected H Best-5 and V Best-12 P10-P90 width minus corrected adaptive Best-1 on exact paired spill/windows. Negative is narrower; zero i...",
+      "resolvedFontSize": 32,
+      "resolvedTextStyle": {
+        "vertical": 1,
+        "fontSize": 32,
+        "typeface": "Arial",
+        "color": "#004C97",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 28.8,
+          "right": 28.8,
+          "bottom": 28.8,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 4,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Selected H Best-5 and V Best-12 P10-P90 width minus"
+          },
+          {
+            "index": 2,
+            "text": "corrected adaptive Best-1 on exact paired"
+          },
+          {
+            "index": 3,
+            "text": "spill/windows. Negative is narrower; zero is no"
+          },
+          {
+            "index": 4,
+            "text": "ensemble-size difference."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Selected H Best-5 and V Best-12 P10-P90 width minus corrected adaptive Best-1 on exact paired spill/windows. Negative is narrower; zero is no ensemble-size difference.",
+          "resolvedTextStyle": {
+            "typeface": "Arial"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Selected H Best-5 and V Best-12 P10-P90 width minus corrected adaptive Best-1 on exact paired spill/windows. Negative is narrower; zero is no ensemble-size difference.",
+              "typeface": "Arial"
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0
+        }
+      ]
+    },
+    {
+      "order": 12,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/pwvq5oz2",
+      "id": "115",
+      "bbox": [
+        97.37,
+        1395.26,
+        891.54,
+        818.06
+      ],
+      "alt": "horizontal leakage-controlled Best-N validation",
+      "contentType": "image/png",
+      "imageFit": "contain",
+      "asset": {
+        "assetId": "66b001ce-0742-4370-9b19-84206620c2e9",
+        "contentType": "image/png",
+        "byteLength": 18923
+      }
+    },
+    {
+      "order": 13,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/294ru9gb",
+      "id": "116",
+      "bbox": [
+        1150.22,
+        1375.46,
+        854.93,
+        859.07
+      ],
+      "alt": "vertical leakage-controlled Best-N validation",
+      "contentType": "image/png",
+      "imageFit": "contain",
+      "asset": {
+        "assetId": "2b3cd6aa-62cd-4ef5-96c2-a4abcc97311a",
+        "contentType": "image/png",
+        "byteLength": 24657
+      }
+    },
+    {
+      "order": 14,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/nad83ehw",
+      "id": "117",
+      "bbox": [
+        97.37,
+        2439.64,
+        1993.3,
+        890.6
+      ],
+      "alt": "exact-paired full-spill H/V ridge comparison",
+      "contentType": "image/png",
+      "imageFit": "contain",
+      "asset": {
+        "assetId": "a3cbf45a-cfd3-4abe-8c6f-eabb8322edf8",
+        "contentType": "image/png",
+        "byteLength": 235971
+      }
+    },
+    {
+      "order": 15,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/8rq98nyl",
+      "id": "118",
+      "bbox": [
+        2342.13,
+        809,
+        637.71,
+        999.73
+      ],
+      "alt": "selected-H/V exact-paired turn-width contrast",
+      "contentType": "image/png",
+      "imageFit": "contain",
+      "asset": {
+        "assetId": "e56ed30a-6988-495b-b14c-1d66317889eb",
+        "contentType": "image/png",
+        "byteLength": 22611
+      }
+    },
+    {
+      "order": 16,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/9szah8f6",
+      "id": "119",
+      "bbox": [
+        2203.33,
+        2710.11,
+        878.5,
+        755.67
+      ],
+      "alt": "horizontal tracking-loss diagnostic",
+      "contentType": "image/png",
+      "imageFit": "contain",
+      "asset": {
+        "assetId": "34161ded-1340-470e-a8df-3e789ec24558",
+        "contentType": "image/png",
+        "byteLength": 14299
+      }
+    }
+  ],
+  "composeRuns": []
+}

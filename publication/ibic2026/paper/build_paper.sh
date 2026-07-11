@@ -105,4 +105,5 @@ write_checksum() {
   write_checksum "$HERE/figures/ridge_width_contrast_hv.png" "figures/ridge_width_contrast_hv.png"
   write_checksum "$PDF" "build/$(basename "$PDF")"
 } >"$OUT/source_manifest.sha256"
+rm -f "$OUT/$(basename "${SOURCE%.tex}").aux" "$OUT/$(basename "${SOURCE%.tex}").log"
 printf 'paper=%s\npages=%s\npage_size=%sx%s\n' "$PDF" "$pages" "$page_width" "$page_height"
