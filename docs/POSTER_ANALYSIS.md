@@ -516,6 +516,17 @@ an unexplained blank panel.
 All intensity heatmaps use proportional inclusive raster bounds so color fills
 the complete axis and remains registered to overlaid tracks. Standalone ridge
 and binned relationship captions disclose their nonzero-P98 display clips.
+Concentration is rendered twice: a common 0-1 scale for cross-panel context and
+a zero-based scale at 110% of that panel's maximum for inspecting small
+within-panel method separation. Only the common-scale version supports visual
+amplitude comparison across N or plane.
+Crossing-turn scatters likewise retain a common 0-50000-turn x/y view for
+cross-panel context and a separately labeled observed-range detail view. They
+omit absent crossings and remain association diagnostics, not extraction-onset
+or causal measurements.
+Lag correlations retain both the common -1 to 1 Spearman scale and a symmetric
+panel-detail scale. The detail variant exposes small lag-shape changes but does
+not change the overlapping-window, exploratory, noncausal interpretation.
 The independent raw-payload audit also covers both position-only collections;
 passing intensity-pair checks cannot waive a position source failure.
 Held-out support captions and tables must state their evaluable numerator and

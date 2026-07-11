@@ -944,6 +944,17 @@ no-redistribution annotation instead of appearing as unexplained blank panels.
 All intensity heatmaps use proportional inclusive raster cells so the color
 field fills the declared axes. Standalone ridge and binned relationship figures
 disclose their nonzero-P98 count-color clip in the visible/indexed copy.
+The gallery includes concentration on a common 0-1 scale and a separate
+zero-based detail scale extending to 110% of each panel maximum. Use the detail
+view only to inspect method separation within that panel; its apparent amplitude
+is not comparable across N or plane.
+Crossing-turn plots also come in a common 0-50000-turn x/y view and a separate
+observed-range detail view. Missing crossings are omitted; both views are
+association diagnostics and do not locate extraction onset or establish
+causation.
+Lag-correlation plots likewise retain a common -1-to-1 Spearman view and a
+symmetric panel-detail view. The detail scale varies by panel and is only for
+lag-shape inspection; overlapping windows remain exploratory and noncausal.
 
 Build a filterable, lazy-loading HTML index for any generated review directory:
 

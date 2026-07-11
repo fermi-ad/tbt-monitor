@@ -183,6 +183,11 @@ Resolved findings:
   column-normalized pick probability with an absolute-P99 display clip
 - intensity heatmap bins cover the complete axes without truncation gaps, and
   standalone count-density captions disclose nonzero-P98 display clipping
+- intensity concentration and crossing-turn diagnostics preserve common-scale
+  views beside explicitly guarded panel-detail views; no absent crossing is
+  zero-filled or interpreted as extraction timing
+- lag correlations preserve common -1-to-1 Spearman and symmetric detail views;
+  panel autoscaling does not remove overlap dependence or imply causation
 - lag and crossing-turn plots remain exploratory and do not identify a fixed
   extraction boundary or establish causation
 

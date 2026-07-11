@@ -355,6 +355,11 @@ Current publication interpretation:
   probability; their absolute-P99 color clip is display-only. All intensity
   heatmaps fill the complete axis with proportional cells, and count-density
   captions disclose nonzero-P98 display clipping.
+  Concentration and crossing-turn diagnostics retain common-scale panels beside
+  explicitly guarded detail-scale variants; neither detail scale supports
+  cross-panel amplitude or extraction-timing claims.
+  Lag correlation similarly retains common -1-to-1 and symmetric detail views;
+  autoscaling does not make overlapping windows independent or causal.
 
 ## Next Milestones
 

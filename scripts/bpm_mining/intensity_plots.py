@@ -319,9 +319,11 @@ def concentration_plot(
     rows_by_method: Mapping[str, Sequence[Mapping[str, object]]],
     band: tuple[float, float],
     bins: int = 192,
+    detail_scale: bool = False,
 ) -> None:
     poster = _poster()
     series = []
+    finite_values = []
     colors = {
         "unweighted": poster.BLUE,
         "sqrt_intensity": poster.GREEN,
@@ -334,8 +336,11 @@ def concentration_plot(
         for index, center in enumerate(centers):
             total = float(np.sum(density[:, index]))
             points.append((float(center), float(np.max(density[:, index])) / total if total else math.nan))
+        finite_values.extend(value for _center, value in points if math.isfinite(value))
         series.append((method.replace("_intensity", "").replace("intensity_", "")[:18], points, colors[method]))
-    poster.line_plot(path, title, series, "TURN", "PEAK BIN FRACTION", (0.0, 1.0))
+    upper = min(1.0, max(finite_values) * 1.10) if detail_scale and finite_values else 1.0
+    upper = max(0.01, upper)
+    poster.line_plot(path, title, series, "TURN", "PEAK SHARE", (0.0, upper))
 
 
 def binned_scatter_plot(
@@ -388,7 +393,12 @@ def binned_scatter_plot(
     poster.write_png(path, width, height, pixels)
 
 
-def loss_scatter_plot(path: Path, title: str, rows: Sequence[Mapping[str, object]]) -> None:
+def loss_scatter_plot(
+    path: Path,
+    title: str,
+    rows: Sequence[Mapping[str, object]],
+    axis_range: tuple[float, float] | None = (0.0, 50000.0),
+) -> None:
     poster = _poster()
     points = [(_f(row.get("intensity_crossing_turn")), _f(row.get("power_support_loss_turn"))) for row in rows]
     points = [(x, y) for x, y in points if math.isfinite(x) and math.isfinite(y)]
@@ -397,9 +407,12 @@ def loss_scatter_plot(path: Path, title: str, rows: Sequence[Mapping[str, object
         return
     width, height = 1100, 820
     pixels = poster.new_canvas(width, height)
-    x0, y0, x1, y1 = poster.draw_axes(pixels, width, height, title, "INTENSITY CROSSING TURN", "POWER LOSS TURN")
-    minimum = min([value for point in points for value in point])
-    maximum = max([value for point in points for value in point])
+    x0, y0, x1, y1 = poster.draw_axes(pixels, width, height, title, "INTENSITY CROSSING TURN", "LOSS TURN")
+    if axis_range is None:
+        minimum = min(value for point in points for value in point)
+        maximum = max(value for point in points for value in point)
+    else:
+        minimum, maximum = axis_range
     poster.line(pixels, width, height, x0, y1, x1, y0, poster.MUTED)
     for x, y in points:
         px = poster.scale_value(x, minimum, maximum, x0, x1)
@@ -682,10 +695,32 @@ def make_intensity_gallery(
                     "claim_guardrail": "Higher is narrower only at the declared fixed binning; compare methods at identical bins.",
                 }
             )
+            detail_path = out / "concentration_detail" / f"{plane.lower()}_best{subset_size}_method_concentration_detail.png"
+            concentration_plot(
+                detail_path,
+                f"{plane} BEST{subset_size} RIDGE CONCENTRATION DETAIL",
+                rows_by_method,
+                band,
+                detail_scale=True,
+            )
+            figures.append(
+                {
+                    "category": "ridge_concentration_detail",
+                    "plane": plane,
+                    "subset_size": subset_size,
+                    "method": "comparison",
+                    "path": str(detail_path),
+                    "description": "The same fixed-bin peak-fraction comparison with a zero-based y-axis autoscaled to 110% of the panel maximum.",
+                    "claim_guardrail": "Use to inspect within-panel method separation; y limits differ across N and plane, so do not compare apparent amplitude between panels.",
+                }
+            )
             baseline = rows_by_method["unweighted"]
-            for field, label in (("peak_prominence_at_train_q", "PROMINENCE"), ("power_support_at_train_q", "POWER SUPPORT")):
+            for field, label, axis_label in (
+                ("peak_prominence_at_train_q", "PROMINENCE", "PROMINENCE"),
+                ("power_support_at_train_q", "POWER SUPPORT", "TUNE SUPPORT"),
+            ):
                 scatter_path = out / "intensity_relationship" / f"{plane.lower()}_best{subset_size}_intensity_vs_{field}.png"
-                binned_scatter_plot(scatter_path, f"{plane} BEST{subset_size} INTENSITY VS {label}", baseline, field, label)
+                binned_scatter_plot(scatter_path, f"{plane} BEST{subset_size} INTENSITY VS {label}", baseline, field, axis_label)
                 figures.append(
                     {
                         "category": "intensity_relationship",
@@ -703,7 +738,7 @@ def make_intensity_gallery(
             metric_rows = [row for row in effects if row.get("plane") == plane and row.get("metric") == metric]
             metric_label = METRIC_LABELS[metric]
             path = out / "method_effects" / f"{plane.lower()}_{metric}_paired_delta.png"
-            method_effect_plot(path, f"{plane} INTENSITY EFFECT: {metric_label}", metric_rows)
+            method_effect_plot(path, f"{plane} WEIGHTING EFFECT: {metric_label}", metric_rows)
             figures.append(
                 {
                     "category": "method_effect",
@@ -718,7 +753,7 @@ def make_intensity_gallery(
             ratio_path = out / "method_effects" / f"{plane.lower()}_{metric}_practical_fraction.png"
             method_effect_plot(
                 ratio_path,
-                f"{plane} PRACTICAL EFFECT: {metric_label}",
+                f"{plane} PRACTICAL RATIO: {metric_label}",
                 metric_rows,
                 normalized_to_practical_effect=True,
             )
@@ -735,6 +770,7 @@ def make_intensity_gallery(
             )
         for subset_size in subset_sizes:
             lag_series = []
+            lag_values = []
             for metric, label, color in (
                 ("peak_prominence_at_train_q", "PEAK PROMINENCE", poster.GREEN),
                 ("power_support_at_train_q", "POWER SUPPORT", poster.ORANGE),
@@ -745,8 +781,9 @@ def make_intensity_gallery(
                     if row.get("plane") == plane and int(row.get("subset_size") or 0) == subset_size and row.get("metric") == metric
                 ]
                 lag_series.append((label, points, color))
+                lag_values.extend(value for _lag, value in points if math.isfinite(value))
             lag_path = out / "correlation" / f"{plane.lower()}_best{subset_size}_lag_correlation.png"
-            poster.line_plot(lag_path, f"{plane} BEST{subset_size} INTENSITY LAG CORRELATION", lag_series, "LAG WINDOWS", "MEDIAN SPEARMAN", (-1.0, 1.0))
+            poster.line_plot(lag_path, f"{plane} BEST{subset_size} INTENSITY LAG CORRELATION", lag_series, "LAG WINDOWS", "SPEARMAN RHO", (-1.0, 1.0))
             figures.append(
                 {
                     "category": "lag_correlation",
@@ -756,6 +793,27 @@ def make_intensity_gallery(
                     "path": str(lag_path),
                     "description": "Median within-spill Spearman correlation versus lag; positive lag means intensity precedes the tune metric.",
                     "claim_guardrail": "Exploratory temporal association; overlapping windows preclude treating lag points as independent.",
+                }
+            )
+            lag_bound = min(1.0, max(0.05, max((abs(value) for value in lag_values), default=0.0) * 1.10))
+            lag_detail_path = out / "correlation_detail" / f"{plane.lower()}_best{subset_size}_lag_correlation_detail.png"
+            poster.line_plot(
+                lag_detail_path,
+                f"{plane} BEST{subset_size} INTENSITY LAG DETAIL",
+                lag_series,
+                "LAG WINDOWS",
+                "SPEARMAN RHO",
+                (-lag_bound, lag_bound),
+            )
+            figures.append(
+                {
+                    "category": "lag_correlation_detail",
+                    "plane": plane,
+                    "subset_size": subset_size,
+                    "method": "unweighted",
+                    "path": str(lag_detail_path),
+                    "description": "The same median within-spill lag correlations on a symmetric panel-detail scale.",
+                    "claim_guardrail": "Y limits vary by panel; use only for lag-shape inspection, and do not treat overlapping-window points as independent or causal.",
                 }
             )
             for threshold in (0.75, 0.50, 0.25):
@@ -775,8 +833,26 @@ def make_intensity_gallery(
                         "subset_size": subset_size,
                         "method": "unweighted",
                         "path": str(loss_path),
-                        "description": "Per-spill intensity-envelope crossing versus tune-band power-support loss turn.",
+                        "description": "Per-spill intensity-envelope crossing versus tune-band power-support loss turn on common 0-50000-turn axes.",
                         "claim_guardrail": "Threshold sensitivity is shown explicitly; absent crossings are omitted and no fixed extraction start is assumed.",
+                    }
+                )
+                loss_detail_path = out / "loss_turn_detail" / f"{plane.lower()}_best{subset_size}_threshold_{int(threshold * 100)}_detail.png"
+                loss_scatter_plot(
+                    loss_detail_path,
+                    f"{plane} BEST{subset_size} {int(threshold * 100)} PCT CROSSING DETAIL",
+                    selected_losses,
+                    axis_range=None,
+                )
+                figures.append(
+                    {
+                        "category": "loss_turn_detail",
+                        "plane": plane,
+                        "subset_size": subset_size,
+                        "method": "unweighted",
+                        "path": str(loss_detail_path),
+                        "description": "The same crossing-turn pairs autoscaled to their observed common x/y range.",
+                        "claim_guardrail": "Use only to inspect within-panel structure; limits vary by panel, absent crossings are omitted, and association is not causation.",
                     }
                 )
 

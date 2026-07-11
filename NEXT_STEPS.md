@@ -244,6 +244,15 @@ The active publication protocol adds two independent tests:
   Every intensity density-difference panel must compare the same exact finite
   spill/window points and describe color only as column-normalized ridge-pick
   probability redistribution, with absolute-P99 clipping limited to display.
+  Preserve both the common 0-1 concentration scale and a zero-based
+  panel-autoscaled detail view; the latter is for within-panel method separation
+  only and cannot support apparent-amplitude comparisons across N or plane.
+  Preserve crossing-turn scatter on common 0-50000 x/y axes plus a separately
+  labeled observed-range detail view; neither may define an extraction onset or
+  imply causation, and absent crossings remain omitted rather than zero-filled.
+  Preserve lag correlations on the common -1 to 1 Spearman scale plus a
+  symmetric panel-detail scale; the detail view reveals shape only and does not
+  change the overlapping-window, exploratory, noncausal status.
 
 The first payload audit found that the intensity arrays advertise 250000 samples
 but become structurally unreliable near turn 64000. The first 50000 turns are

@@ -290,6 +290,12 @@ config ranking. Its package modules cover:
   Every intensity heatmap uses proportional inclusive raster-cell bounds;
   standalone count rasters disclose nonzero-P98 clipping and subtraction
   rasters disclose absolute-P99 clipping.
+  Concentration outputs retain a common 0-1 view plus a separately guarded
+  zero-based, panel-autoscaled detail view.
+  Crossing-turn outputs retain common 0-50000-turn axes plus an explicitly
+  observed-range detail view, without imputing absent crossings.
+  Lag outputs retain common -1-to-1 Spearman axes plus a symmetric panel-detail
+  view while preserving their exploratory overlapping-window status.
   Pair integrity retains advertised and on-disk sample counts for both payloads;
   unequal counts cannot be hidden by truncating to the shorter member.
 - `intensity_verification.py` and `verify_intensity_outputs.py`: audited capture

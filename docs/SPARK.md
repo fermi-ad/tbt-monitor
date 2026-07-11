@@ -465,6 +465,14 @@ points, and labels red/blue only as higher/lower column-normalized ridge-pick
 probability. Its symmetric absolute-P99 clip is display-only, not denoising.
 All intensity rasters use proportional inclusive cell bounds; count-density
 captions and legends disclose their nonzero-P98 display clip.
+The gallery emits both common 0-1 and zero-based panel-detail concentration
+plots; apparent amplitude in the autoscaled detail plots is not comparable
+across N or plane.
+Crossing-turn plots retain common 0-50000-turn axes plus an observed-range
+detail view; absent crossings are omitted and neither view defines extraction
+timing or causation.
+Lag correlations retain common -1-to-1 and symmetric panel-detail views; the
+detail limits vary and do not make overlapping windows independent or causal.
 
 Before interpreting either the intensity or 50000-turn ridge products, scan
 the complete publication corpus independently of the FFT paths:

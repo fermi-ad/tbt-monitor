@@ -587,6 +587,15 @@ Decision:
 - Map intensity ridge, subtraction, and binned relationship rasters with
   proportional inclusive pixel bounds. Disclose nonzero-P98 count clipping and
   absolute-P99 subtraction clipping in both visible or indexed figure copy.
+- Preserve an absolute 0-1 ridge-concentration view and a separate zero-based
+  view autoscaled to 110% of each panel maximum. The detail view is explicitly
+  limited to within-panel method separation.
+- Preserve crossing-turn scatter on common 0-50000 x/y axes and a separate
+  observed-range detail view. Omit unavailable crossings rather than imputing
+  zeros, and keep both views noncausal and extraction-onset agnostic.
+- Preserve lag correlations on common -1-to-1 Spearman axes and a symmetric
+  panel-detail scale. Variable detail limits may reveal shape but cannot change
+  the overlapping-window, exploratory, noncausal interpretation.
 - Require advertised and on-disk sample counts to agree for both members of
   every position/intensity pair; shorter-member truncation is not a valid way
   to hide a payload-length mismatch.

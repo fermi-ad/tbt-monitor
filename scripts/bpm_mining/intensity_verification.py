@@ -632,11 +632,14 @@ def verify_intensity_outputs(
         "ridge_density": 2 * len(sizes) * len(METHODS),
         "ridge_density_difference": 2 * len(sizes) * len(WEIGHTED_METHODS),
         "ridge_concentration": 2 * len(sizes),
+        "ridge_concentration_detail": 2 * len(sizes),
         "intensity_relationship": 2 * len(sizes) * 2,
         "method_effect": 8,
         "method_effect_practical_fraction": 8,
         "lag_correlation": 2 * len(sizes),
+        "lag_correlation_detail": 2 * len(sizes),
         "loss_turn": 2 * len(sizes) * 3,
+        "loss_turn_detail": 2 * len(sizes) * 3,
         "representative_overlay": 1,
     }
     for category, minimum in expected_category_minimums.items():
