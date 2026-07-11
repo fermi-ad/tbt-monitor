@@ -197,7 +197,9 @@ module boundaries, data flow, synchronization policy, and artifact contracts.
    analyzer with explicit turn range, BPM-combination, normalization,
    detrending, DC-handling, tune-band, and ridge-anchor settings. The runner is
    serial by default, but `--parallel-jobs` can overlap independent config/view
-   jobs while keeping each job in an isolated output directory.
+   jobs while keeping each job in an isolated output directory. Spark's current
+   operational ceiling is two jobs after a watchdog-bounded qualification;
+   higher concurrency is not inferred from GPU utilization alone.
 7. The ranker reads each job's `gpu_spills_summary.csv`, scores spill/config
    rows, assigns stable labels, and writes handoff CSVs for full-stage analysis.
 8. The elite summary writer collates ranked tables and heavy GPU plots for the
@@ -245,7 +247,10 @@ config ranking. Its package modules cover:
   tune-visibility migration without mutating canonical run outputs. The fixed
   sidecar rescores dynamic memberships, frozen memberships, and all-BPM
   controls from the same cache with one metric; it is descriptive because the
-  original dynamic memberships reuse selection windows.
+  original dynamic memberships reuse selection windows. Its collection curves
+  and all-method summary PNG keep the stronger all-BPM controls visible;
+  `render_fixed_set_control_plots.py` can regenerate both from the accepted
+  summary without repeating spectra.
   No-visible controls retain zero score with an explicit state instead of a
   fabricated prominence. Held-out rows without a finalist tune retain exact
   identity but blank support metrics, and summaries expose their evaluable
@@ -259,7 +264,11 @@ config ranking. Its package modules cover:
 - `best_n.py`: contiguous ensemble-size beam search with fit-prefix selection,
   complete overlap purging, blind and conditioned later-window metrics,
   digitizer-disjoint folds, moving-block intervals, sensitivity-ready shard
-  outputs, and cross-collection global-N transfer.
+  outputs, and cross-collection global-N transfer. Its publication plot isolates
+  blind full-band agreement on one zero-based scale shared by H and V; the
+  near-training-tune conditioned curve is emitted separately. A native gate
+  matrix renders the six recommendation criteria and their all-gates result for
+  every contiguous N from the same calculation used by `recommended_n()`.
 - `contracts.py`: canonical JSON and SHA-256 run contracts. Resumable analyses
   reject parameter drift, sharded merges require one compatible contract per
   declared shard, and duplicate science keys fail instead of being silently
@@ -274,6 +283,15 @@ config ranking. Its package modules cover:
   identity, timing, metric, summary, recommendation-boundary, transfer, and plot
   checks for every full or sensitivity Best-N run, including the input and
   parameter contract.
+- `all_training.py`, `all_training_plots.py`,
+  `evaluate_best_n_all_training.py`, and `verify_best_n_all_training.py`: a
+  CPU/cache-only, leakage-controlled head-to-head control. Each accepted Best-N
+  fold is reused exactly, every training-side channel is aggregated by mean and
+  median, and the held-out digitizers remain independent. Exact fold rows are
+  collapsed within spill before paired moving-block inference. The verifier
+  binds source hashes, 10,000 detail rows, 8,000 spill pairs, 16 metric
+  comparisons, and 18 native PNGs; it accepts any scientifically valid winner or
+  unresolved result but rejects missing coverage.
 - `intensity.py` and `intensity_plots.py`: exact position/intensity pairing,
   position-only member selection, optional spectral aggregation weights,
   collection-aware paired inference, payload-horizon diagnostics, and a broad
@@ -282,12 +300,28 @@ config ranking. Its package modules cover:
   Intensity never modifies the position waveform. A window with no usable
   selected intensity falls back explicitly to unweighted aggregation; an empty
   finite gate retains the strongest finite selected member. Window and spill
-  outputs carry the fallback reason and frequency.
+  outputs carry the fallback reason and frequency. A one-member ensemble uses
+  an exact spectrum pass-through, preserving the Best-1 zero-effect control
+  without scale/divide roundoff in nonlinear spectral metrics.
+  Density-difference figures join methods on exact
+  collection/spill/plane/N/window/center keys and retain only common finite
+  in-band picks before column normalization; their absolute-P99 color clip is
+  display-only and cannot be interpreted as physical noise removal.
+  Every intensity heatmap uses proportional inclusive raster-cell bounds;
+  standalone count rasters disclose nonzero-P98 clipping and subtraction
+  rasters disclose absolute-P99 clipping.
+  Concentration outputs retain a common 0-1 view plus a separately guarded
+  zero-based, panel-autoscaled detail view.
+  Crossing-turn outputs retain common 0-50000-turn axes plus an explicitly
+  observed-range detail view, without imputing absent crossings.
+  Lag outputs retain common -1-to-1 Spearman axes plus a symmetric panel-detail
+  view while preserving their exploratory overlapping-window status.
   Pair integrity retains advertised and on-disk sample counts for both payloads;
   unequal counts cannot be hidden by truncating to the shorter member.
 - `intensity_verification.py` and `verify_intensity_outputs.py`: audited capture
-  counts, exact identity, complete turn grids, payload horizon, N=1 invariance,
-  effect-decision, run-contract, and gallery-asset closure checks.
+  counts, exact identity, identical method spill populations and memberships,
+  contracted turn-center grids, finite global picks, payload horizon, N=1
+  invariance, effect-decision, run-contract, and gallery-asset closure checks.
 - `scripts/make_best_bpm_ridge_density.py`: poster sidecar that rereads raw
   captured spills, applies exact corrected Best-N memberships, recomputes
   0-50000 turn sliding spectra, and renders old-gallery-style ridge-density
@@ -296,38 +330,67 @@ config ranking. Its package modules cover:
   legacy/corrected-Best-1/selected control that separate selector repair from
   ensemble-size gain,
   exact-point-paired density differences, concentration and H-loss diagnostics,
-  unsmoothed per-turn legacy contrast tables with smoothed width/entropy/peak/
-  shared-mass review plots, shared-scale selected-H/V composites, and moving-
-  turn-block legacy contrast intervals.
+  unsmoothed per-turn legacy contrast tables, every exact-paired adaptive N-pair
+  metric and turn grid plus a zero Best-1 self-control, smoothed width/entropy/
+  peak/shared-mass review plots, shared-scale selected-H/V clean contrasts, and
+  moving-turn-block intervals.
   Each selected composite has landscape and portrait render contracts so paper
   and poster placement do not rely on cropping or excessive contain padding.
   Density bins use
   proportional inclusive raster bounds so color fields and tune overlays occupy
-  the same complete axis.
+  the same complete axis. Nonzero P98 density clipping and absolute-P99
+  subtractive clipping apply only to raster colors; source probabilities,
+  percentiles, and contrast metrics remain unclipped.
 - `ridge_verification.py` and `verify_ridge_density_outputs.py`: strict
   spill/window, cardinality, tune-band, exact-pair, metric, warning, PNG, and
   caption coverage checks for the full-buffer ridge gallery, tied to exact
   membership, legacy-table, manifest-inventory, and window-geometry hashes.
+  The verifier streams each full structural grid into compact per-center spill
+  masks, separating blank confidence-threshold misses and bounded edge-refined
+  exclusions from finite in-band picks. Adaptive aggregate and per-turn
+  intersections are reconstructed exactly; legacy pairs must close internally
+  against per-turn sums, adaptive availability, and hash-bound source bounds.
   Turn-contrast closure additionally requires one finite exact-paired row per
-  contracted center, every global and plane-selected metric figure role, and
-  both selector-defect control composites.
+  contracted center for every legacy N and adaptive N pair, complete self-
+  control coverage, every global and plane-selected metric figure role, both
+  selector-defect controls, and orientation-independent PNG dimensions.
   The publication contract additionally binds the adaptive pass to the archived
   `18d321dbd4fe` 4096/256 tracking protocol and exact 2000/1988 source coverage.
 - `scripts/prepare_ibic2026_publication.py`: accepts only verifier-clean primary,
-  follow-up, three-block Best-N, intensity, full-buffer ridge, and raw-payload
-  audit roots; checks
-  cross-collection and hyperparameter sensitivity, rejects any retained
+  follow-up, three-block Best-N, all-training, intensity, full-buffer ridge, and raw-payload
+  audit roots; checks cross-collection transfer and all seven verified
+  hyperparameter-sensitivity runs, requires eligible knees from a strict
+  majority per plane while preserving every unavailable run and reason, rejects any retained
   intensity weighting, and materializes the exact poster/paper figures,
-  plane-specific results table, verifier-derived manuscript macros, poster
+  plane-specific results table including selected-versus-Best-1 and legacy
+  ridge-width intervals, verifier-derived manuscript macros, poster
   copy, results payload, and source hashes. The macros prevent primary-score or
-  intensity-count prose from drifting when the accepted run grid changes and
+  intensity-count or all-training outcome prose from drifting when the accepted run grid changes and
   distinguish the full Best-N curve population from the stratified
-  digitizer-disjoint validation sample.
+  digitizer-disjoint validation sample. The materializer also selects the
+  accepted H/V coverage rows from the ridge verifier, requires exact closure of
+  structural = finite + blank + bounded-edge rows, emits all eight counts as
+  manuscript macros, and derives the primary-only 12-partial/16-absence capture
+  disclosure from the corpus audit rather than treating nominal topology as
+  recorded completeness.
+- `scripts/package_publication_review.py`: copies labeled publication, report,
+  and gallery components into one lazy-loading review index. It records every
+  copied path, size, and hash, rejects unsafe or unmanifested paths, proves each
+  raster has one gallery card, and supports the same read-only verification
+  after archive transfer.
 - `scripts/finalize_ibic2026_publication.py`: final human-QA acknowledgment and
   delivery closure gate. It verifies immutable references, PDF geometry, render
-  dimensions, required sources/figures, selected-N and sensitivity payload
+  dimensions, byte identity between the named poster PNG and the authoritative
+  PDF raster, required sources/figures, selected-N, all-training, and sensitivity payload
+  majority/range/run-detail consistency,
   state, zero retained intensity effects, exact corpus-wide raw-payload audit,
-  and unresolved copy before writing
+  primary-capture and selected-ridge closure with matching poster evidence and
+  manuscript macros, unresolved copy, and read-only slide-OOXML absence of empty structural
+  placeholders. It also recomputes the poster/paper portable checksum
+  inventories, validates the fixed publication materialization-manifest schema
+  and exact output inventory, re-hashes all materialized outputs, checks poster
+  source-manifest hashes/dimensions, and verifies the delivered zero-issue
+  template-fidelity report before writing
   the complete publication inventory and compliance report.
 - `verification.py`: structural output-contract checks for completed or
   partially completed Best-BPM output directories, including required files,
@@ -446,7 +509,14 @@ Raw payload policy:
   publication payload through turn 50000. It checks the exact 120-channel,
   30-digitizer topology; advertised/on-disk counts; finite samples; long exact
   plateaus; and the producer's device-coded fallback pairs. Its report is a
-  required publication input rather than an optional diagnostic.
+  required publication input rather than an optional diagnostic. The exact
+  manifest hash, per-collection partial-capture counts, and deterministic
+  `missing_position_streams.csv` distinguish streams absent from a manifest
+  from payload files missing after capture; neither case is silently zero-filled.
+- `scripts/compare_payload_absences_to_best_n.py` joins that inventory to the
+  accepted per-spill H/V membership rows. It verifies selected cardinality and
+  records overlap by exact source key without estimating a counterfactual
+  waveform for an absent channel.
 - `capture-spills` writes `capture_index.csv` as the run-level bundle index,
   keyed by `redis_timestamp_ms` / `target_ms`, and also writes
   `capture_spill_diagnostics.csv`, `capture_stream_diagnostics.csv`,

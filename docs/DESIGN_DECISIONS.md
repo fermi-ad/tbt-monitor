@@ -404,9 +404,11 @@ Tradeoffs:
   reveal; full-stage reruns should therefore include baseline and top H/V/poster
   configs.
 - Parallel autosweep jobs improve host/GPU utilization but can increase
-  contention for a single GPU. The older autosweep may start with 2 concurrent
-  jobs and use telemetry before raising that to 3-4; this does not apply to the
-  max-N=40 evaluator.
+  contention for a single unified-memory GPU. Two concurrent jobs are the
+  current Spark ceiling and remain gated on a watchdog-bounded smoke; telemetry
+  utilization alone cannot authorize 3-4 jobs. Any higher count needs its own
+  memory qualification. This autosweep limit is separate from the max-N=40
+  evaluator contract.
 - Best-N max-N=40 evaluators run at no more than two processes on Spark's
   single GB10. Four measured processes exceeded 115 GiB of unified memory and
   made the host unresponsive. A watchdog-bounded two-process qualification
@@ -497,7 +499,9 @@ Tradeoffs:
   cached spectra with the same evolution score. That direct comparison remains
   descriptive because the original dynamic memberships reuse their selection
   windows; leakage-controlled Best-N validation carries the publication
-  inference.
+  inference. Executive text and plots must include the all-BPM rows; a stronger
+  all-BPM descriptive score forbids claiming that adaptive small sets are the
+  best aggregation method.
 - Preserve no-reliable-tune states as missing measurements, not numerical
   zeros. Fixed/control rows may have zero score with unavailable prominence
   only when explicitly flagged `NO_VISIBLE_TUNE`; held-out support is
@@ -517,6 +521,9 @@ Tradeoffs:
 - Never use legacy normalized-single versus selected Best-N as the only visual
   method contrast. Add corrected adaptive Best-1 on the same exact points and
   probability scale so selector repair and ensemble-size gain remain separate.
+  Export every adaptive N-pair metric and turn grid plus an exact-zero Best-1
+  self-control; use selected Best-N minus corrected Best-1 for the publication
+  width contrast and retain adaptive-minus-legacy only as historical context.
 - The verifier checks structural completeness without forcing line counts over
   very large CSVs by default. Large tables are checked for existence, size, and
   headers unless `--count-large-csv` is requested.
@@ -536,15 +543,28 @@ Decision:
   near the training tune. Choose the smallest non-inferior N only after blind
   agreement, channel-disjoint tune difference, selected contrast, and held-out
   contrast all pass declared margins.
+- Do not overlay conditioned near-training agreement in the poster-facing
+  Best-N validation panel. Render blind selected-versus-held-out agreement with
+  moving-block intervals on one shared zero-based H/V scale, and retain the
+  conditioned curve as a separate diagnostic image.
+- Render a criterion-by-N pass/fail matrix from the recommendation function's
+  exact gate statuses. Its all-gates row must identify every eligible N and the
+  earliest declared knee; do not infer eligibility from plotted curve shape.
+- Preserve the declared 0.02 blind-agreement, 95% selected-power, and 90%
+  held-out-power margins as the publication selector. A bounded post-selection
+  matrix may vary those margins to characterize criterion sensitivity, but it
+  must identify the declared cell and may not replace or tune the published N.
 - Collapse repeated folds within each spill before a moving-block bootstrap
   within acquisition collection. Require beam-width, fit-window, fold-seed,
   bootstrap-block-length, and cross-collection global-N sensitivity checks.
 - Execute beam 16/32/64, fit-prefix 4/8/16, and three fold seeds as seven unique
   stratified sample runs with one shared baseline. Keep this convergence matrix
   distinct from the all-row primary curve.
-- Keep a no-recommendation sensitivity run as a valid analysis outcome, but do
-  not materialize a poster or paper that claims a selected N while any declared
-  beam/fit/fold run lacks an eligible recommendation in either plane.
+- Keep a no-recommendation sensitivity run as a valid analysis outcome and
+  never coerce it into an N. Require all seven runs to verify and at least four
+  eligible recommendations per plane before materializing the full-data N.
+  Preserve each unavailable reason and print the available count and N range in
+  publication artifacts; fewer than four remains a blocking sensitivity result.
 - Fail closed on the declared full/sample cache-row counts, contiguous N and
   fold coverage, exact member cardinality and masks, purged timing, finite
   metrics, detail/summary agreement, cross-collection products, native plots,
@@ -560,14 +580,24 @@ Decision:
   Pair every subtractive legacy comparison by exact collection/spill/window
   key and refuse any row whose selected cardinality is smaller than N.
 - Preserve unsmoothed per-turn paired width, entropy, peak-bin, and shared-ridge-
-  mass contrasts as data, while limiting smoothing to labeled review curves.
-  Treat all five as pick-distribution diagnostics rather than physical-noise or
-  extraction-onset measurements.
-- Stack selected H/V turn contrasts at full publication width with one shared y
-  scale; do not shrink native axis labels into separate half-column panels.
+  mass contrasts for both legacy and every adaptive N pair as data, while
+  limiting smoothing to labeled review curves. Treat all five as pick-
+  distribution diagnostics rather than physical-noise or extraction-onset
+  measurements.
+- Stack the clean selected-Best-N-minus-corrected-Best-1 H/V turn contrasts at
+  full publication width with one shared y scale; do not shrink native axis
+  labels into separate half-column panels.
 - Persist every full-buffer generation warning and reject the ridge gallery if
   spill/window coverage, exact legacy pairing, tune-band bounds, selected
   cardinality, paired metrics, or any manifest PNG/caption is incomplete.
+- Distinguish structural windows from finite ridge picks. Preserve a blank tune
+  when no peak clears confidence, exclude bounded parabolic band-edge
+  refinements from density, and reconstruct every adaptive comparison from the
+  exact common finite-point mask. Do not impute missing picks or require a
+  constant paired count at every turn.
+- Validate figure minimum dimensions independent of orientation because the
+  paper uses landscape composites while the poster uses purpose-built portrait
+  twins. Both remain native, uncropped artifacts.
 - Map density bins to proportional inclusive pixel bounds. Floor-dividing plot
   height by tune-bin count can leave an unfilled band and make percentile
   overlays appear at the wrong tune even when the underlying rows are correct.
@@ -578,7 +608,26 @@ Decision:
 - Preserve the position-only estimator when intensity is unusable: all weighted
   methods fall back to unweighted aggregation for an all-nonfinite window, while
   a finite but empty 50% gate retains its strongest finite selected member.
-  Export both the per-window reason and per-spill fallback fraction.
+  Export both the per-window reason and per-spill fallback fraction. For N=1,
+  return the sole usable spectrum directly so weighting is an exact zero-effect
+  control rather than a numerically approximate multiply/divide identity.
+- Join every intensity density subtraction on identical exact
+  collection/spill/plane/N/window/center keys and use only common finite in-band
+  picks. Describe red/blue as higher/lower column-normalized ridge-pick
+  probability versus unweighted aggregation; absolute-P99 clipping is a
+  display choice, not evidence of physical denoising.
+- Map intensity ridge, subtraction, and binned relationship rasters with
+  proportional inclusive pixel bounds. Disclose nonzero-P98 count clipping and
+  absolute-P99 subtraction clipping in both visible or indexed figure copy.
+- Preserve an absolute 0-1 ridge-concentration view and a separate zero-based
+  view autoscaled to 110% of each panel maximum. The detail view is explicitly
+  limited to within-panel method separation.
+- Preserve crossing-turn scatter on common 0-50000 x/y axes and a separate
+  observed-range detail view. Omit unavailable crossings rather than imputing
+  zeros, and keep both views noncausal and extraction-onset agnostic.
+- Preserve lag correlations on common -1-to-1 Spearman axes and a symmetric
+  panel-detail scale. Variable detail limits may reveal shape but cannot change
+  the overlapping-window, exploratory, noncausal interpretation.
 - Require advertised and on-disk sample counts to agree for both members of
   every position/intensity pair; shorter-member truncation is not a valid way
   to hide a payload-length mismatch.
@@ -606,6 +655,9 @@ Why:
   actually performed.
 - Exact point pairing prevents missing difficult windows from masquerading as
   contrast improvement in a density-difference image.
+- Binding all intensity methods to the same spill population, selected members,
+  and contracted center grid makes that exact-pair statement independently
+  verifiable rather than an assumption about producer loop order.
 
 Tradeoffs:
 - The held-out median-power pool is a conservative internal reference, not an
@@ -614,8 +666,10 @@ Tradeoffs:
   result and no automatic knee is reported when the curves remain unresolved.
 - The 50000-turn plot holds early-selected members fixed. It tests persistence,
   not same-window dynamic reselection.
-- Ridge concentration and subtractive maps can support a claim of suppressed
-  diffuse ridge picks, but not physical noise removal or absolute tune accuracy.
+- Ridge concentration and subtractive maps can support a claim of reduced
+  diffuse ridge-pick probability, but not physical noise removal or absolute
+  tune accuracy. P98/P99 clipping is a disclosed raster-only display choice;
+  exported values remain unclipped.
 - The intensity sidecar can produce useful integrity and timing diagnostics
   even when weighting is rejected; lag and crossing plots remain exploratory.
 
@@ -641,6 +695,10 @@ Decision:
 - Treat full-pipeline `--resume` as cache reuse only. After an externally
   completed subset search, continuation scripts must invoke downstream stages
   explicitly and may not rerun the search.
+- Do not trust an unversioned completion marker across source revisions. A
+  continuation may reuse expensive science rows only after the current verifier
+  accepts them, must preserve incompatible roots instead of mixing outputs, and
+  must bind final completion to the exact source commit.
 - Verification must check primary cross-table identity and follow-up semantics,
   including shared score formulas, held-out cardinality/finite metrics, state
   transitions, plane balance, and every recommended poster PNG.
@@ -648,6 +706,32 @@ Decision:
   case counts separately. Generate those values from the accepted verifier and
   reject a final payload whose case, fold, N, or evaluation-row counts differ
   from the definitive design.
+- Keep the artifact-tool direct PNG as a geometry diagnostic. The named poster
+  PNG must instead be the byte-identical 150 dpi PDF raster so inherited
+  master-level Fermilab/DOE artwork is present in both rendered deliverables.
+- Treat empty structural placeholders as a machine-checkable final-PPTX error.
+  Parse slide OOXML read-only, distinguish placeholder shapes from ordinary
+  empty design shapes, and record the accepted zero count in the compliance
+  report.
+- Preserve layout, overflow-inspection, font, and zero-issue template-fidelity
+  evidence beside the poster deliverables. Use package-relative checksum labels
+  for poster and paper manifests and recompute their exact inventories during
+  finalization rather than trusting a file merely because it exists.
+- Treat the publication-level materialization manifest the same way: record the
+  exact numerical source-table hashes, require one fixed safe output inventory,
+  and re-hash every materialized content, table, payload, report, and figure at
+  finalization. Manifest-file presence alone is not provenance verification.
+- Derive capture-completeness prose from the accepted audit's collection split.
+  The 2000-spill primary analysis has a nominal 60 H plus 60 V topology but 16
+  explicit source absences across 12 partial captures; the additional intensity
+  collection brings the corpus-wide totals to 17 absences across 13 captures.
+- Derive selected full-buffer coverage from the strict ridge verifier. Require
+  exact structural-row closure and publish finite, blank-confidence, and
+  bounded edge-exclusion counts for each plane. A column-normalized ridge map
+  cannot by itself establish equal finite-pick coverage across H and V.
+- Finalization must compare these payload values with structured poster evidence
+  and exact generated LaTeX macro definitions, then preserve the accepted
+  counts in the compliance report.
 
 Why:
 - Correct filenames and valid CSV headers do not prove that a figure visualizes
@@ -656,6 +740,20 @@ Why:
   handoff structure where no channel passed the visibility threshold.
 - Repeating a multi-hour search after completion wastes scarce GPU time and can
   overwrite a validated result with a parameter-drifted rerun.
+- Artifact-tool preserves master media in the editable PPTX but does not render
+  that media in its direct slide PNG. A PDF-derived final PNG avoids presenting
+  a brand-incomplete preview as the poster deliverable.
+- A one-off manual XML inspection does not protect a later poster rebuild;
+  binding the same check into finalization keeps editable-source and rendered
+  acceptance criteria aligned.
+- Scratch-only QA reports and unchecked absolute-path manifests do not survive
+  artifact handoff as auditable evidence. Portable labels plus recomputation
+  make the copied review package independently interpretable.
+- A checksummed CSV that is never parsed cannot detect stale or modified
+  materialized outputs; the hashes must be checked against current bytes.
+- Nominal detector topology is not the same as recorded per-spill completeness,
+  and normalized density color is not a substitute for reporting its finite
+  support population.
 
 Tradeoffs:
 - Semantic verification reads more small/medium tables and intentionally fails
@@ -674,9 +772,10 @@ Decision:
 - Scan every publication raw stream through turn 50000 independently of the
   spectral analysis. Reject nonfinite samples, byte/sample-count drift, exact
   plateaus of at least 128 turns, and repeated device-coded fallback pairs.
-- Require the exact 2200-manifest, 263999-position-row, 23999-paired-row report
-  in publication materialization and finalization. Report the known incomplete
-  intensity manifest rather than silently normalizing it away.
+- Require the exact 2200-manifest, 263983-captured-position-row,
+  23999-paired-row report in publication materialization and finalization. Bind
+  the manifest hash, per-collection partial-capture topology, and all 17 absent
+  stream identities rather than silently normalizing or zero-filling them.
 
 Why:
 - Finite sentinels can evade ordinary numerical plausibility checks and create
@@ -689,6 +788,39 @@ Tradeoffs:
 - The audit rereads roughly 264000 first-50000-turn payload slices and adds a
   serial I/O pass. It does not alter source data and is cheaper than accepting
   an untraceable publication artifact.
+
+## DD-025: Compare Best-N with all channels under the identical held-out protocol
+
+Decision:
+- Do not use the reused-window all-BPM evolution score to claim that a selected
+  small ensemble is better or worse than all-channel aggregation.
+- After the accepted Best-N block-20 merge chooses H and V, replay its exact
+  validation cache keys, fit prefix, overlapping-window purge, digitizer folds,
+  tune tolerance, and moving-block length. Aggregate every training-side channel
+  by both mean and median, while leaving the held-out digitizers untouched.
+- Collapse folds within each spill before paired inference. Compare blind
+  agreement by mean and blind absolute tune error, later prominence, and later
+  power by median. Classify a method only when the paired collection-preserving
+  block interval excludes zero in the metric's favorable direction.
+- Treat `SELECTED_FAVORED`, `BASELINE_FAVORED`, and `UNRESOLVED` as equally valid
+  scientific outputs. Bind all 16 outcomes and their 18 native review PNGs into
+  publication preparation; do not change the predeclared Best-N selector after
+  observing this control.
+
+Why:
+- The descriptive all-BPM control reused selection windows and scored a
+  different question. A same-protocol training-side aggregate isolates member
+  selection from sample, timing, and held-out-reference differences.
+- Literal all-60 aggregation would consume the channels needed as an independent
+  fold reference. "All training channels" is the maximum fair baseline for this
+  internal validation design.
+- Raw-unit paired scatters preserve scale and outliers; sign-oriented CDFs make
+  the lower-is-better tune-error direction explicit without mixing metric units.
+
+Tradeoffs:
+- This adds a serial CPU/cache pass and roughly 18 review images, but no new
+  waveform FFT or GPU search. It still establishes only internal reproducibility,
+  not tune accuracy against Schottky or another external instrument.
 
 ## Decision Update Rule
 

@@ -1,144 +1,156 @@
-# Current Publication Handoff
+# Current Status
 
-Last updated: 2026-07-10 03:12 CDT.
+Last updated: 2026-07-11.
 
-This file records the live publication run state. Permanent behavior and
-rationale remain in `docs/ARCHITECTURE.md`, `docs/DESIGN_DECISIONS.md`, and
-`docs/PHYSICS.md`.
+## Executive Status
 
-## Active Objective
+The IBIC 2026 analysis and publication artifacts are scientifically and
+technically complete. The accepted source-bound Spark materialization selects
+H Best-5 and V Best-12, the Fermilab-template A0 poster and four-page JACoW
+paper are built from those exact outputs, and the final publication audit
+passes.
 
-Complete every publication requirement in `NEXT_STEPS.md`, then deliver and
-locally package:
+The result is strong enough for the poster when stated as an internal BPM
+reproducibility result. It does not establish absolute tune accuracy. The
+vertical plane has the clearest digitizer-disjoint support. Horizontal evidence
+is weaker and loses concentration earlier, but selected Best-5 produces a
+narrower corrected-Best-1 ridge-pick distribution. The V Best-12 ridge width is
+slightly broader than corrected Best-1, so the publication does not call the
+ensemble a universal denoiser.
 
-- a corrected, verifier-clean Best-1/3/5 analysis and all downstream sidecars,
-- a leakage-controlled contiguous Best-N study with convergence and sensitivity
-  evidence,
-- the corrected 200-spill intensity test,
-- the exact-paired 50000-turn legacy-versus-adaptive ridge gallery,
-- an editable Fermilab-template A0 poster and rendered PDF/PNG,
-- a four-page JACoW IBIC2026 paper and rendered PDF,
-- scoped merged PRs and a clean repository.
+Repository presentation closeout is complete. The checksummed local review
+bundle is under `review-artifacts/final-ibic2026-review-20260711`, PR #53 is the
+scoped merge vehicle, and the superseded autosweep branch/worktree and preserved
+handoff stash are removed only after their equivalence checks.
 
-## Corrected Spark Run
+## Accepted Results
 
-```text
-post-run code: /home/derekste/tbt-monitor-publication-code-20260710-final
-root: /home/derekste/best_bpm_mining_20260709_corrected_best135
-python: /home/derekste/venvs/cupy-spark-cu13/bin/python
-data: two 1000-spill position-only collections, 120 exact channels
-```
+- Selected ensemble sizes: H Best-5; V Best-12.
+- Full Best-N curve: 4,000 spill-plane cases through N=40.
+- Digitizer-disjoint validation: 1,000 stratified cases across five folds.
+- Cross-collection transfer: 4/4 rows accepted.
+- Reduced-sample sensitivity: H eligible in 5/7 runs over N=2-13; V eligible
+  in 6/7 over N=10-28. Unresolved runs remain visible evidence.
+- H selected Best-5 minus corrected Best-1 ridge IQR:
+  `-0.00243472`, 95% interval `[-0.00307726, -0.00192525]`.
+- V selected Best-12 minus corrected Best-1 ridge IQR:
+  `+0.00102365`, 95% interval `[0.00038709, 0.00165424]`.
+- Same-protocol selected/all-training/unresolved comparisons: H `2/3/3`; V
+  `3/3/2`. The all-training baseline remains explicit.
+- Intensity study: 240 paired effects; 0 FDR-significant, 0 practically
+  retained, and 0 weighting effects accepted.
+- Horizontal tracking-loss candidates: 5,632/5,760, retained only as a
+  turn-dependent noncausal diagnostic. No fixed extraction-onset turn is used.
 
-The active subset process was launched from the earlier staged code tree. The
-corrected Best-1/3/5 subset phase is active on one NVIDIA GB10 with four
-workers. Do not launch another GPU-heavy pass or alter this root until that phase
-finishes. After completion, extract the staged code archive into the new empty
-code directory, run the full
-59-test Python suite on Spark, repair only the visibility-duration field, run
-the canonical downstream phases explicitly, and then run the corrected
-fixed/held-out/artifact/handoff sidecars and verifiers. Do not invoke the full
-pipeline with `--resume`: that flag reuses caches but does not skip completed
-subset search.
+## Data Coverage
 
-A bounded probe at 01:25 CDT showed all shards at 49.3-50.4% and advancing,
-with 95% GPU utilization, 38.39 W power draw, and an observed-rate completion
-estimate near 06:45 CDT.
-The single-instance continuation watcher is active as PID `778510`; it waits for
-the parent and every subset-search worker before running the corrected downstream
-chain. The frozen source tree passed all 59 repository Python tests before
-archive construction. The regenerated archive will be clean-extracted and
-retested, then extracted into the new `20260710-final` code directory rather
-than overlaid on the earlier tree. Its local and remote SHA-256 values must be
-recorded in the transfer verification output before the watcher reaches the
-continuation; an archive cannot contain its own stable checksum.
-The exact 142 MB legacy `gpu_sliding_tune.csv` is
-already on Spark under the `18d321db` combined output; `ssh -K drbpm1` remains
-available only if another source artifact must be recovered.
+- Primary captures: 2,000 spills, nominally 60 H plus 60 V channels.
+- Primary completeness: 12 flagged partial captures and 16 source absences.
+- Full payload audit: 2,200 manifests, 263,983 position rows, 23,999 exact
+  position/intensity pairs, 13 partial captures, and 17 recorded absences.
+- Every audited first-50,000-turn raw payload passes finite-data, plateau, and
+  device-coded fallback checks.
+- Selected full-buffer structural rows per plane: 360,000.
+- H Best-5 ridge picks: 359,018 finite, 14 blank, 968 bounded edge exclusions.
+- V Best-12 ridge picks: 289,210 finite, 69,684 blank, 1,106 bounded edge
+  exclusions.
+- No absent primary source intersects accepted selected membership.
 
-## Publication Audit Findings
+## Publication Artifacts
 
-The June downstream figures are provisional because the audit found:
+Poster:
 
-1. ambiguous same-digitizer sibling-channel labels in downstream reconstruction,
-2. ring order parsed from the first IP-address number, disabling ring span,
-3. a legacy normalized-single selector decided by floating-point residuals after
-   RMS normalization,
-4. a fixed-vs-dynamic plot that mixed two unrelated score definitions,
-5. a curated eight-example poster cap filled entirely by V before H was
-   considered,
-6. an intensity gate that could zero every selected member in a window,
-7. visibility duration exported as the complete fit span whenever any fit
-   window was visible,
-8. several global plots that reused an unrelated inclusion-bar series, a
-   cluster-score panel that could be blank, and Pareto/ring axes sourced from
-   N/local index instead of compute cost/token ring order, and
-9. a continuation command that would rerun subset search despite `--resume`,
-   and
-10. a 10,000-draw permutation configuration silently capped at 5,000 executed
-    draws.
+- Editable PPTX:
+  `publication/ibic2026/poster/build/ibic2026-abstract54-poster.pptx`
+- A0 PDF:
+  `publication/ibic2026/poster/build/ibic2026-abstract54-poster.pdf`
+- Full-size 150 dpi PNG:
+  `publication/ibic2026/poster/build/ibic2026-abstract54-poster.png`
+- Geometry: one `2383.26 x 3369.63 pt` page; PNG `4966 x 7021`.
+- QA: zero overflow, zero template-fidelity issues, zero empty structural
+  placeholders, exact portable source/deliverable manifests, embedded/subset
+  fonts, and native-scale visual inspection passed.
 
-Corrected code uses exact source keys and masks, token-derived ring order,
-same-metric direct controls, a plane-balanced shortlist, and a nonempty gate
-fallback. All weighted methods also use an explicit unweighted fallback when a
-window has no usable selected intensity. Block inference is non-circular within
-each acquisition collection, and configured permutation draw counts are
-executed without a hidden upper cap. The visibility repair exactly reproduces the
-canonical cache and changes only duration, with before/after hashes. Scientific
-plots now use their named source tables and deterministic native PNG rendering;
-semantic verification rejects placeholder, blank, invalid-transition, or
-single-plane poster artifacts.
+Paper:
 
-## Evidence Protocol
+- Source: `publication/ibic2026/paper/ABSTRACT54.tex`
+- Final PDF: `publication/ibic2026/paper/build/ABSTRACT54.pdf`
+- Geometry: exactly four `595 x 792 bp` pages.
+- QA: no overfull boxes or unresolved references; all fonts are embedded,
+  subset, and Unicode-mapped; all four final renders passed visual inspection.
 
-- Best-N selects on a fit-window prefix, purges every overlap, tests later, and
-  validates against complete held-out digitizers.
-- The primary agreement metric is blind full-band selected-versus-held-out tune
-  agreement. Conditioned support is reported separately.
-- Beam width, fit-window count, fold seed, bootstrap block length, and
-  cross-collection global-N transfer are required sensitivity checks.
-- A seven-run shared-baseline sample matrix and strict Best-N verifier are now
-  implemented locally. The verifier requires exact N/fold coverage, identities,
-  purged timing, finite metrics, matching summaries, transfer/plot products,
-  and three larger N values beyond any recommendation.
-- Best-N, intensity, and ridge passes write checksummed run contracts before
-  science rows. Parameter-changing resume, incomplete or incompatible shard
-  sets, and duplicate cross-shard keys fail closed.
-- Primary and follow-up verification reconstruct exact result identities,
-  memberships, fixed/held-out controls, handoff transitions, and poster PNG
-  payloads rather than treating file existence as sufficient evidence.
-- Intensity is never multiplied into position. Retention requires FDR evidence,
-  a minimum practical effect, median tune stability, 95% spillwise tune
-  stability, and agreement at 10/20/40-spill block lengths.
-- Ridge subtraction is exact-point-paired probability redistribution, not
-  physical noise removal. H-loss diagnostics do not impose an extraction-onset
-  turn.
-- Every requested N receives a wide, shared-scale H/V-by-method ridge composite
-  sized for the inherited A0 poster frame and two-column paper, while all
-  single-plane, subtraction, count, and sample-fraction diagnostics remain in
-  the review gallery.
+Binding and compliance:
 
-## Access And Handoff
+- Machine-readable result payload:
+  `publication/ibic2026/results_payload.json`
+- Source materialization inventory:
+  `publication/ibic2026/source_manifest.csv`
+- Final compliance report:
+  `publication/ibic2026/compliance_report.md`
+- Complete 69-file publication inventory:
+  `publication/ibic2026/publication_manifest.csv`
+- Accepted abstract and Fermilab POTX hashes are rechecked by the finalizer.
 
-- Local to Spark: use the configured `spark` alias with bounded SSH options and
-  `ClearAllForwardings=yes`; the alias uses `ProxyJump outland.fnal.gov`.
-- Spark to raw capture host: delegated Kerberos works with `ssh -K drbpm1`.
-- Spark internet/package downloads must use the established outland proxy or be
-  staged through outland; do not point `pip` directly at the internet.
-- Package artifacts on their source host first, then copy the simplest complete
-  directory/archive locally.
+## Visual Interpretation
 
-## Current Local Validation
+The favorite legacy H/V ridge images are densities of one continuity-tracked
+tune-ridge pick per spill and sliding window, not spectral-power heat maps.
+Color is cross-spill ridge-pick count or normalized probability; white curves
+are cross-spill percentile tracks. Their historical selector was effectively a
+floating-point residual winner after per-BPM RMS normalization, so it is labeled
+`legacy normalized-single`, not `best BPM`.
 
-```text
-Python tests: 59 run, 53 passed, 6 process-pool tests skipped by local sandbox
-Focused publication tests: 50 run, 44 passed, same 6 local sandbox skips
-Rust tests: 44 passed
-GPU analyzer self-test: passed
-poster/DGX self-test: passed
-git diff --check: passed
-clean-extracted source archive: same 59 Python tests and 44 Rust tests passed
-JACoW draft: unchanged official class compiles with Tectonic and official TeX Gyre Termes fonts; current text-only scaffold is 3 A4 pages and visually clean
-```
+The wide legacy-versus-selected panel is useful as a visual anchor but combines
+selector repair with ensemble size. The corrected-Best-1-versus-selected width
+panel is the isolating ensemble-size comparison. Difference colors represent
+exact-paired ridge-pick probability redistribution, not removed physical noise.
 
-The six process-pool probes must pass on Spark. No final physics claim, poster
-panel, or paper number may come from a provisional June downstream artifact.
+## Verification
+
+- Exact e433 source: all 81 Best-BPM tests pass on Spark.
+- Local Best-BPM suite: completes with six expected process-pool sandbox skips.
+- Autosweep tests: 9/9 pass.
+- Rust tests: 44/44 pass.
+- GPU analyzer and poster/DGX self-tests: pass.
+- Autosweep v2 acceptance smoke: 6/6 jobs; exactly two analyzer-bound PIDs;
+  3.927 seconds of overlap; memory floor preserved.
+- Spark publication preparation: selected H/V sizes `5/12`, 49 copied files,
+  exact source hashes, and 14 required materialized outputs.
+- Publication finalizer: 69 files verified and inventoried.
+- `git diff --check`: pass before closeout.
+
+## Claim Boundary
+
+The accepted publication claim is:
+
+> Adaptive BPM ensembles recover internally repeatable tune-like structure,
+> with the strongest channel-disjoint evidence in V and a measurable H
+> concentration gain relative to corrected Best-1.
+
+Do not claim:
+
+- absolute or externally calibrated tune accuracy,
+- physical noise removal from subtractive density plots,
+- a universal Best-N advantage over all-training aggregation,
+- causal extraction timing or a fixed extraction-onset turn,
+- that unavailable ridge picks are zero-valued measurements.
+
+External Schottky/tune-meter comparison, controlled tune-knob scans, and
+machine-state labels remain future validation work rather than blockers for the
+BPM-only IBIC poster.
+
+## Handoff State
+
+- Publication branch: `dev/ibic2026-final-delivery` (merged through PR #53).
+- Source-bound publication commit: `e43348318b6ff96b7570181e2eedda2737a4b3c9`.
+- Publication PR: #53.
+- Spark materialization archive SHA-256:
+  `6cb27a5c36fa738861590f97884f3d1dfdf2dad8231b2c3e55b79892d2cffc4d`.
+- Complete accepted Spark review package is local under
+  `review-artifacts/spark-final-e5707035/` and independently verifies.
+- Final local review package:
+  `review-artifacts/final-ibic2026-review-20260711` plus its `.tar.gz` archive,
+  archive SHA-256 sidecar, and package verification receipt.
+- Final repository state: `main` synchronized with `origin/main`; superseded
+  autosweep branch/worktree and the preserved Task-F stash removed after the
+  documented equivalence audit.

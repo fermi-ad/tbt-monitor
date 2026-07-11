@@ -73,14 +73,25 @@ position-only collections and the 200-spill intensity capture. A passing report
 must contain exactly:
 
 - 2200 manifests;
-- 263999 raw position rows;
+- 263983 captured raw position rows;
 - 23999 exact raw position/intensity pairs;
 - three complete union topologies of 120 channels, 60 H plus 60 V, on 30
   digitizers with two channels per plane;
+- 17 manifest-level absent position streams across 13 explicitly partial
+  captures, enumerated and hash-bound in `missing_position_streams.csv`;
 - zero first-50000-turn nonfinite samples, sample-count mismatches, exact
   plateaus of at least 128 turns, or repeated device-coded raw fallback pairs.
 
-The one incomplete intensity manifest is reported as a warning and remains in
-the accepted row-count contract. Source payloads are read-only. A failed audit
+The exact partial-capture distribution is five manifests in the first
+position-only collection, seven in the second, and one in the intensity
+collection. The 17 absent streams are not missing payload files: they were
+omitted from manifests that already record `Partial` capture state. None of the
+16 position-only absences intersects the accepted per-spill H Best-5 or V
+Best-12 membership. That join is preserved by
+`scripts/compare_payload_absences_to_best_n.py` with source-table and output
+hashes. Accordingly, publication prose about the 2000-spill primary analysis
+uses the first two collections' 12 partial captures and 16 absences; corpus-wide
+integrity prose retains the full three-collection 13/17 totals. Source payloads
+are read-only. A failed audit
 blocks intensity interpretation, the full-buffer ridge gallery, and final
 poster/paper materialization.

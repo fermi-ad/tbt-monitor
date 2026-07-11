@@ -13,7 +13,7 @@ from typing import Mapping, Sequence
 
 import numpy as np
 
-from bpm_mining.contracts import manifest_inventory_sha256
+from bpm_mining.contracts import file_sha256, manifest_inventory_sha256
 from bpm_mining.identity import channel_token
 from bpm_mining.io import atomic_write_text, discover_manifests, safe_payload_path, write_csv
 from bpm_mining.payload_integrity import device_fallback_values, longest_finite_exact_run, longest_true_run
@@ -51,6 +51,22 @@ ROW_FIELDS = (
     "fallback_pair_longest_run_start",
     "fallback_pair_longest_run_turns",
     "quality_flags",
+)
+
+MISSING_POSITION_FIELDS = (
+    "collection",
+    "spill_id",
+    "manifest_path",
+    "capture_status",
+    "reported_missing_streams",
+    "captured_position_streams",
+    "expected_position_streams",
+    "missing_position_stream_count",
+    "missing_position_source_key",
+    "plane",
+    "channel",
+    "digitizer",
+    "warnings",
 )
 
 
@@ -251,6 +267,7 @@ def audit(
         raise ValueError("no capture manifests found")
     rows: list[dict[str, object]] = []
     topology_by_collection: dict[str, set[tuple[str, str, str]]] = defaultdict(set)
+    manifest_topologies: list[tuple[Path, str, set[tuple[str, str, str]]]] = []
     manifest_counts: Counter[str] = Counter()
     position_counts: dict[str, list[int]] = defaultdict(list)
     for index, manifest in enumerate(manifests, start=1):
@@ -258,6 +275,7 @@ def audit(
         collection = manifest.parent.parent.name
         rows.extend(manifest_rows)
         topology_by_collection[collection].update(topology)
+        manifest_topologies.append((manifest, collection, topology))
         manifest_counts[collection] += 1
         position_counts[collection].append(len(manifest_rows))
         if progress_every and (index % progress_every == 0 or index == len(manifests)):
@@ -299,6 +317,36 @@ def audit(
         if bad_digitizers:
             topology_errors.append(collection)
 
+    missing_position_rows: list[dict[str, object]] = []
+    for manifest, collection, topology in manifest_topologies:
+        expected_topology = topology_by_collection[collection]
+        missing = sorted(expected_topology - topology)
+        if not missing:
+            continue
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+        diagnostics = data.get("capture_diagnostics")
+        diagnostics = diagnostics if isinstance(diagnostics, Mapping) else {}
+        warnings = data.get("warnings")
+        warnings = warnings if isinstance(warnings, list) else []
+        for source_key, plane, digitizer in missing:
+            missing_position_rows.append(
+                {
+                    "collection": collection,
+                    "spill_id": manifest.parent.name,
+                    "manifest_path": str(manifest.resolve()),
+                    "capture_status": str(diagnostics.get("status") or ""),
+                    "reported_missing_streams": int(diagnostics.get("missing_streams") or 0),
+                    "captured_position_streams": len(topology),
+                    "expected_position_streams": len(expected_topology),
+                    "missing_position_stream_count": len(missing),
+                    "missing_position_source_key": source_key,
+                    "plane": plane,
+                    "channel": channel_token(source_key),
+                    "digitizer": digitizer,
+                    "warnings": " | ".join(map(str, warnings)),
+                }
+            )
+
     flagged = [row for row in rows if row["quality_flags"]]
     flag_counts: Counter[str] = Counter()
     for row in flagged:
@@ -314,6 +362,7 @@ def audit(
         "stream_rows": len(rows),
         "paired_stream_rows": sum(bool(row["intensity_source_key"]) for row in rows),
         "incomplete_manifests": incomplete_manifests,
+        "missing_position_stream_rows": len(missing_position_rows),
         "flagged_rows": len(flagged),
         "position_plateau_rows": flag_counts["LONG_EXACT_POSITION_PLATEAU"],
         "paired_plateau_rows": flag_counts["LONG_EXACT_PAIRED_PLATEAU"],
@@ -324,7 +373,18 @@ def audit(
         "topology": topology_reports,
     }
     rows.sort(key=lambda row: (str(row["collection"]), str(row["spill_id"]), str(row["plane"]), str(row["channel"])))
+    missing_position_rows.sort(
+        key=lambda row: (
+            str(row["collection"]),
+            str(row["spill_id"]),
+            str(row["plane"]),
+            str(row["channel"]),
+        )
+    )
     write_csv(out / "delivery_ring_payload_rows.csv", rows, ROW_FIELDS)
+    missing_path = out / "missing_position_streams.csv"
+    write_csv(missing_path, missing_position_rows, MISSING_POSITION_FIELDS)
+    report["missing_position_stream_inventory_sha256"] = file_sha256(missing_path)
     atomic_write_text(out / "delivery_ring_payload_audit.json", json.dumps(report, indent=2, sort_keys=True) + "\n")
     lines = [
         "# Delivery Ring Raw Payload Audit",
@@ -339,6 +399,7 @@ def audit(
         f"- flagged rows: `{report['flagged_rows']}`",
         f"- raw device-coded fallback pair rows: `{report['raw_device_fallback_pair_rows']}`",
         f"- incomplete 120-channel manifests: `{incomplete_manifests}` (reported, not silently dropped)",
+        f"- manifest-level absent position streams: `{len(missing_position_rows)}` (enumerated in `missing_position_streams.csv`)",
         "",
         "The scan treats any nonfinite first-50k sample, count mismatch, long exact raw plateau, or repeated device-coded position/intensity fallback pair as a publication-blocking error. A missing channel manifest is reported separately because the analysis contracts define the accepted spill and pair counts.",
         "",

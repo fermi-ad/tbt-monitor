@@ -164,6 +164,7 @@ def main() -> int:
     parser.add_argument("--root", type=Path, required=True, help="Canonical Best-BPM run root")
     parser.add_argument("--followup", type=Path, required=True, help="NEXT_STEPS sidecar root")
     parser.add_argument("--best-n", type=Path, default=None, help="optional merged leakage-controlled Best-N root")
+    parser.add_argument("--all-training", type=Path, default=None, help="optional leakage-controlled all-training root")
     parser.add_argument("--ridge", type=Path, default=None, help="optional full-buffer ridge-density output root")
     parser.add_argument("--intensity", type=Path, default=None, help="optional merged block-aware intensity-study root")
     parser.add_argument("--sensitivity", type=Path, action="append", default=[], help="optional Best-N sensitivity output root; repeat as needed")
@@ -179,6 +180,13 @@ def main() -> int:
     ]
     if args.best_n:
         verification_reports.append(require_verification(args.best_n / "best_n_verification.json", {"pass"}))
+    if args.all_training:
+        verification_reports.append(
+            require_verification(
+                args.all_training / "best_n_all_training_verification.json",
+                {"pass"},
+            )
+        )
     if args.ridge:
         verification_reports.append(require_verification(args.ridge / "ridge_density_verification.json", {"pass"}))
     if args.intensity:
@@ -215,11 +223,19 @@ def main() -> int:
 
     best_n_summary = read_rows(args.best_n / "best_n_summary.csv") if args.best_n else []
     best_n_transfer = read_rows(args.best_n / "best_n_cross_collection_transfer.csv") if args.best_n else []
+    all_training_comparisons = (
+        read_rows(args.all_training / "best_n_vs_all_training_comparison.csv")
+        if args.all_training
+        else []
+    )
     best_n_tune_half_width = 0.0025
     if args.best_n:
         best_n_contract = json.loads((args.best_n / "run_contract.json").read_text(encoding="utf-8"))
         best_n_tune_half_width = float(best_n_contract.get("tune_half_width", best_n_tune_half_width))
     sensitivity_recommendations: list[dict[str, str]] = []
+    sensitivity_values: dict[str, list[int]] = {"H": [], "V": []}
+    sensitivity_unavailable: dict[str, int] = {"H": 0, "V": 0}
+    sensitivity_run_count = 0
     for sensitivity_root in args.sensitivity:
         run_manifest = read_rows(sensitivity_root / "sensitivity_run_manifest.csv")
         run_identities = {
@@ -230,12 +246,27 @@ def main() -> int:
             raise ValueError(
                 f"Best-N sensitivity matrix must contain seven unique verified runs: {sensitivity_root}"
             )
+        for manifest_row in run_manifest:
+            sensitivity_run_count += 1
+            run_root = Path(manifest_row.get("output", ""))
+            if not run_root.is_dir():
+                run_root = sensitivity_root / "runs" / manifest_row.get("run", "")
+            run_summary = read_rows(run_root / "best_n_summary.csv")
+            run_contract = json.loads((run_root / "run_contract.json").read_text(encoding="utf-8"))
+            run_tolerance = float(run_contract.get("tune_half_width") or best_n_tune_half_width)
+            for plane in ("H", "V"):
+                selected, _reason = recommended_n(run_summary, plane, run_tolerance)
+                if selected is None:
+                    sensitivity_unavailable[plane] += 1
+                else:
+                    sensitivity_values[plane].append(int(selected["subset_size"]))
         recommendation_files = sorted(sensitivity_root.rglob("best_n_*_recommendations.csv"))
         if not recommendation_files:
             MISSING_INPUTS.add(str(sensitivity_root / "best_n_*_recommendations.csv"))
         for path in recommendation_files:
             sensitivity_recommendations.extend(read_rows(path))
     ridge_legacy = read_rows(args.ridge / "ridge_density_legacy_comparison_metrics.csv") if args.ridge else []
+    ridge_adaptive = read_rows(args.ridge / "ridge_density_adaptive_pair_comparison_metrics.csv") if args.ridge else []
     ridge_loss = read_rows(args.ridge / "ridge_density_loss_candidates.csv") if args.ridge else []
     ridge_manifest = read_rows(args.ridge / "ridge_density_best_ensemble_manifest.csv") if args.ridge else []
     intensity_effects = read_rows(args.intensity / "intensity_method_effects.csv") if args.intensity else []
@@ -263,10 +294,12 @@ def main() -> int:
     ]
     if args.best_n:
         evidence_rows.extend([["Best-N summary rows", len(best_n_summary)], ["Best-N transfer rows", len(best_n_transfer)]])
+    if args.all_training:
+        evidence_rows.append(["Best-N versus all-training comparisons", len(all_training_comparisons)])
     if args.sensitivity:
         evidence_rows.append(["Best-N sensitivity recommendation rows", len(sensitivity_recommendations)])
     if args.ridge:
-        evidence_rows.extend([["ridge legacy comparison rows", len(ridge_legacy)], ["ridge loss rows", len(ridge_loss)], ["ridge figures", len(ridge_manifest)]])
+        evidence_rows.extend([["ridge legacy comparison rows", len(ridge_legacy)], ["ridge adaptive-pair comparison rows", len(ridge_adaptive)], ["ridge loss rows", len(ridge_loss)], ["ridge figures", len(ridge_manifest)]])
     if args.intensity:
         evidence_rows.extend([["intensity effect tests", len(intensity_effects)], ["intensity correlation summary rows", len(intensity_correlations)]])
     lines.extend(md_table(["Surface", "Rows / files"], evidence_rows))
@@ -278,6 +311,88 @@ def main() -> int:
         lines.append("")
         lines.append("Report guardrails:")
         lines.extend(f"- {warning}." for warning in REPORT_WARNINGS)
+    lines.append("")
+
+    lines.append("## Executive Summary")
+    selected_best_n: dict[str, dict[str, str]] = {}
+    if args.best_n:
+        for plane in ("H", "V"):
+            chosen, rationale = recommended_n(best_n_summary, plane, best_n_tune_half_width)
+            if chosen is None:
+                lines.append(f"- **{plane} Best-N remains unresolved:** {rationale}.")
+            else:
+                selected_best_n[plane] = chosen
+                lines.append(
+                    f"- **{plane} recommendation: Best-{chosen.get('subset_size', '')}.** {rationale}."
+                )
+        transfer_ok = len(best_n_transfer) == 4 and all(
+            row.get("status") == "OK" for row in best_n_transfer
+        )
+        lines.append(
+            f"- **Cross-collection transfer:** {'four of four rows pass' if transfer_ok else 'not fully resolved'}."
+        )
+        if args.sensitivity:
+            for plane in ("H", "V"):
+                values = sensitivity_values[plane]
+                value_range = f"Best-{min(values)} to Best-{max(values)}" if values else "none"
+                lines.append(
+                    f"- **{plane} beam/fit/fold sensitivity:** {len(values)}/{sensitivity_run_count} runs "
+                    f"produce eligible knees ({value_range}); {sensitivity_unavailable[plane]} unresolved."
+                )
+    if args.all_training:
+        for plane in ("H", "V"):
+            counts = Counter(
+                row.get("result", "")
+                for row in all_training_comparisons
+                if row.get("plane") == plane
+            )
+            lines.append(
+                f"- **{plane} same-protocol all-training control:** selected Best-N favored in "
+                f"{counts['SELECTED_FAVORED']}/8 comparisons, all-training favored in "
+                f"{counts['BASELINE_FAVORED']}/8, unresolved in {counts['UNRESOLVED']}/8."
+            )
+    if args.ridge and selected_best_n:
+        adaptive_by_key = {
+            (
+                row.get("plane", ""),
+                row.get("baseline_subset_size", ""),
+                row.get("ensemble_subset_size", ""),
+            ): row
+            for row in ridge_adaptive
+        }
+        for plane in ("H", "V"):
+            if plane not in selected_best_n:
+                continue
+            selected_n = str(selected_best_n[plane].get("subset_size", ""))
+            row = adaptive_by_key.get((plane, "1", selected_n))
+            if not row:
+                lines.append(f"- **{plane} full-buffer ensemble-size contrast:** missing.")
+                continue
+            low = fnum(row.get("median_iqr_delta_ci_low"))
+            high = fnum(row.get("median_iqr_delta_ci_high"))
+            delta = fnum(row.get("median_iqr_delta_ensemble_minus_baseline"))
+            if high is not None and high < 0:
+                disposition = "narrower than corrected Best-1"
+            elif low is not None and low > 0:
+                disposition = "broader than corrected Best-1"
+            else:
+                disposition = "not resolved from corrected Best-1"
+            lines.append(
+                f"- **{plane} full-buffer ensemble-size contrast:** Best-{selected_n} is {disposition}; "
+                f"median IQR delta {fmt(delta, 5)} [{fmt(low, 5)}, {fmt(high, 5)}] over turn blocks."
+            )
+    if args.intensity:
+        retained_count = sum(
+            row.get("retain_method_for_tune_analysis") == "true"
+            for row in intensity_effects
+        )
+        lines.append(
+            f"- **Intensity decision:** {'reject intensity weighting for tune aggregation' if retained_count == 0 else 'retain at least one intensity weighting effect'} "
+            f"({retained_count}/{len(intensity_effects)} retained effects)."
+        )
+    lines.append(
+        "- **Claim boundary:** results establish BPM-only internal reproducibility and ridge-pick concentration, not absolute tune accuracy, physical denoising, or extraction onset."
+    )
     lines.append("")
 
     lines.append("## Main Conclusions")
@@ -326,6 +441,38 @@ def main() -> int:
                 f"on `{best_fixed.get('test_collection', '')}` versus matched adaptive "
                 f"{fmt(fnum(matched_dynamic.get('median_score')), 5) if matched_dynamic else 'NA'}. "
                 "This direct control is descriptive because adaptive membership selection reused these windows."
+            )
+
+        all_bpm_ranked = sorted(
+            [row for row in control_plane if str(row.get("method", "")).startswith("all_bpm_")],
+            key=lambda row: fnum(row.get("median_score"))
+            if fnum(row.get("median_score")) is not None
+            else -math.inf,
+            reverse=True,
+        )
+        if all_bpm_ranked:
+            best_all_bpm = all_bpm_ranked[0]
+            same_test_dynamic = [
+                row
+                for row in control_plane
+                if str(row.get("method", "")).startswith("dynamic_")
+                and row.get("test_collection") == best_all_bpm.get("test_collection")
+            ]
+            best_dynamic = max(
+                same_test_dynamic,
+                key=lambda row: fnum(row.get("median_score"))
+                if fnum(row.get("median_score")) is not None
+                else -math.inf,
+                default=None,
+            )
+            lines.append(
+                f"- **{plane} strongest same-metric all-BPM control:** "
+                f"`{best_all_bpm.get('method', '')}` median score "
+                f"{fmt(fnum(best_all_bpm.get('median_score')), 5)} on "
+                f"`{best_all_bpm.get('test_collection', '')}` versus strongest matched adaptive "
+                f"`{best_dynamic.get('method', '') if best_dynamic else 'NA'}` "
+                f"{fmt(fnum(best_dynamic.get('median_score')), 5) if best_dynamic else 'NA'}. "
+                "This reused-window control cannot establish adaptive superiority; the separate same-protocol all-training result is authoritative for that comparison."
             )
 
         heldout_plane = [row for row in heldout_summary if row.get("plane") == plane]
@@ -712,8 +859,88 @@ def main() -> int:
         )
         lines.append("")
 
+    if args.all_training:
+        lines.append("## Leakage-Controlled Best-N Versus All Training Channels")
+        lines.append("")
+        lines.append(
+            "Every baseline aggregates all training-side channels while preserving the accepted Best-N fit/test purge and held-out digitizers. Positive/negative interval direction is interpreted per metric; this is internal reproducibility, not external tune calibration."
+        )
+        lines.extend(
+            md_table(
+                [
+                    "Plane",
+                    "Best-N",
+                    "Baseline",
+                    "Metric",
+                    "Direction",
+                    "Paired spills",
+                    "Selected",
+                    "All training",
+                    "Selected - baseline [95% CI]",
+                    "Result",
+                ],
+                [
+                    [
+                        row.get("plane", ""),
+                        row.get("selected_n", ""),
+                        row.get("baseline_method", ""),
+                        row.get("metric", ""),
+                        row.get("favorable_direction", ""),
+                        row.get("paired_spill_count", ""),
+                        row.get("selected_estimate", ""),
+                        row.get("baseline_estimate", ""),
+                        f"{row.get('paired_delta_selected_minus_baseline', '')} "
+                        f"[{row.get('paired_delta_ci_low', '')}, {row.get('paired_delta_ci_high', '')}]",
+                        row.get("result", ""),
+                    ]
+                    for row in sorted(
+                        all_training_comparisons,
+                        key=lambda row: (
+                            row.get("plane", ""),
+                            row.get("baseline_method", ""),
+                            row.get("metric", ""),
+                        ),
+                    )
+                ],
+            )
+        )
+        lines.append("")
+
     if args.ridge:
         lines.append("## Exact-Paired Full-Buffer Ridge Comparison")
+        lines.append("")
+        lines.append("Corrected adaptive pair contrasts isolate ensemble size under the fixed tracking protocol:")
+        lines.extend(
+            md_table(
+                ["Plane", "Baseline N", "Ensemble N", "Paired points", "Baseline IQR", "Ensemble IQR", "IQR delta [turn-block CI]", "Peak gain [CI]", "Entropy delta [CI]", "Shared-ridge mass gain [CI]"],
+                [
+                    [
+                        row.get("plane", ""),
+                        row.get("baseline_subset_size", ""),
+                        row.get("ensemble_subset_size", ""),
+                        row.get("common_ridge_point_count", ""),
+                        row.get("baseline_median_iqr_width", ""),
+                        row.get("ensemble_median_iqr_width", ""),
+                        f"{row.get('median_iqr_delta_ensemble_minus_baseline', '')} [{row.get('median_iqr_delta_ci_low', '')}, {row.get('median_iqr_delta_ci_high', '')}]",
+                        f"{row.get('median_peak_bin_fraction_gain', '')} [{row.get('median_peak_bin_fraction_gain_ci_low', '')}, {row.get('median_peak_bin_fraction_gain_ci_high', '')}]",
+                        f"{row.get('median_density_entropy_delta', '')} [{row.get('median_density_entropy_delta_ci_low', '')}, {row.get('median_density_entropy_delta_ci_high', '')}]",
+                        f"{row.get('median_shared_ridge_mass_gain', '')} [{row.get('median_shared_ridge_mass_gain_ci_low', '')}, {row.get('median_shared_ridge_mass_gain_ci_high', '')}]",
+                    ]
+                    for row in sorted(
+                        ridge_adaptive,
+                        key=lambda row: (
+                            row.get("plane", ""),
+                            int(row.get("baseline_subset_size") or 0),
+                            int(row.get("ensemble_subset_size") or 0),
+                        ),
+                    )
+                ],
+            )
+        )
+        lines.append("")
+        lines.append("The Best-1 self-control must be identically zero. Other rows are selected-ensemble minus lower-N adaptive baselines, with negative width deltas indicating greater cross-spill concentration.")
+        lines.append("")
+        lines.append("The historical normalized-single comparison is retained as a visual and provenance anchor, not as the clean ensemble-size control:")
         lines.extend(
             md_table(
                 ["Plane", "N", "Paired points", "Legacy IQR", "Ensemble IQR", "IQR delta [turn-block CI]", "Peak gain [CI]", "Entropy delta [CI]", "Shared-ridge mass gain [CI]"],

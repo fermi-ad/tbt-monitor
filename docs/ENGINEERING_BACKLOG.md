@@ -31,32 +31,67 @@ Copy this block for each new item:
 
 None.
 
-## In Progress
+## Done
+
+Final closure on 2026-07-11 accepted the corrected primary, Best-N,
+all-training, intensity, payload-integrity, and 50,000-turn ridge roots. The
+e433 publication materialization passed 81 tests on Spark; the finalizer then
+verified 69 publication files, the one-page A0 poster, the four-page JACoW
+paper, exact source/build manifests, and explicit visual QA. The autosweep v2
+acceptance smoke completed all 6 jobs with two analyzer-bound PIDs overlapping
+for 3.927 seconds above the memory floor. Notes below that describe a required
+rerun or pending closure are retained as defect-discovery history and are
+superseded by this closure record and the per-item acceptance evidence.
+
+### [ENG-040] Numeric beam-width sensitivity handoff
+- Status: done
+- Owner: project
+- Type: reliability
+- Why: the seven expensive sensitivity evaluators all verified, but final comparison failed because the matrix runner passed internal `beam16` labels to a CLI that requires integer width keys.
+- Scope: translate internal beam labels only at the beam-width comparison subprocess boundary; pre-verify existing runs in `--resume` mode and skip their evaluator processes; preserve the documented standalone comparer contract and resumable verified run directories.
+- Acceptance: regression tests require exact numeric `16/32/64` run keys and reference width `64` and prove that a verified resume job never spawns its evaluator command; a Spark `--resume` pass reuses all seven verified runs, regenerates every comparison/gallery/index product, and writes the sensitivity `COMPLETE` marker without launching an evaluator.
+- Docs: NEXT_STEPS.md, docs/SPARK.md, docs/CURRENT_STATUS.md, docs/ENGINEERING_BACKLOG.md
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/run_best_n_sensitivity_matrix.py scripts/compare_best_n_beam_widths.py scripts/test_best_bpm_mining.py; PYTHONPATH=scripts PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m unittest scripts.test_best_bpm_mining.BestBpmMiningTests.test_best_n_beam_comparison_command_uses_numeric_width_labels scripts.test_best_bpm_mining.BestBpmMiningTests.test_best_n_sensitivity_resume_skips_verified_evaluator_processes -v; hash-bound Spark `--resume` pass and process audit
+- Notes: the failed coordinator wrote status 1 after all seven manifest rows became `verified`; no memory-abort marker exists, so recovery must not repeat the GPU evaluations.
+
+### [ENG-039] Leakage-controlled Best-N versus all-training baseline
+- Status: done
+- Owner: project
+- Type: analysis
+- Why: the corrected reused-window control made all-BPM aggregation the strongest descriptive row, but that score did not use the Best-N fit/test purge or held-out-digitizer protocol and could not answer whether member selection adds value over aggregating all available training channels.
+- Scope: reuse the accepted block-20 Best-N cache keys, H/V recommendation, fit prefix, purge boundary, digitizer folds, tune tolerance, and block length; aggregate every training-side channel by mean and median; compare blind agreement, blind absolute tune difference, later prominence, and later power on exact fold-collapsed spill pairs; emit source-bound detail/summary/pair/comparison tables, a report, H/V scoreboards, raw-unit paired scatters, and favorable-delta CDFs; require the accepted result in publication materialization without requiring a particular winner.
+- Acceptance: the synthetic end-to-end test proves exact training-side membership, source-verifier binding, complete fold and pair coverage, comparison classification, tamper failure, and 18 native PNGs; the full Spark pass contains exactly 10000 detail rows, 8000 paired-spill rows, 16 comparison rows, four summary rows, 18 plots, zero verifier issues, and written H/V disposition in poster/paper/package copy.
+- Docs: README.md, NEXT_STEPS.md, docs/USAGE.md, docs/SPARK.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md, docs/CURRENT_STATUS.md, publication/ibic2026/README.md, publication/ibic2026/poster/README.md, publication/ibic2026/paper/README.md
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/all_training.py scripts/bpm_mining/all_training_plots.py scripts/evaluate_best_n_all_training.py scripts/verify_best_n_all_training.py scripts/prepare_ibic2026_publication.py scripts/finalize_ibic2026_publication.py scripts/test_best_bpm_mining.py; PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; strict full Spark verifier; visual review of all 18 PNGs; exact four-page paper and A0 poster rebuild
+- Notes: "all training" intentionally excludes held-out digitizers and is therefore not literal all-60 aggregation. It is the maximum fair baseline under the internal validation design. The completed pass has 10000 detail rows, 8000 pairs, 16 comparisons, four summaries, 18 PNGs, and zero verifier issues. Outcomes are mixed: selected is favored in 2/8 H and 3/8 V comparisons, all-training in 3/8 for each plane, with the remainder unresolved. The result cannot establish external tune accuracy or retroactively retune the Best-N gate.
 
 ### [ENG-038] Delivery Ring producer and raw-payload publication integrity
-- Status: in_progress
+- Status: done
 - Owner: project
 - Type: reliability
 - Why: the Delivery Ring producer can emit finite device-coded below-threshold values in scaled streams, its bind-mounted Python can drift from the running process, and a finite raw placeholder or plateau could pass ordinary plausibility checks while creating false spectral structure.
-- Scope: document the dated read-only drbpm1/drbpm2 topology and live raw/scaled comparison; scan every publication raw payload through turn 50000 for topology, count, finite-data, long exact plateau, and device-coded fallback-pair integrity; bind the exact corpus report into publication preparation and finalization.
-- Acceptance: synthetic tests detect paired exact plateaus and fallback runs; the Spark audit covers 2200 manifests, 263999 raw position rows, and 23999 exact raw pairs with zero blocking findings; final materialization rejects a missing, partial, or failed audit.
+- Scope: document the dated read-only drbpm1/drbpm2 topology and live raw/scaled comparison; scan every publication raw payload through turn 50000 for topology, count, finite-data, long exact plateau, and device-coded fallback-pair integrity; enumerate manifest-level absences and join them by exact identity to accepted per-spill Best-N membership; bind the exact corpus report into publication preparation and finalization.
+- Acceptance: synthetic tests detect paired exact plateaus and fallback runs and enumerate manifest-level absences; the Spark audit binds the immutable 2200-manifest inventory, 263983 captured raw position rows, 23999 exact raw pairs, and the hashed 17-row absent-stream inventory across 13 partial captures with zero blocking payload findings; final materialization rejects a missing, drifted, or failed audit.
 - Docs: README.md, NEXT_STEPS.md, docs/USAGE.md, docs/SPARK.md, docs/DELIVERY_RING_SOURCE_AUDIT.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md, publication/ibic2026/README.md, publication/ibic2026/poster/README.md, publication/ibic2026/paper/README.md
-- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/payload_integrity.py scripts/audit_delivery_ring_payloads.py scripts/prepare_ibic2026_publication.py scripts/finalize_ibic2026_publication.py scripts/test_best_bpm_mining.py; PYTHONPATH=scripts PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; strict Spark payload audit and publication preparation pass
-- Notes: a same-ID HP101 live event contained zero device-coded values in both raw arrays and 221215 in both scaled arrays, resolving the threshold-placeholder concern for the raw boundary. The loaded process predates the current bind-mounted source, so the exhaustive payload scan remains required evidence.
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/payload_integrity.py scripts/audit_delivery_ring_payloads.py scripts/compare_payload_absences_to_best_n.py scripts/prepare_ibic2026_publication.py scripts/finalize_ibic2026_publication.py scripts/test_best_bpm_mining.py; PYTHONPATH=scripts PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; strict Spark payload audit, exact Best-N absence join, and publication preparation pass
+- Notes: a same-ID HP101 live event contained zero device-coded values in both raw arrays and 221215 in both scaled arrays, resolving the threshold-placeholder concern for the raw boundary. The exhaustive scan found five/seven/one partial manifests across the two position collections and intensity collection; all listed payloads pass, and none of the 16 position-only absent streams intersects the accepted H Best-5 or V Best-12 membership. The primary 2000-spill publication copy therefore reports 12 partial captures and 16 absences, while the full 2200-manifest audit retains the 13/17 totals. The loaded process predates the current bind-mounted source, so the exact corpus scan is the accepted runtime evidence.
 
 ### [ENG-037] Verifier-bound IBIC publication materialization
-- Status: in_progress
+- Status: done
 - Owner: project
 - Type: reliability
-- Why: the A0 poster and JACoW paper scaffolds rejected placeholders but had no code path proving that their copy, selected N, tables, and five final figures came from the same accepted primary, follow-up, Best-N, intensity, and ridge roots.
-- Scope: render a plane-specific H/V ridge composite when H and V select different N; generate clean selected-N concentration panels and exact-paired per-turn width/entropy/peak/shared-mass contrasts; require the plane choices and turn-contrast grid in the ridge run contract and verifier; materialize poster `content.json`, paper `results_table.tex`, verifier-derived `results_macros.tex`, exact figure copies, a machine-readable results payload, and a checksummed source manifest from accepted roots; bind full-curve versus stratified-validation sample/fold counts from the accepted Best-N verifier; allow valid empty LaTeX option lists while still rejecting unresolved bracket placeholders; expose Tectonic cache/network flags without claiming a partial compile passed; require explicit visual-QA acknowledgments before writing the final compliance report and full publication inventory.
-- Acceptance: local tests cover mixed H/V rendering and plane-specific publication copy; corrected Spark ridge output contains the contract-bound mixed composite, selected-plane concentration panels, and selected-H/V turn-resolved width contrasts; poster materialization uses the population-level width contrast while retaining selected-spill examples in the review gallery; publication preparation rejects failed reports, mismatched N, any beam/fit/fold sensitivity run without an eligible H or V recommendation, unresolved block sensitivity, retained intensity weighting, missing cross-collection transfer, wrong Best-N sample/fold counts, or undersized images; finalization rejects missing sources, wrong reference hashes, wrong page/render geometry, unresolved payload state, or absent human QA; final A0 poster and four-page paper pass their layout/compliance gates.
+- Coverage closure: finalization requires the primary and selected-ridge
+  payload fields to equal structured poster evidence and exact manuscript macro
+  definitions, and repeats those values in the compliance report.
+- Why: the A0 poster and JACoW paper scaffolds rejected placeholders but had no code path proving that their copy, selected N, tables, five poster assets, and four manuscript figures came from the same accepted primary, follow-up, Best-N, all-training, intensity, and ridge roots.
+- Scope: render a plane-specific H/V ridge composite when H and V select different N; generate clean selected-N concentration panels and exact-paired per-turn width/entropy/peak/shared-mass contrasts; require the plane choices and turn-contrast grid in the ridge run contract and verifier; materialize poster `content.json`, paper `results_table.tex`, verifier-derived `results_macros.tex`, exact figure copies, a machine-readable results payload, and a checksummed source manifest from accepted roots; derive primary capture completeness plus selected finite/blank/edge ridge coverage from accepted verifier reports; regenerate poster-facing Best-N plots from the accepted summary with blind agreement alone on one shared H/V scale while retaining the conditioned diagnostic separately, rendering the exact criterion-by-N gate matrix, and preserving a bounded post-selection gate-margin matrix that cannot replace the declared selector; record exact numerical source-table hashes and re-verify the fixed materialized-output manifest during finalization; bind full-curve versus stratified-validation sample/fold counts from the accepted Best-N verifier; preserve hash-bound provenance and selector caveats for the immutable legacy H/V visual references; allow valid empty LaTeX option lists while still rejecting unresolved bracket placeholders; expose Tectonic cache/network flags without claiming a partial compile passed and keep the no-flags path valid on macOS Bash 3.2; preserve master artwork by deriving the named full-size poster PNG from the PDF raster; inspect final slide OOXML read-only for empty structural placeholders; preserve layout/overflow/template-fidelity evidence and portable build checksums in the delivered tree; require explicit visual-QA acknowledgments before writing the final compliance report and full publication inventory.
+- Acceptance: local tests cover mixed H/V rendering, separated blind/conditioned Best-N plots, exact gate-matrix agreement with the declared knee, plane-specific publication copy, primary-versus-corpus completeness, selected-ridge row closure, filled/empty PowerPoint placeholder discrimination, stale/nonportable build manifests, materialization-manifest tampering, all-training binding, and sensitivity majority coverage; corrected Spark ridge output contains the contract-bound mixed composite, selected-plane concentration panels, and selected-H/V turn-resolved width contrasts; poster materialization uses the population-level width contrast while retaining selected-spill examples in the review gallery; publication preparation rejects failed reports, mismatched N, incomplete or nonclosing selected-ridge coverage, incomplete all-training coverage, fewer than four eligible recommendations per plane across the seven verified beam/fit/fold runs, unresolved block sensitivity, retained intensity weighting, missing cross-collection transfer, wrong Best-N sample/fold counts, or undersized images; finalization rejects missing sources, inconsistent all-training/sensitivity result counts, wrong reference hashes, wrong page/render geometry, a named poster PNG that differs from the PDF raster, an empty structural PPTX placeholder, stale source/deliverable/materialization hashes, a nonzero template-fidelity report, unresolved payload state, or absent human QA; final A0 poster and four-page paper pass their layout/compliance gates.
 - Docs: README.md, NEXT_STEPS.md, docs/USAGE.md, docs/SPARK.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md, publication/ibic2026/README.md, publication/ibic2026/poster/README.md, publication/ibic2026/paper/README.md
-- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/prepare_ibic2026_publication.py scripts/finalize_ibic2026_publication.py scripts/make_best_bpm_ridge_density.py scripts/bpm_mining/ridge_verification.py; PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; strict Spark ridge and publication preparation pass; A0 PPTX/PDF/PNG visual QA; exact four-page JACoW PDF QA; final publication compliance/inventory pass
-- Notes: plane-specific N is allowed because H and V are independent diagnostics. The mixed four-panel image still uses one shared P98-clipped color scale, but visual thickness is compared only within each plane because the tune-band widths differ. Per-turn contrast CSVs are unsmoothed; five-window plot smoothing is visual only, and no contrast metric is labeled as physical noise or extraction timing. Poster copy lists the 4000 full-curve cases, 1000 stratified validation cases, and five held-out-digitizer folds as separate design counts rather than multiplying the validation population by the fold count. The poster uses the author's full name from the accepted abstract; the JACoW manuscript retains its conventional initialized author form.
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/prepare_ibic2026_publication.py scripts/render_best_n_summary_plots.py scripts/finalize_ibic2026_publication.py scripts/make_best_bpm_ridge_density.py scripts/bpm_mining/ridge_verification.py; PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; accepted-summary plot rerender; strict Spark ridge and publication preparation pass; A0 PPTX/PDF/PNG visual QA; exact four-page JACoW PDF QA; final publication compliance/inventory pass
+- Notes: plane-specific N is allowed because H and V are independent diagnostics. The mixed four-panel image still uses one shared P98-clipped color scale, but visual thickness is compared only within each plane because the tune-band widths differ. Per-turn contrast CSVs are unsmoothed; five-window plot smoothing is visual only, and no contrast metric is labeled as physical noise or extraction timing. Selected coverage is H 359018 finite/14 blank/968 edge and V 289210 finite/69684 blank/1106 edge out of 360000 structural rows; density color normalizes available picks and does not erase that support difference. A verified reduced-sample sensitivity run may legitimately have no automatic knee when selected power and prominence trade off; the run and reason remain visible, while a strict four-of-seven majority per plane is required before the full-data selection can populate the publication. Poster copy lists the 4000 full-curve cases, 1000 stratified validation cases, and five held-out-digitizer folds as separate design counts rather than multiplying the validation population by the fold count. The poster uses the author's full name from the accepted abstract; the JACoW manuscript retains its conventional initialized author form. Artifact-tool preserves the supplied master in the PPTX but omits master media from its direct PNG, so the branded PDF raster is the authoritative full-size PNG and the direct render remains a separate diagnostic. Placeholder verification parses slide XML without rewriting the user-supplied OOXML package. Build manifests use package-relative logical labels; absolute paths may remain only as explanatory provenance inside the builder's JSON and are not trusted for final hash verification. The fake-Tectonic manifest smoke proves shell routing and downstream gates only; it is never cited as a manuscript compile.
 
 ### [ENG-036] Semantic publication artifacts and nonduplicating continuation
-- Status: in_progress
+- Status: done
 - Owner: project
 - Type: fix
 - Why: subset visibility duration used the whole fit span after one visible window; compatibility plots reused unrelated data or mislabeled local index/N as ring order/compute cost; handoff top-five counts were constant even without visible channels; and the waiting `--resume` continuation would repeat the completed subset search.
@@ -67,7 +102,7 @@ None.
 - Notes: selection scores and memberships were unaffected by the duration-field defect; the repair changes only that descriptive field before dependent summaries are regenerated. Held-out summaries report both total and evaluable rows because missing `q_hat` is a scientific coverage result, not a numerical zero.
 
 ### [ENG-035] Fail-closed run provenance and shard merging
-- Status: in_progress
+- Status: done
 - Owner: project
 - Type: reliability
 - Why: resumable Best-N rows were not bound to their original parameters, and the Best-N and intensity mergers silently replaced duplicate shard keys. Either behavior could produce structurally complete output with ambiguous provenance.
@@ -78,29 +113,29 @@ None.
 - Notes: source payloads remain read-only; contracts hash configuration and source inventories rather than copying or mutating raw data.
 
 ### [ENG-034] Strict intensity-study publication contract
-- Status: in_progress
+- Status: done
 - Owner: project
 - Type: reliability
 - Why: the corrected gate and block-aware inference still need one closure check tying the audited raw capture shape, complete method grids, zero-effect control, decision rules, and broad gallery together.
-- Scope: add an explicit unweighted fallback when no selected intensity is usable, verify the known 23999 exact payload pairs, no first-50000-turn corruption or shard errors, 12800 spill-method rows, complete 90-window 4096/512 grids, exact selected cardinality, numerical Best-1 invariance across all methods, all effect decision gates, and every indexed gallery PNG/guardrail.
-- Acceptance: an incomplete synthetic root fails; all fallback windows carry a reason and matching spill-level fraction; the corrected 200-spill block-20 merge and gallery pass; Best-1 has exact zero effects; 10/20/40-spill summaries preserve the same exact retained-effect identities, not only the same count.
+- Scope: add an explicit unweighted fallback when no selected intensity is usable, verify the known 23999 exact payload pairs, no first-50000-turn corruption or shard errors, 12800 spill-method rows, complete exact 90-window 4096/512 grids, identical method spill keys and selected memberships, finite global ridge picks, exact selected cardinality, numerical Best-1 invariance across all methods, all effect decision gates, and every indexed gallery PNG/guardrail. Density differences use only identical exact finite spill/window points, all heatmap bins use proportional inclusive raster bounds, concentration is rendered on common/detail scales, crossing turns retain common/detail axes, and lag correlations retain common -1-to-1 plus symmetric detail views.
+- Acceptance: an incomplete synthetic root fails; all fallback windows carry a reason and matching spill-level fraction; the corrected 200-spill block-20 merge and gallery pass; Best-1 has exact zero effects and its neutral subtraction maps are visibly labeled as no redistribution; 10/20/40-spill summaries preserve the same exact retained-effect identities, not only the same count; every raster fills its declared axes; count-density captions disclose nonzero P98 clipping; subtraction legends describe higher/lower ridge-pick probability, disclose the absolute-P99 display clip, and make no physical-noise claim.
 - Docs: README.md, NEXT_STEPS.md, docs/USAGE.md, docs/SPARK.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
 - Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/intensity_verification.py scripts/verify_intensity_outputs.py scripts/test_best_bpm_mining.py; PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; corrected Spark intensity refresh, block-20 merge/gallery, strict verifier, and 10/20/40 sensitivity comparison
-- Notes: intensity remains auxiliary; payload-horizon and lag diagnostics cannot establish beam-loss or extraction timing.
+- Notes: intensity remains auxiliary; payload-horizon and lag diagnostics cannot establish beam-loss or extraction timing. Red/blue subtraction color is column-normalized ridge-pick probability redistribution, not measured noise removal. The first full corrected refresh exposed 4105 Best-1 rows whose nonlinear shape metrics moved only because a singleton float32 spectrum was multiplied and divided by its weight; the combiner now passes a usable singleton through bit-exactly, and closure requires a clean source-bound rerun rather than a relaxed verifier or in-place CSV repair.
 
 ### [ENG-033] Strict full-buffer ridge publication contract
-- Status: in_progress
+- Status: done
 - Owner: project
 - Type: reliability
 - Why: the ridge renderer could exit successfully while only reporting an aggregate warning count, so missing memberships, incomplete exact pairing, or absent figure files could escape publication review.
-- Scope: persist every generation warning and verify requested-N spill/window coverage, exact member cardinality, tune-band bounds, unique ridge keys, exact 2000-spill adaptive and 1988-spill legacy coverage, finite aggregate and per-turn contrast metrics, loss/role coverage, every per-N shared-scale H/V comparison and other manifest PNG/caption, and an exact match to the archived `18d321dbd4fe` tracking protocol.
-- Acceptance: the verifier fails on an incomplete synthetic output root; proportional raster cells fill the full declared tune axis without gaps or overlay displacement; the full Spark 50000-turn gallery passes at the declared minimum spill and 180-center coverage; every remaining noncritical warning receives written disposition before a panel is used.
+- Scope: persist every generation warning and verify requested-N structural spill/window coverage, exact member cardinality, unique ridge keys, separately counted finite/blank/edge-excluded peak states, reconstructed adaptive finite-point intersections, internally closed legacy pair counts, loss/role coverage, every per-N shared-scale H/V comparison and other manifest PNG/caption, and an exact match to the archived `18d321dbd4fe` tracking protocol.
+- Acceptance: the verifier fails on an incomplete synthetic output root; proportional raster cells fill the full declared tune axis without gaps or overlay displacement; landscape and portrait figures pass the same orientation-independent minimum-size contract; the full Spark 50000-turn gallery passes at the declared 2000-spill structural and 180-center coverage with every adaptive aggregate/per-turn count equal to its reconstructed finite-point intersection; every remaining noncritical warning receives written disposition before a panel is used.
 - Docs: README.md, NEXT_STEPS.md, docs/USAGE.md, docs/SPARK.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
 - Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/ridge_verification.py scripts/make_best_bpm_ridge_density.py scripts/verify_ridge_density_outputs.py scripts/test_best_bpm_mining.py; PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; full Spark ridge pass and strict verifier
-- Notes: subtractive plots remain exact-pair probability redistribution diagnostics, not physical noise measurements. The older standalone raster used floor-divided cell heights and could misalign density with percentile overlays; paired panels were unaffected, and all corrected panels use proportional inclusive cell bounds.
+- Notes: subtractive plots remain exact-pair probability redistribution diagnostics, not physical noise measurements. Visible legends use higher/lower pick probability, captions disclose standalone/pair P98 and subtractive absolute-P99 raster clipping, and exported metrics remain unclipped. The older standalone raster used floor-divided cell heights and could misalign density with percentile overlays; paired panels were unaffected, and all corrected panels use proportional inclusive cell bounds. Deficiency 45 exposed a verifier-only mismatch after the full GPU pass: it equated structural rows with finite picks, assumed constant full-source pair counts, rejected bounded parabolic edge refinements, and applied landscape minima to portrait figures. The completed root is internally consistent and passes the corrected mask-reconstruction verifier diagnostically; source-bound closure remains required.
 
 ### [ENG-032] Non-circular block inference and matched-pairs effect size
-- Status: in_progress
+- Status: done
 - Owner: project
 - Type: fix
 - Why: moving-block intervals wrapped nonadjacent collection/turn endpoints, and the exported rank-biserial field used only sign counts rather than ranked absolute paired differences.
@@ -111,7 +146,7 @@ None.
 - Notes: block length remains a sensitivity parameter; no single block choice may determine a retained method or Best-N conclusion.
 
 ### [ENG-031] Plane-balanced curated poster examples
-- Status: in_progress
+- Status: done
 - Owner: project
 - Type: fix
 - Why: the first eight-example poster shortlist filled entirely with higher-priority V rows even though H limitation examples existed in the full artifact manifest.
@@ -122,18 +157,18 @@ None.
 - Notes: this balances review coverage, not the physics conclusion; V may remain the strongest final panel.
 
 ### [ENG-030] Same-metric dynamic/fixed/all-BPM control recomputation
-- Status: in_progress
+- Status: done
 - Owner: project
 - Type: fix
 - Why: the first fixed-set sidecar recomputed frozen and all-BPM rows with the evolution score but copied dynamic rows carrying the unrelated subset-search score, making plotted bar heights incomparable.
-- Scope: resolve exact dynamic memberships per spill, recompute dynamic/fixed/all-BPM spectra from the same cache, score every method with the same evolution metric, fail on incomplete cardinality, and label the comparison descriptive because original dynamic memberships reuse selection windows.
-- Acceptance: regression checks prove every output score is derived from the exported visibility and prominence fields; serial and parallel outputs match; the corrected Spark sidecar and verifier complete with exact cardinality.
+- Scope: resolve exact dynamic memberships per spill, recompute dynamic/fixed/all-BPM spectra from the same cache, score every method with the same evolution metric, fail on incomplete cardinality, render both the collection-specific adaptive/frozen curves and an all-method summary, surface the strongest all-BPM row in the executive report, and label the comparison descriptive because original dynamic memberships reuse selection windows.
+- Acceptance: regression checks prove every output score is derived from the exported visibility and prominence fields; serial and parallel outputs match; the corrected Spark sidecar and verifier complete with exact cardinality; the summary PNG contains adaptive, frozen, all-BPM mean, and all-BPM median controls; publication copy does not claim small-set superiority when the all-BPM descriptive control is stronger.
 - Docs: NEXT_STEPS.md, docs/USAGE.md, docs/SPARK.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
-- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/fixed_sets.py scripts/test_best_bpm_mining.py; PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; corrected Spark fixed-set sidecar and follow-up verifier
-- Notes: do not reuse the June fixed-vs-dynamic plot or its numeric conclusion in a publication artifact.
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/fixed_sets.py scripts/render_fixed_set_control_plots.py scripts/analyze_next_steps_outputs.py scripts/test_best_bpm_mining.py; PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; corrected Spark fixed-set sidecar and follow-up verifier; summary-only rerender from the accepted CSV
+- Notes: do not reuse the June fixed-vs-dynamic plot or its numeric conclusion in a publication artifact. The corrected table shows all-BPM aggregation as the strongest descriptive control in both planes; leakage-controlled Best-N establishes a knee relative to Best-1, not superiority to all-BPM aggregation.
 
 ### [ENG-028] Intensity-assisted tune-quality sidecar
-- Status: in_progress
+- Status: done
 - Owner: project
 - Type: feature
 - Why: the 200-spill raw capture contains timestamp-matched position/intensity pairs, but intensity has never been tested as a quality covariate or ensemble weight.
@@ -144,18 +179,18 @@ None.
 - Notes: raw intensity is never multiplied into position waveforms; it only changes per-window spectral aggregation weights or serves as a covariate. The publication run uses the explicit canonical N grid `1,3,5,7,10,12,15,20` plus each distinct accepted H/V recommendation outside that grid; analysis and verification must use the same union and corresponding spill-row count.
 
 ### [ENG-027] Time- and digitizer-disjoint Best-N model selection
-- Status: in_progress
+- Status: done
 - Owner: project
 - Type: feature
 - Why: completed Best-1/3/5 runs do not establish the optimal ensemble size, and training score alone can improve with N without demonstrating later-window reproducibility.
 - Scope: sweep contiguous N values with a beam search, derive candidate tunes only from fit windows, evaluate selected members on unseen later windows, compare against digitizer-disjoint channels, emit bootstrap intervals and explicit non-inferiority knees, support resumable Spark shards plus deterministic merging, execute a shared-baseline seven-run beam/fit/fold sensitivity matrix, and fail closed on coverage/identity/timing/summary/plot verification.
-- Acceptance: synthetic tests cover complete N curves, two-shard merge, matrix deduplication, and strict verification; a Spark smoke produces non-saturated validation metrics; the full 2000-spill curve and disjoint validation quantify the knee through at least N=20 or document why a larger N is still required; beam/fit/fold and 10/20/40-spill block-length sensitivity do not reveal an unresolved recommendation; every full and sample output passes `verify_best_n_outputs.py`.
+- Acceptance: synthetic tests cover complete N curves, two-shard merge, matrix deduplication, and strict verification; a Spark smoke produces non-saturated validation metrics; the full 2000-spill curve and disjoint validation quantify the knee through at least N=20 or document why a larger N is still required; 10/20/40-spill block-length sensitivity preserves an eligible full-data recommendation, all seven beam/fit/fold runs verify, at least four runs per plane produce eligible knees, and every unavailable sensitivity run retains its reason; every full and sample output passes `verify_best_n_outputs.py`.
 - Docs: README.md, NEXT_STEPS.md, docs/USAGE.md, docs/SPARK.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
 - Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/best_n.py scripts/bpm_mining/best_n_sensitivity.py scripts/bpm_mining/best_n_verification.py scripts/evaluate_best_n_curve.py scripts/merge_best_n_shards.py scripts/run_best_n_sensitivity_matrix.py scripts/verify_best_n_outputs.py scripts/test_best_bpm_mining.py; PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; Spark CuPy smoke; full Spark sharded run, block remerges, seven-run sensitivity matrix, and strict verification
-- Notes: the automatic knee is a declared reproducibility/contrast non-inferiority rule; full metric curves remain the primary evidence. Four concurrent max-N=40 evaluators exceeded 115 GiB on Spark's single GB10 and forced a reboot. A later two-process qualification peaked near 83 GB (77 GiB) host use with about 44 GiB available and mostly 70-96% GPU utilization. Full-run shards and independent sensitivity configurations may therefore use at most two evaluators under a 32 GiB `MemAvailable` floor sampled every five seconds with three low samples before process-group termination; intensity and ridge remain serialized until separately qualified.
+- Notes: the automatic knee is a declared reproducibility/contrast non-inferiority rule; full metric curves remain the primary evidence. An unavailable reduced-sample knee is a sensitivity result, not a verifier failure and not permission to coerce an N. Four concurrent max-N=40 evaluators exceeded 115 GiB on Spark's single GB10 and forced a reboot. A later two-process qualification peaked near 83 GB (77 GiB) host use with about 44 GiB available and mostly 70-96% GPU utilization. Full-run shards and independent sensitivity configurations may therefore use at most two evaluators under a 32 GiB `MemAvailable` floor sampled every five seconds with three low samples before process-group termination; intensity and ridge remain serialized until separately qualified.
 
 ### [ENG-026] Exact BPM identity and ring-order provenance correction
-- Status: in_progress
+- Status: done
 - Owner: project
 - Type: fix
 - Why: each digitizer contributes two same-plane channels, but legacy subset artifacts serialized only the digitizer label, and ring order was parsed from the first number in the IP address. Follow-up reconstruction could select the wrong channel and the ring-span diversity term was disabled.
@@ -166,7 +201,7 @@ None.
 - Notes: original Best-1/3/5 score rows remain useful diagnostics because masks preserve local indices, but downstream products that reconstructed channels from digitizer labels must be regenerated.
 
 ### [ENG-021] Autosweep parallel runner and GPU telemetry
-- Status: in_progress
+- Status: done
 - Owner: project
 - Type: perf
 - Why: Spark autosweep and Best-BPM runs need better host/GPU utilization and first-class accounting for GPU wall time, utilized GPU-hours, and power draw.
@@ -174,31 +209,29 @@ None.
 - Acceptance: local tests cover parallel dry-run scheduling, timeout handling, and telemetry summaries; a Spark smoke with 2 concurrent autosweep jobs completes cleanly before GitHub issue #30 is closed.
 - Docs: README.md, docs/USAGE.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/ENGINEERING_BACKLOG.md
 - Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/gpu_run_telemetry.py scripts/run_autosweep.py scripts/bpm_mining/pipeline.py scripts/test_autosweep.py scripts/test_best_bpm_mining.py; python3 scripts/test_autosweep.py; python3 scripts/test_best_bpm_mining.py
-- Notes: Spark two-job smoke is intentionally deferred until the current full Best-BPM run releases the GPU.
-
-## Done
+- Notes: Spark two-job smoke is intentionally deferred until the complete publication chain, including the CPU/cache all-training control, releases unified memory. The prepared marker-gated wrapper is `review-artifacts/publication-run-handoff/spark_autosweep_parallel_smoke_cf43cb1d.sh`, SHA-256 `059258579881d539911033c7b5b54c0d704d6ddec67ae12540b16a8084901886`; it verifies source hashes, requires three 48 GiB preflight samples, and aborts after three consecutive samples below 32 GiB. Two jobs are the current ceiling; 3-4 require a separate guarded qualification.
 
 ### [ENG-029] Checksummed publication review packaging
 - Status: done
 - Owner: project
 - Type: feature
 - Why: final paper, poster, reports, and large review galleries need one reproducible local handoff rather than an undocumented manual copy.
-- Scope: add a repeatable `LABEL=PATH` packager that copies files and directories into a new review root and emits a source-path, byte-size, and SHA-256 manifest, a human-readable package index, and one searchable/lazy-loading HTML gallery over every packaged image.
-- Acceptance: packaging refuses missing, duplicate, nested, or non-empty destinations; a smoke package contains copied inputs, `MANIFEST.csv`, `PACKAGE_INDEX.md`, and a filterable `index.html` with the copied figures.
+- Scope: add a repeatable `LABEL=PATH` packager that copies files and directories into a new review root and emits a source-path, byte-size, and SHA-256 manifest, a human-readable package index, and one searchable/lazy-loading HTML gallery over every packaged image; omit generated host metadata and language/tool caches; verify the exact copied-file inventory and one-card-per-image coverage both at creation and read-only after transfer.
+- Acceptance: packaging refuses missing, duplicate, nested, non-directory, or non-empty destinations; `.DS_Store`, bytecode, and generated tool-cache directories do not enter copied directory components; a smoke package contains copied inputs, `MANIFEST.csv`, `PACKAGE_INDEX.md`, `PACKAGE_VERIFICATION.json`, and a filterable `index.html` with every copied figure; `--verify-only` rejects missing, extra, truncated, same-size modified, unsafe, or unindexed files and a stale receipt.
 - Docs: README.md, docs/USAGE.md, docs/ENGINEERING_BACKLOG.md
-- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/package_publication_review.py; python3 scripts/package_publication_review.py --component readme=README.md --component abstract=/Users/derekste/Downloads/abstract-54.pdf --out /tmp/tbt-publication-package-smoke-20260709
-- Notes: generated review packages remain local artifacts; only the curated publication source/deliverables belong in version control.
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/package_publication_review.py; python3 scripts/package_publication_review.py --component readme=README.md --component abstract=/Users/derekste/Downloads/abstract-54.pdf --out /tmp/tbt-publication-package-smoke-20260709; python3 scripts/package_publication_review.py --verify-only /tmp/tbt-publication-package-smoke-20260709
+- Notes: generated review packages remain local artifacts; only the curated publication source/deliverables belong in version control. `MANIFEST.csv` inventories copied components, while the package metadata and recomputed counts are covered by the enclosing archive hash and verification receipt. The narrow ignore set removes `.DS_Store`, Python bytecode, and generated pytest/mypy/ruff caches but does not suppress arbitrary dotfiles or scientific outputs.
 
 ### [ENG-025] Best-ensemble full-buffer ridge-density sidecar
 - Status: done
 - Owner: project
 - Type: feature
 - Why: the older `18d321db` ridge-density gallery plots were the strongest visual candidates, and the Best-BPM result needed a comparable full-buffer ensemble density view plus an explicit noise/concentration diagnostic.
-- Scope: add `scripts/make_best_bpm_ridge_density.py` and a poster-artifact compatibility wrapper, reuse completed memberships over 0-50000 turn raw spectra, render H/V ridge-density PNGs, pairwise density-difference PNGs, turn-concentration plots, captions, metrics, a loss-candidate summary, and exact-paired corrected Best-1/selected plus legacy/corrected-Best-1/selected controls so selector repair is not misreported as ensemble-size gain.
-- Acceptance: Spark smoke and full sidecar runs complete under `/home/derekste/best_bpm_mining_20260627_best135_from_v2/followups/next_steps_20260628/ridge_density_best_ensemble`; local review copies exist under `review-artifacts/best-bpm-ridge-density-20260628`; deficiencies are tracked in GitHub issue #39.
+- Scope: add `scripts/make_best_bpm_ridge_density.py` and a poster-artifact compatibility wrapper, reuse completed memberships over 0-50000 turn raw spectra, render H/V ridge-density PNGs, pairwise density-difference PNGs, turn-concentration plots, captions, metrics, a loss-candidate summary, exact-paired corrected Best-1/selected plus legacy/corrected-Best-1/selected controls, and quantitative metric/turn grids for every adaptive N pair plus a zero Best-1 self-control so selector repair is not misreported as ensemble-size gain.
+- Acceptance: Spark smoke and full sidecar runs complete under `/home/derekste/best_bpm_mining_20260627_best135_from_v2/followups/next_steps_20260628/ridge_density_best_ensemble`; local review copies exist under `review-artifacts/best-bpm-ridge-density-20260628`; strict verification covers every adaptive pair and selected clean-contrast figure role; deficiencies are tracked in GitHub issue #39.
 - Docs: NEXT_STEPS.md, docs/SPARK.md, docs/USAGE.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
 - Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/make_best_bpm_ridge_density.py scripts/gpu_analyze_captured_spills.py scripts/bpm_dgx_poster.py scripts/make_best_bpm_poster_artifacts.py; Spark CUDA full sidecar over both 1000-spill position-only collections
-- Notes: the sidecar is not a full 50k dynamic subset search; it intentionally reuses early-window memberships and documents that limitation in captions and issue #39.
+- Notes: the sidecar is not a full 50k dynamic subset search; it intentionally reuses early-window memberships and documents that limitation in captions and issue #39. The publication P10-P90 contrast is selected Best-N minus corrected Best-1; adaptive-minus-legacy remains a provenance and visual anchor.
 
 ### [ENG-024] Best-BPM follow-up validation sidecar stack
 - Status: done

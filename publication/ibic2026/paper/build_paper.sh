@@ -27,8 +27,7 @@ for figure in \
   "$HERE/figures/best_n_validation_h.png" \
   "$HERE/figures/best_n_validation_v.png" \
   "$HERE/figures/ridge_density_comparison.png" \
-  "$HERE/figures/ridge_width_contrast_hv.png" \
-  "$HERE/figures/horizontal_loss_diagnostic.png"; do
+  "$HERE/figures/ridge_width_contrast_hv.png"; do
   test -s "$figure" || {
     echo "missing required publication figure: $figure" >&2
     exit 1
@@ -55,7 +54,11 @@ grep -q '89243024CSC000002' "$SOURCE" || {
 }
 
 mkdir -p "$OUT" "$OUT/rendered"
-"$TECTONIC" "${TECTONIC_ARGS[@]}" --keep-logs --keep-intermediates --outdir "$OUT" "$SOURCE"
+if [[ -n "${TECTONIC_FLAGS:-}" ]]; then
+  "$TECTONIC" "${TECTONIC_ARGS[@]}" --keep-logs --keep-intermediates --outdir "$OUT" "$SOURCE"
+else
+  "$TECTONIC" --keep-logs --keep-intermediates --outdir "$OUT" "$SOURCE"
+fi
 
 PDF="$OUT/$(basename "${SOURCE%.tex}").pdf"
 test -s "$PDF"
@@ -84,15 +87,23 @@ else
   exit 1
 fi
 "$PDFTOPPM" -png -r 150 "$PDF" "$OUT/rendered/page"
-"$SHASUM" -a 256 \
-  "$SOURCE" \
-  "$HERE/jacow.cls" \
-  "$HERE/results_table.tex" \
-  "$HERE/results_macros.tex" \
-  "$HERE/figures/best_n_validation_h.png" \
-  "$HERE/figures/best_n_validation_v.png" \
-  "$HERE/figures/ridge_density_comparison.png" \
-  "$HERE/figures/ridge_width_contrast_hv.png" \
-  "$HERE/figures/horizontal_loss_diagnostic.png" \
-  "$PDF" >"$OUT/source_manifest.sha256"
+write_checksum() {
+  local source=$1
+  local label=$2
+  local digest
+  digest=$("$SHASUM" -a 256 "$source" | awk '{print $1}')
+  printf '%s  %s\n' "$digest" "$label"
+}
+{
+  write_checksum "$SOURCE" "$(basename "$SOURCE")"
+  write_checksum "$HERE/jacow.cls" "jacow.cls"
+  write_checksum "$HERE/results_table.tex" "results_table.tex"
+  write_checksum "$HERE/results_macros.tex" "results_macros.tex"
+  write_checksum "$HERE/figures/best_n_validation_h.png" "figures/best_n_validation_h.png"
+  write_checksum "$HERE/figures/best_n_validation_v.png" "figures/best_n_validation_v.png"
+  write_checksum "$HERE/figures/ridge_density_comparison.png" "figures/ridge_density_comparison.png"
+  write_checksum "$HERE/figures/ridge_width_contrast_hv.png" "figures/ridge_width_contrast_hv.png"
+  write_checksum "$PDF" "build/$(basename "$PDF")"
+} >"$OUT/source_manifest.sha256"
+rm -f "$OUT/$(basename "${SOURCE%.tex}").aux" "$OUT/$(basename "${SOURCE%.tex}").log"
 printf 'paper=%s\npages=%s\npage_size=%sx%s\n' "$PDF" "$pages" "$page_width" "$page_height"

@@ -164,6 +164,8 @@ def verify_intensity_outputs(
 ) -> dict[str, object]:
     sizes = sorted({int(value) for value in subset_sizes})
     issues: list[dict[str, object]] = []
+    window_turns = 0
+    stride_turns = 0
     contract_path = root / "run_contract.json"
     contract: dict[str, object] = {}
     if not contract_path.is_file():
@@ -313,6 +315,42 @@ def verify_intensity_outputs(
         if spill_groups[key] < minimum_spills_per_group:
             _issue(issues, "error", "spill_group_count", f"{key} has {spill_groups[key]} spills; minimum is {minimum_spills_per_group}")
 
+    spill_bases_by_method: dict[str, set[tuple[str, str, str, int]]] = defaultdict(set)
+    memberships_by_base: dict[tuple[str, str, str, int], set[tuple[str, str, str]]] = defaultdict(set)
+    for key, row in zip(spill_keys, spills):
+        base_key = key[:4]
+        spill_bases_by_method[str(key[4])].add(base_key)
+        memberships_by_base[base_key].add(
+            (
+                str(row.get("bpm_indices", "")),
+                str(row.get("bpm_members", "")),
+                str(row.get("bpm_source_keys", "")),
+            )
+        )
+    unweighted_spill_bases = spill_bases_by_method.get("unweighted", set())
+    mismatched_method_spills = [
+        method for method in METHODS if spill_bases_by_method.get(method, set()) != unweighted_spill_bases
+    ]
+    if mismatched_method_spills:
+        _issue(
+            issues,
+            "error",
+            "spill_method_pairing",
+            "intensity methods do not cover identical exact collection/spill/plane/N keys",
+            len(mismatched_method_spills),
+            mismatched_method_spills,
+        )
+    membership_mismatches = [key for key, signatures in memberships_by_base.items() if len(signatures) != 1]
+    if membership_mismatches:
+        _issue(
+            issues,
+            "error",
+            "spill_method_membership",
+            "intensity methods do not preserve the same exact selected membership",
+            len(membership_mismatches),
+            membership_mismatches,
+        )
+
     membership_bad = []
     for index, row in enumerate(spills):
         size = int(row.get("subset_size") or 0)
@@ -350,6 +388,10 @@ def verify_intensity_outputs(
     invariant_failure_count = 0
     invariant_failure_examples: list[str] = []
     n1_weighted_rows = 0
+    window_geometry_failure_count = 0
+    window_geometry_failure_examples: list[tuple[object, ...]] = []
+    invalid_global_q_count = 0
+    invalid_global_q_examples: list[tuple[object, ...]] = []
     for row in _iter_csv(window_path):
         window_count += 1
         key = (
@@ -377,6 +419,23 @@ def verify_intensity_outputs(
         previous_window_sort_key = sort_key
         group_key = key[:-1]
         window_group_counts[group_key] += 1
+        center_turn = _finite(row.get("center_turn"))
+        expected_center_turn = window_turns // 2 + key[-1] * stride_turns
+        if (
+            key[-1] < 0
+            or key[-1] >= expected_centers
+            or window_turns <= 0
+            or stride_turns <= 0
+            or not math.isfinite(center_turn)
+            or abs(center_turn - expected_center_turn) > 1e-8
+        ):
+            window_geometry_failure_count += 1
+            if len(window_geometry_failure_examples) < 5:
+                window_geometry_failure_examples.append((*key, row.get("center_turn", "")))
+        if not math.isfinite(_finite(row.get("q_global"))):
+            invalid_global_q_count += 1
+            if len(invalid_global_q_examples) < 5:
+                invalid_global_q_examples.append(key)
         fallback = row.get("weight_fallback", "")
         fallback_values[fallback] += 1
         if fallback not in FALLBACK_LABELS:
@@ -415,9 +474,37 @@ def verify_intensity_outputs(
             out_of_order_window_count,
             out_of_order_window_examples,
         )
+    expected_window_groups = set(spill_keys)
     bad_window_groups = [key for key, count in window_group_counts.items() if count != expected_centers]
-    if bad_window_groups or len(window_group_counts) != expected_spill_rows:
-        _issue(issues, "error", "window_grid_coverage", "spill-method groups do not each contain the expected complete turn grid", len(bad_window_groups) + abs(len(window_group_counts) - expected_spill_rows), bad_window_groups)
+    missing_window_groups = expected_window_groups - set(window_group_counts)
+    unexpected_window_groups = set(window_group_counts) - expected_window_groups
+    if bad_window_groups or missing_window_groups or unexpected_window_groups:
+        _issue(
+            issues,
+            "error",
+            "window_grid_coverage",
+            "spill-method groups do not each contain the expected complete exact turn grid",
+            len(bad_window_groups) + len(missing_window_groups) + len(unexpected_window_groups),
+            [*bad_window_groups[:5], *sorted(missing_window_groups)[:5], *sorted(unexpected_window_groups)[:5]],
+        )
+    if window_geometry_failure_count:
+        _issue(
+            issues,
+            "error",
+            "window_exact_geometry",
+            "window indices and center turns do not match the contracted 4096/512 grid",
+            window_geometry_failure_count,
+            window_geometry_failure_examples,
+        )
+    if invalid_global_q_count:
+        _issue(
+            issues,
+            "error",
+            "window_global_q",
+            "global ridge picks must be finite for every exact method/window point",
+            invalid_global_q_count,
+            invalid_global_q_examples,
+        )
 
     if unexpected_fallbacks:
         _issue(issues, "error", "fallback_label", "window rows contain unknown weight-fallback labels", sum(unexpected_fallbacks.values()), list(unexpected_fallbacks))
@@ -497,6 +584,8 @@ def verify_intensity_outputs(
     figure_paths = [Path(row.get("path", "")) for row in figures]
     if len(figure_paths) != len(set(figure_paths)):
         _issue(issues, "error", "duplicate_gallery_paths", "intensity gallery manifest contains duplicate paths", len(figure_paths) - len(set(figure_paths)))
+    subtractive_caption_failures: list[str] = []
+    p98_caption_failures: list[str] = []
     for row, path in zip(figures, figure_paths):
         if not path.is_absolute():
             path = gallery / path
@@ -505,17 +594,52 @@ def verify_intensity_outputs(
             _issue(issues, "error", "invalid_gallery_figure", f"gallery figure is missing, invalid, or undersized: {path}")
         if not row.get("description") or not row.get("claim_guardrail"):
             _issue(issues, "error", "gallery_caption_contract", f"gallery figure lacks a description or claim guardrail: {path.name}")
+        if row.get("category") == "ridge_density_difference":
+            copy = f"{row.get('description', '')} {row.get('claim_guardrail', '')}".lower().replace("-", " ")
+            if (
+                "probability" not in copy
+                or "exact common" not in copy
+                or "p99" not in copy
+                or "suppresses" in copy
+                or "weighted adds" in copy
+            ):
+                subtractive_caption_failures.append(path.name)
+        if row.get("category") in {"ridge_density", "intensity_relationship"}:
+            copy = f"{row.get('description', '')} {row.get('claim_guardrail', '')}".lower()
+            if "p98" not in copy:
+                p98_caption_failures.append(path.name)
+    if subtractive_caption_failures:
+        _issue(
+            issues,
+            "error",
+            "gallery_subtractive_semantics",
+            "intensity subtraction captions must state exact-common probability redistribution and P99 display clipping without suppression language",
+            len(subtractive_caption_failures),
+            subtractive_caption_failures,
+        )
+    if p98_caption_failures:
+        _issue(
+            issues,
+            "error",
+            "gallery_p98_disclosure",
+            "count-density gallery captions must disclose nonzero-P98 display clipping",
+            len(p98_caption_failures),
+            p98_caption_failures,
+        )
     categories = Counter(row.get("category", "") for row in figures)
     expected_category_minimums = {
         "integrity": 1,
         "ridge_density": 2 * len(sizes) * len(METHODS),
         "ridge_density_difference": 2 * len(sizes) * len(WEIGHTED_METHODS),
         "ridge_concentration": 2 * len(sizes),
+        "ridge_concentration_detail": 2 * len(sizes),
         "intensity_relationship": 2 * len(sizes) * 2,
         "method_effect": 8,
         "method_effect_practical_fraction": 8,
         "lag_correlation": 2 * len(sizes),
+        "lag_correlation_detail": 2 * len(sizes),
         "loss_turn": 2 * len(sizes) * 3,
+        "loss_turn_detail": 2 * len(sizes) * 3,
         "representative_overlay": 1,
     }
     for category, minimum in expected_category_minimums.items():

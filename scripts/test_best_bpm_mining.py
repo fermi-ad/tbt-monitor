@@ -6,10 +6,12 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
@@ -27,7 +29,7 @@ from bpm_mining.subset_score import (
     subset_mask,
     visibility_fraction_and_duration,
 )
-from bpm_mining.subset_search import supplement_pool
+from bpm_mining.subset_search import metadata_for_bpms, supplement_pool
 from bpm_mining.peaks import extract_per_bpm_features
 from bpm_mining.consensus import build_consensus
 from bpm_mining.subset_search import search_best_bpm_subsets
@@ -57,9 +59,12 @@ from bpm_mining.best_n import (
     fold_by_digitizer,
     merge_best_n_shards,
     purged_window_split,
+    recommendation_gate_status,
+    recommendation_margin_sensitivity,
     recommended_n,
     stratified_limit,
     training_candidates,
+    write_plots as write_best_n_plots,
 )
 from bpm_mining.best_n_sensitivity import (
     SensitivityRun,
@@ -68,10 +73,14 @@ from bpm_mining.best_n_sensitivity import (
     validate_parallel_run_controls,
 )
 from bpm_mining.best_n_verification import verify_best_n_outputs
+from bpm_mining.all_training import evaluate as evaluate_all_training
+from bpm_mining.all_training import verify_outputs as verify_all_training_outputs
 from bpm_mining.ridge_verification import (
     audit_sliding_file,
     contracted_center_grid,
+    paired_mask_coverage,
     png_dimensions,
+    valid_figure_dimensions,
     verify_ridge_density_outputs,
 )
 from bpm_mining.intensity import (
@@ -85,6 +94,14 @@ from bpm_mining.intensity import (
     paired_channels,
 )
 from bpm_mining.intensity_verification import verify_intensity_outputs
+from bpm_mining.intensity_plots import (
+    DENSITY_DELTA_DESCRIPTION,
+    DENSITY_DELTA_GUARDRAIL,
+    DENSITY_DELTA_NOTE,
+    DENSITY_DELTA_ZERO_NOTE,
+    exact_paired_density_rows as exact_paired_intensity_density_rows,
+    raster_cell_bounds as intensity_raster_cell_bounds,
+)
 from bpm_mining.payload_integrity import (
     device_fallback_values,
     longest_finite_exact_run,
@@ -94,9 +111,18 @@ from bpm_mining.plots import make_artifacts
 from bpm_mining.report import make_report
 from bpm_mining.verification import verify_best_bpm_followups, verify_best_bpm_outputs
 from audit_intensity_capture import audit as audit_intensity_capture
-from audit_delivery_ring_payloads import audit_manifest as audit_delivery_ring_manifest
-from run_best_n_sensitivity_matrix import _RunJob, _execute_jobs
+from audit_delivery_ring_payloads import (
+    audit as audit_delivery_ring_corpus,
+    audit_manifest as audit_delivery_ring_manifest,
+)
+from compare_payload_absences_to_best_n import compare_absences
+from run_best_n_sensitivity_matrix import _RunJob, _comparison_command, _execute_jobs
 from make_best_bpm_ridge_density import (
+    adaptive_comparison_by_turn_rows,
+    adaptive_comparison_metrics,
+    caption_for_density,
+    caption_for_difference,
+    caption_for_legacy_difference,
     draw_legacy_pair_hv,
     draw_legacy_pair_hv_selected,
     draw_paired_density_grid_hv,
@@ -112,16 +138,24 @@ from make_best_bpm_ridge_density import (
     raster_cell_bounds,
     robust_change_point,
 )
-from gpu_analyze_captured_spills import preprocess_traces, select_trace_subset
+from gpu_analyze_captured_spills import (
+    preprocess_traces,
+    raster_cell_bounds as legacy_raster_cell_bounds,
+    select_trace_subset,
+)
 from audit_legacy_single_bpm_selection import selection_row as legacy_selection_row
-from package_publication_review import package_review
+from package_publication_review import package_review, verify_review_package
 from prepare_ibic2026_publication import (
+    PAYLOAD_AUDIT_MANIFEST_SHA256,
+    PAYLOAD_AUDIT_TOPOLOGY_EXPECTED,
+    PAYLOAD_MISSING_ROWS_BY_COLLECTION,
     best_n_design_summary,
     prepare_publication,
     publication_content,
     publication_numeric_summary,
     render_results_macros,
     render_results_table,
+    selected_ridge_coverage,
     sensitivity_summary,
 )
 from repair_best_bpm_visibility_duration import repair_visibility_durations
@@ -132,7 +166,19 @@ from compare_intensity_block_sensitivity import (
 )
 from compare_best_n_beam_widths import compare_table as compare_best_n_beam_table
 from compare_best_n_sensitivity import comparison_rows as compare_best_n_sensitivity_rows
-from finalize_ibic2026_publication import parse_pdfinfo
+from finalize_ibic2026_publication import (
+    POSTER_STARTER_SHA256,
+    empty_structural_placeholders,
+    parse_pdfinfo,
+    require_identical_files,
+    sha256 as publication_sha256,
+    validate_publication_coverage_payload,
+    validate_sensitivity_payload,
+    verify_poster_source_manifest,
+    verify_publication_source_manifest,
+    verify_sha256_manifest,
+    verify_template_fidelity,
+)
 
 
 def synthetic_collection(root: Path, spills: int = 3, bpms: int = 8, turns: int = 1024) -> None:
@@ -326,6 +372,28 @@ class BestBpmMiningTests(unittest.TestCase):
         baseline = [run for run in runs if run.beam_width == 32 and run.fit_windows == 8 and run.fold_seed == 20260709]
         self.assertEqual(len(baseline), 1)
 
+    def test_best_n_beam_comparison_command_uses_numeric_width_labels(self) -> None:
+        _runs, dimensions = build_sensitivity_matrix(
+            [16, 32, 64],
+            [4, 8, 16],
+            [20260709, 20260710, 20260711],
+            32,
+            8,
+            20260709,
+        )
+        command = _comparison_command(
+            "scripts/compare_best_n_beam_widths.py",
+            "beam_width",
+            dimensions["beam_width"],
+            Path("/runs"),
+            "beam64",
+            Path("/out"),
+        )
+        run_values = [command[index + 1] for index, value in enumerate(command) if value == "--run"]
+        self.assertEqual([value.split("=", 1)[0] for value in run_values], ["16", "32", "64"])
+        reference_index = command.index("--reference-width")
+        self.assertEqual(command[reference_index + 1], "64")
+
     def test_best_n_sensitivity_parallel_controls_and_memavailable(self) -> None:
         validate_parallel_run_controls(1, 32.0, 5.0, 3)
         validate_parallel_run_controls(2, 32.0, 5.0, 3)
@@ -469,6 +537,46 @@ class BestBpmMiningTests(unittest.TestCase):
             self.assertEqual(abort["status"], "aborted")
             self.assertEqual(abort["active_runs"], [run.slug for run in runs])
 
+    def test_best_n_sensitivity_resume_skips_verified_evaluator_processes(self) -> None:
+        args = argparse.Namespace(
+            dry_run=False,
+            resume=True,
+            parallel_runs=2,
+            minimum_available_memory_gib=32.0,
+            memory_check_seconds=0.01,
+            low_memory_samples=3,
+            max_n=1,
+            curve_limit=1,
+            validation_limit=1,
+            folds=1,
+            bootstrap_block_spills=1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            out = root / "out"
+            out.mkdir()
+            launch_marker = root / "launched"
+            job = _RunJob(
+                run=SensitivityRun(16, 8, 20260709),
+                output=root / "verified",
+                command=[
+                    sys.executable,
+                    "-c",
+                    f"from pathlib import Path; Path({str(launch_marker)!r}).touch()",
+                ],
+            )
+            manifest = _execute_jobs(
+                args,
+                [job],
+                root,
+                out,
+                verify_run=lambda _args, _job: None,
+                read_available_memory_gib=lambda: 128.0,
+            )
+            self.assertEqual([row["status"] for row in manifest], ["verified"])
+            self.assertIsNone(job.process)
+            self.assertFalse(launch_marker.exists())
+
     def test_best_n_resume_requires_exact_contiguous_rows(self) -> None:
         key = {"collection": "a", "spill_id": "1", "plane": "H"}
         curve = [{**key, "subset_size": value} for value in (1, 3)]
@@ -525,9 +633,14 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertEqual(grid, (2, 4, 6))
         path = self.root / "ridge_sliding.csv"
         rows = []
-        for spill_id, centers in (("1", grid), ("2", grid[:-1]), ("1", grid)):
+        for spill_index, spill_id, centers in (
+            (0, "1", grid),
+            (1, "2", grid[:-1]),
+            (0, "1", grid),
+        ):
             rows.extend(
                 {
+                    "spill_index": spill_index,
                     "run_name": "run",
                     "target_ms": spill_id,
                     "spill_id": spill_id,
@@ -535,14 +648,92 @@ class BestBpmMiningTests(unittest.TestCase):
                     "center_turn": center,
                     "selected_bpm_count": 3,
                     "selected_tune": 0.65,
+                    "selected_confidence": 3.0,
                 }
                 for center in centers
             )
         write_csv(path, rows, list(rows[0]))
-        audit = audit_sliding_file(path, subset_size=3, expected_center_grid=grid)
+        audit = audit_sliding_file(
+            path,
+            subset_size=3,
+            expected_center_grid=grid,
+            expected_spill_count=2,
+        )
         self.assertEqual(audit["group_counts"]["H"], 3)
         self.assertEqual(audit["duplicate_groups"]["H"], 1)
         self.assertEqual(audit["bad_center_grids"]["H"], 1)
+
+    def test_ridge_sliding_audit_reconstructs_finite_point_intersections(self) -> None:
+        grid = (2, 4)
+
+        def write_sliding(path: Path, tunes: list[list[object]]) -> None:
+            rows = []
+            for spill_index, spill_tunes in enumerate(tunes):
+                for center, tune in zip(grid, spill_tunes):
+                    rows.append(
+                        {
+                            "spill_index": spill_index,
+                            "run_name": "run",
+                            "target_ms": str(spill_index + 1),
+                            "spill_id": f"spill_{spill_index + 1}",
+                            "plane": "H",
+                            "center_turn": center,
+                            "selected_bpm_count": 3,
+                            "selected_tune": tune,
+                            "selected_confidence": "" if tune == "" else 3.0,
+                        }
+                    )
+            write_csv(path, rows, list(rows[0]))
+
+        baseline_path = self.root / "ridge_baseline.csv"
+        ensemble_path = self.root / "ridge_ensemble.csv"
+        write_sliding(baseline_path, [[0.65, ""], [0.6197, 0.66]])
+        write_sliding(ensemble_path, [[0.651, 0.652], ["", 0.661]])
+        baseline = audit_sliding_file(
+            baseline_path,
+            subset_size=3,
+            expected_center_grid=grid,
+            expected_spill_count=2,
+            edge_tolerance=0.001,
+        )
+        ensemble = audit_sliding_file(
+            ensemble_path,
+            subset_size=3,
+            expected_center_grid=grid,
+            expected_spill_count=2,
+            edge_tolerance=0.001,
+        )
+        self.assertEqual(baseline["row_counts"]["H"], 4)
+        self.assertEqual(baseline["missing_tunes"]["H"], 1)
+        self.assertEqual(baseline["edge_excluded_tunes"]["H"], 1)
+        self.assertEqual(baseline["tune_bad"]["H"], 0)
+        self.assertEqual(baseline["valid_center_masks"]["H"], [1, 2])
+        self.assertEqual(ensemble["valid_center_masks"]["H"], [1, 3])
+        self.assertEqual(
+            paired_mask_coverage(baseline, ensemble, "H"),
+            {
+                "common_spill_count": 2,
+                "common_ridge_point_count": 2,
+                "common_center_count": 2,
+                "paired_counts": (1, 1),
+            },
+        )
+        outside_path = self.root / "ridge_outside_tolerance.csv"
+        write_sliding(outside_path, [[0.618, 0.65], [0.65, 0.66]])
+        outside = audit_sliding_file(
+            outside_path,
+            subset_size=3,
+            expected_center_grid=grid,
+            expected_spill_count=2,
+            edge_tolerance=0.001,
+        )
+        self.assertEqual(outside["tune_bad"]["H"], 1)
+
+    def test_ridge_figure_dimension_gate_is_orientation_aware(self) -> None:
+        self.assertTrue(valid_figure_dimensions((1400, 900), 1000, 600))
+        self.assertTrue(valid_figure_dimensions((800, 1250), 1000, 600))
+        self.assertFalse(valid_figure_dimensions((800, 900), 1000, 600))
+        self.assertFalse(valid_figure_dimensions(None, 1000, 600))
 
     def test_intensity_fallback_label_presence(self) -> None:
         self.assertFalse(has_weight_fallback(""))
@@ -608,6 +799,75 @@ class BestBpmMiningTests(unittest.TestCase):
         chosen, reason = recommended_n(rows, "V", 0.0025)
         self.assertIsNone(chosen)
         self.assertIn("boundary-limited", reason)
+
+    def test_best_n_publication_plot_separates_blind_and_conditioned_agreement(self) -> None:
+        rows = []
+        for plane, blind_base, conditioned_base in (("H", 0.07, 0.34), ("V", 0.15, 0.45)):
+            for subset_size in range(1, 5):
+                rows.append(
+                    {
+                        "plane": plane,
+                        "subset_size": subset_size,
+                        "validation_row_count": 100,
+                        "blind_q_agreement_rate": blind_base + 0.02 * subset_size,
+                        "blind_q_agreement_ci_low": blind_base + 0.02 * subset_size - 0.01,
+                        "blind_q_agreement_ci_high": blind_base + 0.02 * subset_size + 0.01,
+                        "q_agreement_rate": conditioned_base + 0.02 * subset_size,
+                        "q_agreement_ci_low": conditioned_base + 0.02 * subset_size - 0.01,
+                        "q_agreement_ci_high": conditioned_base + 0.02 * subset_size + 0.01,
+                        "median_blind_selected_heldout_abs_q_delta": 0.01 - 0.001 * subset_size,
+                        "blind_selected_heldout_abs_q_delta_ci_low": 0.009 - 0.001 * subset_size,
+                        "blind_selected_heldout_abs_q_delta_ci_high": 0.011 - 0.001 * subset_size,
+                        "median_selected_heldout_abs_q_delta": 0.002,
+                        "median_test_peak_prominence": 8.0 + subset_size,
+                        "test_peak_prominence_ci_low": 7.5 + subset_size,
+                        "test_peak_prominence_ci_high": 8.5 + subset_size,
+                        "median_test_power_support": 2.0 + subset_size,
+                        "test_power_support_ci_low": 1.8 + subset_size,
+                        "test_power_support_ci_high": 2.2 + subset_size,
+                        "median_heldout_prominence": 7.0 + subset_size,
+                        "heldout_prominence_ci_low": 6.5 + subset_size,
+                        "heldout_prominence_ci_high": 7.5 + subset_size,
+                        "median_heldout_power_support": 1.5 + subset_size,
+                        "heldout_power_support_ci_low": 1.3 + subset_size,
+                        "heldout_power_support_ci_high": 1.7 + subset_size,
+                        "median_subset_score": 0.2 + 0.01 * subset_size,
+                        "median_curve_test_visible_fraction": 0.1 * subset_size,
+                    }
+                )
+        out = self.root / "best-n-plots"
+        write_best_n_plots(rows, out, 0.0025)
+        margin_rows = recommendation_margin_sensitivity(rows, "H", 0.0025)
+        self.assertEqual(len(margin_rows), 27)
+        declared = next(row for row in margin_rows if row["is_declared"] == "true")
+        declared_choice, _reason = recommended_n(rows, "H", 0.0025)
+        self.assertIsNotNone(declared_choice)
+        self.assertEqual(int(declared["recommended_n"]), int(declared_choice["subset_size"]))
+        exported_margin_rows = read_csv(out / "best_n_gate_margin_sensitivity.csv")
+        self.assertEqual(len(exported_margin_rows), 54)
+        for plane in ("h", "v"):
+            blind = out / f"best_n_validation_{plane}.png"
+            conditioned = out / f"best_n_conditioned_agreement_{plane}.png"
+            gates = out / f"best_n_decision_gates_{plane}.png"
+            margins = out / f"best_n_gate_margin_sensitivity_{plane}.png"
+            self.assertEqual(png_dimensions(blind), (1400, 800))
+            self.assertEqual(png_dimensions(conditioned), (1400, 800))
+            self.assertEqual(png_dimensions(gates), (1400, 640))
+            self.assertEqual(png_dimensions(margins), (1400, 720))
+            self.assertNotEqual(blind.read_bytes(), conditioned.read_bytes())
+            caption = gates.with_name(f"{gates.stem}_caption.md").read_text(encoding="utf-8")
+            self.assertIn("earliest eligible value", caption)
+            margin_caption = margins.with_name(f"{margins.stem}_caption.md").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("post-selection diagnostic", margin_caption)
+            self.assertIn("does not replace", margin_caption)
+            statuses, _context, reason = recommendation_gate_status(rows, plane.upper(), 0.0025)
+            self.assertEqual(reason, "")
+            chosen, _reason = recommended_n(rows, plane.upper(), 0.0025)
+            self.assertIsNotNone(chosen)
+            eligible = [int(status["subset_size"]) for status in statuses if status["all_gates"]]
+            self.assertEqual(int(chosen["subset_size"]), min(eligible))
 
     def test_peak_candidate_and_consensus(self) -> None:
         tune_axis = np.linspace(0.60, 0.70, 200, dtype=np.float32)
@@ -719,14 +979,23 @@ class BestBpmMiningTests(unittest.TestCase):
 
         spectra = np.arange(24, dtype=np.float32).reshape(1, 3, 8) + 1.0
         relative = np.asarray([[0.2, 1.0, 3.0]], dtype=np.float32)
-        baseline, _ = combine_weighted_spectra(spectra, method_weights(relative, "unweighted"))
+        baseline, baseline_effective = combine_weighted_spectra(spectra, method_weights(relative, "unweighted"))
         for method in ("sqrt_intensity", "linear_intensity", "intensity_gate_50pct"):
-            weighted, _ = combine_weighted_spectra(spectra, method_weights(relative, method))
-            np.testing.assert_allclose(weighted, baseline)
+            weighted, effective = combine_weighted_spectra(spectra, method_weights(relative, method))
+            np.testing.assert_array_equal(weighted, baseline)
+            np.testing.assert_array_equal(effective, baseline_effective)
         relative_with_missing = np.asarray([[math.nan, 1.0, math.nan]], dtype=np.float32)
         for method in ("sqrt_intensity", "linear_intensity", "intensity_gate_50pct"):
-            weighted, _ = combine_weighted_spectra(spectra, method_weights(relative_with_missing, method))
-            np.testing.assert_allclose(weighted, baseline)
+            weighted, effective = combine_weighted_spectra(spectra, method_weights(relative_with_missing, method))
+            np.testing.assert_array_equal(weighted, baseline)
+            np.testing.assert_array_equal(effective, baseline_effective)
+        invalid_weighted, invalid_effective = combine_weighted_spectra(
+            spectra,
+            np.asarray([[1.0, 0.0, math.nan]], dtype=np.float32),
+        )
+        np.testing.assert_array_equal(invalid_weighted[0], spectra[0, 0])
+        self.assertTrue(np.all(np.isnan(invalid_weighted[1:])))
+        np.testing.assert_array_equal(invalid_effective, np.asarray([1.0, 0.0, 0.0], dtype=np.float32))
         self.assertEqual(
             method_weight_fallbacks(relative_with_missing, "sqrt_intensity"),
             ["NO_USABLE_INTENSITY_UNWEIGHTED", "", "NO_USABLE_INTENSITY_UNWEIGHTED"],
@@ -826,6 +1095,80 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertIn("LONG_EXACT_PAIRED_PLATEAU", rows[0]["quality_flags"])
         self.assertIn("RAW_DEVICE_FALLBACK_PAIR", rows[0]["quality_flags"])
 
+    def test_delivery_ring_corpus_audit_enumerates_manifest_level_absences(self) -> None:
+        collection = self.root / "payload-corpus"
+        synthetic_collection(collection, spills=2, bpms=2, turns=256)
+        partial = collection / "spill_1001" / "manifest.json"
+        data = json.loads(partial.read_text(encoding="utf-8"))
+        missing_key = data["streams"][-1]["stream_key"]
+        data["streams"] = data["streams"][:-1]
+        data["warnings"] = ["incomplete near-target capture"]
+        data["capture_diagnostics"] = {"status": "Partial", "missing_streams": 1}
+        partial.write_text(json.dumps(data), encoding="utf-8")
+
+        out = self.root / "payload-corpus-audit"
+        report = audit_delivery_ring_corpus([collection], out, analysis_turns=128, plateau_turns=64)
+        missing = read_csv(out / "missing_position_streams.csv")
+        self.assertEqual(report["missing_position_stream_rows"], 1)
+        self.assertEqual(len(missing), 1)
+        self.assertEqual(missing[0]["missing_position_source_key"], missing_key)
+        self.assertEqual(missing[0]["capture_status"], "Partial")
+        self.assertEqual(
+            report["missing_position_stream_inventory_sha256"],
+            publication_sha256(out / "missing_position_streams.csv"),
+        )
+
+    def test_payload_absence_join_preserves_selected_cardinality(self) -> None:
+        missing_path = self.root / "missing.csv"
+        missing_rows = [
+            {
+                "collection": "position",
+                "spill_id": "spill_1",
+                "plane": plane,
+                "missing_position_source_key": f"{{TEST}}:{plane}P999:TBT_POSITION_RAW",
+            }
+            for plane in ("H", "V")
+        ]
+        missing_rows.append(
+            {
+                "collection": "intensity",
+                "spill_id": "spill_2",
+                "plane": "V",
+                "missing_position_source_key": "{TEST}:VP998:TBT_POSITION_RAW",
+            }
+        )
+        write_csv(missing_path, missing_rows, list(missing_rows[0]))
+        curve_path = self.root / "curve.csv"
+        curve_rows = [
+            {
+                "collection": "position",
+                "spill_id": "spill_1",
+                "plane": "H",
+                "subset_size": 2,
+                "bpm_source_keys": "{TEST}:HP101:TBT_POSITION_RAW,{TEST}:HP103:TBT_POSITION_RAW",
+            },
+            {
+                "collection": "position",
+                "spill_id": "spill_1",
+                "plane": "V",
+                "subset_size": 3,
+                "bpm_source_keys": "{TEST}:VP102:TBT_POSITION_RAW,{TEST}:VP104:TBT_POSITION_RAW,{TEST}:VP106:TBT_POSITION_RAW",
+            },
+        ]
+        write_csv(curve_path, curve_rows, list(curve_rows[0]))
+        out = self.root / "absence-join"
+        report = compare_absences(missing_path, curve_path, out, {"H": 2, "V": 3})
+        self.assertEqual(report["missing_position_rows"], 3)
+        self.assertEqual(report["evaluated_position_rows"], 2)
+        self.assertEqual(report["outside_best_n_corpus_rows"], 1)
+        self.assertEqual(report["selected_overlap_rows"], 0)
+        self.assertEqual(len(read_csv(out / "missing_position_best_n_intersections.csv")), 3)
+
+        curve_rows[0]["bpm_source_keys"] = "{TEST}:HP101:TBT_POSITION_RAW"
+        write_csv(curve_path, curve_rows, list(curve_rows[0]))
+        with self.assertRaisesRegex(ValueError, "cardinality mismatch"):
+            compare_absences(missing_path, curve_path, out, {"H": 2, "V": 3})
+
     def test_tiny_intensity_entropy_shift_is_not_practically_retained(self) -> None:
         rows = []
         for spill in range(32):
@@ -897,6 +1240,52 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertEqual(prominence["statistical_benefit_pass"], "false")
         self.assertEqual(prominence["retain_method_for_tune_analysis"], "false")
 
+    def test_intensity_density_subtraction_is_exact_paired_probability(self) -> None:
+        baseline = [
+            {
+                "collection": "a",
+                "spill_id": str(spill),
+                "plane": "V",
+                "subset_size": 5,
+                "window_index": 0,
+                "center_turn": 2048,
+                "q_global": 0.720 + spill * 0.001,
+            }
+            for spill in range(2)
+        ]
+        weighted = [{**row, "q_global": float(row["q_global"]) + 0.0005} for row in baseline]
+        paired_baseline, paired_weighted = exact_paired_intensity_density_rows(
+            baseline,
+            weighted,
+            (0.69, 0.74),
+        )
+        self.assertEqual(len(paired_baseline), 2)
+        self.assertEqual(len(paired_weighted), 2)
+        with self.assertRaisesRegex(ValueError, "identical exact spill/window keys"):
+            exact_paired_intensity_density_rows(baseline, weighted[:-1], (0.69, 0.74))
+        with self.assertRaisesRegex(ValueError, "duplicate unweighted intensity ridge point"):
+            exact_paired_intensity_density_rows([*baseline, baseline[0]], weighted, (0.69, 0.74))
+
+        copy = " ".join((DENSITY_DELTA_NOTE, DENSITY_DELTA_DESCRIPTION, DENSITY_DELTA_GUARDRAIL))
+        self.assertIn("probability", copy.lower())
+        self.assertIn("exact common", copy.lower())
+        self.assertIn("P99", DENSITY_DELTA_DESCRIPTION)
+        self.assertNotIn("suppresses", copy.lower())
+        self.assertNotIn("weighted adds", copy.lower())
+        self.assertEqual(DENSITY_DELTA_ZERO_NOTE, "NO RIDGE-PICK PROBABILITY REDISTRIBUTION")
+
+    def test_intensity_raster_cells_fill_uneven_axes_without_gaps(self) -> None:
+        for reverse in (False, True):
+            cells = [
+                intensity_raster_cell_bounds(index, 7, 13, 113, reverse=reverse)
+                for index in range(7)
+            ]
+            ordered = sorted(cells)
+            self.assertEqual(ordered[0][0], 13)
+            self.assertEqual(ordered[-1][1], 113)
+            for left, right in zip(ordered, ordered[1:]):
+                self.assertEqual(left[1] + 1, right[0])
+
     def test_intensity_best1_zero_effect_has_numeric_null_inference(self) -> None:
         rows = []
         for spill in range(24):
@@ -930,18 +1319,33 @@ class BestBpmMiningTests(unittest.TestCase):
         source_dir = self.root / "gallery-source"
         source_dir.mkdir()
         (source_dir / "figure.png").write_bytes(b"figure")
+        (source_dir / ".DS_Store").write_bytes(b"finder")
+        cache = source_dir / "__pycache__"
+        cache.mkdir()
+        (cache / "generated.pyc").write_bytes(b"bytecode")
         out = self.root / "review-package"
         rows = package_review((("paper", source_file), ("gallery", source_dir)), out)
         self.assertEqual(len(rows), 2)
         self.assertEqual((out / "paper" / "paper.pdf").read_bytes(), b"paper")
         self.assertEqual((out / "gallery" / "figure.png").read_bytes(), b"figure")
+        self.assertFalse((out / "gallery" / ".DS_Store").exists())
+        self.assertFalse((out / "gallery" / "__pycache__").exists())
         manifest = read_csv(out / "MANIFEST.csv")
         self.assertEqual(len(manifest), 2)
         self.assertTrue(all(len(row["sha256"]) == 64 for row in manifest))
         self.assertTrue((out / "PACKAGE_INDEX.md").exists())
+        verification_path = out / "PACKAGE_VERIFICATION.json"
+        self.assertTrue(verification_path.exists())
+        verification = verify_review_package(out)
+        self.assertEqual(verification["status"], "pass")
+        self.assertEqual(verification["manifest_rows"], 2)
+        self.assertEqual(verification["gallery_images"], 1)
         gallery = (out / "index.html").read_text(encoding="utf-8")
         self.assertIn("Publication Review Gallery", gallery)
         self.assertIn("gallery/figure.png", gallery)
+        (out / "gallery" / "figure.png").write_bytes(b"change")
+        with self.assertRaisesRegex(ValueError, "SHA-256 mismatch"):
+            verify_review_package(out)
 
     def test_publication_review_package_rejects_unsafe_destinations(self) -> None:
         source = self.root / "source.txt"
@@ -953,6 +1357,10 @@ class BestBpmMiningTests(unittest.TestCase):
         (occupied / "keep.txt").write_text("keep", encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "not empty"):
             package_review((("source", source),), occupied)
+        occupied_file = self.root / "occupied-file"
+        occupied_file.write_text("file", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "not a directory"):
+            package_review((("source", source),), occupied_file)
 
     def test_publication_pdfinfo_parser_requires_geometry(self) -> None:
         info = parse_pdfinfo(
@@ -963,6 +1371,159 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertEqual(info["height_points"], 792.0)
         with self.assertRaisesRegex(ValueError, "missing page count"):
             parse_pdfinfo("Title: no geometry\n")
+
+    def test_paper_manifest_matches_referenced_figures(self) -> None:
+        repo = Path(__file__).resolve().parents[1]
+        manuscript = (repo / "publication/ibic2026/paper/ABSTRACT54.tex").read_text(
+            encoding="utf-8"
+        )
+        build_script = (repo / "publication/ibic2026/paper/build_paper.sh").read_text(
+            encoding="utf-8"
+        )
+        figure_pattern = r"figures/([A-Za-z0-9_]+\.png)"
+        manuscript_figures = set(re.findall(figure_pattern, manuscript))
+        manifest_figures = set(re.findall(figure_pattern, build_script))
+        self.assertEqual(manifest_figures, manuscript_figures)
+        self.assertNotIn("horizontal_loss_diagnostic.png", manuscript_figures)
+        self.assertIn("raw host-published position arrays", manuscript)
+
+    def test_publication_requires_pdf_derived_poster_preview(self) -> None:
+        preview = self.root / "poster.png"
+        render = self.root / "poster-render.png"
+        preview.write_bytes(b"same-png")
+        render.write_bytes(b"same-png")
+        require_identical_files("poster preview", preview, render)
+        render.write_bytes(b"different-png")
+        with self.assertRaisesRegex(ValueError, "files differ"):
+            require_identical_files("poster preview", preview, render)
+
+    def test_publication_rejects_empty_structural_poster_placeholders(self) -> None:
+        pptx = self.root / "poster.pptx"
+        slide_xml = """\
+<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+       xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+  <p:cSld><p:spTree>
+    <p:sp>
+      <p:nvSpPr><p:cNvPr id="2" name="Filled title"/><p:cNvSpPr/><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr>
+      <p:txBody><a:p><a:r><a:t>Poster title</a:t></a:r></a:p></p:txBody>
+    </p:sp>
+    <p:sp>
+      <p:nvSpPr><p:cNvPr id="3" name="Empty body"/><p:cNvSpPr/><p:nvPr><p:ph type="body"/></p:nvPr></p:nvSpPr>
+      <p:txBody><a:p><a:r><a:t>   </a:t></a:r></a:p></p:txBody>
+    </p:sp>
+    <p:sp>
+      <p:nvSpPr><p:cNvPr id="4" name="Empty ordinary shape"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>
+      <p:txBody><a:p/></p:txBody>
+    </p:sp>
+  </p:spTree></p:cSld>
+</p:sld>
+"""
+        with zipfile.ZipFile(pptx, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr("ppt/slides/slide1.xml", slide_xml)
+        self.assertEqual(
+            empty_structural_placeholders(pptx),
+            ["ppt/slides/slide1.xml: shape 3 (Empty body)"],
+        )
+
+        clean_pptx = self.root / "clean-poster.pptx"
+        with zipfile.ZipFile(clean_pptx, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr(
+                "ppt/slides/slide1.xml",
+                slide_xml.replace(">   </a:t>", ">Results</a:t>"),
+            )
+        self.assertEqual(empty_structural_placeholders(clean_pptx), [])
+
+    def test_publication_verifies_portable_checksum_manifests(self) -> None:
+        alpha = self.root / "alpha.txt"
+        beta = self.root / "nested" / "beta.txt"
+        alpha.write_text("alpha", encoding="utf-8")
+        beta.parent.mkdir()
+        beta.write_text("beta", encoding="utf-8")
+        manifest = self.root / "checksums.txt"
+        manifest.write_text(
+            f"{publication_sha256(alpha)}  alpha.txt\n"
+            f"{publication_sha256(beta)}  nested/beta.txt\n",
+            encoding="utf-8",
+        )
+        expected = {"alpha.txt": alpha, "nested/beta.txt": beta}
+        verify_sha256_manifest(manifest, expected)
+
+        beta.write_text("changed", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "SHA-256 manifest mismatch"):
+            verify_sha256_manifest(manifest, expected)
+        manifest.write_text(f"{'a' * 64}  /absolute/path\n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "nonportable"):
+            verify_sha256_manifest(manifest, {"/absolute/path": alpha})
+
+    def test_publication_verifies_poster_source_and_fidelity_manifests(self) -> None:
+        publication = self.root / "publication"
+        poster = publication / "poster"
+        assets = poster / "assets"
+        build = poster / "build"
+        layout = build / "layout" / "final-slide-01.layout.json"
+        assets.mkdir(parents=True)
+        layout.parent.mkdir(parents=True)
+        content = poster / "content.json"
+        content.write_text("{}", encoding="utf-8")
+
+        png_header = (
+            b"\x89PNG\r\n\x1a\n"
+            + b"\x00\x00\x00\rIHDR"
+            + (640).to_bytes(4, "big")
+            + (480).to_bytes(4, "big")
+        )
+        asset_names = {
+            "bestNH": "best_n_validation_h.png",
+            "bestNV": "best_n_validation_v.png",
+            "ridgeHV": "ridge_density_comparison.png",
+            "ridgeContrast": "ridge_width_contrast_hv.png",
+            "hLoss": "horizontal_loss_diagnostic.png",
+        }
+        asset_records = {}
+        for key, filename in asset_names.items():
+            path = assets / filename
+            path.write_bytes(png_header)
+            asset_records[key] = {
+                "sha256": publication_sha256(path),
+                "dimensions": {"width": 640, "height": 480},
+            }
+
+        pptx = build / "ibic2026-abstract54-poster.pptx"
+        preview = build / "ibic2026-abstract54-poster-artifact-preview.png"
+        pptx.write_bytes(b"pptx")
+        preview.write_bytes(png_header)
+        layout.write_text("{}", encoding="utf-8")
+        source_manifest = {
+            "schema": "tbt-monitor.ibic2026-poster-source/v1",
+            "starter": {"sha256": POSTER_STARTER_SHA256},
+            "content": {"sha256": publication_sha256(content)},
+            "assets": asset_records,
+            "outputs": {
+                "pptx": {"sha256": publication_sha256(pptx)},
+                "artifactPreview": {"sha256": publication_sha256(preview)},
+                "layout": {"sha256": publication_sha256(layout)},
+            },
+        }
+        (build / "source_manifest.json").write_text(
+            json.dumps(source_manifest), encoding="utf-8"
+        )
+        verify_poster_source_manifest(publication)
+        content.write_text('{"changed": true}', encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "poster source manifest mismatch"):
+            verify_poster_source_manifest(publication)
+
+        fidelity = build / "template-fidelity-check.json"
+        fidelity.write_text(
+            json.dumps({"status": "pass", "issueCount": 0, "issues": []}),
+            encoding="utf-8",
+        )
+        verify_template_fidelity(fidelity)
+        fidelity.write_text(
+            json.dumps({"status": "pass", "issueCount": 1, "issues": ["drift"]}),
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(ValueError, "zero-issue pass"):
+            verify_template_fidelity(fidelity)
 
     def test_publication_copy_and_table_are_plane_specific(self) -> None:
         best = {
@@ -978,6 +1539,7 @@ class BestBpmMiningTests(unittest.TestCase):
         }
         ridge = {
             plane: {
+                "common_ridge_point_count": "350000",
                 "median_iqr_delta_ensemble_minus_legacy": "-0.002",
                 "median_iqr_delta_ci_low": "-0.0025",
                 "median_iqr_delta_ci_high": "-0.0015",
@@ -987,13 +1549,37 @@ class BestBpmMiningTests(unittest.TestCase):
             }
             for plane in ("H", "V")
         }
+        adaptive = {
+            plane: {
+                "baseline_subset_size": "1",
+                "ensemble_subset_size": str(size),
+                "median_iqr_delta_ensemble_minus_baseline": "-0.001",
+                "median_iqr_delta_ci_low": "-0.0015",
+                "median_iqr_delta_ci_high": "-0.0005",
+            }
+            for plane, size in (("H", 7), ("V", 11))
+        }
         sizes = {"H": 7, "V": 11}
         design = {
             "curve_spill_plane_count": 4000,
             "validation_spill_plane_count": 1000,
             "digitizer_fold_count": 5,
         }
-        table = render_results_table(best, ridge, sizes)
+        coverage = {
+            "H": {
+                "sliding_rows": 360000,
+                "ridge_points": 359000,
+                "missing_tune_rows": 10,
+                "edge_excluded_rows": 990,
+            },
+            "V": {
+                "sliding_rows": 360000,
+                "ridge_points": 288000,
+                "missing_tune_rows": 71000,
+                "edge_excluded_rows": 1000,
+            },
+        }
+        table = render_results_table(best, ridge, adaptive, sizes)
         self.assertIn("H & 7", table)
         self.assertIn("V & 11", table)
         self.assertIn("concentration, not absolute tune accuracy", table)
@@ -1001,21 +1587,56 @@ class BestBpmMiningTests(unittest.TestCase):
             sizes,
             best,
             ridge,
+            adaptive,
             {"first_sustained_half_peak_loss_turn": "12000", "most_likely_change_turn": "14000"},
             design,
+            {
+                "ranges": {
+                    "H": {"available": 6, "unavailable": 1, "minimum": 5, "maximum": 13},
+                    "V": {"available": 7, "unavailable": 0, "minimum": 10, "maximum": 26},
+                }
+            },
+            {
+                "by_plane": {
+                    "H": {"selected_favored": 2, "baseline_favored": 1, "unresolved": 5},
+                    "V": {"selected_favored": 3, "baseline_favored": 2, "unresolved": 3},
+                }
+            },
+            coverage,
+            {
+                "spill_count": 2000,
+                "nominal_h_channels": 60,
+                "nominal_v_channels": 60,
+                "partial_capture_count": 12,
+                "source_absence_count": 16,
+            },
             240,
             0,
         )
         self.assertEqual(content["author"], "Derek Steinkamp | Fermi National Accelerator Laboratory")
+        self.assertIn("16 source absences across 12 flagged partial captures", content["methodBody"])
+        self.assertIn("Scaled threshold-substituted streams are excluded", content["methodBody"])
         self.assertIn("H Best-7", content["ridgeCaption"])
         self.assertIn("V Best-11", content["ridgeCaption"])
-        self.assertIn("P10-P90 width minus legacy", content["ridgeContrastCaption"])
+        self.assertIn("minus corrected adaptive Best-1", content["ridgeContrastCaption"])
+        self.assertIn("H narrower than corrected Best-1", content["conclusionBody"])
+        self.assertIn("V narrower than corrected Best-1", content["conclusionBody"])
+        self.assertIn("Same-protocol all-training control", content["conclusionBody"])
+        self.assertIn("with power-support tradeoffs", content["conclusionBody"])
+        self.assertIn("H 2/8", content["conclusionBody"])
+        self.assertIn("6/7 runs; 1 unresolved", content["bestNHCaption"])
+        self.assertIn("7/7 runs; 0 unresolved", content["bestNVCaption"])
+        self.assertIn("Median IQR change vs corrected Best-1", content["quantitativeBody"])
         self.assertIn("0/240", content["quantitativeBody"])
         self.assertIn("4,000 H/V curve cases", content["quantitativeBody"])
         self.assertIn("1,000 stratified validation cases", content["quantitativeBody"])
         self.assertIn("5 held-out-digitizer folds", content["quantitativeBody"])
+        self.assertIn("H 99.7%", content["quantitativeBody"])
+        self.assertIn("V 80.0%", content["quantitativeBody"])
         self.assertNotIn("cases x5", content["quantitativeBody"])
         self.assertIn("1,000 stratified spill-plane", content["methodBody"])
+        self.assertEqual(content["evidence"]["primaryCapture"]["source_absence_count"], 16)
+        self.assertEqual(content["evidence"]["ridgeCoverage"]["V"]["ridge_points"], 288000)
 
     def test_publication_numeric_macros_are_generated_from_accepted_rows(self) -> None:
         primary = [
@@ -1045,7 +1666,47 @@ class BestBpmMiningTests(unittest.TestCase):
             "curve_evaluation_row_count": 160000,
             "validation_evaluation_row_count": 200000,
         }
-        summary = publication_numeric_summary(primary, paired, intensity, design)
+        sensitivity = {
+            "ranges": {
+                "H": {"available": 6, "unavailable": 1, "minimum": 5, "maximum": 13},
+                "V": {"available": 7, "unavailable": 0, "minimum": 10, "maximum": 26},
+            }
+        }
+        all_training = {
+            "by_plane": {
+                "H": {"selected_favored": 2, "baseline_favored": 1, "unresolved": 5},
+                "V": {"selected_favored": 3, "baseline_favored": 2, "unresolved": 3},
+            }
+        }
+        summary = publication_numeric_summary(
+            primary,
+            paired,
+            intensity,
+            design,
+            sensitivity,
+            all_training,
+            {
+                "H": {
+                    "sliding_rows": 360000,
+                    "ridge_points": 359018,
+                    "missing_tune_rows": 14,
+                    "edge_excluded_rows": 968,
+                },
+                "V": {
+                    "sliding_rows": 360000,
+                    "ridge_points": 289210,
+                    "missing_tune_rows": 69684,
+                    "edge_excluded_rows": 1106,
+                },
+            },
+            {
+                "spill_count": 2000,
+                "nominal_h_channels": 60,
+                "nominal_v_channels": 60,
+                "partial_capture_count": 12,
+                "source_absence_count": 16,
+            },
+        )
         macros = render_results_macros(summary)
         self.assertIn(r"\newcommand{\PrimaryHBestOneScore}{0.300}", macros)
         self.assertIn(r"\newcommand{\PrimaryVThreeToFiveGain}{0.0300}", macros)
@@ -1055,10 +1716,90 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertIn(r"\newcommand{\BestNCurveSpillPlaneCount}{4000}", macros)
         self.assertIn(r"\newcommand{\BestNValidationSpillPlaneCount}{1000}", macros)
         self.assertIn(r"\newcommand{\BestNDigitizerFoldCount}{5}", macros)
+        self.assertIn(r"\newcommand{\BestNHSensitivityAvailable}{6}", macros)
+        self.assertIn(r"\newcommand{\BestNVSensitivityMaximum}{26}", macros)
+        self.assertIn(r"\newcommand{\AllTrainingHSelectedFavored}{2}", macros)
+        self.assertIn(r"\newcommand{\AllTrainingVUnresolved}{3}", macros)
+        self.assertIn(r"\newcommand{\RidgeHFinitePicks}{359018}", macros)
+        self.assertIn(r"\newcommand{\RidgeVBlankPicks}{69684}", macros)
+        self.assertIn(r"\newcommand{\PrimaryPartialCaptures}{12}", macros)
+        self.assertIn(r"\newcommand{\PrimarySourceAbsences}{16}", macros)
         with self.assertRaisesRegex(ValueError, "definitive study design"):
             best_n_design_summary({"curve_cache_key_count": 4000})
 
-    def test_publication_rejects_unresolved_best_n_sensitivity(self) -> None:
+    def test_publication_ridge_coverage_requires_exact_selected_row_closure(self) -> None:
+        report = {
+            "coverage": [
+                {
+                    "plane": plane,
+                    "subset_size": size,
+                    "spill_count": 2000,
+                    "center_count": 180,
+                    "sliding_rows": 360000,
+                    "ridge_points": points,
+                    "missing_tune_rows": missing,
+                    "edge_excluded_rows": edge,
+                    "legacy_spill_count": 1988,
+                    "legacy_point_count": points - 1000,
+                }
+                for plane, size, points, missing, edge in (
+                    ("H", 5, 359018, 14, 968),
+                    ("V", 12, 289210, 69684, 1106),
+                )
+            ]
+        }
+        coverage = selected_ridge_coverage(report, {"H": 5, "V": 12})
+        self.assertEqual(coverage["H"]["ridge_points"], 359018)
+        self.assertEqual(coverage["V"]["missing_tune_rows"], 69684)
+        broken = json.loads(json.dumps(report))
+        broken["coverage"][1]["edge_excluded_rows"] -= 1
+        with self.assertRaisesRegex(ValueError, "does not close"):
+            selected_ridge_coverage(broken, {"H": 5, "V": 12})
+
+    def test_finalizer_binds_primary_and_ridge_coverage(self) -> None:
+        payload = {
+            "selected_sizes": {"H": 5, "V": 12},
+            "primary_capture": {
+                "spill_count": 2000,
+                "nominal_h_channels": 60,
+                "nominal_v_channels": 60,
+                "partial_capture_count": 12,
+                "source_absence_count": 16,
+            },
+            "ridge_coverage": {
+                "H": {
+                    "subset_size": 5,
+                    "spill_count": 2000,
+                    "center_count": 180,
+                    "sliding_rows": 360000,
+                    "ridge_points": 359018,
+                    "missing_tune_rows": 14,
+                    "edge_excluded_rows": 968,
+                    "legacy_spill_count": 1988,
+                    "legacy_point_count": 355688,
+                },
+                "V": {
+                    "subset_size": 12,
+                    "spill_count": 2000,
+                    "center_count": 180,
+                    "sliding_rows": 360000,
+                    "ridge_points": 289210,
+                    "missing_tune_rows": 69684,
+                    "edge_excluded_rows": 1106,
+                    "legacy_spill_count": 1988,
+                    "legacy_point_count": 286646,
+                },
+            },
+        }
+        primary, coverage = validate_publication_coverage_payload(payload)
+        self.assertEqual(primary["source_absence_count"], 16)
+        self.assertEqual(coverage["V"]["ridge_points"], 289210)
+        broken = json.loads(json.dumps(payload))
+        broken["ridge_coverage"]["V"]["missing_tune_rows"] -= 1
+        with self.assertRaisesRegex(ValueError, "does not close"):
+            validate_publication_coverage_payload(broken)
+
+    def test_publication_requires_majority_best_n_sensitivity_coverage(self) -> None:
         root = self.root / "best-n-sensitivity"
         manifest = []
         for index in range(7):
@@ -1068,7 +1809,7 @@ class BestBpmMiningTests(unittest.TestCase):
                 {
                     "plane": plane,
                     "subset_size": 1,
-                    "validation_row_count": 20 if plane == "H" else 0,
+                    "validation_row_count": 20 if plane == "H" or index < 4 else 0,
                     "blind_q_agreement_rate": 0.9,
                     "median_blind_selected_heldout_abs_q_delta": 0.001,
                     "median_test_peak_prominence": 5,
@@ -1093,13 +1834,63 @@ class BestBpmMiningTests(unittest.TestCase):
                 }
             )
         write_csv(root / "sensitivity_run_manifest.csv", manifest, list(manifest[0]))
-        with self.assertRaisesRegex(ValueError, "unresolved recommendations: V=7/7"):
+        summary = sensitivity_summary(root, 0.0025)
+        self.assertEqual(summary["recommendations"]["V"], [1, 1, 1, 1])
+        self.assertEqual(summary["unavailable"]["V"], 3)
+        self.assertEqual(summary["minimum_available_per_plane"], 4)
+        self.assertEqual(len(summary["runs"]), 7)
+
+        rows = read_csv(root / "runs" / "run-3" / "best_n_summary.csv")
+        for row in rows:
+            if row["plane"] == "V":
+                row["validation_row_count"] = 0
+        write_csv(root / "runs" / "run-3" / "best_n_summary.csv", rows, list(rows[0]))
+        with self.assertRaisesRegex(ValueError, "majority recommendation coverage: V=3/7"):
             sensitivity_summary(root, 0.0025)
+
+    def test_publication_finalizer_validates_sensitivity_run_details(self) -> None:
+        h_values = [5, 6, 8, 13]
+        v_values = [10, 12, 17, 17, 20, 26, 12]
+        runs = []
+        for index in range(7):
+            runs.append(
+                {
+                    "run": f"run-{index}",
+                    "recommendations": {
+                        "H": h_values[index] if index < len(h_values) else None,
+                        "V": v_values[index],
+                    },
+                    "reasons": {"H": "eligible" if index < len(h_values) else "tradeoff", "V": "eligible"},
+                }
+            )
+        payload = {
+            "run_count": 7,
+            "minimum_available_per_plane": 4,
+            "recommendations": {"H": h_values, "V": v_values},
+            "unavailable": {"H": 3, "V": 0},
+            "ranges": {
+                "H": {"available": 4, "unavailable": 3, "minimum": 5, "median": 7, "maximum": 13},
+                "V": {"available": 7, "unavailable": 0, "minimum": 10, "median": 17, "maximum": 26},
+            },
+            "runs": runs,
+        }
+        self.assertIs(validate_sensitivity_payload(payload), payload)
+
+        inconsistent = json.loads(json.dumps(payload))
+        inconsistent["runs"][0]["recommendations"]["H"] = 9
+        with self.assertRaisesRegex(ValueError, "run details do not match"):
+            validate_sensitivity_payload(inconsistent)
+
+        insufficient = json.loads(json.dumps(payload))
+        insufficient["recommendations"]["H"] = h_values[:3]
+        with self.assertRaisesRegex(ValueError, "lacks majority H coverage"):
+            validate_sensitivity_payload(insufficient)
 
     def test_publication_materialization_binds_reports_numbers_and_figures(self) -> None:
         primary = self.root / "primary"
         followup = self.root / "followup"
         best_n = self.root / "best-n"
+        all_training = self.root / "all-training"
         ridge = self.root / "ridge"
         intensity = self.root / "intensity"
         payload_audit = self.root / "payload-audit"
@@ -1134,6 +1925,19 @@ class BestBpmMiningTests(unittest.TestCase):
                 "validation_row_count": 200000,
             },
         )
+        missing_rows = [
+            {
+                "collection": collection,
+                "spill_id": f"spill_{index}",
+                "capture_status": "Partial",
+                "expected_position_streams": 120,
+                "missing_position_source_key": f"{{MUON:BPM:10.200.22.10}}:VP{index:03d}:TBT_POSITION_RAW",
+            }
+            for collection, count in PAYLOAD_MISSING_ROWS_BY_COLLECTION.items()
+            for index in range(count)
+        ]
+        csv_file(payload_audit / "missing_position_streams.csv", missing_rows)
+        missing_inventory_sha = publication_sha256(payload_audit / "missing_position_streams.csv")
         json_file(
             payload_audit / "delivery_ring_payload_audit.json",
             {
@@ -1142,15 +1946,18 @@ class BestBpmMiningTests(unittest.TestCase):
                 "analysis_turns": 50000,
                 "plateau_turns": 128,
                 "manifest_count": 2200,
-                "stream_rows": 263999,
+                "stream_rows": 263983,
                 "paired_stream_rows": 23999,
-                "incomplete_manifests": 1,
+                "incomplete_manifests": 13,
+                "missing_position_stream_rows": 17,
+                "warning_count": 13,
                 "flagged_rows": 0,
                 "position_plateau_rows": 0,
                 "paired_plateau_rows": 0,
                 "raw_device_fallback_pair_rows": 0,
                 "error_count": 0,
-                "manifest_inventory_sha256": "a" * 64,
+                "manifest_inventory_sha256": PAYLOAD_AUDIT_MANIFEST_SHA256,
+                "missing_position_stream_inventory_sha256": missing_inventory_sha,
                 "topology": {
                     name: {
                         "unique_position_streams": 120,
@@ -1158,10 +1965,78 @@ class BestBpmMiningTests(unittest.TestCase):
                         "unique_v_streams": 60,
                         "unique_digitizers": 30,
                         "bad_digitizers": [],
+                        **expected,
                     }
-                    for name in ("a", "b", "intensity")
+                    for name, expected in PAYLOAD_AUDIT_TOPOLOGY_EXPECTED.items()
                 },
             },
+        )
+
+        json_file(
+            all_training / "best_n_all_training_verification.json",
+            {
+                "schema": "tbt-monitor.best-n-all-training-verification/v1",
+                "status": "pass",
+                "issue_count": 0,
+                "detail_rows": 10000,
+                "complete_cache_keys": 1000,
+                "summary_rows": 4,
+                "paired_spill_rows": 8000,
+                "comparison_rows": 16,
+                "plot_rows": 18,
+            },
+        )
+        json_file(
+            all_training / "run_contract.json",
+            {
+                "analysis": "best_n_all_training",
+                "selected_sizes": {"H": 1, "V": 1},
+            },
+        )
+        all_training_comparisons = []
+        for plane in ("H", "V"):
+            for method in ("all_training_mean", "all_training_median"):
+                for metric in (
+                    "blind_agreement",
+                    "blind_abs_q_delta",
+                    "later_prominence",
+                    "later_power",
+                ):
+                    all_training_comparisons.append(
+                        {
+                            "plane": plane,
+                            "selected_n": 1,
+                            "baseline_method": method,
+                            "metric": metric,
+                            "result": "UNRESOLVED",
+                        }
+                    )
+        csv_file(
+            all_training / "best_n_vs_all_training_comparison.csv",
+            all_training_comparisons,
+        )
+        csv_file(
+            all_training / "best_n_vs_all_training_paired_spills.csv",
+            [{"collection": "A", "spill_id": "1"}],
+        )
+        csv_file(
+            all_training / "best_n_all_training_validation.csv",
+            [{"method": "all_training_mean"}],
+        )
+        csv_file(
+            all_training / "best_n_all_training_summary.csv",
+            [{"method": "all_training_mean"}],
+        )
+        (all_training / "best_n_vs_all_training_report.md").write_text(
+            "# All-training control\n",
+            encoding="utf-8",
+        )
+        all_training_plot_rows = [
+            {"filename": f"review_{index:02d}.png"} for index in range(18)
+        ]
+        csv_file(
+            all_training / "plots" / "all_training_plot_manifest.csv",
+            all_training_plot_rows,
         )
 
         best_rows = []
@@ -1217,10 +2092,33 @@ class BestBpmMiningTests(unittest.TestCase):
         csv_file(best_n / "sensitivity" / "sensitivity_run_manifest.csv", sensitivity_manifest)
 
         json_file(ridge / "run_contract.json", {"selected_plane_sizes": {"H": 1, "V": 1}})
+        json_file(
+            ridge / "ridge_density_verification.json",
+            {
+                "status": "pass",
+                "error_count": 0,
+                "coverage": [
+                    {
+                        "plane": plane,
+                        "subset_size": 1,
+                        "spill_count": 2000,
+                        "center_count": 180,
+                        "sliding_rows": 360000,
+                        "ridge_points": 359000,
+                        "missing_tune_rows": 10,
+                        "edge_excluded_rows": 990,
+                        "legacy_spill_count": 1988,
+                        "legacy_point_count": 350000,
+                    }
+                    for plane in ("H", "V")
+                ],
+            },
+        )
         ridge_rows = [
             {
                 "plane": plane,
                 "subset_size": 1,
+                "common_ridge_point_count": 350000,
                 "median_iqr_delta_ensemble_minus_legacy": -0.002,
                 "median_iqr_delta_ci_low": -0.0025,
                 "median_iqr_delta_ci_high": -0.0015,
@@ -1231,6 +2129,21 @@ class BestBpmMiningTests(unittest.TestCase):
             for plane in ("H", "V")
         ]
         csv_file(ridge / "ridge_density_legacy_comparison_metrics.csv", ridge_rows)
+        csv_file(
+            ridge / "ridge_density_adaptive_pair_comparison_metrics.csv",
+            [
+                {
+                    "plane": plane,
+                    "subset_size": 1,
+                    "baseline_subset_size": 1,
+                    "ensemble_subset_size": 1,
+                    "median_iqr_delta_ensemble_minus_baseline": 0,
+                    "median_iqr_delta_ci_low": 0,
+                    "median_iqr_delta_ci_high": 0,
+                }
+                for plane in ("H", "V")
+            ],
+        )
         csv_file(
             ridge / "ridge_density_loss_candidates.csv",
             [
@@ -1248,8 +2161,9 @@ class BestBpmMiningTests(unittest.TestCase):
             block20 / "best_n_validation_v.png",
             ridge / "ridge_density_legacy_single_vs_best_h1_v1_hv.png",
             ridge / "ridge_concentration_selected_best1_h.png",
-            ridge / "ridge_p10_p90_delta_vs_turn_selected_h1_v1_hv.png",
-            ridge / "ridge_p10_p90_delta_vs_turn_selected_h1_v1_hv_poster.png",
+            ridge / "ridge_p10_p90_delta_vs_turn_best1_to_selected_h1_v1_hv.png",
+            ridge / "ridge_p10_p90_delta_vs_turn_best1_to_selected_h1_v1_hv_poster.png",
+            *(all_training / "plots" / row["filename"] for row in all_training_plot_rows),
         )
         for path in figure_paths:
             draw_turn_metric_plot(
@@ -1265,6 +2179,22 @@ class BestBpmMiningTests(unittest.TestCase):
                 "VALUE",
                 zero_reference=True,
             )
+        all_training_hash_paths = (
+            all_training / "best_n_all_training_validation.csv",
+            all_training / "best_n_all_training_summary.csv",
+            all_training / "best_n_vs_all_training_paired_spills.csv",
+            all_training / "best_n_vs_all_training_comparison.csv",
+            all_training / "best_n_vs_all_training_report.md",
+            all_training / "plots" / "all_training_plot_manifest.csv",
+            *(all_training / "plots" / row["filename"] for row in all_training_plot_rows),
+        )
+        all_training_receipt_path = all_training / "best_n_all_training_verification.json"
+        all_training_receipt = json.loads(all_training_receipt_path.read_text(encoding="utf-8"))
+        all_training_receipt["output_sha256"] = {
+            path.relative_to(all_training).as_posix(): publication_sha256(path)
+            for path in all_training_hash_paths
+        }
+        json_file(all_training_receipt_path, all_training_receipt)
 
         csv_file(
             primary / "evolution" / "subset_size_comparison.csv",
@@ -1298,26 +2228,126 @@ class BestBpmMiningTests(unittest.TestCase):
             [{"label": "block20", "retained_effects": 0}],
         )
 
-        payload = prepare_publication(primary, followup, best_n, ridge, intensity, payload_audit, publication)
+        payload = prepare_publication(
+            primary,
+            followup,
+            best_n,
+            all_training,
+            ridge,
+            intensity,
+            payload_audit,
+            publication,
+        )
         self.assertEqual(payload["selected_sizes"], {"H": 1, "V": 1})
         self.assertEqual(payload["numeric_summary"]["intensity_effect_count"], 1)
-        self.assertEqual(payload["payload_integrity"]["stream_rows"], 263999)
+        self.assertEqual(payload["payload_integrity"]["stream_rows"], 263983)
         self.assertEqual(payload["best_n_design"]["validation_spill_plane_count"], 1000)
+        self.assertEqual(payload["all_training_control"]["comparison_count"], 16)
+        self.assertEqual(payload["ridge_coverage"]["H"]["ridge_points"], 359000)
+        self.assertEqual(payload["ridge_coverage"]["H"]["subset_size"], 1)
+        self.assertEqual(payload["primary_capture"]["partial_capture_count"], 12)
+        self.assertEqual(payload["primary_capture"]["source_absence_count"], 16)
+        missing_inventory_path = payload_audit / "missing_position_streams.csv"
+        missing_inventory_bytes = missing_inventory_path.read_bytes()
+        missing_inventory_path.write_bytes(missing_inventory_bytes + b" ")
+        with self.assertRaisesRegex(ValueError, "missing-position inventory hash mismatch"):
+            prepare_publication(
+                primary,
+                followup,
+                best_n,
+                all_training,
+                ridge,
+                intensity,
+                payload_audit,
+                publication,
+            )
+        missing_inventory_path.write_bytes(missing_inventory_bytes)
+        all_training_comparison_path = all_training / "best_n_vs_all_training_comparison.csv"
+        all_training_comparison_bytes = all_training_comparison_path.read_bytes()
+        all_training_comparison_path.write_bytes(all_training_comparison_bytes + b" ")
+        with self.assertRaisesRegex(ValueError, "all-training output changed after verification"):
+            prepare_publication(
+                primary,
+                followup,
+                best_n,
+                all_training,
+                ridge,
+                intensity,
+                payload_audit,
+                publication,
+            )
+        all_training_comparison_path.write_bytes(all_training_comparison_bytes)
+        self.assertEqual(
+            payload["adaptive_ridge_rows"]["H"][
+                "median_iqr_delta_ensemble_minus_baseline"
+            ],
+            "0",
+        )
         content = json.loads((publication / "poster" / "content.json").read_text(encoding="utf-8"))
         self.assertEqual(content["assets"]["ridgeContrast"], "assets/ridge_width_contrast_hv.png")
         self.assertNotIn("selectedSpill", content["assets"])
-        self.assertTrue((publication / "poster" / "assets" / "ridge_width_contrast_hv.png").is_file())
-        self.assertTrue((publication / "paper" / "figures" / "ridge_width_contrast_hv.png").is_file())
+        self.assertTrue(
+            (publication / "poster" / "assets" / "ridge_width_contrast_hv.png").is_file()
+        )
+        self.assertTrue(
+            (publication / "poster" / "assets" / "horizontal_loss_diagnostic.png").is_file()
+        )
+        self.assertTrue(
+            (publication / "paper" / "figures" / "ridge_width_contrast_hv.png").is_file()
+        )
+        self.assertFalse(
+            (publication / "paper" / "figures" / "horizontal_loss_diagnostic.png").exists()
+        )
         self.assertIn("IntensityEffectCount}{1}", (publication / "paper" / "results_macros.tex").read_text())
+        self.assertIn("RidgeHFinitePicks}{359000}", (publication / "paper" / "results_macros.tex").read_text())
+        self.assertIn("PrimarySourceAbsences}{16}", (publication / "paper" / "results_macros.tex").read_text())
         manifest = read_csv(publication / "source_manifest.csv")
         self.assertTrue(any(row["role"] == "poster:ridge_width_hv_poster" for row in manifest))
         self.assertTrue(any(row["role"] == "paper:ridge_width_hv" for row in manifest))
+        self.assertTrue(any(row["role"] == "analysis:ridge_adaptive_metrics" for row in manifest))
+        self.assertFalse(
+            any(
+                row["output_path"] == "paper/figures/horizontal_loss_diagnostic.png"
+                for row in manifest
+            )
+        )
+        verify_publication_source_manifest(publication)
+        content_path = publication / "poster" / "content.json"
+        original_content = content_path.read_bytes()
+        content_path.write_bytes(original_content + b" ")
+        with self.assertRaisesRegex(ValueError, "source manifest hash mismatch"):
+            verify_publication_source_manifest(publication)
+        content_path.write_bytes(original_content)
+        unsafe_manifest = [dict(row) for row in manifest]
+        next(row for row in unsafe_manifest if row["output_path"])[
+            "output_path"
+        ] = "../escape"
+        csv_file(publication / "source_manifest.csv", unsafe_manifest)
+        with self.assertRaisesRegex(ValueError, "invalid publication output manifest row"):
+            verify_publication_source_manifest(publication)
+        csv_file(publication / "source_manifest.csv", manifest)
+        real_content = content_path.with_suffix(".real.json")
+        content_path.rename(real_content)
+        content_path.symlink_to(real_content.name)
+        with self.assertRaisesRegex(ValueError, "unsafe publication output path"):
+            verify_publication_source_manifest(publication)
+        content_path.unlink()
+        real_content.rename(content_path)
         audit_path = payload_audit / "delivery_ring_payload_audit.json"
         incomplete_audit = json.loads(audit_path.read_text(encoding="utf-8"))
         incomplete_audit["stream_rows"] = 263998
         audit_path.write_text(json.dumps(incomplete_audit), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "does not match the publication corpus"):
-            prepare_publication(primary, followup, best_n, ridge, intensity, payload_audit, publication)
+            prepare_publication(
+                primary,
+                followup,
+                best_n,
+                all_training,
+                ridge,
+                intensity,
+                payload_audit,
+                publication,
+            )
 
     def test_intensity_block_sensitivity_separates_statistical_and_practical_passes(self) -> None:
         root = self.root / "intensity-block"
@@ -1370,6 +2400,58 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertLess(float(metrics["median_iqr_delta_ci_high"]), 0.0)
         self.assertGreater(float(metrics["median_shared_ridge_mass_gain_ci_low"]), 0.0)
         self.assertEqual(int(metrics["turn_block_windows"]), 16)
+        adaptive = adaptive_comparison_metrics(
+            "H", "1", "5", legacy, ensemble, (0.62, 0.68), 60
+        )
+        self.assertEqual(adaptive["baseline_subset_size"], "1")
+        self.assertEqual(adaptive["ensemble_subset_size"], "5")
+        self.assertLess(float(adaptive["median_iqr_delta_ensemble_minus_baseline"]), 0.0)
+        self.assertGreater(float(adaptive["median_shared_ridge_mass_gain"]), 0.0)
+        adaptive_turns = adaptive_comparison_by_turn_rows(
+            "H", "1", "5", legacy, ensemble, (0.62, 0.68), 60
+        )
+        self.assertEqual(len(adaptive_turns), 2)
+        self.assertTrue(
+            all(row["baseline_subset_size"] == "1" for row in adaptive_turns)
+        )
+        self.assertTrue(
+            all(row["ensemble_subset_size"] == "5" for row in adaptive_turns)
+        )
+        self_control = adaptive_comparison_metrics(
+            "H", "1", "1", legacy, legacy, (0.62, 0.68), 60
+        )
+        for field in (
+            "median_iqr_delta_ensemble_minus_baseline",
+            "median_iqr_delta_ci_low",
+            "median_iqr_delta_ci_high",
+            "median_peak_bin_fraction_gain",
+            "median_density_entropy_delta",
+            "median_shared_ridge_mass_gain",
+        ):
+            self.assertEqual(float(self_control[field]), 0.0)
+
+    def test_ridge_subtractive_copy_stays_on_pick_probability(self) -> None:
+        density = caption_for_density(
+            "H",
+            "5",
+            {"spill_count": 2000},
+            0,
+            50000,
+            4096,
+            256,
+            10000,
+            20000,
+            False,
+        )
+        difference = caption_for_difference("H", "1", "5", 1988, 357840)
+        legacy = caption_for_legacy_difference("H", "5", 1988, 357840)
+        self.assertIn("98th percentile", density)
+        self.assertIn("99th percentile", difference)
+        self.assertIn("99th percentile", legacy)
+        for text in (difference, legacy):
+            self.assertIn("probability", text.lower())
+            self.assertNotIn("suppresses diffuse noise", text.lower())
+            self.assertNotIn("cleanly removing noise", text.lower())
 
     def test_ridge_contrasts_use_exact_common_spill_window_points(self) -> None:
         baseline = keyed_legacy_points(
@@ -1556,14 +2638,15 @@ class BestBpmMiningTests(unittest.TestCase):
             )
 
     def test_ridge_raster_cells_fill_uneven_axes_without_gaps(self) -> None:
-        forward = [raster_cell_bounds(index, 160, 95, 815) for index in range(160)]
-        reverse = [raster_cell_bounds(index, 160, 95, 815, reverse=True) for index in range(160)]
-        self.assertEqual(forward[0][0], 95)
-        self.assertEqual(forward[-1][1], 815)
-        self.assertTrue(all(left[1] + 1 == right[0] for left, right in zip(forward, forward[1:])))
-        self.assertEqual(reverse[0][1], 815)
-        self.assertEqual(reverse[-1][0], 95)
-        self.assertTrue(all(left[0] - 1 == right[1] for left, right in zip(reverse, reverse[1:])))
+        for bounds in (raster_cell_bounds, legacy_raster_cell_bounds):
+            forward = [bounds(index, 160, 95, 815) for index in range(160)]
+            reverse = [bounds(index, 160, 95, 815, reverse=True) for index in range(160)]
+            self.assertEqual(forward[0][0], 95)
+            self.assertEqual(forward[-1][1], 815)
+            self.assertTrue(all(left[1] + 1 == right[0] for left, right in zip(forward, forward[1:])))
+            self.assertEqual(reverse[0][1], 815)
+            self.assertEqual(reverse[-1][0], 95)
+            self.assertTrue(all(left[0] - 1 == right[1] for left, right in zip(reverse, reverse[1:])))
 
     def test_ridge_memberships_reject_duplicate_spill_plane_n(self) -> None:
         best_root = self.root / "ridge_membership_best_root"
@@ -1948,7 +3031,7 @@ class BestBpmMiningTests(unittest.TestCase):
                 root,
                 shards / f"shard_{shard_index}",
                 device="cpu",
-                max_n=3,
+                max_n=4,
                 beam_width=4,
                 curve_limit=2,
                 validation_limit=2,
@@ -1965,8 +3048,8 @@ class BestBpmMiningTests(unittest.TestCase):
         curve = read_csv(out / "best_n_curve_rows.csv")
         validation = read_csv(out / "best_n_disjoint_validation.csv")
         summary = read_csv(out / "best_n_summary.csv")
-        self.assertEqual({int(row["subset_size"]) for row in curve}, {1, 2, 3})
-        self.assertEqual({int(row["subset_size"]) for row in validation}, {1, 2, 3})
+        self.assertEqual({int(row["subset_size"]) for row in curve}, {1, 2, 3, 4})
+        self.assertEqual({int(row["subset_size"]) for row in validation}, {1, 2, 3, 4})
         self.assertTrue(all(len(row["bpm_indices"].split(",")) == int(row["subset_size"]) for row in validation))
         self.assertTrue(all(int(row["test_window_count"]) > 0 for row in validation))
         self.assertTrue(all(row["q_agreement_within_tolerance"] in {"0", "1"} for row in validation))
@@ -1983,7 +3066,7 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertTrue((out / "best_n_cross_collection_transfer.md").exists())
         verification = verify_best_n_outputs(
             out,
-            expected_max_n=3,
+            expected_max_n=4,
             expected_curve_cache_keys=2,
             expected_validation_cache_keys=2,
             expected_folds=3,
@@ -1994,13 +3077,97 @@ class BestBpmMiningTests(unittest.TestCase):
         contract = json.loads((out / "run_contract.json").read_text(encoding="utf-8"))
         self.assertEqual(contract["analysis"], "best_n_merged")
         self.assertEqual(contract["source_shard_indices"], [0, 1])
+        accepted_summary = read_csv(out / "best_n_summary.csv")
+        for row in accepted_summary:
+            row.update(
+                {
+                    "blind_q_agreement_rate": "0.5",
+                    "median_blind_selected_heldout_abs_q_delta": "0.01",
+                    "median_test_peak_prominence": "5",
+                    "median_test_power_support": "5",
+                    "median_heldout_prominence": "5",
+                    "median_heldout_power_support": "5",
+                }
+            )
+        write_csv(out / "best_n_summary.csv", accepted_summary, list(accepted_summary[0]))
+        accepted_verification = verify_best_n_outputs(
+            out,
+            expected_max_n=4,
+            expected_curve_cache_keys=2,
+            expected_validation_cache_keys=2,
+            expected_folds=3,
+            require_cross_collection=False,
+        )
+        self.assertEqual(accepted_verification["status"], "pass")
+        self.assertEqual(accepted_verification["recommendations"]["H"]["recommended_n"], 1)
+        self.assertEqual(accepted_verification["recommendations"]["V"]["recommended_n"], 1)
+        all_training = self.root / "best_n_all_training"
+        all_training_verification = evaluate_all_training(
+            cfg,
+            root,
+            out,
+            all_training,
+            progress_every=0,
+        )
+        self.assertEqual(all_training_verification["status"], "pass")
+        detail = read_csv(all_training / "best_n_all_training_validation.csv")
+        comparisons = read_csv(all_training / "best_n_vs_all_training_comparison.csv")
+        self.assertEqual(len(detail), 2 * 3 * 2)
+        self.assertEqual(
+            {row["method"] for row in detail},
+            {"all_training_mean", "all_training_median"},
+        )
+        cache_by_key = {
+            (row["collection"], row["spill_id"], row["plane"]): row
+            for row in read_csv(root / "cache" / "index" / "spectral_cache.csv")
+            if row["status"] == "ok"
+        }
+        for row in detail:
+            cache = cache_by_key[(row["collection"], row["spill_id"], row["plane"])]
+            bpm_indices = [int(value) for value in np.load(cache["bpm_indices_path"])]
+            bpm_meta = metadata_for_bpms(root / "manifest", row["plane"])
+            assigned = fold_by_digitizer(bpm_indices, bpm_meta, 3, 20260709)
+            expected_train = {idx for idx in bpm_indices if assigned[idx] != int(row["fold"])}
+            exported_train = {int(value) for value in row["bpm_indices"].split(",")}
+            self.assertEqual(exported_train, expected_train)
+        self.assertEqual(len(comparisons), 16)
+        plot_manifest = read_csv(all_training / "plots" / "all_training_plot_manifest.csv")
+        self.assertEqual(len(plot_manifest), 18)
+        self.assertTrue(
+            all((all_training / "plots" / row["filename"]).is_file() for row in plot_manifest)
+        )
+        self.assertTrue(all(int(row["exact_paired_row_count"]) == 3 for row in comparisons))
+        self.assertTrue(all(int(row["paired_spill_count"]) == 1 for row in comparisons))
+        self.assertEqual(verify_all_training_outputs(all_training, write_outputs=False)["status"], "pass")
+        source_verification = out / "best_n_verification.json"
+        source_verification_bytes = source_verification.read_bytes()
+        source_verification.write_bytes(source_verification_bytes + b" ")
+        changed_source = verify_all_training_outputs(all_training, write_outputs=False)
+        self.assertEqual(changed_source["status"], "fail")
+        self.assertTrue(any(issue["code"] == "source_hash" for issue in changed_source["issues"]))
+        source_verification.write_bytes(source_verification_bytes)
+        tampered = list(detail)
+        tampered[0] = {**tampered[0], "fold": "9"}
+        write_csv(
+            all_training / "best_n_all_training_validation.csv",
+            tampered,
+            list(tampered[0]),
+        )
+        failed_all_training = verify_all_training_outputs(all_training, write_outputs=False)
+        self.assertEqual(failed_all_training["status"], "fail")
+        self.assertTrue(
+            any(
+                issue["code"] in {"detail_coverage", "fold_coverage"}
+                for issue in failed_all_training["issues"]
+            )
+        )
         with self.assertRaisesRegex(ValueError, "run contract mismatch"):
             evaluate_best_n(
                 cfg,
                 root,
                 shards / "shard_0",
                 device="cpu",
-                max_n=3,
+                max_n=4,
                 beam_width=5,
                 curve_limit=2,
                 validation_limit=2,
@@ -2016,7 +3183,7 @@ class BestBpmMiningTests(unittest.TestCase):
         write_csv(out / "best_n_curve_rows.csv", curve[:-1], list(curve[0]))
         incomplete = verify_best_n_outputs(
             out,
-            expected_max_n=3,
+            expected_max_n=4,
             expected_curve_cache_keys=2,
             expected_validation_cache_keys=2,
             expected_folds=3,
@@ -2097,6 +3264,11 @@ class BestBpmMiningTests(unittest.TestCase):
         for plane in ("h", "v"):
             self.assertTrue((follow / "artifacts" / "global" / f"fixed_vs_dynamic_direct_{plane}.png").exists())
             self.assertTrue((follow / "artifacts" / "global" / f"fixed_vs_dynamic_direct_{plane}_caption.md").exists())
+            control_plot = follow / "artifacts" / "global" / f"fixed_dynamic_all_bpm_summary_{plane}.png"
+            self.assertTrue(control_plot.exists())
+            self.assertGreater(control_plot.stat().st_size, 1_000)
+            control_caption = control_plot.with_name(f"{control_plot.stem}_caption.md")
+            self.assertIn("all 60 plane channels", control_caption.read_text(encoding="utf-8"))
         report = (out / "reports" / "strong_bpm_analysis_summary.md").read_text(encoding="utf-8")
         self.assertIn("The machine tune may vary freely between spills", report)
         self.assertIn("best-5 are not globally exhaustive", report)

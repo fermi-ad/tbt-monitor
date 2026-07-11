@@ -25,21 +25,58 @@ Current capture defaults preserve `TBT_POSITION_RAW` and can derive matching
 `TBT_INTENSITY_RAW` payloads for offline study. Spark/GPU workflows include raw
 captured-spill analysis, staged autosweep ranking, exact-identity Best-BPM
 subset mining, leakage-controlled contiguous Best-N validation, an optional
-position/intensity sidecar, full-buffer ridge-density review galleries, and
-fail-closed publication verifiers for the primary, Best-N, intensity, and ridge
-outputs. A separate raw-payload gate scans every publication stream through turn
+same-protocol all-training-channel control, a position/intensity sidecar,
+full-buffer ridge-density review galleries, and fail-closed publication
+verifiers for the primary, Best-N, all-training, intensity, and ridge outputs. A
+separate raw-payload gate scans every publication stream through turn
 50000 for nonfinite data, sample-count drift, long exact plateaus, and
-device-coded threshold fallback pairs.
+device-coded threshold fallback pairs. It also binds the exact manifest hash
+and enumerates manifest-level channel absences from recorded partial captures;
+absent channels are never fabricated or zero-filled.
+The ridge gate distinguishes the complete spill/window row grid from finite
+in-band tune picks: blank confidence-threshold misses and bounded parabolic
+edge refinements remain explicit coverage states, while exact adaptive
+comparisons are reconstructed from common finite-point masks.
 Publication artifacts use exact channel identities, semantic verifiers, and a
 deterministic native PNG renderer for the key deconstruction, handoff,
 intensity, Best-N, and ridge figures. `prepare_ibic2026_publication.py` binds
 the final plane-specific N, numerical copy, tables, and figure files to the
 same accepted analysis roots before the poster or paper can be built. It also
 binds the full-curve and stratified-validation sample counts so the two Best-N
-populations cannot be conflated in publication copy.
+populations cannot be conflated in publication copy. All seven reduced-sample
+sensitivity runs must verify; at least four per plane must yield an eligible
+knee, while every unavailable run and reason remains visible in the payload and
+publication copy.
+The materializer also derives the primary-set capture topology and the selected
+H/V full-buffer finite-pick closure from the accepted payload and ridge
+verifiers. Publication copy therefore reports the 16 source absences in 12
+partial primary captures and keeps finite, blank-confidence, and bounded
+edge-excluded ridge rows separate instead of implying 60+60 recorded channels
+or one finite tune pick in every structural window.
+Poster-facing Best-N panels isolate blind full-band selected-versus-held-out
+agreement on one shared H/V scale. Near-training-tune agreement remains a
+separate conditioned diagnostic and is never overlaid as equivalent evidence.
+The reused-window direct-control gallery keeps all-BPM mean/median beside
+adaptive and frozen small sets. A separate leakage-controlled control aggregates
+every training-side channel by mean and median under the exact Best-N purge and
+held-out-digitizer folds. Its outcome may favor either method or remain
+unresolved, but it must be reported before materialization.
+Subtractive intensity and ridge panels require exact common spill/window
+points and describe only ridge-pick probability redistribution; display color
+clipping is disclosed and does not alter exported metrics. Native heatmap cells
+cover their complete declared axes without floor-division gaps. For Best-1,
+every weighting method passes the sole spectrum through without scale/divide
+arithmetic so the required zero-effect control is bit-exact.
 `finalize_ibic2026_publication.py` then requires explicit visual-QA passes and
-rechecks immutable references, page geometry, payload closure, and checksums
-before writing the final compliance report and publication inventory.
+rechecks immutable references, page geometry, payload closure, checksums,
+primary capture completeness, selected H/V ridge-row closure, and matching
+poster evidence/manuscript macros, and
+the final PPTX slide XML for empty structural placeholders before writing the
+final compliance report and publication inventory. Build provenance remains in
+the delivered tree: portable source/deliverable checksum manifests, poster
+layout and overflow inspection, and the zero-issue template-fidelity reports.
+The final review packager verifies every copied path, size, hash, and gallery
+image both when it is created and again after transfer with `--verify-only`.
 
 ## Quick Start
 

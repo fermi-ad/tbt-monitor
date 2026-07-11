@@ -25,6 +25,19 @@ FIGURE_FIELDS = [
 
 METHODS = ("unweighted", "sqrt_intensity", "linear_intensity", "intensity_gate_50pct")
 
+DENSITY_DELTA_NOTE = "RED: HIGHER PICK PROBABILITY; BLUE: LOWER VS UNWEIGHTED"
+DENSITY_DELTA_ZERO_NOTE = "NO RIDGE-PICK PROBABILITY REDISTRIBUTION"
+DENSITY_DELTA_DESCRIPTION = (
+    "Exact-common spill/window difference of per-turn, column-normalized "
+    "global-ridge-pick distributions; raster color is symmetrically clipped "
+    "at absolute P99 for display only, and a neutral field is labeled as an "
+    "exact no-redistribution result."
+)
+DENSITY_DELTA_GUARDRAIL = (
+    "Red/blue are higher/lower ridge-pick probability at exact common "
+    "spill/window points; they do not isolate physical noise."
+)
+
 METHOD_LABELS = {
     "sqrt_intensity": "SQRT",
     "linear_intensity": "LINEAR",
@@ -147,6 +160,77 @@ def _normalized_columns(density: np.ndarray) -> np.ndarray:
     return density / np.where(total > 0, total, 1.0)
 
 
+def raster_cell_bounds(
+    index: int,
+    count: int,
+    start: int,
+    end: int,
+    *,
+    reverse: bool = False,
+) -> tuple[int, int]:
+    """Map one raster bin onto an inclusive pixel interval without gaps."""
+    if count <= 0 or index < 0 or index >= count or end < start:
+        raise ValueError("invalid raster cell geometry")
+    span = end - start + 1
+    if reverse:
+        low = end - ((index + 1) * span // count) + 1
+        high = end - (index * span // count)
+    else:
+        low = start + index * span // count
+        high = start + (index + 1) * span // count - 1
+    return low, high
+
+
+def exact_paired_density_rows(
+    baseline_rows: Sequence[Mapping[str, object]],
+    method_rows: Sequence[Mapping[str, object]],
+    band: tuple[float, float],
+) -> tuple[list[Mapping[str, object]], list[Mapping[str, object]]]:
+    def keyed(
+        rows: Sequence[Mapping[str, object]],
+        label: str,
+    ) -> dict[tuple[str, str, str, int, int, int], Mapping[str, object]]:
+        result = {}
+        for row in rows:
+            key = (
+                str(row.get("collection") or ""),
+                str(row.get("spill_id") or ""),
+                str(row.get("plane") or ""),
+                int(float(str(row.get("subset_size") or 0))),
+                int(float(str(row.get("window_index") or 0))),
+                int(float(str(row.get("center_turn") or 0))),
+            )
+            if key in result:
+                raise ValueError(f"duplicate {label} intensity ridge point: {key}")
+            result[key] = row
+        return result
+
+    baseline = keyed(baseline_rows, "unweighted")
+    method = keyed(method_rows, "weighted")
+    if baseline.keys() != method.keys():
+        baseline_only = len(baseline.keys() - method.keys())
+        method_only = len(method.keys() - baseline.keys())
+        raise ValueError(
+            "intensity ridge subtraction requires identical exact spill/window keys: "
+            f"unweighted_only={baseline_only} weighted_only={method_only}"
+        )
+    paired = []
+    for key in sorted(baseline):
+        baseline_q = _f(baseline[key].get("q_global"))
+        method_q = _f(method[key].get("q_global"))
+        if not (
+            math.isfinite(baseline_q)
+            and math.isfinite(method_q)
+            and band[0] <= baseline_q <= band[1]
+            and band[0] <= method_q <= band[1]
+        ):
+            continue
+        paired.append((baseline[key], method[key]))
+    if not paired:
+        raise ValueError("intensity ridge subtraction has no exact common finite in-band points")
+    return [row[0] for row in paired], [row[1] for row in paired]
+
+
 def ridge_plot(
     path: Path,
     title: str,
@@ -164,22 +248,20 @@ def ridge_plot(
     x0, y0, x1, y1 = poster.draw_axes(pixels, width, height, title, "TURN", "TUNE")
     positive = density[density > 0]
     maximum = max(1.0, float(np.percentile(positive, 98))) if positive.size else 1.0
-    cell_width = max(1, (x1 - x0 + 1) // len(centers))
-    cell_height = max(1, (y1 - y0 + 1) // bins)
     for column in range(len(centers)):
+        left, right = raster_cell_bounds(column, len(centers), x0, x1)
         for row_index in range(bins):
             value = float(density[row_index, column])
             color = _sequential_color(value / maximum) if value > 0 else (245, 247, 248)
-            left = x0 + column * cell_width
-            top = y1 - (row_index + 1) * cell_height
-            poster.rect(pixels, width, height, left, top, min(x1, left + cell_width - 1), min(y1, top + cell_height - 1), color)
+            top, bottom = raster_cell_bounds(row_index, bins, y0, y1, reverse=True)
+            poster.rect(pixels, width, height, left, top, right, bottom, color)
     x_range = float(min(centers)), float(max(centers) or min(centers) + 1)
     for fraction, thickness, color in ((0.10, 1, (255, 255, 255)), (0.90, 1, (255, 255, 255)), (0.50, 3, (255, 255, 255))):
         points = [(float(center), _percentile(grouped[center], fraction)) for center in centers if grouped[center]]
         _polyline(pixels, width, height, points, x_range, band, (x0, y0, x1, y1), color, thickness)
     poster.draw_text(pixels, width, height, x0, y1 + 8, str(min(centers)), poster.MUTED, 2)
     poster.draw_text(pixels, width, height, x1 - 110, y1 + 8, str(max(centers)), poster.MUTED, 2)
-    poster.draw_text(pixels, width, height, x0, y0 - 28, "COLOR: SPILL COUNT; WHITE: P10 MED P90", poster.MUTED, 2)
+    poster.draw_text(pixels, width, height, x0, y0 - 28, "COLOR: SPILL COUNT (P98 CLIP); WHITE: P10 MED P90", poster.MUTED, 2)
     poster.write_png(path, width, height, pixels)
 
 
@@ -192,31 +274,42 @@ def density_delta_plot(
     bins: int = 192,
 ) -> None:
     poster = _poster()
+    baseline_rows, method_rows = exact_paired_density_rows(baseline_rows, method_rows, band)
     centers_a, density_a, grouped_a = _density(baseline_rows, band, bins)
     centers_b, density_b, grouped_b = _density(method_rows, band, bins)
     if not centers_a or centers_a != centers_b:
-        poster.no_data_png(path, title, "MISMATCHED WINDOWS")
-        return
+        raise ValueError("intensity ridge subtraction produced mismatched turn centers")
     difference = _normalized_columns(density_b) - _normalized_columns(density_a)
     finite = np.abs(difference[np.isfinite(difference)])
+    maximum_abs = float(np.max(finite)) if finite.size else 0.0
     maximum = max(1e-6, float(np.percentile(finite, 99))) if finite.size else 1.0
     width, height = 1400, 900
     pixels = poster.new_canvas(width, height)
     x0, y0, x1, y1 = poster.draw_axes(pixels, width, height, title, "TURN", "TUNE")
-    cell_width = max(1, (x1 - x0 + 1) // len(centers_a))
-    cell_height = max(1, (y1 - y0 + 1) // bins)
     for column in range(len(centers_a)):
+        left, right = raster_cell_bounds(column, len(centers_a), x0, x1)
         for row_index in range(bins):
-            left = x0 + column * cell_width
-            top = y1 - (row_index + 1) * cell_height
             color = _diverging_color(float(difference[row_index, column]), maximum)
-            poster.rect(pixels, width, height, left, top, min(x1, left + cell_width - 1), min(y1, top + cell_height - 1), color)
+            top, bottom = raster_cell_bounds(row_index, bins, y0, y1, reverse=True)
+            poster.rect(pixels, width, height, left, top, right, bottom, color)
     x_range = float(min(centers_a)), float(max(centers_a) or min(centers_a) + 1)
     for grouped, color, thickness in ((grouped_a, poster.INK, 2), (grouped_b, (255, 255, 255), 3)):
         points = [(float(center), _percentile(grouped[center], 0.50)) for center in centers_a if grouped[center]]
         _polyline(pixels, width, height, points, x_range, band, (x0, y0, x1, y1), color, thickness)
-    poster.draw_text(pixels, width, height, x0, y0 - 28, "RED: WEIGHTED ADDS; BLUE: WEIGHTED SUPPRESSES", poster.MUTED, 2)
+    poster.draw_text(pixels, width, height, x0, y0 - 28, DENSITY_DELTA_NOTE, poster.MUTED, 2)
     poster.draw_text(pixels, width, height, x1 - 420, y0 - 28, "WHITE: WEIGHTED MED; DARK: UNWEIGHTED MED", poster.MUTED, 2)
+    if maximum_abs <= 1e-12:
+        note_width = len(DENSITY_DELTA_ZERO_NOTE) * 12
+        poster.draw_text(
+            pixels,
+            width,
+            height,
+            (x0 + x1 - note_width) // 2,
+            (y0 + y1) // 2,
+            DENSITY_DELTA_ZERO_NOTE,
+            poster.MUTED,
+            3,
+        )
     poster.write_png(path, width, height, pixels)
 
 
@@ -226,9 +319,11 @@ def concentration_plot(
     rows_by_method: Mapping[str, Sequence[Mapping[str, object]]],
     band: tuple[float, float],
     bins: int = 192,
+    detail_scale: bool = False,
 ) -> None:
     poster = _poster()
     series = []
+    finite_values = []
     colors = {
         "unweighted": poster.BLUE,
         "sqrt_intensity": poster.GREEN,
@@ -241,8 +336,11 @@ def concentration_plot(
         for index, center in enumerate(centers):
             total = float(np.sum(density[:, index]))
             points.append((float(center), float(np.max(density[:, index])) / total if total else math.nan))
+        finite_values.extend(value for _center, value in points if math.isfinite(value))
         series.append((method.replace("_intensity", "").replace("intensity_", "")[:18], points, colors[method]))
-    poster.line_plot(path, title, series, "TURN", "PEAK BIN FRACTION", (0.0, 1.0))
+    upper = min(1.0, max(finite_values) * 1.10) if detail_scale and finite_values else 1.0
+    upper = max(0.01, upper)
+    poster.line_plot(path, title, series, "TURN", "PEAK SHARE", (0.0, upper))
 
 
 def binned_scatter_plot(
@@ -278,26 +376,29 @@ def binned_scatter_plot(
     pixels = poster.new_canvas(width, height)
     x0, y0, x1, y1 = poster.draw_axes(pixels, width, height, title, "NORMALIZED INTENSITY", y_label)
     maximum = max(1.0, float(np.percentile(histogram[histogram > 0], 98))) if np.any(histogram > 0) else 1.0
-    cell_width = max(1, (x1 - x0 + 1) // xbins)
-    cell_height = max(1, (y1 - y0 + 1) // ybins)
     for x_index in range(xbins):
+        left, right = raster_cell_bounds(x_index, xbins, x0, x1)
         for y_index in range(ybins):
             value = float(histogram[y_index, x_index])
             color = _sequential_color(value / maximum) if value else (245, 247, 248)
-            left = x0 + x_index * cell_width
-            top = y1 - (y_index + 1) * cell_height
-            poster.rect(pixels, width, height, left, top, min(x1, left + cell_width - 1), min(y1, top + cell_height - 1), color)
+            top, bottom = raster_cell_bounds(y_index, ybins, y0, y1, reverse=True)
+            poster.rect(pixels, width, height, left, top, right, bottom, color)
     median_points = [
         (xmin + (index + 0.5) / xbins * (xmax - xmin), _median(values))
         for index, values in sorted(grouped.items())
     ]
     _polyline(pixels, width, height, median_points, (xmin, xmax), (ymin, ymax), (x0, y0, x1, y1), (255, 255, 255), 3)
     poster.draw_numeric_axis_labels(pixels, width, height, (x0, y0, x1, y1), (xmin, xmax), (ymin, ymax))
-    poster.draw_text(pixels, width, height, x0, y0 - 28, "COLOR: WINDOW COUNT; WHITE: BIN MEDIAN", poster.MUTED, 2)
+    poster.draw_text(pixels, width, height, x0, y0 - 28, "COLOR: WINDOW COUNT (P98 CLIP); WHITE: BIN MEDIAN", poster.MUTED, 2)
     poster.write_png(path, width, height, pixels)
 
 
-def loss_scatter_plot(path: Path, title: str, rows: Sequence[Mapping[str, object]]) -> None:
+def loss_scatter_plot(
+    path: Path,
+    title: str,
+    rows: Sequence[Mapping[str, object]],
+    axis_range: tuple[float, float] | None = (0.0, 50000.0),
+) -> None:
     poster = _poster()
     points = [(_f(row.get("intensity_crossing_turn")), _f(row.get("power_support_loss_turn"))) for row in rows]
     points = [(x, y) for x, y in points if math.isfinite(x) and math.isfinite(y)]
@@ -306,9 +407,12 @@ def loss_scatter_plot(path: Path, title: str, rows: Sequence[Mapping[str, object
         return
     width, height = 1100, 820
     pixels = poster.new_canvas(width, height)
-    x0, y0, x1, y1 = poster.draw_axes(pixels, width, height, title, "INTENSITY CROSSING TURN", "POWER LOSS TURN")
-    minimum = min([value for point in points for value in point])
-    maximum = max([value for point in points for value in point])
+    x0, y0, x1, y1 = poster.draw_axes(pixels, width, height, title, "INTENSITY CROSSING TURN", "LOSS TURN")
+    if axis_range is None:
+        minimum = min(value for point in points for value in point)
+        maximum = max(value for point in points for value in point)
+    else:
+        minimum, maximum = axis_range
     poster.line(pixels, width, height, x0, y1, x1, y0, poster.MUTED)
     for x, y in points:
         px = poster.scale_value(x, minimum, maximum, x0, x1)
@@ -554,7 +658,7 @@ def make_intensity_gallery(
                         "subset_size": subset_size,
                         "method": method,
                         "path": str(path),
-                        "description": "Global spectral maximum per spill/window; color is spill count and white lines are P10/median/P90.",
+                        "description": "Global spectral maximum per spill/window; color is spill count clipped at nonzero P98 for display, and white lines are P10/median/P90.",
                         "claim_guardrail": "Shows repeatability of the strongest in-band ridge, not absolute tune accuracy.",
                     }
                 )
@@ -574,8 +678,8 @@ def make_intensity_gallery(
                             "subset_size": subset_size,
                             "method": method,
                             "path": str(delta_path),
-                            "description": "Difference of per-turn, column-normalized tune-density distributions.",
-                            "claim_guardrail": "Blue means probability mass suppressed and red added; it does not isolate physical noise without external truth.",
+                            "description": DENSITY_DELTA_DESCRIPTION,
+                            "claim_guardrail": DENSITY_DELTA_GUARDRAIL,
                         }
                     )
             path = out / "concentration" / f"{plane.lower()}_best{subset_size}_method_concentration.png"
@@ -591,10 +695,32 @@ def make_intensity_gallery(
                     "claim_guardrail": "Higher is narrower only at the declared fixed binning; compare methods at identical bins.",
                 }
             )
+            detail_path = out / "concentration_detail" / f"{plane.lower()}_best{subset_size}_method_concentration_detail.png"
+            concentration_plot(
+                detail_path,
+                f"{plane} BEST{subset_size} RIDGE CONCENTRATION DETAIL",
+                rows_by_method,
+                band,
+                detail_scale=True,
+            )
+            figures.append(
+                {
+                    "category": "ridge_concentration_detail",
+                    "plane": plane,
+                    "subset_size": subset_size,
+                    "method": "comparison",
+                    "path": str(detail_path),
+                    "description": "The same fixed-bin peak-fraction comparison with a zero-based y-axis autoscaled to 110% of the panel maximum.",
+                    "claim_guardrail": "Use to inspect within-panel method separation; y limits differ across N and plane, so do not compare apparent amplitude between panels.",
+                }
+            )
             baseline = rows_by_method["unweighted"]
-            for field, label in (("peak_prominence_at_train_q", "PROMINENCE"), ("power_support_at_train_q", "POWER SUPPORT")):
+            for field, label, axis_label in (
+                ("peak_prominence_at_train_q", "PROMINENCE", "PROMINENCE"),
+                ("power_support_at_train_q", "POWER SUPPORT", "TUNE SUPPORT"),
+            ):
                 scatter_path = out / "intensity_relationship" / f"{plane.lower()}_best{subset_size}_intensity_vs_{field}.png"
-                binned_scatter_plot(scatter_path, f"{plane} BEST{subset_size} INTENSITY VS {label}", baseline, field, label)
+                binned_scatter_plot(scatter_path, f"{plane} BEST{subset_size} INTENSITY VS {label}", baseline, field, axis_label)
                 figures.append(
                     {
                         "category": "intensity_relationship",
@@ -602,7 +728,7 @@ def make_intensity_gallery(
                         "subset_size": subset_size,
                         "method": "unweighted",
                         "path": str(scatter_path),
-                        "description": f"Binned later-window relationship between normalized intensity and {label.lower()}.",
+                        "description": f"Binned later-window relationship between normalized intensity and {label.lower()}; window-count color is clipped at nonzero P98 for display.",
                         "claim_guardrail": "Pooled windows are autocorrelated and turn-confounded; spill-level rank correlations are the inferential result.",
                     }
                 )
@@ -612,7 +738,7 @@ def make_intensity_gallery(
             metric_rows = [row for row in effects if row.get("plane") == plane and row.get("metric") == metric]
             metric_label = METRIC_LABELS[metric]
             path = out / "method_effects" / f"{plane.lower()}_{metric}_paired_delta.png"
-            method_effect_plot(path, f"{plane} INTENSITY EFFECT: {metric_label}", metric_rows)
+            method_effect_plot(path, f"{plane} WEIGHTING EFFECT: {metric_label}", metric_rows)
             figures.append(
                 {
                     "category": "method_effect",
@@ -627,7 +753,7 @@ def make_intensity_gallery(
             ratio_path = out / "method_effects" / f"{plane.lower()}_{metric}_practical_fraction.png"
             method_effect_plot(
                 ratio_path,
-                f"{plane} PRACTICAL EFFECT: {metric_label}",
+                f"{plane} PRACTICAL RATIO: {metric_label}",
                 metric_rows,
                 normalized_to_practical_effect=True,
             )
@@ -644,6 +770,7 @@ def make_intensity_gallery(
             )
         for subset_size in subset_sizes:
             lag_series = []
+            lag_values = []
             for metric, label, color in (
                 ("peak_prominence_at_train_q", "PEAK PROMINENCE", poster.GREEN),
                 ("power_support_at_train_q", "POWER SUPPORT", poster.ORANGE),
@@ -654,8 +781,9 @@ def make_intensity_gallery(
                     if row.get("plane") == plane and int(row.get("subset_size") or 0) == subset_size and row.get("metric") == metric
                 ]
                 lag_series.append((label, points, color))
+                lag_values.extend(value for _lag, value in points if math.isfinite(value))
             lag_path = out / "correlation" / f"{plane.lower()}_best{subset_size}_lag_correlation.png"
-            poster.line_plot(lag_path, f"{plane} BEST{subset_size} INTENSITY LAG CORRELATION", lag_series, "LAG WINDOWS", "MEDIAN SPEARMAN", (-1.0, 1.0))
+            poster.line_plot(lag_path, f"{plane} BEST{subset_size} INTENSITY LAG CORRELATION", lag_series, "LAG WINDOWS", "SPEARMAN RHO", (-1.0, 1.0))
             figures.append(
                 {
                     "category": "lag_correlation",
@@ -665,6 +793,27 @@ def make_intensity_gallery(
                     "path": str(lag_path),
                     "description": "Median within-spill Spearman correlation versus lag; positive lag means intensity precedes the tune metric.",
                     "claim_guardrail": "Exploratory temporal association; overlapping windows preclude treating lag points as independent.",
+                }
+            )
+            lag_bound = min(1.0, max(0.05, max((abs(value) for value in lag_values), default=0.0) * 1.10))
+            lag_detail_path = out / "correlation_detail" / f"{plane.lower()}_best{subset_size}_lag_correlation_detail.png"
+            poster.line_plot(
+                lag_detail_path,
+                f"{plane} BEST{subset_size} INTENSITY LAG DETAIL",
+                lag_series,
+                "LAG WINDOWS",
+                "SPEARMAN RHO",
+                (-lag_bound, lag_bound),
+            )
+            figures.append(
+                {
+                    "category": "lag_correlation_detail",
+                    "plane": plane,
+                    "subset_size": subset_size,
+                    "method": "unweighted",
+                    "path": str(lag_detail_path),
+                    "description": "The same median within-spill lag correlations on a symmetric panel-detail scale.",
+                    "claim_guardrail": "Y limits vary by panel; use only for lag-shape inspection, and do not treat overlapping-window points as independent or causal.",
                 }
             )
             for threshold in (0.75, 0.50, 0.25):
@@ -684,8 +833,26 @@ def make_intensity_gallery(
                         "subset_size": subset_size,
                         "method": "unweighted",
                         "path": str(loss_path),
-                        "description": "Per-spill intensity-envelope crossing versus tune-band power-support loss turn.",
+                        "description": "Per-spill intensity-envelope crossing versus tune-band power-support loss turn on common 0-50000-turn axes.",
                         "claim_guardrail": "Threshold sensitivity is shown explicitly; absent crossings are omitted and no fixed extraction start is assumed.",
+                    }
+                )
+                loss_detail_path = out / "loss_turn_detail" / f"{plane.lower()}_best{subset_size}_threshold_{int(threshold * 100)}_detail.png"
+                loss_scatter_plot(
+                    loss_detail_path,
+                    f"{plane} BEST{subset_size} {int(threshold * 100)} PCT CROSSING DETAIL",
+                    selected_losses,
+                    axis_range=None,
+                )
+                figures.append(
+                    {
+                        "category": "loss_turn_detail",
+                        "plane": plane,
+                        "subset_size": subset_size,
+                        "method": "unweighted",
+                        "path": str(loss_detail_path),
+                        "description": "The same crossing-turn pairs autoscaled to their observed common x/y range.",
+                        "claim_guardrail": "Use only to inspect within-panel structure; limits vary by panel, absent crossings are omitted, and association is not causation.",
                     }
                 )
 

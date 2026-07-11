@@ -43,12 +43,17 @@ capabilities rather than re-track them as new software tasks:
   validation, collection-block intervals, sensitivity checks, and
   cross-collection global-N transfer; publication use requires the strict
   Best-N coverage/identity/timing/summary verifier, not only completed CSV files
+- a same-protocol all-training mean/median control that preserves the accepted
+  Best-N purge and held-out digitizers and reports paired blind/later-window
+  outcomes without requiring adaptive selection to win
 - an exact-pair intensity-study implementation with practical-effect gates and
   payload-horizon auditing; the June result is provisional until the corrected
   200-spill refresh passes strict closure, and intensity remains auxiliary to
   position tune extraction
 - strict intensity closure requires exact Best-1 zero-effect behavior, complete
-  first-50000-turn grids, and recomputation of every retain/reject gate
+  first-50000-turn grids, and recomputation of every retain/reject gate; the
+  singleton spectrum is passed through directly so float32 cancellation cannot
+  masquerade as a physical weighting effect
 
 ## 2. Core Physics Question
 
@@ -147,14 +152,57 @@ Notes:
   and disjoint validation.
 - Blind full-band selected/held-out agreement is the ensemble-size guardrail.
   Near-training-tune support is useful but conditioned and cannot replace it.
+  Publication plots therefore show blind agreement alone on a common H/V
+  zero-based scale; a separate conditioned panel preserves the secondary check.
+  A separate gate matrix exposes all six non-inferiority tests across N; the
+  earliest all-gate pass, not the visually highest agreement point, is selected.
+  A bounded gate-margin matrix is retained as post-selection robustness
+  evidence. It may show that the V result occupies a stable low-to-mid-N region
+  or that H trades selected power against prominence, but it cannot retune the
+  declared protocol or turn internal agreement into absolute tune accuracy.
+- A reduced-sample sensitivity run with no automatic knee is a physical-analysis
+  limitation, not a missing-data value. All seven runs must verify, a strict
+  majority per plane must yield eligible knees, and unavailable runs must retain
+  their selected-power/prominence tradeoff reason. They are never assigned N.
+- Same-metric reused-window controls show whether a dynamic small set beats a
+  frozen small set, but they do not support a small-set-versus-all-BPM claim.
+  The corrected all-BPM median is the strongest descriptive row in both planes,
+  and all-BPM mean also leads vertically. These rows remain visible beside a
+  separate leakage-controlled control that gives all training-side channels the
+  exact Best-N fit prefix, purge, later windows, and held-out-digitizer folds.
+  That control compares mean and median aggregation over blind agreement, blind
+  tune error, later prominence, and later power. Baseline-favored and unresolved
+  intervals are valid outcomes; none supplies external tune truth.
 - Exact common spill/window pairing is required for ridge-density subtraction.
-  Narrowing or probability-mass redistribution can be described as suppressed
-  diffuse ridge picks, not physical noise removal or absolute tune accuracy.
+  Narrowing or probability-mass redistribution can be described as reduced
+  diffuse ridge-pick probability, not physical noise removal or absolute tune
+  accuracy. Display-only P98/P99 clipping does not apply to exported metrics.
   The shared-scale H/V composite uses column-normalized pick probability, so
   exact paired counts and sample-fraction diagnostics must accompany it.
   Because the legacy normalized-single selector was defective, corrected
   Best-1 must appear beside the selected Best-N before a visual change is
-  attributed to ensemble size.
+  attributed to ensemble size. Quantitative ensemble-size evidence likewise
+  uses exact-paired selected Best-N minus corrected Best-1, with an exact-zero
+  Best-1 self-control. Adaptive-minus-legacy intervals combine selector repair
+  and ensemble size and remain historical context only.
+- Ridge-density sample retention is itself a physics-quality diagnostic. Every
+  spill/window row remains present, but no-confidence tunes stay blank and
+  bounded parabolic edge refinements are excluded from the in-band density.
+  Column normalization must therefore be interpreted with the exported sample
+  fraction and exact paired counts, especially at larger N; visually stronger
+  contrast cannot be credited to an ensemble when coverage has fallen.
+- Intensity-weighting subtraction uses the same rule independently: methods
+  must share exact collection/spill/plane/N/window/center keys, and only common
+  finite in-band global ridge picks enter each column. Red/blue therefore means
+  higher/lower ridge-pick probability versus unweighted aggregation, not
+  physical signal or noise added/removed; absolute-P99 clipping is display-only.
+  Proportional raster cells cover the complete tune/turn axes, while standalone
+  count-density captions disclose their nonzero-P98 display clip.
+  Concentration and crossing-turn galleries preserve common-scale context plus
+  separately guarded detail views; absent crossings are omitted, and no panel
+  establishes extraction timing or causation.
+  Lag correlations likewise retain common and symmetric detail scales without
+  converting overlapping-window associations into independent or causal data.
 - `scripts/verify_best_bpm_outputs.py` is an artifact completeness and schema
   gate for Best-BPM runs. The associated semantic verifier also reconstructs
   identities, masks, fixed/held-out controls, handoff states, and poster PNGs.
@@ -204,17 +252,23 @@ measured absence of support.
 ## 6. Known Limitations
 
 - no direct Schottky ingestion/auto-sync path in this repository
+- the definitive same-protocol all-training control is complete, but its mixed
+  H/V metric outcomes do not establish a universal Best-N advantage;
+  descriptive all-BPM rankings still cannot substitute for this held-out test
 - no dedicated cross-BPM coherence metric exported as first-class batch field
 - no dedicated clipping/saturation diagnostic exported yet
-- the provisional June block-aware intensity sidecar found no FDR-significant
-  directional or practically meaningful benefit from intensity weighting; RAW
-  intensity is therefore not used in tune extraction unless the corrected
-  refresh overturns every declared gate, and lag/crossing plots remain exploratory
-- in the provisional June 0-50000 turn ridge-density sidecar, H-plane ridge
-  concentration peaks early and falls below half-peak before the soft
-  extraction-review band; the corrected exact-pair rerun must confirm this, and
-  even then it indicates weak H observability rather than a causal extraction
-  onset
+- the final corrected block-aware intensity sidecar retains zero of 240 tested
+  effects, so RAW intensity is not used in tune extraction; lag and crossing
+  plots remain exploratory
+- the corrected exact-pair 0-50000-turn ridge sidecar places the H sustained
+  half-peak candidate near turn 5632 and a multimetric change near turn 5760.
+  These locate loss of H tracking support in this data set, not a causal or
+  fixed extraction onset
+- the selected structural grids each contain 360000 rows, but finite coverage
+  differs: H Best-5 retains 359018 finite picks, 14 blank-confidence rows, and
+  968 bounded edge exclusions; V Best-12 retains 289210 finite picks, 69684
+  blanks, and 1106 edge exclusions. Column-normalized density therefore permits
+  shape comparison, not an equal-coverage claim
 - live Redis payload depth remains a configuration-dependent acquisition issue;
   the reviewed preserved position collections contain 50000 clean turns, while
   the separate intensity capture advertises a longer array whose tail becomes
@@ -223,7 +277,10 @@ measured absence of support.
   threshold in scaled streams. A same-ID live comparison found those values in
   scaled HP101 arrays but not either raw array, so raw captures are the correct
   analysis boundary. Source/runtime drift still requires the independent
-  first-50000-turn corpus scan before publication
+  first-50000-turn corpus scan before publication. That completed scan found 17
+  manifest-level absences across 13 captures already marked `Partial`, but no
+  listed-payload corruption and no overlap between the 16 position-only
+  absences and the accepted per-spill H Best-5/V Best-12 memberships
 - no SVD/PCA tune path in the Rust production flow yet; the standalone poster
   analyzer has opt-in SVD/PCA comparison plots that still need physics review
 - autosweep scoring uses pragmatic proxy metrics until independent tune labels
@@ -238,5 +295,11 @@ The BPM tune monitor is successful when:
 3. sliding tune evolution is smooth for accepted-quality spills
 4. subset/coherence checks support ring-wide beam-motion interpretation
 5. BPM-vs-reference residuals are operationally acceptable
-6. every publication raw payload passes the exact topology, count, finite-data,
-   plateau, and fallback-pair audit through turn 50000
+6. every listed publication raw payload passes the exact topology, count,
+   finite-data, plateau, and fallback-pair audit through turn 50000, and every
+   manifest-level absence is identity-enumerated and hash-bound without
+   zero-filling
+7. the all-training control passes exact fold, source-hash, paired-spill,
+   interval, and native-PNG verification and its H/V outcomes are reported
+8. final poster evidence, manuscript macros, and compliance copy all match the
+   accepted primary capture and selected-ridge coverage payload

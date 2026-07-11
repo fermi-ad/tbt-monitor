@@ -160,8 +160,10 @@ python3 scripts/make_elite_full_summary.py \
   --elite-dir /home/derekste/tbt-spills-2000-autosweep/elite-full
 ```
 
-`run_autosweep.py` is serial by default. Start with `--parallel-jobs 2` on
-Spark and increase only after telemetry shows remaining headroom.
+`run_autosweep.py` is serial by default. Two jobs are the current maximum on
+Spark's single unified-memory GB10 and remain gated on the guarded parallel
+smoke. Do not infer that 3-4 jobs are safe from GPU utilization alone; higher
+concurrency requires a separate memory-watchdog qualification.
 
 ## Best-BPM Mining
 
@@ -270,13 +272,14 @@ PY=/home/derekste/venvs/cupy-spark-cu13/bin/python
   --root "$ROOT" \
   --followup "$OUT" \
   --best-n "$BESTN/merged" \
+  --all-training "$BESTN/all_training" \
   --ridge "$OUT/ridge_density_best_ensemble" \
   --intensity /home/derekste/tbt-intensity-study-20260709/merged \
   --sensitivity "$BESTN/sensitivity" \
   --out "$OUT/analysis/next_steps_output_analysis.md"
 ```
 
-The optional Best-N, ridge, intensity, and sensitivity-matrix arguments make
+The optional Best-N, all-training, ridge, intensity, and sensitivity-matrix arguments make
 the final report data-derived. A supplied sensitivity root must contain the
 seven unique verified beam/fit/seed runs and nested comparison outputs. Omit
 only an input that was intentionally not run, in which case the report records
@@ -295,6 +298,10 @@ from the same cache with the same evolution score. Treat it as a descriptive
 control because the original dynamic memberships reuse their selection
 windows; later-window digitizer-disjoint Best-N validation is the publication
 inference.
+The control summary and executive report must include all-BPM mean/median. The
+all-BPM median currently exceeds the small-set scores in both planes, and mean
+does so vertically, so the publication claim is Best-N versus Best-1 and frozen
+small sets until the same-protocol all-training control below is complete.
 No-visible fixed/control rows and no-`q_hat` held-out rows are retained with
 explicit quality flags and blank unavailable metrics. The held-out summary
 reports evaluable coverage; the semantic verifier accepts those states only
@@ -381,6 +388,12 @@ curves remain boundary-limited;
 five-fold validation cannot select more channels than remain in a training
 fold.
 
+The accepted summary can regenerate publication and diagnostic plots without
+waveform access. `best_n_validation_h/v.png` contains blind full-band agreement
+only on a shared H/V scale; `best_n_conditioned_agreement_h/v.png` retains the
+near-training diagnostic separately, and `best_n_decision_gates_h/v.png`
+records the exact criterion-by-N pass/fail decision.
+
 The reproducible sample sensitivity matrix is:
 
 ```bash
@@ -406,6 +419,18 @@ It runs seven unique configurations because the beam-32/fit-8/seed-20260709
 baseline is shared. Each run is verified before comparison. Keep this sample
 matrix separate from the all-4000-row primary curve; it tests numerical and
 hyperparameter stability rather than replacing full-run inference.
+The matrix uses descriptive internal labels such as `beam16`, but the standalone
+beam-width comparer accepts numeric `WIDTH=/path` keys. The runner converts those
+three labels to `16/32/64` at that subprocess boundary. A post-evaluator failure
+in comparison or gallery generation must be resumed with the same command and
+contracts. In `--resume` mode the coordinator strictly verifies each existing
+run before scheduling and does not spawn an evaluator for a passing directory;
+do not delete or recompute already verified run directories.
+An otherwise valid sample run may report no knee when its selected-power and
+prominence margins do not intersect. Do not relabel that as a failed run or
+choose N manually. Publication requires all seven verified outputs and eligible
+knees from at least four runs per plane; unavailable reasons remain in the
+final payload and report.
 Serial execution remains the default. `--parallel-runs 2` is the maximum
 qualified Spark setting and requires readable Linux `MemAvailable`; a sustained
 floor breach terminates both evaluators and leaves their ten-case checkpoints
@@ -415,6 +440,37 @@ contract.
 The generated sensitivity gallery includes confidence-interval endpoints, so
 10/20/40-spill block comparisons expose uncertainty changes even when central
 curves are identical.
+
+### Leakage-Controlled All-Training Control
+
+Run this CPU/cache-only control after the Best-N block-20 verifier has selected
+both planes and after the GPU publication chain is idle:
+
+```bash
+ALL_TRAINING=/home/derekste/best_n_20260709_all_training
+"$PY" scripts/evaluate_best_n_all_training.py \
+  --config config/best_bpm_mining.yaml \
+  --inputs "$ROOT" \
+  --best-n-root "$BESTN/merged_block20" \
+  --out "$ALL_TRAINING"
+
+"$PY" scripts/verify_best_n_all_training.py --root "$ALL_TRAINING"
+```
+
+This is not a literal all-60 result because each fold keeps complete digitizers
+held out. It is the leakage-controlled counterpart: every available
+training-side channel is aggregated by mean and median, while fit/test purge,
+fold identity, later windows, and held-out reference exactly match the accepted
+selected Best-N rows. The run contract hashes the accepted Best-N contract,
+validation, summary, verifier, BPM index, and spectral-cache index.
+
+The definitive 1000-spill-plane validation population produces 10,000 detail
+rows, 8,000 exact fold-collapsed spill pairs, 16 paired method/metric intervals,
+and 18 native PNGs. The verifier requires those exact counts, source hashes,
+fold/timing/cardinality coverage, finite intervals, and complete PNG geometry.
+Do not require Best-N to win: a baseline-favored or unresolved interval is a
+scientific result. Require every result to remain visible in the publication
+payload, manuscript macros, and review gallery.
 
 ### Intensity Sidecar
 
@@ -452,11 +508,29 @@ After the corrected block-20 merge and gallery render, require:
 ```
 
 This also proves the corrected all-zero gate fallback by requiring every Best-1
-window to be numerically invariant across all four weighting methods.
+window to be bit-exact across all four weighting methods. The singleton path
+copies the position spectrum directly; do not weaken this gate to accommodate
+float32 multiply/divide cancellation.
 No-usable-intensity windows explicitly use unweighted aggregation for every
 method; a finite-but-below-threshold gate keeps the strongest finite member.
 The window/spill CSVs and merged summary expose fallback reasons and frequency;
 there is no silent intensity fallback.
+The verifier also binds all four methods to identical exact spill keys,
+selected memberships, and contracted 4096/512 center grids with finite global
+ridge picks. Intensity subtraction then joins exact
+collection/spill/plane/N/window/center keys, retains common finite in-band
+points, and labels red/blue only as higher/lower column-normalized ridge-pick
+probability. Its symmetric absolute-P99 clip is display-only, not denoising.
+All intensity rasters use proportional inclusive cell bounds; count-density
+captions and legends disclose their nonzero-P98 display clip.
+The gallery emits both common 0-1 and zero-based panel-detail concentration
+plots; apparent amplitude in the autoscaled detail plots is not comparable
+across N or plane.
+Crossing-turn plots retain common 0-50000-turn axes plus an observed-range
+detail view; absent crossings are omitted and neither view defines extraction
+timing or causation.
+Lag correlations retain common -1-to-1 and symmetric panel-detail views; the
+detail limits vary and do not make overlapping windows independent or causal.
 
 Before interpreting either the intensity or 50000-turn ridge products, scan
 the complete publication corpus independently of the FFT paths:
@@ -469,14 +543,26 @@ the complete publication corpus independently of the FFT paths:
   --out "$OUT/delivery_ring_payload_audit" \
   --analysis-turns 50000 \
   --plateau-turns 128
+
+"$PY" scripts/compare_payload_absences_to_best_n.py \
+  --missing-position-csv "$OUT/delivery_ring_payload_audit/missing_position_streams.csv" \
+  --best-n-curve-csv "$BESTN/merged_block20/best_n_curve_rows.csv" \
+  --selected-h-n "$H_N" \
+  --selected-v-n "$V_N" \
+  --out "$OUT/delivery_ring_payload_audit"
 ```
 
-The audit must cover 2200 manifests, 263999 raw position rows, and 23999 exact
-raw position/intensity pairs. It fails on first-50000-turn nonfinite samples,
+The audit must cover the immutable 2200-manifest inventory, 263983 captured raw
+position rows, and 23999 exact raw position/intensity pairs. It binds all 17
+manifest-level absences across 13 recorded partial captures in a hashed CSV and
+fails on first-50000-turn nonfinite samples,
 advertised/on-disk count differences, exact plateaus of 128 turns or more, and
-repeated device-coded threshold fallback pairs. The one known incomplete
-120-channel intensity manifest remains counted and visible; it is not silently
-dropped. See `docs/DELIVERY_RING_SOURCE_AUDIT.md` for the upstream live audit.
+repeated device-coded threshold fallback pairs. The five/seven/one incomplete
+manifest distribution across the two position collections and intensity
+collection remains counted and visible; absent channels are never zero-filled.
+The second command verifies exact selected cardinality and writes a hash-bound
+identity join; it does not infer what an absent channel would have measured.
+See `docs/DELIVERY_RING_SOURCE_AUDIT.md` for the upstream live audit.
 
 To reproduce the old `18d321db` ridge-density visual grammar with corrected
 Best-N memberships, run the full-buffer ridge-density sidecar:
@@ -520,8 +606,9 @@ This writes H/V ridge-density heatmaps, all pairwise requested-N difference
 maps, exact-point-paired legacy comparisons, a shared-scale four-panel H/V
 legacy-versus-adaptive comparison for every requested N, turn-concentration and
 H-loss diagnostics, exact-paired per-turn width/entropy/peak/shared-mass
-contrasts, moving-turn-block contrast intervals, metrics, captions, and an
-indexed gallery. The per-turn CSV is unsmoothed; its PNGs use five-window
+legacy contrasts, every adaptive N-pair metric and turn grid, an exact-zero
+Best-1 self-control, moving-turn-block contrast intervals, captions, and an
+indexed gallery. The per-turn CSVs are unsmoothed; their PNGs use five-window
 visual smoothing and a zero reference. They diagnose ridge-pick probability
 redistribution rather than physical noise or extraction timing. Selected-H/V
 composites stack the two planes on one shared y scale; the P10-P90-width
@@ -531,11 +618,14 @@ broad extraction-review marker;
 separately named context variants may show it. The method applies members chosen
 from early fit windows through the 0-50000-turn buffer. It tests persistence and
 does not perform same-window dynamic reselection.
+P98 standalone/pair color clipping and absolute-P99 subtractive clipping affect
+only raster contrast; exported counts, probabilities, and metrics are not
+clipped. Visible difference legends use higher/lower pick probability wording.
 The plane-selected outputs also include a corrected Best-1-versus-selected H/V
-comparison and a legacy/corrected-Best-1/selected-Best-N three-column control,
-both exact-paired with one probability scale. The first isolates ensemble-size
-gain; the second makes selector repair visible rather than folding it into the
-legacy-to-selected contrast.
+comparison, five clean selected-minus-Best-1 H/V turn contrasts in landscape
+and portrait form, and a legacy/corrected-Best-1/selected-Best-N three-column
+control. The clean P10-P90 pair is copied into the paper/poster; the legacy
+contrast remains a visual anchor that includes selector repair.
 Set `H_N` and `V_N` from the accepted block-20 Best-N recommendations. The
 additional mixed H/V composite uses the selected membership for each plane,
 and selected-N concentration panels avoid presenting every requested N in the
@@ -543,23 +633,40 @@ final H-loss frame. Both values are stored in `run_contract.json` and required
 by the verifier.
 The legacy table contains one tracked tune pick per spill/window, not spectral
 power. The explicit settings above match archived job `18d321dbd4fe`; the
-verifier rejects protocol drift and requires all 2000 adaptive and all 1988
-legacy spill-planes on the exact 180-center grid, every per-N combined H/V
-comparison, every other manifest PNG/caption, and machine-readable disposition
-of generation warnings.
+verifier rejects protocol drift and requires all 2000 adaptive spill groups on
+the exact 180-center structural grid plus a hash-bound 1988-spill legacy source
+inventory. Finite ridge coverage is checked separately: confidence-threshold
+misses stay blank, parabolic edge refinements within the algorithmic two-bin
+bound are excluded from in-band density, and every adaptive pair is
+reconstructed from compact exact common-point masks with variable per-turn
+counts. The gate also reconciles legacy per-turn sums and source bounds,
+accepts declared landscape or portrait dimensions, requires every per-N H/V
+comparison and other manifest PNG/caption, and preserves machine-readable
+generation-warning disposition.
 The native renderer proportionally maps every tune bin over the complete plot
 height; this keeps standalone and subtractive heatmaps aligned with their tune
 axis and percentile overlays when the pixel height is not divisible by the bin
 count.
 
-After the raw-payload, intensity, and ridge verifiers pass, run
+After the raw-payload, all-training, intensity, and ridge verifiers pass, run
 `scripts/prepare_ibic2026_publication.py` with the corrected primary/follow-up,
-Best-N parent, ridge, intensity parent, and payload-audit roots. Run it on Spark before
+Best-N parent, all-training, ridge, intensity parent, and payload-audit roots.
+Run it on Spark before
 copy-back when the large ridge CSVs remain in place; only the generated
 publication tree and review galleries need transfer to the local checkout.
 The generated paper tree includes `results_table.tex`, `results_macros.tex`,
 the selected-H/V turn-width contrast, and the other four contract-bound PNGs;
-the final paper build rejects a missing macro or figure file.
+the final paper build rejects a missing macro or figure file. The generated
+`source_manifest.csv` includes exact numerical source hashes and the complete
+14-output materialization inventory; finalization re-hashes that inventory
+after copy-back and independently matches primary/coverage payload fields to the
+poster's structured evidence and manuscript macros.
+Materialization reads the selected-N coverage rows directly from the accepted
+ridge verifier and emits finite, blank-confidence, and bounded edge-excluded
+counts for both planes. It also reads the corpus audit's collection split so
+the 2000-spill primary copy reports its 12 partial captures and 16 source
+absences rather than silently inheriting the three-collection 13/17 totals or
+claiming every nominal 60+60 channel was recorded.
 
 If an original artifact must be revisited, Spark can reach the acquisition host
 with forwarded credentials via `ssh -K drbpm1`; copy or package the smallest

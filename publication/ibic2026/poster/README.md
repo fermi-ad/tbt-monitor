@@ -11,20 +11,40 @@ parallel visual rebuild are not permitted.
 - `template-audit.txt`: inherited layout, brand, typography, and QA contract;
 - `deviation-log.txt`: allowed departures from the source slide;
 - `content.json`: final verifier-derived copy and relative paths to five PNGs;
-- a prepared `template-starter.pptx` generated from the supplied POTX.
+- the audited prepared `template-starter.pptx` generated from the supplied
+  POTX, SHA-256
+  `b21f8c2e1d121f0d39ec1428576ae19d7ffdf1dd50a55b0a29df8e195ac8be60`.
 
 Do not edit `content.json` or copy the five final PNGs by hand. Generate them
 with `scripts/prepare_ibic2026_publication.py`, which preserves independent H/V
 Best-N choices, requires the exact corpus-wide raw-payload audit, and records
-every source hash. The generated copy distinguishes the full Best-N curve
-population from the smaller stratified held-out validation population.
+every source hash, including the manifest and 17-row absent-stream inventories.
+The generated copy distinguishes the full Best-N curve
+population from the smaller stratified held-out validation population. It also
+prints the eligible-count and N range from seven verified sensitivity runs;
+unavailable reduced-sample knees remain explicit rather than being assigned N.
+It also distinguishes nominal primary topology from recorded completeness (16
+source absences across 12 flagged partial captures) and reports selected H/V
+finite full-buffer pick coverage from the strict ridge verifier. Do not infer
+equal coverage from the column-normalized density colors.
+Conclusion copy must separate Best-N improvement over adaptive Best-1 from the
+same-protocol all-training control and report the H/V selected-favored and
+all-training-favored counts. An unresolved or baseline-favored result is not
+removed to simplify the poster story.
+The H/V Best-N frames use blind full-band selected-versus-held-out agreement on
+one shared zero-based scale. Do not substitute or overlay conditioned
+near-training agreement in those frames.
 
 `content.json` must provide the text and asset keys enforced by
 `build_poster.mjs`. The builder rejects missing/undersized images, unresolved
 copy, and nonnumeric result text. `build_poster.sh` runs that builder and the
 complete delivery gate: editable PPTX, one-page A0 PDF, full-size PNG, PDF
-raster, layout JSON, template-fidelity report, overflow check, embedded-font
-check, and checksums.
+raster, delivered layout JSON, zero-issue template-fidelity JSON/text reports,
+PPTX overflow inspection, embedded-font report, and portable checksums.
+The named full-size PNG is copied from the 150 dpi PDF raster and must remain
+byte-identical to it. This preserves master-level Fermilab/DOE artwork that the
+artifact-tool geometry preview does not render; the direct artifact preview is
+retained separately as `*-artifact-preview.png` for layout diagnostics.
 
 ## Build
 
@@ -56,10 +76,15 @@ Before delivery:
    exceed PowerPoint's 56-inch limit;
 2. run `check_template_fidelity.mjs` against the starter, final PPTX, frame map,
    and final layout;
-3. inspect the full-size PNG for hierarchy, axis/legend readability, clipping,
-   and unintended overlap;
-4. inspect exported slide XML for empty structural placeholders;
-5. render the PPTX to PDF and confirm one A0 portrait page with all fonts and
+3. inspect the PDF-derived full-size PNG for hierarchy, authentic footer
+   branding, axis/legend readability, clipping, and unintended overlap;
+4. run the publication finalizer's read-only slide-XML gate and confirm the
+   compliance report records zero empty structural placeholders;
+5. confirm the finalizer recomputes the delivered source/deliverable manifests
+   and zero-issue fidelity report, and validates every materialized output in
+   the publication-level `source_manifest.csv`, including equality between the
+   poster's structured capture/coverage evidence and the results payload;
+6. render the PPTX to PDF and confirm one A0 portrait page with all fonts and
    authentic Fermilab branding preserved.
 
 The complete review gallery, including selected-spill examples, is packaged

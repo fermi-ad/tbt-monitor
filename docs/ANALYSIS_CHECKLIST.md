@@ -34,7 +34,8 @@ Treat these as baseline rather than open TODOs:
 - Best-BPM follow-up sidecars for same-metric dynamic/fixed/all-BPM
   recomputation, held-out spectral support, handoff/visibility review, curated
   plane-balanced poster PNGs, and full-buffer Best-1/3/5 ridge-density
-  comparison artifacts
+  comparison artifacts; executive copy and the control-summary PNG must retain
+  all-BPM mean/median even when they are stronger than the small-set methods
 - exact-cache visibility-duration repair plus semantic verification of result
   identities, fixed/held-out controls, handoff transitions, poster balance,
   and recommended PNG payloads
@@ -47,18 +48,25 @@ Treat these as baseline rather than open TODOs:
   sensitivity comparisons, cross-collection global-N transfer, and a strict
   verifier for contiguous coverage, identities, timing, metrics, summaries,
   recommendation boundaries, and plots
-- an initial exact-pair intensity weighting/covariate study over 199 complete
-  spills; that provisional block-aware result rejects intensity weighting and retains only
-  integrity and exploratory timing diagnostics. A corrected all-zero gate
-  fallback plus an explicit no-usable-intensity unweighted fallback restore N=1
-  invariance and require one final 200-spill refresh.
+- poster-facing Best-N blind-agreement H/V plots on one shared zero-based scale,
+  with the conditioned near-training diagnostic retained separately
+- criterion-by-N Best-N gate matrices whose all-gates row matches the declared
+  recommendation exactly
+- post-selection Best-N gate-margin matrices over the bounded agreement and
+  selected/held-out power floors, with the declared cell identified and an
+  explicit prohibition on replacing the published knee
+- a completed exact-pair intensity weighting/covariate study over 199 complete
+  spills; the final block-aware result retains zero of 240 tested effects and
+  keeps only integrity and exploratory timing diagnostics. Corrected all-zero
+  gate fallback, no-usable-intensity fallback, and direct singleton spectrum
+  pass-through preserve bit-exact N=1 invariance.
 - strict intensity verification of the audited pair count, complete method/turn
-  grids, payload horizon, exact N=1 equality, effect decisions, and gallery
-  assets; 10/20/40 blocks must retain the same exact effect identities
+  grids, payload horizon, bit-exact N=1 equality from direct singleton spectrum
+  pass-through, effect decisions, and gallery assets; 10/20/40 blocks must
+  retain the same exact effect identities
 - verifier-bound publication materialization with independent H/V Best-N,
   exact-paired mixed ridge comparison, selected-N H-loss panel, poster copy,
-  paper table, and source hashes; final execution remains gated on the active
-  Best-N, intensity, and ridge passes
+  paper table, verifier-derived capture/finite-pick coverage, and source hashes
 
 ## 2. Deferred Production Enhancements (Not Publication TODO)
 
@@ -178,6 +186,16 @@ Resolved findings:
   within tune tolerance and zero practical effects with 20-spill blocks
 - square-root, linear, and gated intensity weighting are rejected for tune
   extraction
+- intensity subtraction panels are exact-key paired across methods, use only
+  common finite in-band ridge picks, and describe red/blue as higher/lower
+  column-normalized pick probability with an absolute-P99 display clip
+- intensity heatmap bins cover the complete axes without truncation gaps, and
+  standalone count-density captions disclose nonzero-P98 display clipping
+- intensity concentration and crossing-turn diagnostics preserve common-scale
+  views beside explicitly guarded panel-detail views; no absent crossing is
+  zero-filled or interpreted as extraction timing
+- lag correlations preserve common -1-to-1 Spearman and symmetric detail views;
+  panel autoscaling does not remove overlap dependence or imply causation
 - lag and crossing-turn plots remain exploratory and do not identify a fixed
   extraction boundary or establish causation
 
@@ -202,6 +220,9 @@ Every final publication plot must satisfy:
 - confidence intervals or an explicit descriptive-only label where inference
   is not supported
 - exact support counts and point-pairing disclosure for comparisons
+- disclosure of display-only color clipping, with unclipped exported metrics
+- higher/lower ridge-pick probability language for subtractive maps; never a
+  physical-noise or denoising label
 - no extraction marker in the primary plot; broad review context may appear
   only in a separately named variant
 - a verifier-accepted `run_contract.json` binding the figure rows to exact
@@ -217,17 +238,23 @@ Every final publication plot must satisfy:
    visibility-duration repair
 2. complete the contiguous Best-N curve, beam/fit/fold sensitivities, and
    cross-collection transfer; require the full and seven-run sample outputs to
-   pass `verify_best_n_outputs.py`
-3. pass the independent 2200-manifest raw-payload audit over all 263999
-   position rows and 23999 exact intensity pairs through turn 50000
-4. render the exact-point-paired 50000-turn legacy/Best-N ridge gallery and
+   pass `verify_best_n_outputs.py`, retain every unavailable sensitivity reason,
+   and require eligible knees from at least four of seven runs per plane
+3. pass the independent 2200-manifest raw-payload audit over all 263983 captured
+   position rows and 23999 exact intensity pairs through turn 50000; retain the
+   hashed 17-row absent-stream inventory for the 13 recorded partial captures
+4. run and verify the CPU/cache-only all-training mean/median control over the
+   exact accepted Best-N validation keys; retain all 10,000 fold rows, 8,000
+   spill pairs, 16 comparison rows, and 18 native PNGs
+5. render the exact-point-paired 50000-turn legacy/Best-N ridge gallery and
    inspect H-loss diagnostics without forcing an extraction onset; require the
    strict spill/window/pair/figure verifier to pass
-5. freeze the executive interpretation and issue #39 deficiency disposition
-6. build and visually verify the Fermilab-template A0 poster and four-page JACoW
+6. freeze the executive interpretation and issue #39 deficiency disposition
+7. build and visually verify the Fermilab-template A0 poster and four-page JACoW
    paper
-7. package the exhaustive review gallery and curated publication source bundle,
-   then merge scoped PRs and leave a clean repository
+8. package the exhaustive review gallery and curated publication source bundle,
+   rerun its exact manifest/gallery verifier after local transfer, then merge
+   scoped PRs and leave a clean repository
 
 SVD/PCA remains deferred for production Rust tune extraction. The standalone
 poster analyzer can already produce opt-in representative-spill SVD/PCA
@@ -239,6 +266,9 @@ Required for the publication review:
 
 - corrected verifier and follow-up-verifier reports
 - Best-N summary, sensitivity, and cross-collection transfer tables/plots
+- all-training fold detail, exact spill pairs, comparison table/report, strict
+  verification receipt, H/V scoreboards, paired scatters, and favorable-delta
+  CDFs
 - exact-point-paired legacy-versus-adaptive H/V ridge panels, one shared-scale
   four-panel H/V comparison for every requested N, and subtractive
   redistribution maps
@@ -246,19 +276,40 @@ Required for the publication review:
   legacy/corrected-Best-1/selected-Best-N control composites, with only the
   corrected Best-1 transition interpreted as ensemble-size evidence
 - unsmoothed exact-paired per-turn width, entropy, peak-bin, and shared-ridge-
-  mass contrasts, with zero-referenced five-window-smoothed global and selected-
-  N review plots, shared-scale selected-H/V composites, and explicit non-noise/
-  non-extraction guardrails
+  mass contrasts for every adaptive N pair plus legacy, including an exact-zero
+  Best-1 self-control, with zero-referenced five-window-smoothed review plots
+- shared-scale selected-Best-N-minus-corrected-Best-1 H/V landscape and portrait
+  composites for all five metrics, with the clean P10-P90 pair bound to the
+  paper/poster and explicit non-noise/non-extraction guardrails
 - full-axis density raster coverage with percentile and median overlays on the
   identical tune-to-pixel mapping
+- exact 2,000-spill by 180-center structural-grid closure for every requested N
+  and plane, with finite in-band, blank-confidence, and bounded edge-excluded
+  counts reported separately; adaptive aggregate/per-turn rows must equal the
+  reconstructed finite-point intersections
+- selected publication coverage stated numerically: H Best-5 has 359018 finite,
+  14 blank-confidence, and 968 edge-excluded rows; V Best-12 has 289210 finite,
+  69684 blank-confidence, and 1106 edge-excluded rows, each from 360000
+  structural rows
+- primary nominal 60 H plus 60 V topology accompanied by the 16 explicit source
+  absences across 12 flagged partial captures; no absent channel is fabricated
+  or zero-filled
 - H-plane concentration, width, entropy, confidence, fallback, and data-derived
   loss-candidate diagnostics
 - block-aware intensity result tables and indexed review gallery
 - editable A0 poster, poster PDF/render, four-page paper source/PDF, source data,
   generated numerical macros, checksums, commands, captions, and compliance
   notes
+- byte-identical named poster PNG and 150 dpi PDF raster, with authentic
+  master-level Fermilab/DOE artwork visible in the reviewed render
+- delivered poster layout inventory, PPTX overflow inspection, and zero-issue
+  template-fidelity reports, with exact portable poster/paper checksum manifests
+- publication source manifest with exact numerical source hashes and a
+  finalizer-verified 14-file materialized-output inventory
 - final `compliance_report.md` and `publication_manifest.csv` produced only
-  after explicit visual-QA pass flags and page/payload/hash verification
+  after explicit visual-QA pass flags, page/payload/hash verification, and a
+  read-only final-PPTX scan reporting zero empty structural placeholders; the
+  report must repeat the payload-bound primary and selected-ridge coverage
 
 Optional but useful:
 

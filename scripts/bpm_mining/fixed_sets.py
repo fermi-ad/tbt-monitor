@@ -469,6 +469,62 @@ def write_plots(summary_rows: Sequence[dict[str, object]], out: Path) -> None:
             "Frozen A->B is trained on collection A and applied to B. The comparison is descriptive because adaptive memberships reuse their selection windows; leakage-controlled Best-N validation carries the inferential claim.\n",
         )
 
+        method_labels = (
+            ("all_bpm_mean", "ALL MEAN"),
+            ("all_bpm_median", "ALL MED"),
+            ("dynamic_best1", "ADAPT 1"),
+            ("dynamic_best3", "ADAPT 3"),
+            ("dynamic_best5", "ADAPT 5"),
+            ("fixed_top1", "FROZEN 1"),
+            ("fixed_top3", "FROZEN 3"),
+            ("fixed_top5", "FROZEN 5"),
+        )
+        bar_labels: list[str] = []
+        bar_values: list[float] = []
+        for method, label in method_labels:
+            values = [
+                _f(row.get("median_score"))
+                for row in rows
+                if row.get("method") == method
+            ]
+            values = [value for value in values if math.isfinite(value)]
+            if values:
+                bar_labels.append(label)
+                bar_values.append(median(values))
+        control_path = out / "artifacts" / "global" / f"fixed_dynamic_all_bpm_summary_{plane.lower()}.png"
+        maximum = max(bar_values, default=0.0)
+        upper = maximum * 1.2 if maximum > 0 else 1.0
+        poster.bar_plot(
+            control_path,
+            f"{plane} SAME-METRIC CONTROL SUMMARY",
+            bar_labels,
+            bar_values,
+            y_label="SCORE",
+            y_range=(0.0, upper),
+            colors=(
+                poster.BLUE,
+                poster.GREEN,
+                poster.PURPLE,
+                poster.PURPLE,
+                poster.PURPLE,
+                poster.ORANGE,
+                poster.ORANGE,
+                poster.ORANGE,
+            ),
+            show_values=True,
+            note="DESCRIPTIVE SAME-WINDOW MEDIAN; TWO COLLECTIONS OR DIRECTIONS",
+            x_label="METHOD",
+        )
+        atomic_write_text(
+            control_path.with_name(f"{control_path.stem}_caption.md"),
+            f"# {plane} Same-Metric Adaptive, Frozen, And All-BPM Controls\n\n"
+            "Each bar is the median of the two collection or train/test-direction summary rows. "
+            "All-BPM mean and median use all 60 plane channels; adaptive and frozen bars use N=1,3,5. "
+            "Every method is recomputed from the same cache with the same evolution score. "
+            "This reused-window comparison is descriptive, not leakage-controlled inference. "
+            "A higher all-BPM bar forbids claiming that a small adaptive set outperforms all-BPM aggregation under this metric.\n",
+        )
+
 
 def evaluate_fixed_sets(
     cfg: dict[str, object],

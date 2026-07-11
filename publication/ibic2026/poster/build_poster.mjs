@@ -177,7 +177,7 @@ const manifest = {
   assets,
   outputs: {
     pptx: { path: path.resolve(args.out), sha256: await sha256(path.resolve(args.out)) },
-    preview: { path: path.resolve(args.preview), sha256: await sha256(path.resolve(args.preview)) },
+    artifactPreview: { path: path.resolve(args.preview), sha256: await sha256(path.resolve(args.preview)) },
     layout: { path: path.resolve(args.layout), sha256: await sha256(path.resolve(args.layout)) },
   },
 };

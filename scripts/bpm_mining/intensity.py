@@ -400,6 +400,11 @@ def combine_weighted_spectra(spectra: np.ndarray, weights: np.ndarray) -> tuple[
     if spectra.shape[:2] != weights.shape:
         raise ValueError(f"spectra/weight shape mismatch: {spectra.shape} vs {weights.shape}")
     clean_weights = np.where(np.isfinite(weights) & (weights > 0), weights, 0.0).astype(np.float32)
+    if spectra.shape[0] == 1:
+        valid = clean_weights[0] > 0
+        combined = np.asarray(spectra[0], dtype=np.float32).copy()
+        combined[~valid] = np.nan
+        return combined, valid.astype(np.float32)
     denominator = np.sum(clean_weights, axis=0)
     combined = np.sum(spectra * clean_weights[:, :, None], axis=0) / np.maximum(denominator[:, None], 1e-24)
     combined[denominator <= 0] = np.nan

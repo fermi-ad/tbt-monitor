@@ -1,0 +1,2 @@
+publication/ibic2026/*.csv text eol=lf
+publication/ibic2026/**/*.csv text eol=lf

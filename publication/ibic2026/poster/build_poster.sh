@@ -23,10 +23,13 @@ BASE=ibic2026-abstract54-poster
 PPTX="$OUT_DIR/$BASE.pptx"
 PDF="$OUT_DIR/$BASE.pdf"
 PREVIEW="$OUT_DIR/$BASE.png"
+ARTIFACT_PREVIEW="$OUT_DIR/$BASE-artifact-preview.png"
 MANIFEST="$OUT_DIR/source_manifest.json"
-FINAL_LAYOUT_DIR="$WORK/final-layout"
+FINAL_LAYOUT_DIR="$OUT_DIR/layout"
 FINAL_LAYOUT="$FINAL_LAYOUT_DIR/final-slide-01.layout.json"
 RENDER_DIR="$OUT_DIR/rendered"
+QA_DIR="$OUT_DIR/qa"
+INSPECT="$PPTX.inspect.ndjson"
 
 for file in \
   "$SKILL_DIR/container_tools/setup_artifact_tool_workspace.mjs" \
@@ -56,7 +59,7 @@ for command in "$NODE" "$PYTHON" "$SOFFICE" "$PDFINFO" "$PDFTOPPM" "$PDFFONTS" "
   }
 done
 
-mkdir -p "$OUT_DIR" "$WORK" "$FINAL_LAYOUT_DIR" "$RENDER_DIR" \
+mkdir -p "$OUT_DIR" "$WORK" "$FINAL_LAYOUT_DIR" "$RENDER_DIR" "$QA_DIR" \
   "$WORK/home" "$WORK/cache" "$WORK/lo-profile"
 "$NODE" "$SKILL_DIR/container_tools/setup_artifact_tool_workspace.mjs" \
   --workspace "$WORK"
@@ -66,7 +69,7 @@ cp "$HERE/build_poster.mjs" "$WORK/build_poster.mjs"
   --starter "$STARTER_PPTX" \
   --content "$CONTENT" \
   --out "$PPTX" \
-  --preview "$PREVIEW" \
+  --preview "$ARTIFACT_PREVIEW" \
   --layout "$FINAL_LAYOUT" \
   --manifest "$MANIFEST"
 
@@ -79,6 +82,21 @@ cp "$HERE/build_poster.mjs" "$WORK/build_poster.mjs"
   --starter-layout-dir "$STARTER_LAYOUT_DIR" \
   --final-layout-dir "$FINAL_LAYOUT_DIR" \
   --edit-dir "$WORK"
+for report in template-fidelity-check.json template-fidelity-check.txt; do
+  test -s "$WORK/qa/$report" || {
+    echo "template-fidelity check did not produce $report" >&2
+    exit 1
+  }
+  cp "$WORK/qa/$report" "$QA_DIR/$report"
+done
+test -s "$FINAL_LAYOUT" || {
+  echo "poster build did not preserve the final layout inventory: $FINAL_LAYOUT" >&2
+  exit 1
+}
+test -s "$INSPECT" || {
+  echo "slides_test did not preserve the PPTX inspection record: $INSPECT" >&2
+  exit 1
+}
 
 rm -f "$PDF"
 profile_uri="file://${WORK// /%20}/lo-profile"
@@ -111,10 +129,36 @@ else
   exit 1
 fi
 
-rm -f "$RENDER_DIR"/poster-*.png
+rm -f "$RENDER_DIR"/poster-*.png "$PREVIEW"
 "$PDFTOPPM" -png -r 150 "$PDF" "$RENDER_DIR/poster"
-"$SHASUM" -a 256 "$PPTX" "$PDF" "$PREVIEW" "$MANIFEST" \
-  >"$OUT_DIR/deliverable-sha256.txt"
+test -s "$RENDER_DIR/poster-1.png" || {
+  echo "PDF rasterizer did not produce the poster PNG" >&2
+  exit 1
+}
+cp "$RENDER_DIR/poster-1.png" "$PREVIEW"
+cmp -s "$PREVIEW" "$RENDER_DIR/poster-1.png" || {
+  echo "poster preview does not match the authoritative PDF raster" >&2
+  exit 1
+}
+write_checksum() {
+  local source=$1
+  local label=$2
+  local digest
+  digest=$("$SHASUM" -a 256 "$source" | awk '{print $1}')
+  printf '%s  %s\n' "$digest" "$label"
+}
+{
+  write_checksum "$PPTX" "$BASE.pptx"
+  write_checksum "$PDF" "$BASE.pdf"
+  write_checksum "$PREVIEW" "$BASE.png"
+  write_checksum "$ARTIFACT_PREVIEW" "$BASE-artifact-preview.png"
+  write_checksum "$MANIFEST" "source_manifest.json"
+  write_checksum "$FINAL_LAYOUT" "layout/final-slide-01.layout.json"
+  write_checksum "$INSPECT" "$BASE.pptx.inspect.ndjson"
+  write_checksum "$QA_DIR/template-fidelity-check.json" "qa/template-fidelity-check.json"
+  write_checksum "$QA_DIR/template-fidelity-check.txt" "qa/template-fidelity-check.txt"
+  write_checksum "$OUT_DIR/pdffonts.txt" "pdffonts.txt"
+} >"$OUT_DIR/deliverable-sha256.txt"
 
-printf 'poster_pptx=%s\nposter_pdf=%s\nposter_preview=%s\n' \
-  "$PPTX" "$PDF" "$PREVIEW"
+printf 'poster_pptx=%s\nposter_pdf=%s\nposter_preview=%s\nposter_artifact_preview=%s\n' \
+  "$PPTX" "$PDF" "$PREVIEW" "$ARTIFACT_PREVIEW"

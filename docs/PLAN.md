@@ -204,6 +204,8 @@ Implemented pieces:
 - `scripts/run_autosweep.py`: deterministic baseline/factor/pilot/full runner
   with config hashes, manifest lists, resume/cached detection, run logs,
   opt-in parallel config/view execution, and optional GPU telemetry summaries.
+  Spark remains serial by default; two jobs are the current ceiling pending a
+  guarded smoke, and any higher count requires separate memory qualification.
 - `scripts/rank_autosweep_results.py`: required weighted scores, spill/config
   labels, ranked spill/config/collection tables, rejected configs, and
   `top_configs_for_full.csv`.
@@ -274,12 +276,16 @@ Implemented structure:
   fail-closed output verifier. The matrix remains serial by default and exposes
   only the measured two-evaluator Spark mode, guarded by a sustained Linux
   `MemAvailable` floor and resumable per-run checkpoints.
+- a leakage-controlled all-training-channel control that reuses the exact
+  accepted Best-N fit/test purge and digitizer folds, compares mean and median
+  aggregation on four paired metrics, and fail-closes on source, row, fold,
+  interval, or 18-image gallery drift
 - a 200-spill exact-pair intensity sidecar with block-aware paired inference,
   10/20/40-spill block-length sensitivity, practical-effect gates,
   payload-horizon auditing, and an indexed review gallery
 - strict intensity closure over the audited 23999-pair capture, complete
-  90-window 4096/512 spill grids, exact Best-1 weighting invariance, effect
-  decisions, and all gallery assets
+  90-window 4096/512 spill grids, bit-exact Best-1 weighting invariance via
+  singleton spectrum pass-through, effect decisions, and all gallery assets
 - verifier-bound IBIC materialization that carries independent H/V Best-N
   recommendations into a plane-selected ridge composite, poster copy, paper
   table, exact figure copies, results payload, and source-hash manifest
@@ -299,6 +305,9 @@ Implemented structure:
 - `verify_best_n_outputs.py` separately checks exact N/fold coverage,
   memberships, purged timing, finite validation metrics, summary counts,
   recommendation boundaries, transfer rows, and figure products
+- accepted-summary reporting also writes a bounded post-selection gate-margin
+  CSV and native PNG matrix. It distinguishes a stable N region from a
+  criterion-sensitive tradeoff without changing the declared Best-N selector.
 
 Current publication interpretation:
 
@@ -318,11 +327,22 @@ Current publication interpretation:
   panels keep the H-loss view legible.
   Corrected native rasterization fills the complete declared tune axis with
   proportional cells, keeping density colors and percentile overlays aligned.
-  Exact-paired turn tables retain unsmoothed adaptive-minus-legacy width,
-  entropy, peak-bin, and shared-ridge-mass contrasts; review PNGs apply only
-  five-window visual smoothing. These locate changes in ridge-pick
-  concentration without assigning a fixed extraction onset or claiming
-  physical noise removal.
+  Disclosed P98 density and absolute-P99 subtraction clips affect only display
+  contrast; visible legends and captions describe higher/lower pick
+  probability, and exported quantitative rows remain unclipped.
+  Exact-paired turn tables retain unsmoothed adaptive-minus-legacy and every
+  adaptive N-pair width, entropy, peak-bin, and shared-ridge-mass contrast,
+  including a zero Best-1 self-control. The publication width figure uses
+  selected Best-N minus corrected Best-1; legacy contrast stays a historical
+  anchor. Review PNGs apply only five-window visual smoothing. These locate
+  changes in ridge-pick concentration without assigning a fixed extraction
+  onset or claiming physical noise removal.
+  Verification treats the 2,000-spill by 180-center row grid as structural
+  coverage and reconstructs finite in-band point masks separately. Blank
+  confidence misses and bounded band-edge refinements therefore remain visible
+  sample-coverage evidence instead of being imputed or mistaken for corrupt
+  rows; all adaptive aggregate and per-turn intersections must match those
+  masks exactly.
 - Best-N, intensity, and full-buffer ridge passes write checksummed JSON run
   contracts before science output. Resumes reject parameter drift; merges
   require complete compatible shard sets and reject duplicate science keys.
@@ -331,13 +351,40 @@ Current publication interpretation:
   static in the manuscript source.
 - Final delivery is not inferred from build exit codes alone. A separate
   finalizer requires explicit poster and paper visual-QA passes, rechecks page
-  geometry and payload closure, and inventories every delivered publication
-  file by SHA-256.
+  geometry and payload closure, requires the named poster PNG to be the
+  byte-identical PDF raster with inherited master artwork, rejects empty
+  structural placeholders found by a read-only scan of final slide XML, and
+  recomputes the publication materialization manifest, portable poster/paper
+  build manifests, primary/coverage payload-to-artifact bindings, and zero-issue
+  template fidelity before inventorying every
+  delivered publication file by SHA-256.
 - Full-buffer galleries are publication-eligible only after their strict
   spill/window, exact-pair, metric, warning, PNG, and caption verifier passes.
 - Publication materialization also requires the independent Delivery Ring raw
-  payload audit over all 2200 manifests and first 50000 turns; no spectral
-  result can waive a payload-integrity failure.
+  payload audit over the immutable 2200-manifest inventory and first 50000
+  turns. It binds all 263983 captured position streams, 23999 exact intensity
+  pairs, and the 17 manifest-level absences across 13 recorded partial captures;
+  no spectral result can waive a payload-integrity failure.
+- Primary-set copy states the nominal 60 H plus 60 V topology together with its
+  12 partial captures and 16 explicit source absences. Selected full-buffer
+  ridge copy is verifier-derived and reports structural, finite in-band,
+  blank-confidence, and bounded edge-excluded rows for H and V; normalized
+  density color is never presented as equal observation coverage.
+- All seven reduced-sample beam/fit/fold sensitivity runs must verify. A plane
+  may proceed only when at least four runs produce an eligible knee; every
+  unavailable run and its non-inferiority reason remains in the payload and
+  publication copy. This reports weak-sample instability without inventing N.
+- Same-metric adaptive/frozen/all-BPM controls remain descriptive because they
+  reuse selection windows. Their executive table and PNG must include all-BPM
+  mean and median; the current stronger all-BPM rows limit the inferential claim
+  until the separate same-protocol all-training control completes. That control
+  may favor either method or remain unresolved and must be reported without
+  changing the accepted Best-N selector.
+- Poster and paper Best-N panels use only blind full-band selected-versus-held-
+  out agreement on a shared zero-based H/V scale. Conditioned near-training
+  agreement remains in the review gallery and cannot carry the headline claim.
+- The Best-N review gallery also includes an exact criterion-by-N decision
+  matrix so the earliest eligible knee can be audited against every gate.
 - The old ``Best-10 deferred'' note is historical, not an active missing run.
   The publication evaluates every N contiguously through at least N=20 (target
   N=30) under the separate leakage-controlled protocol. The bounded N=30 trial
@@ -346,15 +393,25 @@ Current publication interpretation:
 - Intensity weighting is rejected unless block-aware FDR, practical effect,
   median tune-shift, and 95% spillwise tune-shift criteria all pass. Integrity
   and timing diagnostics remain useful even when weighting is rejected.
+  Subtractive intensity figures require identical exact finite spill/window
+  points and may claim only higher/lower column-normalized ridge-pick
+  probability; their absolute-P99 color clip is display-only. All intensity
+  heatmaps fill the complete axis with proportional cells, and count-density
+  captions disclose nonzero-P98 display clipping.
+  Concentration and crossing-turn diagnostics retain common-scale panels beside
+  explicitly guarded detail-scale variants; neither detail scale supports
+  cross-panel amplitude or extraction-timing claims.
+  Lag correlation similarly retains common -1-to-1 and symmetric detail views;
+  autoscaling does not make overlapping windows independent or causal.
 
 ## Next Milestones
 
 Post-split analysis refinement:
 
 1. Complete the corrected exact-identity Best-1/3/5 run, Best-N curve and
-   sensitivities, exact-point-paired 50000-turn gallery, visibility-duration
+   sensitivities, all-training control, exact-point-paired 50000-turn gallery, visibility-duration
    repair, corpus-wide raw-payload audit, final poster/paper, and publication
-   artifact manifest; keep
+   artifact manifest plus post-transfer review-package verification; keep
    deficiencies tracked in GitHub issue #39.
 2. Add explicit spectral-coherence and clipping diagnostics to production
    analysis summaries when the autosweep identifies stable criteria.

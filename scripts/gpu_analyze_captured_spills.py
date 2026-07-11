@@ -1701,6 +1701,27 @@ def ridge_value(row: dict[str, object], source: str) -> Optional[float]:
     return float_or_none(row.get("selected_tune"))
 
 
+def raster_cell_bounds(
+    index: int,
+    count: int,
+    start: int,
+    end: int,
+    *,
+    reverse: bool = False,
+) -> tuple[int, int]:
+    """Map one density bin onto an inclusive pixel interval without gaps."""
+    if count <= 0 or index < 0 or index >= count or end < start:
+        raise ValueError("invalid raster cell geometry")
+    span = end - start + 1
+    if reverse:
+        low = end - ((index + 1) * span // count) + 1
+        high = end - (index * span // count)
+    else:
+        low = start + index * span // count
+        high = start + (index + 1) * span // count - 1
+    return low, high
+
+
 def ridge_density_plot(
     path: Path,
     title: str,
@@ -1746,16 +1767,20 @@ def ridge_density_plot(
     finite_vals = density[density > 0]
     vmax = float(np.percentile(finite_vals, 98)) if finite_vals.size else 1.0
     vmax = max(vmax, 1.0 / max(1, len(accepted_spills)) if args.ridge_density_normalize else 1.0)
-    cell_w = max(1, (x1 - x0 + 1) // max(1, len(centers)))
-    cell_h = max(1, (y1 - y0 + 1) // args.ridge_density_tune_bins)
     for col in range(len(centers)):
+        cx0, cx1 = raster_cell_bounds(col, len(centers), x0, x1)
         for row_idx in range(args.ridge_density_tune_bins):
             value = float(density[row_idx, col])
             frac = value / vmax if vmax else 0.0
             color = color_ramp(frac) if value > 0 else (245, 247, 248)
-            cx0 = x0 + col * cell_w
-            cy0 = y1 - (row_idx + 1) * cell_h
-            poster.rect(pixels, width, height, cx0, cy0, min(x1, cx0 + cell_w - 1), min(y1, cy0 + cell_h - 1), color)
+            cy0, cy1 = raster_cell_bounds(
+                row_idx,
+                args.ridge_density_tune_bins,
+                y0,
+                y1,
+                reverse=True,
+            )
+            poster.rect(pixels, width, height, cx0, cy0, cx1, cy1, color)
     median_points = []
     p10_points = []
     p90_points = []
@@ -1781,7 +1806,8 @@ def ridge_density_plot(
     poster.draw_text(pixels, width, height, x0, y1 + 8, str(min(centers)), poster.MUTED, 2)
     poster.draw_text(pixels, width, height, x1 - 110, y1 + 8, str(max(centers)), poster.MUTED, 2)
     poster.draw_text(pixels, width, height, x0, y0 - 28, f"{plane} {band[0]:.3f}-{band[1]:.3f} N={len(accepted_spills)}", poster.MUTED, 2)
-    poster.draw_text(pixels, width, height, x1 - 270, y0 - 28, "COLOR: SPILL COUNT, WHITE: MED/PCT", poster.MUTED, 2)
+    color_label = "FRACTION" if args.ridge_density_normalize else "SPILL COUNT"
+    poster.draw_text(pixels, width, height, x1 - 360, y0 - 28, f"COLOR: {color_label} (P98 CLIP), WHITE: MED/PCT", poster.MUTED, 2)
     poster.write_png(path, width, height, pixels)
 
 

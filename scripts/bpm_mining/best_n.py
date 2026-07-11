@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import random
 import time
-from collections import defaultdict
+from collections import Counter, defaultdict
 from itertools import combinations
 from pathlib import Path
 from typing import Mapping, Sequence
@@ -163,6 +163,18 @@ CROSS_COLLECTION_FIELDS = [
     "n1_median_blind_selected_heldout_abs_q_delta",
     "blind_agreement_gain_vs_n1",
     "blind_q_delta_reduction_vs_n1",
+]
+
+GATE_MARGIN_SENSITIVITY_FIELDS = [
+    "plane",
+    "blind_agreement_margin",
+    "selected_power_fraction",
+    "heldout_power_fraction",
+    "recommended_n",
+    "eligible_n",
+    "status",
+    "is_declared",
+    "maximum_n",
 ]
 
 
@@ -867,34 +879,42 @@ def summarize(
     return out
 
 
-def recommended_n(
+def recommendation_gate_status(
     summary_rows: Sequence[dict[str, object]],
     plane: str,
     tune_half_width: float,
-) -> tuple[dict[str, object] | None, str]:
+    *,
+    blind_agreement_margin: float = 0.02,
+    selected_power_fraction: float = 0.95,
+    heldout_power_fraction: float = 0.90,
+) -> tuple[list[dict[str, object]], dict[str, float], str]:
+    if blind_agreement_margin < 0:
+        raise ValueError("blind agreement margin must be nonnegative")
+    if not 0 < selected_power_fraction <= 1 or not 0 < heldout_power_fraction <= 1:
+        raise ValueError("power non-inferiority fractions must be in (0, 1]")
     rows = [
         row
         for row in summary_rows
         if row.get("plane") == plane and int(row.get("validation_row_count") or 0) > 0
     ]
     if not rows:
-        return None, "no validation rows"
+        return [], {}, "no validation rows"
     agreement_candidates = [_f(row.get("blind_q_agreement_rate")) for row in rows]
     q_delta_candidates = [_f(row.get("median_blind_selected_heldout_abs_q_delta")) for row in rows]
     agreement_candidates = [value for value in agreement_candidates if math.isfinite(value)]
     q_delta_candidates = [value for value in q_delta_candidates if math.isfinite(value)]
     if not agreement_candidates or not q_delta_candidates:
-        return None, "validation metrics are incomplete"
+        return [], {}, "validation metrics are incomplete"
     best_agreement = max(agreement_candidates)
     best_q_delta = min(q_delta_candidates)
     stable = [
         row
         for row in rows
-        if _f(row.get("blind_q_agreement_rate")) >= best_agreement - 0.02
+        if _f(row.get("blind_q_agreement_rate")) >= best_agreement - blind_agreement_margin
         and _f(row.get("median_blind_selected_heldout_abs_q_delta")) <= best_q_delta + tune_half_width
     ]
     if not stable:
-        return None, "no N met the declared tune-reproducibility thresholds"
+        return [], {}, "no N met the declared tune-reproducibility thresholds"
 
     contrast_fields = (
         "median_test_peak_prominence",
@@ -903,38 +923,126 @@ def recommended_n(
         "median_heldout_power_support",
     )
     if any(not any(math.isfinite(_f(row.get(field))) for row in stable) for field in contrast_fields):
-        return None, "reproducible N values have incomplete selected/held-out contrast metrics"
+        return [], {}, "reproducible N values have incomplete selected/held-out contrast metrics"
     best_selected_prominence = max(_f(row.get("median_test_peak_prominence")) for row in stable)
     best_selected_support = max(_f(row.get("median_test_power_support")) for row in stable)
     best_heldout_prominence = max(_f(row.get("median_heldout_prominence")) for row in stable)
     best_heldout_support = max(_f(row.get("median_heldout_power_support")) for row in stable)
     selected_prominence_margin = max(0.25, 0.05 * abs(best_selected_prominence))
     heldout_prominence_margin = max(0.50, 0.10 * abs(best_heldout_prominence))
-    eligible = [
-        row
-        for row in stable
-        if _f(row.get("median_test_peak_prominence")) >= best_selected_prominence - selected_prominence_margin
-        and _f(row.get("median_test_power_support")) >= 0.95 * best_selected_support
-        and _f(row.get("median_heldout_prominence")) >= best_heldout_prominence - heldout_prominence_margin
-        and _f(row.get("median_heldout_power_support")) >= 0.90 * best_heldout_support
-    ]
+    statuses: list[dict[str, object]] = []
+    for row in sorted(rows, key=lambda item: int(item["subset_size"])):
+        gates = {
+            "blind_agreement": _f(row.get("blind_q_agreement_rate"))
+            >= best_agreement - blind_agreement_margin,
+            "blind_q_delta": _f(row.get("median_blind_selected_heldout_abs_q_delta"))
+            <= best_q_delta + tune_half_width,
+            "selected_prominence": _f(row.get("median_test_peak_prominence"))
+            >= best_selected_prominence - selected_prominence_margin,
+            "selected_power": _f(row.get("median_test_power_support"))
+            >= selected_power_fraction * best_selected_support,
+            "heldout_prominence": _f(row.get("median_heldout_prominence"))
+            >= best_heldout_prominence - heldout_prominence_margin,
+            "heldout_power": _f(row.get("median_heldout_power_support"))
+            >= heldout_power_fraction * best_heldout_support,
+        }
+        statuses.append(
+            {
+                "row": row,
+                "subset_size": int(row["subset_size"]),
+                **gates,
+                "all_gates": all(gates.values()),
+            }
+        )
+    context = {
+        "best_agreement": best_agreement,
+        "best_q_delta": best_q_delta,
+        "selected_prominence_margin": selected_prominence_margin,
+        "heldout_prominence_margin": heldout_prominence_margin,
+        "blind_agreement_margin": blind_agreement_margin,
+        "selected_power_fraction": selected_power_fraction,
+        "heldout_power_fraction": heldout_power_fraction,
+    }
+    return statuses, context, ""
+
+
+def recommended_n(
+    summary_rows: Sequence[dict[str, object]],
+    plane: str,
+    tune_half_width: float,
+) -> tuple[dict[str, object] | None, str]:
+    statuses, context, reason = recommendation_gate_status(summary_rows, plane, tune_half_width)
+    if reason:
+        return None, reason
+    eligible = [status["row"] for status in statuses if status["all_gates"]]
     if not eligible:
         return None, "reproducible N values have an unresolved selected/held-out contrast tradeoff"
     chosen = min(eligible, key=lambda row: int(row["subset_size"]))
-    if len(rows) >= 10:
-        larger = [row for row in rows if int(row["subset_size"]) > int(chosen["subset_size"])]
+    if len(statuses) >= 10:
+        larger = [status for status in statuses if int(status["subset_size"]) > int(chosen["subset_size"])]
         if len(larger) < 3:
             return None, (
                 f"the provisional knee Best-{chosen['subset_size']} is boundary-limited; "
                 "evaluate at least three larger contiguous N values"
             )
     rationale = (
-        f"blind agreement is within 0.02 of the best and blind channel-disjoint delta is within "
+        f"blind agreement is within {context['blind_agreement_margin']:.3g} of the best and blind channel-disjoint delta is within "
         f"{tune_half_width:.4g} of the minimum; selected later-window power is within 5% and "
         f"held-out power is within 10% of their best reproducible values; selected and held-out "
-        f"prominence are within {selected_prominence_margin:.3g} and {heldout_prominence_margin:.3g}, respectively"
+        f"prominence are within {context['selected_prominence_margin']:.3g} and "
+        f"{context['heldout_prominence_margin']:.3g}, respectively"
     )
     return chosen, rationale
+
+
+def recommendation_margin_sensitivity(
+    summary_rows: Sequence[dict[str, object]],
+    plane: str,
+    tune_half_width: float,
+    agreement_margins: Sequence[float] = (0.01, 0.02, 0.03),
+    selected_power_fractions: Sequence[float] = (0.90, 0.95, 0.98),
+    heldout_power_fractions: Sequence[float] = (0.85, 0.90, 0.95),
+) -> list[dict[str, object]]:
+    plane_rows = [row for row in summary_rows if row.get("plane") == plane]
+    maximum_n = max((int(row.get("subset_size") or 0) for row in plane_rows), default=0)
+    out: list[dict[str, object]] = []
+    for agreement_margin in agreement_margins:
+        for selected_power_fraction in selected_power_fractions:
+            for heldout_power_fraction in heldout_power_fractions:
+                statuses, _context, reason = recommendation_gate_status(
+                    summary_rows,
+                    plane,
+                    tune_half_width,
+                    blind_agreement_margin=agreement_margin,
+                    selected_power_fraction=selected_power_fraction,
+                    heldout_power_fraction=heldout_power_fraction,
+                )
+                eligible = [
+                    int(status["subset_size"])
+                    for status in statuses
+                    if bool(status.get("all_gates"))
+                ]
+                recommended = min(eligible) if eligible else None
+                out.append(
+                    {
+                        "plane": plane,
+                        "blind_agreement_margin": _fmt(float(agreement_margin)),
+                        "selected_power_fraction": _fmt(float(selected_power_fraction)),
+                        "heldout_power_fraction": _fmt(float(heldout_power_fraction)),
+                        "recommended_n": recommended if recommended is not None else "",
+                        "eligible_n": ",".join(str(value) for value in eligible),
+                        "status": "OK" if recommended is not None else reason or "UNRESOLVED_TRADEOFF",
+                        "is_declared": (
+                            "true"
+                            if math.isclose(agreement_margin, 0.02)
+                            and math.isclose(selected_power_fraction, 0.95)
+                            and math.isclose(heldout_power_fraction, 0.90)
+                            else "false"
+                        ),
+                        "maximum_n": maximum_n,
+                    }
+                )
+    return out
 
 
 def recommendation_text(summary_rows: Sequence[dict[str, object]], tune_half_width: float) -> str:
@@ -1091,6 +1199,7 @@ def _curve_plot_with_intervals(
     knee_n: int | None,
     y_range: tuple[float, float] | None = None,
     reference_line: tuple[float, str] | None = None,
+    note: str = "",
 ) -> None:
     clean_rows = sorted(rows, key=lambda row: int(row["subset_size"]))
     x_values = [float(row["subset_size"]) for row in clean_rows]
@@ -1200,8 +1309,222 @@ def _curve_plot_with_intervals(
         notes.append(f"DASH: KNEE N {knee_n}")
     if reference_line is not None:
         notes.append(f"RED: {reference_line[1]} {reference_line[0]:.4g}")
+    if note:
+        notes.append(note)
     if notes:
         poster.draw_text(pixels, width, height, x0, y0 - 28, "; ".join(notes)[:78], poster.MUTED, 2)
+    poster.write_png(path, width, height, pixels)
+
+
+def _decision_gate_plot(
+    poster,
+    path: Path,
+    plane: str,
+    statuses: Sequence[dict[str, object]],
+    knee_n: int | None,
+) -> None:
+    if not statuses:
+        poster.no_data_png(path, f"BEST-N DECISION GATES {plane}")
+        return
+    criteria = (
+        ("BLIND AGREEMENT", "blind_agreement"),
+        ("BLIND Q DELTA", "blind_q_delta"),
+        ("SELECTED PROM", "selected_prominence"),
+        ("SELECTED POWER", "selected_power"),
+        ("HELDOUT PROM", "heldout_prominence"),
+        ("HELDOUT POWER", "heldout_power"),
+        ("ALL GATES", "all_gates"),
+    )
+    width, height = 1400, 640
+    pixels = poster.new_canvas(width, height)
+    poster.draw_text(pixels, width, height, 34, 28, f"BEST-N DECISION GATES {plane}", poster.INK, 3)
+    poster.draw_text(
+        pixels,
+        width,
+        height,
+        34,
+        68,
+        "GREEN PASS  GRAY WITH RED MARK FAIL  BLUE ALL-GATE PASS  DASH SELECTED N",
+        poster.MUTED,
+        2,
+    )
+    x0, y0, x1, y1 = 250, 115, width - 45, height - 85
+    row_height = (y1 - y0 + 1) // len(criteria)
+    column_count = len(statuses)
+    for row_index, (label, field) in enumerate(criteria):
+        cy0 = y0 + row_index * row_height
+        cy1 = y1 if row_index == len(criteria) - 1 else cy0 + row_height - 1
+        background = (238, 241, 243) if row_index % 2 == 0 else (245, 247, 248)
+        poster.rect(pixels, width, height, x0, cy0, x1, cy1, background)
+        poster.draw_text(pixels, width, height, 24, cy0 + max(4, row_height // 2 - 7), label, poster.MUTED, 2)
+        for column_index, status in enumerate(statuses):
+            cx0 = x0 + round(column_index * (x1 - x0 + 1) / column_count)
+            cx1 = x0 + round((column_index + 1) * (x1 - x0 + 1) / column_count) - 1
+            passed = bool(status.get(field))
+            if passed:
+                color = poster.BLUE if field == "all_gates" else poster.GREEN
+                poster.rect(pixels, width, height, cx0 + 1, cy0 + 2, cx1 - 1, cy1 - 2, color)
+            else:
+                marker_y = (cy0 + cy1) // 2
+                poster.line(pixels, width, height, cx0 + 4, marker_y, cx1 - 4, marker_y, poster.RED)
+        poster.line(pixels, width, height, x0, cy1, x1, cy1, poster.GRID)
+    poster.line(pixels, width, height, x0, y0, x1, y0, poster.INK)
+    poster.line(pixels, width, height, x0, y1, x1, y1, poster.INK)
+    poster.line(pixels, width, height, x0, y0, x0, y1, poster.INK)
+    poster.line(pixels, width, height, x1, y0, x1, y1, poster.INK)
+    sizes = [int(status["subset_size"]) for status in statuses]
+    tick_sizes = sorted({sizes[0], sizes[-1], *[size for size in sizes if size % 5 == 0]})
+    for size in tick_sizes:
+        index = sizes.index(size)
+        center = x0 + round((index + 0.5) * (x1 - x0 + 1) / column_count)
+        label = str(size)
+        poster.draw_text(pixels, width, height, center - len(label) * 4, y1 + 10, label, poster.MUTED, 2)
+    if knee_n is not None and knee_n in sizes:
+        index = sizes.index(knee_n)
+        center = x0 + round((index + 0.5) * (x1 - x0 + 1) / column_count)
+        for y in range(y0, y1 + 1, 8):
+            poster.line(pixels, width, height, center, y, center, min(y + 4, y1), poster.INK)
+    poster.draw_text(pixels, width, height, (x0 + x1) // 2 - 55, height - 45, "SUBSET SIZE N", poster.MUTED, 2)
+    poster.write_png(path, width, height, pixels)
+
+
+def _gate_margin_sensitivity_plot(
+    poster,
+    path: Path,
+    plane: str,
+    rows: Sequence[dict[str, object]],
+) -> None:
+    if not rows:
+        poster.no_data_png(path, f"BEST-N GATE MARGIN SENSITIVITY {plane}")
+        return
+    agreement_margins = sorted({_f(row.get("blind_agreement_margin")) for row in rows})
+    power_pairs = sorted(
+        {
+            (
+                _f(row.get("selected_power_fraction")),
+                _f(row.get("heldout_power_fraction")),
+            )
+            for row in rows
+        }
+    )
+    keyed = {
+        (
+            _f(row.get("blind_agreement_margin")),
+            _f(row.get("selected_power_fraction")),
+            _f(row.get("heldout_power_fraction")),
+        ): row
+        for row in rows
+    }
+    maximum_n = max((int(row.get("maximum_n") or 0) for row in rows), default=1)
+    color_maximum_n = max(2, maximum_n)
+    width, height = 1400, 720
+    pixels = poster.new_canvas(width, height)
+    poster.draw_text(
+        pixels,
+        width,
+        height,
+        34,
+        28,
+        f"BEST-N GATE MARGIN SENSITIVITY {plane}",
+        poster.INK,
+        3,
+    )
+    poster.draw_text(
+        pixels,
+        width,
+        height,
+        34,
+        68,
+        "POST-SELECTION ROBUSTNESS ONLY; CELL IS EARLIEST ALL-GATE N; GRAY UNRESOLVED",
+        poster.MUTED,
+        2,
+    )
+    x0, y0, x1, y1 = 250, 175, width - 45, height - 105
+    column_count = len(power_pairs)
+    row_count = len(agreement_margins)
+    poster.draw_text(
+        pixels,
+        width,
+        height,
+        x0,
+        112,
+        "SELECTED/HELDOUT POWER FLOOR",
+        poster.MUTED,
+        2,
+    )
+    for column_index, (selected_fraction, heldout_fraction) in enumerate(power_pairs):
+        cx0 = x0 + round(column_index * (x1 - x0 + 1) / column_count)
+        cx1 = x0 + round((column_index + 1) * (x1 - x0 + 1) / column_count) - 1
+        label = f"{selected_fraction * 100:.0f}/{heldout_fraction * 100:.0f}"
+        center = (cx0 + cx1) // 2
+        poster.draw_text(pixels, width, height, center - len(label) * 4, 142, label, poster.MUTED, 2)
+    for row_index, agreement_margin in enumerate(agreement_margins):
+        cy0 = y0 + round(row_index * (y1 - y0 + 1) / row_count)
+        cy1 = y0 + round((row_index + 1) * (y1 - y0 + 1) / row_count) - 1
+        row_label = f"AGREE {agreement_margin:.2f}"
+        poster.draw_text(
+            pixels,
+            width,
+            height,
+            30,
+            (cy0 + cy1) // 2 - 7,
+            row_label,
+            poster.MUTED,
+            2,
+        )
+        for column_index, (selected_fraction, heldout_fraction) in enumerate(power_pairs):
+            cx0 = x0 + round(column_index * (x1 - x0 + 1) / column_count)
+            cx1 = x0 + round((column_index + 1) * (x1 - x0 + 1) / column_count) - 1
+            row = keyed[(agreement_margin, selected_fraction, heldout_fraction)]
+            recommended = int(row.get("recommended_n") or 0)
+            if recommended > 0:
+                color = poster.tune_color(float(recommended), 1.0, float(color_maximum_n))
+                poster.rect(pixels, width, height, cx0 + 2, cy0 + 2, cx1 - 2, cy1 - 2, color)
+                label = f"N{recommended}"
+                poster.draw_text(
+                    pixels,
+                    width,
+                    height,
+                    (cx0 + cx1) // 2 - len(label) * 6,
+                    (cy0 + cy1) // 2 - 11,
+                    label,
+                    poster.INK,
+                    3,
+                )
+            else:
+                poster.rect(
+                    pixels,
+                    width,
+                    height,
+                    cx0 + 2,
+                    cy0 + 2,
+                    cx1 - 2,
+                    cy1 - 2,
+                    (232, 235, 238),
+                )
+                poster.line(pixels, width, height, cx0 + 12, cy0 + 12, cx1 - 12, cy1 - 12, poster.RED)
+                poster.line(pixels, width, height, cx0 + 12, cy1 - 12, cx1 - 12, cy0 + 12, poster.RED)
+            if str(row.get("is_declared", "")).lower() == "true":
+                for inset in (0, 1, 2):
+                    poster.line(pixels, width, height, cx0 + inset, cy0 + inset, cx1 - inset, cy0 + inset, poster.INK)
+                    poster.line(pixels, width, height, cx0 + inset, cy1 - inset, cx1 - inset, cy1 - inset, poster.INK)
+                    poster.line(pixels, width, height, cx0 + inset, cy0 + inset, cx0 + inset, cy1 - inset, poster.INK)
+                    poster.line(pixels, width, height, cx1 - inset, cy0 + inset, cx1 - inset, cy1 - inset, poster.INK)
+        poster.line(pixels, width, height, x0, cy1, x1, cy1, poster.GRID)
+    poster.line(pixels, width, height, x0, y0, x1, y0, poster.INK)
+    poster.line(pixels, width, height, x0, y1, x1, y1, poster.INK)
+    poster.line(pixels, width, height, x0, y0, x0, y1, poster.INK)
+    poster.line(pixels, width, height, x1, y0, x1, y1, poster.INK)
+    poster.draw_text(
+        pixels,
+        width,
+        height,
+        x0,
+        height - 60,
+        "BLACK BOX: DECLARED 0.02 AGREEMENT, 95/90 POWER FLOORS",
+        poster.MUTED,
+        2,
+    )
     poster.write_png(path, width, height, pixels)
 
 
@@ -1215,22 +1538,129 @@ def write_plots(
     except Exception:
         return
     out.mkdir(parents=True, exist_ok=True)
+    margin_rows = [
+        row
+        for plane in ("H", "V")
+        for row in recommendation_margin_sensitivity(
+            summary_rows,
+            plane,
+            tune_half_width,
+        )
+    ]
+    write_csv(
+        out / "best_n_gate_margin_sensitivity.csv",
+        margin_rows,
+        GATE_MARGIN_SENSITIVITY_FIELDS,
+    )
+    blind_upper_values = [
+        _f(row.get(field))
+        for row in summary_rows
+        for field in ("blind_q_agreement_rate", "blind_q_agreement_ci_high")
+    ]
+    blind_upper_values = [value for value in blind_upper_values if math.isfinite(value)]
+    blind_upper = max(blind_upper_values, default=0.0)
+    blind_ymax = max(0.4, math.ceil(blind_upper * 1.1 * 10.0) / 10.0)
     for plane in ("H", "V"):
         rows = sorted([row for row in summary_rows if row.get("plane") == plane], key=lambda row: int(row["subset_size"]))
         chosen, _reason = recommended_n(summary_rows, plane, tune_half_width)
         knee_n = int(chosen["subset_size"]) if chosen is not None else None
+        gate_statuses, _gate_context, gate_reason = recommendation_gate_status(
+            summary_rows,
+            plane,
+            tune_half_width,
+        )
+        n1_row = next((row for row in rows if int(row["subset_size"]) == 1), None)
+        knee_row = next((row for row in rows if int(row["subset_size"]) == knee_n), None) if knee_n else None
+        blind_note = ""
+        if n1_row is not None and knee_row is not None:
+            n1_agreement = _f(n1_row.get("blind_q_agreement_rate"))
+            knee_agreement = _f(knee_row.get("blind_q_agreement_rate"))
+            if math.isfinite(n1_agreement) and math.isfinite(knee_agreement):
+                agreement_change = (knee_agreement - n1_agreement) * 100
+                change_label = "GAIN" if agreement_change >= 0 else "LOSS"
+                blind_note = (
+                    f"N1 {n1_agreement:.3f} TO N{knee_n} {knee_agreement:.3f} "
+                    f"({change_label} {abs(agreement_change):.1f} PTS)"
+                )
         _curve_plot_with_intervals(
             poster,
             out / f"best_n_validation_{plane.lower()}.png",
-            f"BEST-N TUNE AGREEMENT {plane}",
+            f"BLIND HELD-OUT AGREEMENT {plane}",
             rows,
             [
-                ("BLIND FULL BAND", "blind_q_agreement_rate", "blind_q_agreement_ci_low", "blind_q_agreement_ci_high", poster.BLUE),
+                ("SELECTED VS HELD OUT", "blind_q_agreement_rate", "blind_q_agreement_ci_low", "blind_q_agreement_ci_high", poster.BLUE),
+            ],
+            "AGREE RATE",
+            knee_n,
+            y_range=(0.0, blind_ymax),
+            note=blind_note,
+        )
+        _curve_plot_with_intervals(
+            poster,
+            out / f"best_n_conditioned_agreement_{plane.lower()}.png",
+            f"CONDITIONED NEAR-TRAIN AGREEMENT {plane}",
+            rows,
+            [
                 ("NEAR TRAIN Q", "q_agreement_rate", "q_agreement_ci_low", "q_agreement_ci_high", poster.ORANGE),
             ],
             "AGREE RATE",
             knee_n,
             y_range=(0.0, 1.0),
+        )
+        gate_path = out / f"best_n_decision_gates_{plane.lower()}.png"
+        _decision_gate_plot(poster, gate_path, plane, gate_statuses, knee_n)
+        eligible_sizes = [
+            int(status["subset_size"])
+            for status in gate_statuses
+            if bool(status.get("all_gates"))
+        ]
+        gate_detail = (
+            f"Eligible N values: {', '.join(str(size) for size in eligible_sizes)}. "
+            f"The earliest eligible value is the declared knee Best-{knee_n}."
+            if knee_n is not None
+            else (
+                f"Gate-eligible N values {', '.join(str(size) for size in eligible_sizes)} do not yield a declared knee: "
+                f"{gate_reason or _reason}."
+                if eligible_sizes
+                else f"No all-gate N is available: {gate_reason or _reason}."
+            )
+        )
+        atomic_write_text(
+            gate_path.with_name(f"{gate_path.stem}_caption.md"),
+            f"# {plane} Best-N Decision Gates\n\n"
+            "Each column is one contiguous ensemble size. Green cells pass the exact declared "
+            "non-inferiority criterion; gray cells with a red mark fail. The blue final row "
+            "passes only when blind agreement, blind channel-disjoint tune difference, selected "
+            "power/prominence, and held-out power/prominence all pass. "
+            f"{gate_detail} This is an internal reproducibility decision, not an external tune calibration.\n",
+        )
+        plane_margin_rows = [row for row in margin_rows if row.get("plane") == plane]
+        margin_path = out / f"best_n_gate_margin_sensitivity_{plane.lower()}.png"
+        _gate_margin_sensitivity_plot(poster, margin_path, plane, plane_margin_rows)
+        outcome_counts = Counter(
+            int(row["recommended_n"]) if row.get("recommended_n") not in (None, "") else None
+            for row in plane_margin_rows
+        )
+        declared_row = next(
+            row for row in plane_margin_rows if str(row.get("is_declared", "")).lower() == "true"
+        )
+        outcomes = ", ".join(
+            f"{'unresolved' if value is None else f'Best-{value}'} in {count}/{len(plane_margin_rows)} cells"
+            for value, count in sorted(
+                outcome_counts.items(),
+                key=lambda item: (-1 if item[0] is None else item[0]),
+            )
+        )
+        atomic_write_text(
+            margin_path.with_name(f"{margin_path.stem}_caption.md"),
+            f"# {plane} Best-N Gate-Margin Sensitivity\n\n"
+            "This post-selection diagnostic reruns the same earliest-all-gates rule over blind-agreement "
+            "margins 0.01, 0.02, and 0.03; selected-channel power floors 90%, 95%, and 98%; and "
+            "held-out-channel power floors 85%, 90%, and 95%. Prominence and tune-difference rules "
+            "remain unchanged. The black cell is the declared 0.02/95%/90% protocol and selects "
+            f"Best-{declared_row.get('recommended_n') or 'unresolved'}. Across the grid: {outcomes}. "
+            "This characterizes criterion sensitivity after the declared analysis; it does not replace "
+            "the published knee or provide external tune calibration.\n",
         )
         _curve_plot_with_intervals(
             poster,

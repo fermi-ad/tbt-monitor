@@ -164,6 +164,64 @@ LEGACY_TURN_COMPARISON_FIELDS = [
     "shared_ridge_mass_gain",
 ]
 
+ADAPTIVE_COMPARISON_FIELDS = [
+    "plane",
+    "subset_size",
+    "baseline_subset_size",
+    "ensemble_subset_size",
+    "common_spill_count",
+    "common_ridge_point_count",
+    "common_center_count",
+    "baseline_median_iqr_width",
+    "ensemble_median_iqr_width",
+    "median_iqr_delta_ensemble_minus_baseline",
+    "median_iqr_delta_ci_low",
+    "median_iqr_delta_ci_high",
+    "fraction_centers_with_narrower_ensemble_iqr",
+    "baseline_median_p10_p90_width",
+    "ensemble_median_p10_p90_width",
+    "baseline_median_peak_bin_fraction",
+    "ensemble_median_peak_bin_fraction",
+    "median_peak_bin_fraction_gain",
+    "median_peak_bin_fraction_gain_ci_low",
+    "median_peak_bin_fraction_gain_ci_high",
+    "baseline_median_density_entropy",
+    "ensemble_median_density_entropy",
+    "median_density_entropy_delta",
+    "median_density_entropy_delta_ci_low",
+    "median_density_entropy_delta_ci_high",
+    "median_shared_ridge_mass_gain",
+    "median_shared_ridge_mass_gain_ci_low",
+    "median_shared_ridge_mass_gain_ci_high",
+    "turn_block_windows",
+    "turn_block_bootstrap_samples",
+]
+
+ADAPTIVE_TURN_COMPARISON_FIELDS = [
+    "plane",
+    "subset_size",
+    "baseline_subset_size",
+    "ensemble_subset_size",
+    "center_turn",
+    "paired_ridge_count",
+    "shared_ridge_center",
+    "baseline_iqr_width",
+    "ensemble_iqr_width",
+    "iqr_delta_ensemble_minus_baseline",
+    "baseline_p10_p90_width",
+    "ensemble_p10_p90_width",
+    "p10_p90_delta_ensemble_minus_baseline",
+    "baseline_peak_bin_fraction",
+    "ensemble_peak_bin_fraction",
+    "peak_bin_fraction_gain",
+    "baseline_density_entropy",
+    "ensemble_density_entropy",
+    "density_entropy_delta",
+    "baseline_shared_ridge_mass",
+    "ensemble_shared_ridge_mass",
+    "shared_ridge_mass_gain",
+]
+
 
 def read_csv(path: Path) -> list[dict[str, str]]:
     if not path.exists():
@@ -1153,6 +1211,7 @@ def legacy_comparison_metrics(
     ridge_half_width: float = 0.0025,
     turn_block_windows: int = 16,
     bootstrap_samples: int = 500,
+    seed_scope: str = "ridge-legacy-turn-block",
 ) -> dict[str, object]:
     centers = sorted(set(legacy["grouped"]) & set(ensemble["grouped"]))
     rows: list[tuple[dict[str, float], dict[str, float], float]] = []
@@ -1188,7 +1247,7 @@ def legacy_comparison_metrics(
             values,
             bootstrap_samples,
             turn_block_windows,
-            stable_seed("ridge-legacy-turn-block", plane, subset_size, name),
+            stable_seed(seed_scope, plane, subset_size, name),
         )
         for name, values in interval_inputs.items()
     }
@@ -1222,6 +1281,130 @@ def legacy_comparison_metrics(
         "turn_block_windows": turn_block_windows,
         "turn_block_bootstrap_samples": bootstrap_samples,
     }
+
+
+def adaptive_comparison_metrics(
+    plane: str,
+    baseline_size: str,
+    ensemble_size: str,
+    baseline: dict[str, object],
+    ensemble: dict[str, object],
+    band: tuple[float, float],
+    tune_bins: int,
+    ridge_half_width: float = 0.0025,
+    turn_block_windows: int = 16,
+    bootstrap_samples: int = 500,
+) -> dict[str, object]:
+    raw = legacy_comparison_metrics(
+        plane,
+        f"{baseline_size}-{ensemble_size}",
+        baseline,
+        ensemble,
+        band,
+        tune_bins,
+        ridge_half_width,
+        turn_block_windows,
+        bootstrap_samples,
+        "ridge-adaptive-pair-turn-block",
+    )
+    return {
+        "plane": plane,
+        "subset_size": ensemble_size,
+        "baseline_subset_size": baseline_size,
+        "ensemble_subset_size": ensemble_size,
+        "common_spill_count": raw["common_spill_count"],
+        "common_ridge_point_count": raw["common_ridge_point_count"],
+        "common_center_count": raw["common_center_count"],
+        "baseline_median_iqr_width": raw["legacy_median_iqr_width"],
+        "ensemble_median_iqr_width": raw["ensemble_median_iqr_width"],
+        "median_iqr_delta_ensemble_minus_baseline": raw[
+            "median_iqr_delta_ensemble_minus_legacy"
+        ],
+        "median_iqr_delta_ci_low": raw["median_iqr_delta_ci_low"],
+        "median_iqr_delta_ci_high": raw["median_iqr_delta_ci_high"],
+        "fraction_centers_with_narrower_ensemble_iqr": raw[
+            "fraction_centers_with_narrower_iqr"
+        ],
+        "baseline_median_p10_p90_width": raw["legacy_median_p10_p90_width"],
+        "ensemble_median_p10_p90_width": raw["ensemble_median_p10_p90_width"],
+        "baseline_median_peak_bin_fraction": raw["legacy_median_peak_bin_fraction"],
+        "ensemble_median_peak_bin_fraction": raw["ensemble_median_peak_bin_fraction"],
+        "median_peak_bin_fraction_gain": raw["median_peak_bin_fraction_gain"],
+        "median_peak_bin_fraction_gain_ci_low": raw[
+            "median_peak_bin_fraction_gain_ci_low"
+        ],
+        "median_peak_bin_fraction_gain_ci_high": raw[
+            "median_peak_bin_fraction_gain_ci_high"
+        ],
+        "baseline_median_density_entropy": raw["legacy_median_density_entropy"],
+        "ensemble_median_density_entropy": raw["ensemble_median_density_entropy"],
+        "median_density_entropy_delta": raw["median_density_entropy_delta"],
+        "median_density_entropy_delta_ci_low": raw[
+            "median_density_entropy_delta_ci_low"
+        ],
+        "median_density_entropy_delta_ci_high": raw[
+            "median_density_entropy_delta_ci_high"
+        ],
+        "median_shared_ridge_mass_gain": raw["median_shared_ridge_mass_gain"],
+        "median_shared_ridge_mass_gain_ci_low": raw[
+            "median_shared_ridge_mass_gain_ci_low"
+        ],
+        "median_shared_ridge_mass_gain_ci_high": raw[
+            "median_shared_ridge_mass_gain_ci_high"
+        ],
+        "turn_block_windows": raw["turn_block_windows"],
+        "turn_block_bootstrap_samples": raw["turn_block_bootstrap_samples"],
+    }
+
+
+def adaptive_comparison_by_turn_rows(
+    plane: str,
+    baseline_size: str,
+    ensemble_size: str,
+    baseline: dict[str, object],
+    ensemble: dict[str, object],
+    band: tuple[float, float],
+    tune_bins: int,
+) -> list[dict[str, object]]:
+    raw_rows = legacy_comparison_by_turn_rows(
+        plane,
+        ensemble_size,
+        baseline,
+        ensemble,
+        band,
+        tune_bins,
+    )
+    return [
+        {
+            "plane": plane,
+            "subset_size": ensemble_size,
+            "baseline_subset_size": baseline_size,
+            "ensemble_subset_size": ensemble_size,
+            "center_turn": row["center_turn"],
+            "paired_ridge_count": row["paired_ridge_count"],
+            "shared_ridge_center": row["shared_ridge_center"],
+            "baseline_iqr_width": row["legacy_iqr_width"],
+            "ensemble_iqr_width": row["ensemble_iqr_width"],
+            "iqr_delta_ensemble_minus_baseline": row[
+                "iqr_delta_ensemble_minus_legacy"
+            ],
+            "baseline_p10_p90_width": row["legacy_p10_p90_width"],
+            "ensemble_p10_p90_width": row["ensemble_p10_p90_width"],
+            "p10_p90_delta_ensemble_minus_baseline": row[
+                "p10_p90_delta_ensemble_minus_legacy"
+            ],
+            "baseline_peak_bin_fraction": row["legacy_peak_bin_fraction"],
+            "ensemble_peak_bin_fraction": row["ensemble_peak_bin_fraction"],
+            "peak_bin_fraction_gain": row["peak_bin_fraction_gain"],
+            "baseline_density_entropy": row["legacy_density_entropy"],
+            "ensemble_density_entropy": row["ensemble_density_entropy"],
+            "density_entropy_delta": row["density_entropy_delta"],
+            "baseline_shared_ridge_mass": row["legacy_shared_ridge_mass"],
+            "ensemble_shared_ridge_mass": row["ensemble_shared_ridge_mass"],
+            "shared_ridge_mass_gain": row["shared_ridge_mass_gain"],
+        }
+        for row in raw_rows
+    ]
 
 
 def draw_density_difference(
@@ -1300,7 +1483,7 @@ def draw_density_difference(
     poster.draw_text(pixels, width, height, x1 - 110, y1 + 8, str(max(centers)), poster.MUTED, 2)
     poster.draw_text(pixels, width, height, 22, y0 - 8, f"{band[1]:.3f}", poster.MUTED, 2)
     poster.draw_text(pixels, width, height, 22, y1 - 10, f"{band[0]:.3f}", poster.MUTED, 2)
-    poster.draw_text(pixels, width, height, x0, y0 - 28, "RED: ENSEMBLE ADDS DENSITY  BLUE: SUPPRESSED VS BASE", poster.MUTED, 2)
+    poster.draw_text(pixels, width, height, x0, y0 - 28, "RED: HIGHER PICK PROBABILITY  BLUE: LOWER VS BASE", poster.MUTED, 2)
     poster.draw_text(pixels, width, height, x1 - 330, y0 - 28, "WHITE: ENSEMBLE MED, DARK: BASE MED", poster.MUTED, 2)
     poster.write_png(path, width, height, pixels)
 
@@ -1370,7 +1553,7 @@ def draw_concentration_plot(
         return
     width, height = 1400, 780
     pixels = poster.new_canvas(width, height)
-    x0, y0, x1, y1 = poster.draw_axes(pixels, width, height, f"RIDGE CONCENTRATION {plane}", "TURN", "PEAK BIN FRACTION")
+    x0, y0, x1, y1 = poster.draw_axes(pixels, width, height, f"RIDGE CONCENTRATION {plane}", "TURN", "PEAK SHARE")
     xs = [f(row.get("center_turn")) for row in rows]
     xmin, xmax = min(xs), max(xs)
     ymax = max([f(row.get("peak_bin_fraction")) for row in rows if math.isfinite(f(row.get("peak_bin_fraction")))] + [0.05])
@@ -1755,7 +1938,7 @@ Image: `ridge_density_best{subset_size}_{plane.lower()}.png`
 
 ## What It Shows
 
-This image bins one tracked Best-{subset_size} ensemble tune candidate per accepted spill and sliding turn window. The x-axis is window center turn over the `{turn_start}-{turn_end}` turn range, the y-axis is fractional tune, color is {color_quantity}, and white curves show per-window median and percentile envelopes.
+This image bins one tracked Best-{subset_size} ensemble tune candidate per accepted spill and sliding turn window. The x-axis is window center turn over the `{turn_start}-{turn_end}` turn range, the y-axis is fractional tune, color is {color_quantity}, and white curves show per-window median and percentile envelopes. Nonzero cells above the 98th percentile are clipped only for color rendering; the exported counts and tracks are unchanged.
 
 ## How It Was Made
 
@@ -1763,7 +1946,7 @@ The completed Best-BPM membership table selected the BPMs for each spill and pla
 
 ## Why It Matters
 
-This is the closest visual comparison to the older `18d321db` favorite plots. If the adaptive ensemble is better, the density should become narrower, more coherent, or higher contrast than Best-1 or all-BPM-style baselines.
+This is the closest visual comparison to the older `18d321db` favorite plots. If the adaptive method concentrates ridge picks more strongly, the density should become narrower, more coherent, or higher contrast than Best-1 or all-BPM-style baselines.
 
 ## Extraction Context Marker
 
@@ -1815,11 +1998,11 @@ Image: `ridge_density_best{ensemble_size}_minus_best{baseline_size}_{plane.lower
 
 ## What It Shows
 
-This subtractive image compares column-normalized ridge-density distributions on exactly paired observations: `{common_points}` common spill/window ridge points from `{common_spills}` spills. Red means Best-{ensemble_size} places more ridge probability in that turn/tune bin than Best-{baseline_size}; blue means it places less. The white line is the Best-{ensemble_size} median ridge and the dark line is the Best-{baseline_size} median ridge.
+This subtractive image compares column-normalized ridge-density distributions on exactly paired observations: `{common_points}` common spill/window ridge points from `{common_spills}` spills. Red means Best-{ensemble_size} places more ridge probability in that turn/tune bin than Best-{baseline_size}; blue means it places less. Absolute differences above the 99th percentile are clipped only for color rendering. The white line is the Best-{ensemble_size} median ridge and the dark line is the Best-{baseline_size} median ridge.
 
 ## How To Read It
 
-If the ensemble suppresses diffuse noise while preserving a coherent ridge, the useful pattern is blue spread away from the ridge plus red concentrated near the ridge. If red and blue simply trade places between unrelated tune bands, the methods are selecting different structures rather than cleanly removing noise.
+A concentration pattern is blue probability away from a persistent ridge plus red probability near it. If red and blue simply trade places between unrelated tune bands, the methods are selecting different structures rather than concentrating the same one. The map contains ridge-pick probabilities, not measured noise power.
 
 ## Scope
 
@@ -1882,7 +2065,7 @@ This plot compares the audited legacy normalized-single ridge picks with adaptiv
 
 {interpretation}
 
-These are changes in the cross-spill distribution of tracked ridge picks. They can characterize concentration or suppression of diffuse picks under fixed binning, but they do not measure physical noise removal, absolute tune accuracy, or an extraction mechanism.
+These are changes in the cross-spill distribution of tracked ridge picks. They can characterize concentration or reduced diffuse-pick probability under fixed binning, but they do not measure physical noise removal, absolute tune accuracy, or an extraction mechanism.
 """
 
 
@@ -1901,6 +2084,24 @@ The two panels show H Best-{selected_sizes['H']} and V Best-{selected_sizes['V']
 {interpretation}
 
 This is a cross-spill ridge-pick distribution contrast. It does not measure physical noise removal, absolute tune accuracy, extraction timing, or a causal loss mechanism.
+"""
+
+
+def caption_for_selected_adaptive_turn_contrast_hv(
+    selected_sizes: Mapping[str, str],
+    image_name: str,
+    metric_name: str,
+    interpretation: str,
+) -> str:
+    return f"""# Selected H/V Corrected Best-1 Contrast: {metric_name}
+
+Image: `{image_name}`
+
+The two panels show H Best-{selected_sizes['H']} and V Best-{selected_sizes['V']} minus corrected adaptive Best-1 on exact common spill/window points. Both methods use source-key memberships selected from the same fit-window prefix and the same full-buffer tracking protocol. Both panels use the same y scale and zero reference. Exported values in `ridge_density_adaptive_pair_comparison_by_turn.csv` are unsmoothed; curves use five-window visual smoothing.
+
+{interpretation}
+
+This is the clean ensemble-size contrast. It does not include the historical selector defect and does not measure absolute tune accuracy, physical noise removal, extraction timing, or a causal loss mechanism.
 """
 
 
@@ -1927,7 +2128,7 @@ Both panels use the exact legacy tune band, 4096-turn Hann windows, 256-turn str
 
 ## Claim Guardrail
 
-Narrower width, lower density entropy, or greater mass near the shared ridge means stronger cross-spill concentration under fixed binning. The intervals resample ordered turn centers in blocks of `{metrics.get('turn_block_windows', '')}` windows to account approximately for window overlap; they measure persistence over the analyzed buffer, not uncertainty over the spill population. The result may be described as suppression of diffuse ridge picks, not as physical noise removal or absolute tune improvement without an external reference.
+Narrower width, lower density entropy, or greater mass near the shared ridge means stronger cross-spill concentration under fixed binning. The intervals resample ordered turn centers in blocks of `{metrics.get('turn_block_windows', '')}` windows to account approximately for window overlap; they measure persistence over the analyzed buffer, not uncertainty over the spill population. The result may be described as reduced diffuse ridge-pick probability, not as physical noise removal or absolute tune improvement without an external reference.
 """
 
 
@@ -1998,6 +2199,7 @@ def caption_for_best1_vs_selected_hv(
     subset_sizes: Mapping[str, str],
     paired: Mapping[str, tuple[Mapping[str, dict[str, object]], tuple[float, float]]],
     image_name: str,
+    metrics_by_plane: Mapping[str, Mapping[str, object]] | None = None,
 ) -> str:
     lines = [
         "# Corrected Adaptive Best-1 Versus Plane-Selected Best-N",
@@ -2008,9 +2210,32 @@ def caption_for_best1_vs_selected_hv(
         "",
         *paired_grid_counts(paired),
         "",
-        "This is the clean ensemble-size comparison: it does not use the flawed historical normalized-single selector. Greater concentration in the selected Best-N column may be attributed to the adaptive ensemble-size choice under this protocol, subject to the leakage-controlled later-window validation. It is still BPM-only internal consistency, not absolute tune truth or measured physical noise removal.",
-        "",
     ]
+    if metrics_by_plane:
+        lines.extend(
+            [
+                "| Plane | Best-1 median IQR | Selected median IQR | Median selected-minus-Best-1 IQR [turn-block CI] | Shared-ridge mass gain [CI] |",
+                "| --- | ---: | ---: | ---: | ---: |",
+            ]
+        )
+        for plane in ("H", "V"):
+            metrics = metrics_by_plane[plane]
+            lines.append(
+                f"| {plane} | {metrics.get('baseline_median_iqr_width', '')} | "
+                f"{metrics.get('ensemble_median_iqr_width', '')} | "
+                f"{metrics.get('median_iqr_delta_ensemble_minus_baseline', '')} "
+                f"[{metrics.get('median_iqr_delta_ci_low', '')}, {metrics.get('median_iqr_delta_ci_high', '')}] | "
+                f"{metrics.get('median_shared_ridge_mass_gain', '')} "
+                f"[{metrics.get('median_shared_ridge_mass_gain_ci_low', '')}, "
+                f"{metrics.get('median_shared_ridge_mass_gain_ci_high', '')}] |"
+            )
+        lines.append("")
+    lines.extend(
+        [
+            "This is the clean ensemble-size comparison: it does not use the flawed historical normalized-single selector. Greater concentration in the selected Best-N column may be attributed to the adaptive ensemble-size choice under this protocol, subject to the leakage-controlled later-window validation. It is still BPM-only internal consistency, not absolute tune truth or measured physical noise removal.",
+            "",
+        ]
+    )
     return "\n".join(lines)
 
 
@@ -2044,9 +2269,9 @@ def caption_for_legacy_difference(
 
 Image: `ridge_density_best{subset_size}_minus_legacy_single_{plane.lower()}.png`
 
-This subtractive map uses `{common_points}` exactly paired spill/window ridge points from `{common_spills}` spills and the same column-normalized tune-density distributions as the paired side-by-side figure. Red bins gain probability under adaptive Best-{subset_size}; blue bins lose probability relative to the legacy normalized-single method. The white line is the adaptive median and the dark line is the legacy median.
+This subtractive map uses `{common_points}` exactly paired spill/window ridge points from `{common_spills}` spills and the same column-normalized tune-density distributions as the paired side-by-side figure. Red bins gain probability under adaptive Best-{subset_size}; blue bins lose probability relative to the legacy normalized-single method. Absolute differences above the 99th percentile are clipped only for color rendering. The white line is the adaptive median and the dark line is the legacy median.
 
-A favorable concentration pattern is blue diffuse mass away from a persistent ridge and red mass close to it. This is descriptive BPM-only evidence: it does not identify physical noise, establish absolute tune truth, or prove that every suppressed structure was undesirable.
+A favorable concentration pattern is lower probability away from a persistent ridge and higher probability close to it. This is descriptive BPM-only evidence: it does not identify physical noise, establish absolute tune truth, or prove that every lower-probability structure was undesirable.
 """
 
 
@@ -2197,7 +2422,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--ridge-anchor-v", type=float, default=0.72)
     parser.add_argument("--ridge-density-tune-bins", type=int, default=160)
     parser.add_argument("--ridge-density-normalize", action="store_true")
-    parser.add_argument("--comparison-bootstrap-samples", type=int, default=500, help="moving-block draws for paired legacy contrast metrics")
+    parser.add_argument("--comparison-bootstrap-samples", type=int, default=500, help="moving-block draws for paired ridge-contrast metrics")
     parser.add_argument("--extraction-range-start-turn", type=int, default=10000, help="optional broad review-only context marker start; never used by the loss heuristic")
     parser.add_argument("--extraction-range-end-turn", type=int, default=20000, help="optional broad review-only context marker end; never treated as a measured boundary")
     parser.add_argument("--extraction-context-variants", action="store_true", help="also render separately named plots with the broad extraction-review range marked")
@@ -2427,6 +2652,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     write_csv(out / "ridge_density_turn_concentration.csv", center_rows, CENTER_METRIC_FIELDS)
     legacy_metric_rows: list[dict[str, object]] = []
     legacy_turn_rows: list[dict[str, object]] = []
+    adaptive_metric_rows: list[dict[str, object]] = []
+    adaptive_turn_rows: list[dict[str, object]] = []
     paired_legacy_results: dict[
         tuple[str, str],
         tuple[dict[str, object], dict[str, object], tuple[float, float]],
@@ -2445,11 +2672,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         metric_specs = (
             ("ridge_iqr_width_vs_turn", "iqr_width", "RIDGE IQR WIDTH", "TUNE IQR", False, "A sustained increase means ridge picks are spreading across spills; lower is more concentrated."),
             ("ridge_p10_p90_width_vs_turn", "p10_p90_width", "RIDGE P10-P90 WIDTH", "TUNE P10-P90", False, "This outer-width view is more sensitive than IQR to a growing diffuse population."),
-            ("ridge_valid_spill_fraction_vs_turn", "sample_fraction", "VALID RIDGE-SPILL FRACTION", "VALID SPILL FRACTION", True, "A decline means fewer accepted spills contribute a finite in-band ridge pick at that turn."),
-            ("ridge_density_entropy_vs_turn", "density_entropy", "RIDGE DENSITY ENTROPY", "NORMALIZED ENTROPY", True, "Higher entropy means the cross-spill ridge-pick distribution is more diffuse over the tune band."),
-            ("ridge_confidence_vs_turn", "median_selected_confidence", "MEDIAN RIDGE CONFIDENCE", "ROBUST PEAK CONFIDENCE", False, "Declining confidence indicates that the selected spectral peak is losing contrast against its local background."),
-            ("ridge_global_fallback_fraction_vs_turn", "global_fallback_fraction", "GLOBAL FALLBACK FRACTION", "FALLBACK FRACTION", True, "A rising fallback fraction indicates that continuity tracking could not retain a trusted local peak and reverted to the global in-band peak."),
-            ("ridge_suspicious_step_fraction_vs_turn", "suspicious_step_fraction", "SUSPICIOUS STEP FRACTION", "FLAGGED STEP FRACTION", True, "A rising fraction separates tracker discontinuities from a merely broad but continuous ridge."),
+            ("ridge_valid_spill_fraction_vs_turn", "sample_fraction", "VALID RIDGE-SPILL FRACTION", "VALID SHARE", True, "A decline means fewer accepted spills contribute a finite in-band ridge pick at that turn."),
+            ("ridge_density_entropy_vs_turn", "density_entropy", "RIDGE DENSITY ENTROPY", "NORM ENTROPY", True, "Higher entropy means the cross-spill ridge-pick distribution is more diffuse over the tune band."),
+            ("ridge_confidence_vs_turn", "median_selected_confidence", "MEDIAN RIDGE CONFIDENCE", "PEAK CONF", False, "Declining confidence indicates that the selected spectral peak is losing contrast against its local background."),
+            ("ridge_global_fallback_fraction_vs_turn", "global_fallback_fraction", "GLOBAL FALLBACK FRACTION", "FALLBACK", True, "A rising fallback fraction indicates that continuity tracking could not retain a trusted local peak and reverted to the global in-band peak."),
+            ("ridge_suspicious_step_fraction_vs_turn", "suspicious_step_fraction", "SUSPICIOUS STEP FRACTION", "STEP SHARE", True, "A rising fraction separates tracker discontinuities from a merely broad but continuous ridge."),
         )
         for stem, metric, title, y_label, fraction_scale, interpretation in metric_specs:
             metric_img = f"{stem}_{plane.lower()}.png"
@@ -2478,6 +2705,42 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "source": "ridge_density_turn_concentration.csv",
                 }
             )
+        if "1" in args.subset_sizes:
+            band = (args.qx_min, args.qx_max) if plane == "H" else (args.qy_min, args.qy_max)
+            best1_points = keyed_ensemble_points(sliding_by_subset["1"], plane, band)
+            baseline, ensemble = exact_paired_density_results(
+                best1_points,
+                best1_points,
+                band,
+                args.ridge_density_tune_bins,
+            )
+            adaptive_metric_rows.append(
+                adaptive_comparison_metrics(
+                    plane,
+                    "1",
+                    "1",
+                    baseline,
+                    ensemble,
+                    band,
+                    args.ridge_density_tune_bins,
+                    turn_block_windows=max(
+                        1,
+                        int(math.ceil(args.window_turns / max(1, args.stride_turns))),
+                    ),
+                    bootstrap_samples=args.comparison_bootstrap_samples,
+                )
+            )
+            adaptive_turn_rows.extend(
+                adaptive_comparison_by_turn_rows(
+                    plane,
+                    "1",
+                    "1",
+                    baseline,
+                    ensemble,
+                    band,
+                    args.ridge_density_tune_bins,
+                )
+            )
         for baseline_index, baseline_size in enumerate(args.subset_sizes):
             for ensemble_size in args.subset_sizes[baseline_index + 1 :]:
                 band = (args.qx_min, args.qx_max) if plane == "H" else (args.qy_min, args.qy_max)
@@ -2491,6 +2754,33 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
                 common_points = len(set(baseline.get("point_keys", set())) & set(ensemble.get("point_keys", set())))
                 common_spills = len(set(baseline.get("spill_keys", set())) & set(ensemble.get("spill_keys", set())))
+                adaptive_metric_rows.append(
+                    adaptive_comparison_metrics(
+                        plane,
+                        baseline_size,
+                        ensemble_size,
+                        baseline,
+                        ensemble,
+                        band,
+                        args.ridge_density_tune_bins,
+                        turn_block_windows=max(
+                            1,
+                            int(math.ceil(args.window_turns / max(1, args.stride_turns))),
+                        ),
+                        bootstrap_samples=args.comparison_bootstrap_samples,
+                    )
+                )
+                adaptive_turn_rows.extend(
+                    adaptive_comparison_by_turn_rows(
+                        plane,
+                        baseline_size,
+                        ensemble_size,
+                        baseline,
+                        ensemble,
+                        band,
+                        args.ridge_density_tune_bins,
+                    )
+                )
                 diff_img = f"ridge_density_best{ensemble_size}_minus_best{baseline_size}_{plane.lower()}.png"
                 draw_density_difference(out / diff_img, plane, baseline_size, ensemble_size, baseline, ensemble, band, args)
                 diff_cap = f"ridge_density_best{ensemble_size}_minus_best{baseline_size}_{plane.lower()}_caption.md"
@@ -2590,40 +2880,50 @@ def main(argv: Sequence[str] | None = None) -> int:
         legacy_turn_rows,
         LEGACY_TURN_COMPARISON_FIELDS,
     )
+    write_csv(
+        out / "ridge_density_adaptive_pair_comparison_metrics.csv",
+        adaptive_metric_rows,
+        ADAPTIVE_COMPARISON_FIELDS,
+    )
+    write_csv(
+        out / "ridge_density_adaptive_pair_comparison_by_turn.csv",
+        adaptive_turn_rows,
+        ADAPTIVE_TURN_COMPARISON_FIELDS,
+    )
     contrast_specs = (
         (
             "ridge_iqr_delta_vs_turn",
             "iqr_delta_ensemble_minus_legacy",
             "ADAPTIVE MINUS LEGACY IQR",
-            "DELTA TUNE IQR",
+            "DELTA IQR",
             "Negative values mean adaptive ridge picks are narrower across spills at that turn.",
         ),
         (
             "ridge_p10_p90_delta_vs_turn",
             "p10_p90_delta_ensemble_minus_legacy",
             "ADAPTIVE MINUS LEGACY P10-P90",
-            "DELTA TUNE P10-P90",
-            "Negative values mean adaptive selection suppresses the outer diffuse pick population.",
+            "WIDTH DELTA",
+            "Negative values mean the adaptive cross-spill P10-P90 ridge-pick width is narrower.",
         ),
         (
             "ridge_peak_bin_gain_vs_turn",
             "peak_bin_fraction_gain",
             "ADAPTIVE PEAK-BIN GAIN",
-            "DELTA PEAK FRACTION",
+            "PEAK GAIN",
             "Positive values mean more adaptive picks occupy the most populated tune bin.",
         ),
         (
             "ridge_entropy_delta_vs_turn",
             "density_entropy_delta",
             "ADAPTIVE MINUS LEGACY ENTROPY",
-            "DELTA NORMALIZED ENTROPY",
+            "ENTROPY DQ",
             "Negative values mean the adaptive cross-spill pick distribution is less diffuse.",
         ),
         (
             "ridge_shared_mass_gain_vs_turn",
             "shared_ridge_mass_gain",
             "ADAPTIVE SHARED-RIDGE MASS GAIN",
-            "DELTA RIDGE MASS",
+            "MASS GAIN",
             "Positive values mean more adaptive picks lie within +/-0.0025 tune of the shared legacy/adaptive center.",
         ),
     )
@@ -2758,6 +3058,120 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "source": "ridge_density_legacy_comparison_by_turn.csv",
                 }
             )
+        selected_adaptive_turn_rows = [
+            row
+            for row in adaptive_turn_rows
+            if str(row.get("baseline_subset_size")) == "1"
+            and str(row.get("ensemble_subset_size"))
+            == str(selected_sizes[str(row.get("plane", ""))])
+        ]
+        adaptive_specs = (
+            (
+                "ridge_iqr_delta_vs_turn_best1_to_selected",
+                "iqr_delta_ensemble_minus_baseline",
+                "SELECTED BEST-N MINUS CORRECTED BEST1 IQR",
+                "DELTA IQR",
+                "Negative values mean the selected Best-N ridge picks are narrower across spills than corrected Best-1 at that turn.",
+            ),
+            (
+                "ridge_p10_p90_delta_vs_turn_best1_to_selected",
+                "p10_p90_delta_ensemble_minus_baseline",
+                "SELECTED BEST-N MINUS CORRECTED BEST1 P10-P90",
+                "WIDTH DELTA",
+                "Negative values mean the selected Best-N outer ridge-pick width is narrower than corrected Best-1.",
+            ),
+            (
+                "ridge_peak_bin_gain_vs_turn_best1_to_selected",
+                "peak_bin_fraction_gain",
+                "SELECTED BEST-N PEAK-BIN GAIN VS CORRECTED BEST1",
+                "PEAK GAIN",
+                "Positive values mean more selected Best-N picks occupy the most populated tune bin than corrected Best-1.",
+            ),
+            (
+                "ridge_entropy_delta_vs_turn_best1_to_selected",
+                "density_entropy_delta",
+                "SELECTED BEST-N MINUS CORRECTED BEST1 ENTROPY",
+                "ENTROPY DQ",
+                "Negative values mean the selected Best-N cross-spill pick distribution is less diffuse than corrected Best-1.",
+            ),
+            (
+                "ridge_shared_mass_gain_vs_turn_best1_to_selected",
+                "shared_ridge_mass_gain",
+                "SELECTED BEST-N SHARED-RIDGE MASS GAIN VS CORRECTED BEST1",
+                "MASS GAIN",
+                "Positive values mean more selected Best-N picks lie within +/-0.0025 tune of the shared Best-1/Best-N center.",
+            ),
+        )
+        for stem, metric, title, y_label, interpretation in adaptive_specs:
+            image_name = (
+                f"{stem}_h{selected_sizes['H']}_v{selected_sizes['V']}_hv.png"
+            )
+            draw_selected_turn_contrast_hv(
+                out / image_name,
+                selected_adaptive_turn_rows,
+                selected_sizes,
+                metric,
+                title,
+                y_label,
+            )
+            caption_name = image_name.replace(".png", "_caption.md")
+            write_text(
+                out / caption_name,
+                caption_for_selected_adaptive_turn_contrast_hv(
+                    selected_sizes,
+                    image_name,
+                    title.title(),
+                    interpretation,
+                ),
+            )
+            figure_rows.append(
+                {
+                    "figure": image_name,
+                    "caption_file": caption_name,
+                    "plane": "H/V",
+                    "subset_size": f"H{selected_sizes['H']}/V{selected_sizes['V']}",
+                    "role": f"plane-selected H/V corrected Best-1 turn contrast: {metric}",
+                    "source": "ridge_density_adaptive_pair_comparison_by_turn.csv",
+                }
+            )
+            poster_image_name = image_name.replace(".png", "_poster.png")
+            draw_selected_turn_contrast_hv(
+                out / poster_image_name,
+                selected_adaptive_turn_rows,
+                selected_sizes,
+                metric,
+                title,
+                y_label,
+                portrait=True,
+            )
+            poster_caption_name = poster_image_name.replace(".png", "_caption.md")
+            write_text(
+                out / poster_caption_name,
+                caption_for_selected_adaptive_turn_contrast_hv(
+                    selected_sizes,
+                    poster_image_name,
+                    title.title(),
+                    interpretation,
+                ),
+            )
+            figure_rows.append(
+                {
+                    "figure": poster_image_name,
+                    "caption_file": poster_caption_name,
+                    "plane": "H/V",
+                    "subset_size": f"H{selected_sizes['H']}/V{selected_sizes['V']}",
+                    "role": f"plane-selected H/V corrected Best-1 turn contrast poster: {metric}",
+                    "source": "ridge_density_adaptive_pair_comparison_by_turn.csv",
+                }
+            )
+    adaptive_metrics_by_key = {
+        (
+            str(row.get("plane", "")),
+            str(row.get("baseline_subset_size", "")),
+            str(row.get("ensemble_subset_size", "")),
+        ): row
+        for row in adaptive_metric_rows
+    }
     legacy_metrics_by_key = {
         (str(row.get("subset_size", "")), str(row.get("plane", ""))): row
         for row in legacy_metric_rows
@@ -2867,7 +3281,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             write_text(
                 out / direct_cap,
-                caption_for_best1_vs_selected_hv(selected_sizes, best1_vs_selected, direct_img),
+                caption_for_best1_vs_selected_hv(
+                    selected_sizes,
+                    best1_vs_selected,
+                    direct_img,
+                    {
+                        plane: adaptive_metrics_by_key[
+                            (plane, "1", selected_sizes[plane])
+                        ]
+                        for plane in ("H", "V")
+                    },
+                ),
             )
             figure_rows.append(
                 {

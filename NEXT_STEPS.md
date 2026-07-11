@@ -1,8 +1,33 @@
 # Next Steps For Best-BPM Mining And IBIC Poster
 
-Last updated: 2026-07-10.
+Last updated: 2026-07-11.
 
 This file is a handoff for the next Codex/DevSpace pass. It consolidates the current repo review, Spark run status, physics assumptions, validation gaps, and the most important next analysis questions for the Delivery Ring BPM tune-tracking work.
+
+## 2026-07-11 Final Publication Closure
+
+Every scientific, implementation, rerun, verifier, gallery, poster, and paper
+task in this document is complete. The exact e433 source passed all 81 tests on
+Spark and materialized the accepted H Best-5/V Best-12 publication inputs. The
+cross-artifact finalizer verified 69 files, exact source and build manifests,
+one A0 poster page, four JACoW paper pages, zero empty structural PowerPoint
+placeholders, and explicit native-scale visual QA for both deliverables.
+
+The accepted result is deliberately bounded. Adaptive ensembles improve blind
+selected-versus-held-out agreement and tune-difference behavior relative to
+Best-1, with the strongest evidence in V. H Best-5 narrows the corrected-Best-1
+ridge-pick distribution, while V Best-12 broadens it slightly; same-protocol
+all-training outcomes are mixed. Intensity weighting retains zero effects.
+These are BPM-only internal reproducibility and ridge-concentration results,
+not absolute tune calibration, measured physical noise removal, or extraction
+onset.
+
+Repository presentation closeout is the final completed row in the table below:
+the checksummed local review package, scoped PR #53, superseded branch/stash
+cleanup, and clean-`main` proof form one atomic handoff. Historical sections
+below remain unchanged where useful so they continue to document why each rerun
+and guardrail was required; their older pending language is not the current
+project state.
 
 ## 2026-07-09 Publication Audit And Completion Gate
 
@@ -66,8 +91,12 @@ the publication audit:
     height by the tune-bin count with integer truncation. The unused remainder
     left the heatmap short of the declared tune axis while percentile tracks
     used the full axis. Paired H/V panels already used proportional cell bounds;
-    the corrected renderer now applies those bounds to every density panel and
-    a regression test requires complete, gap-free axis coverage.
+    both the current full-buffer sidecar and the original
+    `gpu_analyze_captured_spills.py` density renderer now apply those bounds to
+    every density panel, disclose P98 display clipping, and distinguish count
+    from normalized-fraction color. The archived favorite PNGs remain immutable
+    historical outputs; regression tests require complete, gap-free axes for
+    future renders.
 12. The first strict follow-up verifier treated an unavailable tune as corrupt
     even when the row correctly represented no visible tune: 19,004 fixed or
     dynamic control rows had `visible_fraction=0`, `score=0`, and no finite
@@ -104,7 +133,7 @@ the publication audit:
     N grid could therefore leave a verifier-clean table beside stale prose.
     Publication materialization now generates `results_macros.tex` directly
     from the accepted primary and intensity rows, and the paper build requires
-    and hashes that file together with the table and five bound figures.
+    and hashes that file together with the table and four bound figures.
 17. The publication README promised a complete manifest and compliance report,
     but no command generated them or required a human visual-QA disposition.
     `finalize_ibic2026_publication.py` now verifies the immutable references,
@@ -146,7 +175,7 @@ the publication audit:
     in both `TBT_*_RAW` arrays and 221,215 fallback values in both scaled
     arrays, with one shared Redis ID. Active dataflow30 logs repeatedly report
     the HP303/VP304 one-turn correction. Publication closure now additionally
-    requires an exhaustive first-50000-turn scan of all 263,999 raw position
+    requires an exhaustive first-50000-turn scan of all 263,983 captured raw position
     rows and 23,999 paired raw intensity rows; any nonfinite sample, long exact
     plateau, or repeated device-coded raw fallback pair is fatal.
 22. The poster and manuscript identified 2,000 primary spills and five folds
@@ -156,6 +185,279 @@ the publication audit:
     160,000/200,000 curve/validation evaluation-row totals from the accepted
     block-20 verifier, generates manuscript macros, writes them into the result
     payload, and requires the finalizer to recheck the exact study design.
+23. The subtractive ridge math was exact-paired probability redistribution, but
+    one visible legend said `suppressed vs base` and one caption described
+    suppressing diffuse noise. That language could make a visually attractive
+    map sound like a physical denoising measurement. Corrected legends now say
+    higher/lower ridge-pick probability, captions state the standalone P98 and
+    subtractive absolute-P99 color clips, and exported counts/metrics remain
+    unclipped. A regression keeps subtractive copy on ridge-pick probability
+    and explicitly rejects physical-noise language.
+24. The intensity-weighting subtraction renderer normalized each turn column
+    but only checked that the two methods exposed the same center-turn list. The
+    producer emits all four methods in one loop, yet the figure code itself
+    could still compare different spill/window populations if an upstream table
+    were damaged. The corrected renderer requires identical exact
+    collection/spill/plane/N/window/center keys, keeps only common finite in-band
+    pairs, and fails instead of drawing a mismatched panel. Its visible legend
+    now says higher/lower ridge-pick probability rather than `adds`/`suppresses`;
+    the manifest discloses the symmetric absolute-P99 display clip and states
+    that the map does not isolate physical noise. Exact-zero fields, including
+    the required Best-1 controls, are visibly labeled as no ridge-pick
+    probability redistribution rather than left as apparently broken blank
+    panels. The strict verifier also binds
+    every method to the same spill keys, memberships, contracted window centers,
+    and finite global ridge picks.
+25. The intensity ridge, subtraction, and binned relationship heatmaps still
+    floor-divided plot width and height by the raster-bin count. As with the
+    earlier standalone ridge defect, a non-divisible axis could leave an
+    unpainted strip and misregister color against percentile or median tracks.
+    Every intensity raster now maps bins to proportional inclusive pixel bounds
+    that cover the complete declared axes without gaps. Standalone ridge and
+    binned relationship captions and visible legends disclose their nonzero-P98
+    display clip; subtractive captions retain the absolute-P99 disclosure. A
+    regression checks complete coverage in both normal and reversed axes, and
+    strict gallery verification rejects missing clip disclosures.
+26. The poster acceptance checklist required inspection of exported slide XML
+    for empty structural placeholders, but final closure depended on a one-off
+    manual ZIP/XML scan. A later rebuild could therefore reintroduce a blank
+    title or body placeholder after visual review without failing the
+    finalizer. `finalize_ibic2026_publication.py` now parses every
+    `ppt/slides/slide*.xml` member read-only, rejects any `p:sp` carrying a
+    `p:ph` whose DrawingML text is empty or whitespace, and records a zero
+    count in the compliance report. A synthetic PPTX regression distinguishes
+    empty placeholders from intentionally empty ordinary shapes.
+27. The poster build ran overflow and template-fidelity checks in scratch but
+    did not preserve their layout, inspection, or report files in the delivered
+    build tree. Poster and paper checksum manifests were required to exist but
+    finalization never recomputed their entries, and their absolute source
+    paths were not portable to the review bundle. The poster build now delivers
+    its layout inventory, `slides_test` inspection, zero-issue fidelity JSON and
+    text reports, font report, and a portable exact checksum inventory. The
+    paper build likewise writes logical package-relative checksum labels.
+    Finalization recomputes both exact inventories, verifies every poster
+    source-manifest content/asset/output hash and recorded PNG dimension, and
+    rejects a stale or nonzero-issue fidelity report. The template-derived
+    smoke passes all of these gates.
+28. The paper build initialized `TECTONIC_ARGS` as an empty Bash array and then
+    expanded it under `set -u`. macOS Bash 3.2 treats that empty-array expansion
+    as an unbound variable, so the documented default invocation failed before
+    Tectonic unless `TECTONIC_FLAGS` happened to be set. The build now branches
+    explicitly between flagged and unflagged invocations. A non-compiling
+    harness over the already verified four-page smoke PDF exercises both paths
+    and the portable manifest writer; a real cached Tectonic rebuild remains a
+    separate final-paper gate.
+29. The review packager emitted per-file SHA-256 values but had no independent
+    verification mode after archive transfer. A missing, extra, truncated, or
+    same-size modified file could therefore survive until a reviewer noticed it
+    manually, and there was no proof that every copied image appeared in the
+    scrollable gallery. Packaging now recomputes the complete copied-file set,
+    safe component paths, sizes, hashes, image count, and one-card-per-image
+    gallery coverage before writing `PACKAGE_VERIFICATION.json`.
+    `--verify-only PATH` repeats those checks read-only after copy-back and also
+    verifies that the receipt matches current state. The CLI smoke passes over
+    the complete template-derived poster build, and a regression detects
+    same-size content tampering.
+30. The local favorite-gallery provenance note still ended by permitting the
+    phrase `suppression of diffuse ridge picks`, after the publication audit had
+    narrowed subtraction to exact-paired ridge-pick probability redistribution.
+    Because that ignored note will be included in the final visual package, its
+    stale sentence could contradict the poster and paper. The local note now
+    uses the same no-noise/no-accuracy/no-onset boundary, and the repository
+    carries `publication/ibic2026/LEGACY_RIDGE_PROVENANCE.md` with exact local
+    PNG hashes, Spark origins, archived protocol, selector-defect audit, and the
+    three required fair-comparison stages. Historical PNG bytes remain
+    immutable.
+31. Directory packaging copied host metadata and runtime caches such as
+    `.DS_Store` and `__pycache__`. The exact source snapshot would therefore
+    acquire non-source bytecode merely because analysis scripts ran before the
+    handoff, and legacy local galleries already contained Finder metadata.
+    Copying now excludes only generated host/test/type-check/bytecode cache
+    names while retaining hidden repository files and every scientific output.
+    Regression coverage proves these files do not enter the manifest or copied
+    component.
+32. The corrected Best-1-versus-selected ridge panel isolated ensemble size
+    visually, but the exported intervals and publication width figure still
+    compared selected Best-N only with the defective legacy selector. The
+    ensemble-size claim therefore had no matching quantitative full-buffer
+    control. The ridge pass now exports an exact-paired metric row and complete
+    turn grid for every adaptive N pair plus an identically zero Best-1
+    self-control. The selected H/V IQR and P10-P90 figures and the paper/poster
+    width panel use selected Best-N minus corrected Best-1; the wider
+    legacy-versus-selected composite remains a historical visual anchor and is
+    not used to estimate ensemble-size gain.
+33. Publication preparation wrote `source_manifest.csv`, but finalization only
+    required the file to be nonempty; it did not parse the schema, require the
+    exact materialized-output inventory, or re-hash those outputs. A stale or
+    modified figure, content JSON, table, macro file, payload, or preparation
+    report could therefore survive this provenance gate. Preparation now records
+    the exact numerical source tables as source-only hashes, and finalization
+    rejects unsafe/duplicate paths, malformed hashes, missing or extra outputs,
+    symlinks, and any source/output/current-byte mismatch for all 14 materialized
+    publication outputs.
+34. The detached publication tail trusted unversioned `RIDGE/COMPLETE` and
+    `ANALYSIS_COMPLETE` marker files. If an older source revision completed
+    first, the latest wrapper could skip the newly required adaptive-pair ridge
+    outputs or exit before rematerializing the package. The final wrapper now
+    reuses a ridge root only after the current strict verifier passes, preserves
+    incompatible ridge and publication trees under timestamped `.incomplete`
+    names, rebuilds publication materialization from a clean directory, and
+    treats analysis completion as valid only when the marker contains the exact
+    source commit.
+35. The first five completed reduced-sample Best-N sensitivity runs exposed a
+    real H-plane tradeoff: one structurally valid baseline run had stable N
+    candidates, but low N preserved selected later-window power while larger N
+    improved prominence, so no single N cleared both non-inferiority margins.
+    The publication gate incorrectly treated any such unresolved run as corrupt
+    output and would have encouraged a false recommendation. All seven runs must
+    still verify, but final materialization now requires a strict majority
+    (`4/7`) of eligible recommendations per plane, records every run's N or
+    unavailable reason, and prints availability plus the observed N range in
+    the poster, paper, preparation report, payload, and compliance report. A
+    plane with fewer than four eligible runs still blocks publication.
+36. The corrected same-metric control table included all-BPM mean and median
+    rows, but the executive summary and control PNG considered only adaptive
+    and frozen N=1/3/5 methods. That omission hid the strongest descriptive
+    control: all-BPM aggregation scores above the small-set methods in both
+    planes. The final report and a new native-PNG summary now show adaptive,
+    frozen, and all-BPM methods together. Publication copy is narrowed to
+    improvement over adaptive Best-1 and frozen small sets; all-BPM aggregation
+    remains an explicit baseline pending a leakage-controlled head-to-head test.
+37. The first poster-facing Best-N validation PNG overlaid blind full-band
+    agreement with agreement conditioned near the training tune on a fixed
+    0-1 axis. That mixed the primary digitizer-disjoint result with a secondary
+    conditioned diagnostic and visually compressed the H/V difference. The
+    final publication panel shows only blind selected-versus-held-out agreement
+    with block intervals on one shared zero-based H/V scale; the conditioned
+    curve remains a separate gallery diagnostic. A criterion-by-N gate matrix
+    shows every exact pass/fail decision and the earliest all-gate N.
+    Publication preparation regenerates the set directly from the accepted
+    summary CSV.
+38. Adding the final sensitivity disclosure and all-BPM limitation pushed the
+    JACoW smoke manuscript onto a fifth page containing only two references.
+    The horizontal-loss plot was the least inferential paper figure: it is a
+    noncausal, plane-specific diagnostic, while the Best-N validation, paired
+    ridge density, and paired width contrast carry the central results. The
+    paper now leaves that diagnostic in the poster and review gallery, requires
+    and hashes only the four PNGs it actually references, and again renders as
+    exactly four `595 x 792 bp` pages. A regression binds the manuscript figure
+    references to the paper build manifest so unused or missing figures cannot
+    silently change the submission dependency set.
+39. The declared Best-N gate exposed every pass/fail decision but did not show
+    whether the exact knee was stable to nearby non-inferiority margins. The
+    accepted-summary renderer now exports a 54-row post-selection criterion
+    grid and native H/V matrices over blind-agreement margins 0.01/0.02/0.03,
+    selected-power floors 90/95/98%, and held-out-power floors 85/90/95% while
+    retaining the tune-difference and prominence rules. The declared
+    0.02/95/90 cell remains boxed and authoritative. On the accepted full curve,
+    H yields Best-13, Best-5, or unresolved as the agreement margin changes;
+    V remains finite at Best-18, Best-12, or Best-10 across all nine power-floor
+    pairs. This strengthens the V low-to-mid-teen region and confirms that H is
+    criterion-sensitive; the diagnostic is not permission to retune the
+    published selector.
+40. The corrected reused-window control showed all-BPM aggregation above the
+    adaptive small sets, but that comparison did not use the Best-N purge or
+    held-out digitizers. A definitive head-to-head is now required: for every
+    accepted block-20 Best-N spill-plane/fold, aggregate every training-side
+    channel by mean and median, retain the held-out digitizers as the independent
+    reference, and compare blind agreement, blind absolute tune difference,
+    later prominence, and later power on fold-collapsed exact spill pairs. The
+    implemented CPU/cache-only pass fail-closes on the accepted Best-N verifier
+    and source hashes and must produce 10,000 detail rows, 8,000 paired-spill
+    rows, 16 comparison rows, four summary rows, and 18 verifier-bound native
+    PNGs. Selected-favored, all-training-favored, and unresolved intervals are
+    all acceptable results, but no result may be omitted or used to retune the
+    declared Best-N selector. Publication preparation, poster copy, manuscript
+    macros, finalization, and the review package now require this control.
+41. The final local review package could omit the complete ignored
+    `poster_candidate_gallery`, including the two immutable favorite legacy
+    ridge-density references, even when every tracked publication artifact was
+    present. The packaging gate now requires all 80 legacy gallery images and
+    verifies the favorite H/V hashes separately from the current generated
+    gallery.
+42. All seven reduced-sample Best-N sensitivity configurations completed and
+    passed their strict per-run verifiers, but the matrix coordinator failed in
+    its final beam-width comparison. It forwarded internal labels such as
+    `beam16=/path` to a documented `WIDTH=/path` interface that parses the key as
+    an integer. The runner now strips the internal `beam` prefix only for that
+    comparer, with a regression test over the exact three-run command. Recovery
+    must use `--resume`, preserve all seven verified run directories, regenerate
+    only the comparison/gallery/index products, and write `COMPLETE` only after
+    the full matrix command exits successfully.
+43. The first corpus-wide payload wrapper assumed that only the intensity
+    collection contained an incomplete manifest and therefore required 263,999
+    position rows. The read-only scan found the exact corpus instead contains
+    263,983 captured position rows: 17 manifest-level absences across 13
+    explicitly `Partial` captures (6/10/1 missing rows across the two
+    position-only collections and intensity collection). Every listed payload
+    passes the first-50,000-turn finite/count/plateau/fallback checks, and none
+    of the 16 position-only absences intersects the accepted per-spill H Best-5
+    or V Best-12 membership. `compare_payload_absences_to_best_n.py` preserves
+    that exact-cardinality identity join as CSV/JSON/Markdown evidence. The audit now writes and hashes an exact
+    `missing_position_streams.csv`, binds the immutable 2,200-manifest inventory
+    hash and per-collection incomplete topology, and rejects any drift from the
+    observed 263,983/23,999 contract. This is capture completeness evidence, not
+    permission to fabricate or zero-fill absent channels.
+44. The first full corrected intensity refresh completed all four waveform
+    shards, all 1,152,000 window rows, all three block summaries, and the
+    369-image gallery, but its strict verifier rejected 4,105 Best-1 weighted
+    rows. A read-only exact-field audit found no tune-bin, visibility,
+    intensity, or member-count change: only nonlinear spectral-shape metrics
+    moved after multiplying and dividing the sole float32 spectrum (2,574
+    linear-weight rows and 1,531 square-root-weight rows; maximum absolute
+    delta `7.6e-6`). The singleton combiner now copies the usable spectrum
+    directly and tests require bit-exact equality. The rejected root remains
+    immutable evidence; publication closure requires a clean source-bound
+    four-shard rerun, all three block summaries, gallery regeneration, and a
+    passing strict verifier. Loosening the tolerance or editing CSV rows in
+    place is prohibited.
+45. The first full 50,000-turn ridge pass completed 2,000 manifests, all nine
+    requested N values, both planes, 200 PNGs, and 200 captions, but its strict
+    verifier reported 1,796,222 false errors. It had equated every structural
+    spill/window row with a finite ridge pick, required constant full-source
+    counts for exact finite intersections, rejected the peak picker's bounded
+    parabolic edge refinements, and applied landscape width/height minima to
+    valid 800x1250 portrait figures. A read-only reconstruction found every
+    sliding table has exactly 360,000 rows per plane on the 2,000-spill,
+    180-center grid and that all tested adaptive aggregate/per-turn counts match
+    their finite in-band intersections exactly, including H Best-1/Best-5
+    `357943`, V Best-1/Best-12 `288457`, and H Best-30/Best-40 `59208` points.
+    The corrected verifier reconstructs compact per-center spill masks, keeps
+    blank and edge-excluded picks visible, enforces the algorithmic two-FFT-bin
+    refinement bound, reconciles variable per-turn pair counts, and accepts
+    minimum figure dimensions independent of orientation. Malformed grids,
+    identities, cardinalities, encoded nonfinite values, impossible legacy
+    counts, and larger band excursions still fail. The preserved completed
+    root passes the corrected verifier diagnostically with zero errors and zero
+    warnings; source-bound closure and final marker regeneration remain
+    required before publication use.
+46. The first autosweep parallel-smoke receipt counted every visible GPU
+    application. Spark already hosted an unrelated `pip2va` service, so the
+    service plus one analyzer could satisfy a superficial two-process check.
+    The corrected receipt is schema v2 and identifies only analyzer PIDs whose
+    command line is bound to the smoke root; it also proves overlap from their
+    completed run intervals while preserving the unrelated process in total-GPU
+    telemetry.
+47. The corrected autosweep smoke initially expected two result rows even
+    though two configurations crossed with two collections plus their combined
+    view produce six deterministic jobs. The final gate derives this product
+    from the submitted grid, requires all six rows to be `ok`, and records two
+    exact analyzer PIDs overlapping for 3.927 seconds. Spark remained above the
+    declared memory floor throughout the bounded two-worker run.
+48. Final publication-copy review found that the poster and manuscript treated
+    the nominal 60 H plus 60 V topology as complete in every primary spill,
+    omitted selected-ridge finite coverage, quoted a positive legacy-to-selected
+    V shared-mass point estimate despite an unresolved interval, and described
+    improvement without naming the blind-agreement/tune-delta result or its
+    power-support tradeoff. Materialization now derives the 16 source absences
+    across 12 flagged partial primary captures and selected H Best-5/V Best-12
+    finite, blank, and bounded edge-excluded counts from accepted verifier
+    reports. Generated poster copy reports finite coverage, uses exact paired
+    support counts for the legacy visual, labels selector repair, and narrows
+    the conclusion to internal blind agreement and selected/held-out tune delta.
+    Finalization independently requires the same payload, poster-evidence, and
+    manuscript-macro counts and records them in the compliance report. The
+    accepted abstract remains byte-for-byte unchanged.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;
@@ -164,7 +466,7 @@ not the primary mask-backed score rows. Corrected code now serializes
 `bpm_indices`, exact `HPnnn`/`VPnnn` tokens, full source keys, and digitizers,
 and all legacy normalization resolves the bit mask before labels.
 
-The active publication protocol adds two independent tests:
+The active publication protocol adds three independent tests:
 
 - Best-N: select members from a fit-window prefix, purge every overlapping
   window, evaluate on later windows, and compare the inferred tune with channels
@@ -191,6 +493,13 @@ The active publication protocol adds two independent tests:
 - Resume completeness requires exactly one contiguous row for every requested
   N and fold; beam and sensitivity comparisons require identical full key sets
   rather than silently taking intersections.
+- All-training: reuse the exact accepted block-20 validation keys and fold
+  assignment, but replace selected membership with every training-side channel.
+  Mean and median aggregation each receive their own train-only tune estimate;
+  both are evaluated on the same later windows and held-out digitizers as
+  selected Best-N. Collapse folds within spill before paired moving-block
+  intervals. This is the maximum fair all-channel baseline under the internal
+  validation design, not a literal all-60 result and not external calibration.
 - Intensity: use the 200-spill capture with exact raw position/intensity pairs;
   never multiply the position waveform by intensity; compare unweighted,
   square-root, linear, and gated spectral aggregation on purged later windows.
@@ -204,6 +513,18 @@ The active publication protocol adds two independent tests:
   predeclared minimum practical effect, a median tune shift within tolerance,
   and at least 95% of spillwise tune shifts within tolerance. Re-summary at
   10, 20, and 40-spill block lengths must not reverse the decision.
+  Every intensity density-difference panel must compare the same exact finite
+  spill/window points and describe color only as column-normalized ridge-pick
+  probability redistribution, with absolute-P99 clipping limited to display.
+  Preserve both the common 0-1 concentration scale and a zero-based
+  panel-autoscaled detail view; the latter is for within-panel method separation
+  only and cannot support apparent-amplitude comparisons across N or plane.
+  Preserve crossing-turn scatter on common 0-50000 x/y axes plus a separately
+  labeled observed-range detail view; neither may define an extraction onset or
+  imply causation, and absent crossings remain omitted rather than zero-filled.
+  Preserve lag correlations on the common -1 to 1 Spearman scale plus a
+  symmetric panel-detail scale; the detail view reveals shape only and does not
+  change the overlapping-window, exploratory, noncausal status.
 
 The first payload audit found that the intensity arrays advertise 250000 samples
 but become structurally unreliable near turn 64000. The first 50000 turns are
@@ -220,6 +541,11 @@ normalization, mean subtraction, DC-bin zeroing, a 4096-turn injection seed,
 confidence threshold 2.0, tracking half-width 0.005, maximum step 0.005, and the
 H 0.620-0.680 / V 0.690-0.740 bands. The paired adaptive run is verifier-bound
 to that protocol; channel aggregation is the intended method difference.
+Every adaptive N pair is also compared on exact common spill/window keys. The
+clean publication contrast is selected Best-N minus corrected adaptive Best-1,
+with an explicit zero-valued Best-1 self-control. Legacy-minus-adaptive metrics
+remain useful for provenance and visual comparison but combine selector repair
+with ensemble size and therefore cannot quantify the latter alone.
 
 The completed block-aware intensity reanalysis covered 199 complete spills,
 `1,152,000` purged-window rows, `12,800` spill-method summaries, and 240 paired
@@ -234,28 +560,40 @@ strongest finite channel when finite values exist. Every weighted method falls
 back explicitly to unweighted aggregation when a window has no usable selected
 intensity at all, restoring the declared N=1 invariance without dropping the
 position spectrum.
-The continuous-weight results and block-aware re-summary remain valid, but the
-gate rows and final gallery require a short waveform refresh before closure.
+The clean source-bound refresh restored bit-exact Best-1 invariance, passed the
+strict verifier at 10/20/40-spill block lengths, and retained zero weighting
+effects. The final indexed gallery and publication materialization use that
+accepted refresh.
 
 Completion status:
 
 | Deliverable | Status | Completion evidence |
 | --- | --- | --- |
-| Exact identity/ring-order implementation and regression tests | complete | local 57-test Best-BPM suite and 9 autosweep tests pass; all 62 previously committed tests plus byte compilation pass on Spark |
+| Exact identity/ring-order implementation and regression tests | complete | e433 suite completes locally with six expected process-pool sandbox skips; all 81 tests pass in the exact staged Spark source, alongside 9 autosweep tests, 44 Rust tests, self-tests, byte compilation, and `git diff --check` |
 | Corrected Best-1/3/5 primary and downstream rerun | complete | primary and follow-up strict verifiers both report zero failures and zero warnings; every required fixed, held-out, artifact, and handoff product is present |
-| Best-N curve through at least N=20 | in progress | bounded N=30 trial put V at the boundary; four-way N=40 exceeded unified memory and forced a reboot, while the watchdog-bounded two-way recovery has completed shards 0/1 and is advancing shards 2/3 before block and seven-run beam/fit/fold sensitivity |
-| 200-spill intensity hypothesis test | in progress | initial 199-spill pass and block-aware re-summary found 0 FDR-significant/0 practical effects; corrected all-zero gate fallback, exact N=1 contract, and strict payload/window/effect/gallery verifier pass locally; 200-spill gate-refresh merge/gallery pending |
-| Delivery Ring producer and raw-payload integrity audit | in progress | live raw/scaled separation and HP303/VP304 roll behavior confirmed read-only on drbpm2; exhaustive first-50000-turn scan over all three publication collections pending on Spark |
-| Corrected 50000-turn ridge/difference/concentration gallery | pending | exact-source-key full-buffer sidecar plus strict spill/window/pair/metric/PNG/caption verifier |
+| Best-N curve through at least N=20 | complete | accepted N=1-40 curve and 10/20/40-block merges select H Best-5 and V Best-12; all seven reduced-sample runs verify, with eligible knees in 5/7 H (N=2-13) and 6/7 V (N=10-28), and all four cross-collection transfer rows are OK |
+| Leakage-controlled Best-N versus all-training control | complete | exact accepted control has 10,000 detail rows, 8,000 pairs, 16 comparisons, four summaries, 18 PNGs, and zero verifier issues; selected/all-training/unresolved outcomes are H 2/3/3 and V 3/3/2 |
+| 200-spill intensity hypothesis test | complete | clean source-bound four-shard refresh covers 23,999 exact pairs and 240 paired effects; Best-1 is bit-exact, all 10/20/40-block verifiers pass, and 0 FDR-significant, 0 practical, and 0 retained weighting effects remain |
+| Delivery Ring producer and raw-payload integrity audit | complete | live raw/scaled separation and HP303/VP304 roll behavior were confirmed read-only; exhaustive first-50,000-turn audit accepts 263,983 position rows and 23,999 pairs, with 17 recorded absences across 13 partial captures and zero blocking findings |
+| Corrected 50000-turn ridge/difference/concentration gallery | complete | strict verifier accepts all 2,000 manifests, nine requested N values, both planes, 360,000 structural rows per plane, every exact finite intersection, 200 PNGs, 200 captions, and the corrected Best-1-versus-selected contrasts |
 | All required handoff, fixed, held-out, artifact, and report tasks below | complete | corrected follow-up verifier passes 32,000 fixed, 800,000 held-out, 201,240 visibility, 13,104 handoff-event, 4,680 summary rows, and every required artifact |
-| Fermilab-template A0 poster and visual QA | pending | editable PPTX, PDF, rendered PNG, template audit |
-| JACoW-compliant four-page paper and visual QA | pending | source, PDF, figures, references, compliance check |
-| Scoped commits/PRs, merged docs, and clean repository | pending | merged PR URLs and clean `git status` |
+| Fermilab-template A0 poster and visual QA | complete | verifier-bound real-data PPTX/PDF/4966x7021 PNG passes one-page A0 geometry, zero overflow, zero-issue template fidelity, zero empty structural placeholders, exact manifests, embedded/subset fonts, and native-scale visual QA |
+| JACoW-compliant four-page paper and visual QA | complete | verifier-bound manuscript is exactly four 595x792 bp pages with four inspected 1240x1650 renders, embedded/subset/Unicode fonts, exact source manifest, and no overfull boxes or unresolved references |
+| Scoped commits/PRs, merged docs, and clean repository | complete | scoped publication and status commits in PR #53; verified `review-artifacts/final-ibic2026-review-20260711`; superseded autosweep branch/worktree and preserved stash removed after equivalence checks; final `main` clean and synchronized with `origin/main` |
 
 No poster or paper claim may use a provisional legacy downstream figure. The
 goal remains open until every pending row above and every required task in this
 document is complete or is explicitly reclassified with a written scientific
 reason.
+The final local review package must include the complete 80-image
+`review-artifacts/poster_candidate_gallery` component. Git and the Spark source
+archive intentionally exclude that directory, so the two hash-bound favorite
+H/V ridge references otherwise would be missing from the delivered gallery.
+The same verified local package must include
+`review-artifacts/publication-run-handoff`, which preserves the source archive,
+both marker-gated wrappers, accepted abstract, supplied POTX, audited poster
+starter/layout, coherent offline Tectonic bundle, prepared GitHub text, and
+their checksum manifest outside ephemeral temp storage.
 
 ## 2026-06-28 Final Review Update
 
@@ -1291,6 +1629,14 @@ Color/artifact ideas:
    fills the poster evidence frame; the remaining variants stay in the review
    gallery.
 
+   Separately export every exact-paired adaptive N-to-N contrast in
+   `ridge_density_adaptive_pair_comparison_metrics.csv` and
+   `ridge_density_adaptive_pair_comparison_by_turn.csv`, including an exact-zero
+   Best-1 self-control. Render the five selected-Best-N-minus-corrected-Best-1
+   metric families as shared-scale H/V landscape and portrait figures. Use the
+   clean P10-P90 landscape/portrait pair for the paper/poster width contrast;
+   keep the adaptive-minus-legacy versions in the exhaustive review gallery.
+
    Actual completed outputs:
 
    ```text
@@ -1308,6 +1654,10 @@ Color/artifact ideas:
    followups/next_steps_20260628/ridge_density_best_ensemble/ridge_{iqr,p10_p90,entropy}_delta_vs_turn_{h,v}.png
    followups/next_steps_20260628/ridge_density_best_ensemble/ridge_{peak_bin,shared_mass}_gain_vs_turn_{h,v}.png
    followups/next_steps_20260628/ridge_density_best_ensemble/ridge_density_legacy_comparison_by_turn.csv
+   followups/next_steps_20260628/ridge_density_best_ensemble/ridge_density_adaptive_pair_comparison_metrics.csv
+   followups/next_steps_20260628/ridge_density_best_ensemble/ridge_density_adaptive_pair_comparison_by_turn.csv
+   followups/next_steps_20260628/ridge_density_best_ensemble/ridge_{iqr,p10_p90,entropy}_delta_vs_turn_best1_to_selected_h{H}_v{V}_hv{,_poster}.png
+   followups/next_steps_20260628/ridge_density_best_ensemble/ridge_{peak_bin,shared_mass}_gain_vs_turn_best1_to_selected_h{H}_v{V}_hv{,_poster}.png
    followups/next_steps_20260628/ridge_density_best_ensemble/ridge_density_best_ensemble_index.md
    followups/next_steps_20260628/ridge_density_best_ensemble/ridge_density_*_caption.md
    ```
@@ -1564,8 +1914,10 @@ selected_vs_heldout_delta
 
 ### Task F: Add BPM handoff / tune-visibility migration analysis
 
-Status: implemented locally as a strict-visibility sidecar; corrected Spark
-execution and semantic verification remain part of the publication gate.
+Status: done. The corrected Spark sidecar and semantic verifier pass over the
+complete fixed, held-out, visibility, handoff-event, summary, and artifact
+outputs; the strict thresholds remain a qualitative limitation rather than an
+unfinished implementation task.
 Implemented in `scripts/bpm_mining/handoff.py` and
 `scripts/run_bpm_handoff_analysis.py`. Current thresholds are useful for
 qualitative review but too strict for primary poster claims, and this
@@ -1999,7 +2351,7 @@ Use 4096/256 first because it is more spectrally stable.
 This analysis could become a strong poster result if it shows:
 
 ```text
-Tune evidence is not uniformly distributed across BPMs. As coherent beam motion evolves, different BPM ensembles provide the strongest tune visibility. Dynamic or visibility-weighted BPM subset selection can recover tune evidence more reliably than all-BPM averaging.
+Tune evidence is not uniformly distributed across BPMs. As coherent beam motion evolves, different BPM ensembles can provide useful channel-resolved visibility. Dynamic subset selection improves on a single or frozen small set in the strongest vertical results, while all-BPM aggregation remains a strong explicit baseline.
 ```
 
 This would explain why Best-BPM mining is physically meaningful rather than merely a numerical optimization.
@@ -2027,7 +2379,7 @@ The repo and current run are ready to support an IBIC poster as a BPM-only adapt
 best1 vs best3 vs best5 comparison
 BPM rank stability and recurring useful BPM pools
 held-out support as internal consistency evidence
-direct fixed-set failure as the reason dynamic selection matters
+direct frozen-small-set weakness plus the stronger descriptive all-BPM control
 poster-grade V-plane deconstruction and subset spectra examples
 one H-plane or multimodal caution example
 ```

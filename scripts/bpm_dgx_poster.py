@@ -839,23 +839,54 @@ def hist_plot(
     write_png(path, width, height, pixels)
 
 
-def bar_plot(path: Path, title: str, labels: Sequence[str], values: Sequence[float], y_label: str = "VALUE") -> None:
+def bar_plot(
+    path: Path,
+    title: str,
+    labels: Sequence[str],
+    values: Sequence[float],
+    y_label: str = "VALUE",
+    y_range: Optional[tuple[float, float]] = None,
+    colors: Optional[Sequence[Color]] = None,
+    show_values: bool = False,
+    note: str = "",
+    x_label: str = "CATEGORY",
+) -> None:
     pairs = [(label, value) for label, value in zip(labels, values) if math.isfinite(value)]
     if not pairs:
         no_data_png(path, title)
         return
     width, height = 1000, 660
     pixels = new_canvas(width, height)
-    x0, y0, x1, y1 = draw_axes(pixels, width, height, title, "CATEGORY", y_label)
-    ymax = max([value for _, value in pairs] + [1.0])
+    x0, y0, x1, y1 = draw_axes(pixels, width, height, title, x_label, y_label)
+    if y_range is None:
+        ymin, ymax = 0.0, max([value for _, value in pairs] + [1.0])
+    else:
+        ymin, ymax = y_range
+        if not math.isfinite(ymin) or not math.isfinite(ymax) or ymax <= ymin:
+            raise ValueError("bar plot y_range must contain finite increasing values")
+    y_span = ymax - ymin
+    top_label = format_axis_value(ymax, y_span)
+    bottom_label = format_axis_value(ymin, y_span)
+    draw_text(pixels, width, height, max(2, x0 - len(top_label) * 8 - 6), y0 - 7, top_label, MUTED, 2)
+    draw_text(pixels, width, height, max(2, x0 - len(bottom_label) * 8 - 6), y1 - 7, bottom_label, MUTED, 2)
+    if note:
+        draw_text(pixels, width, height, x0, y0 - 28, note[:72], MUTED, 2)
     bar_w = max(10, (x1 - x0) // max(1, len(pairs)) - 10)
     for idx, (label, value) in enumerate(pairs):
         bx0 = x0 + idx * ((x1 - x0) // len(pairs)) + 5
         bx1 = min(x1, bx0 + bar_w)
-        by0 = scale_value(value, 0, ymax, y1, y0)
-        color = [BLUE, GREEN, ORANGE, PURPLE, RED][idx % 5]
+        by0 = scale_value(value, ymin, ymax, y1, y0)
+        palette = colors or (BLUE, GREEN, ORANGE, PURPLE, RED)
+        color = palette[idx % len(palette)]
         rect(pixels, width, height, bx0, by0, bx1, y1, color)
-        draw_text(pixels, width, height, bx0, y1 + 8, label[:8], MUTED, 2)
+        short_label = label[:8]
+        label_x = (bx0 + bx1) // 2 - len(short_label) * 4
+        draw_text(pixels, width, height, label_x, y1 + 8, short_label, MUTED, 2)
+        if show_values:
+            value_label = format_axis_value(value, y_span)
+            value_x = (bx0 + bx1) // 2 - len(value_label) * 4
+            value_y = max(y0 + 4, by0 - 22)
+            draw_text(pixels, width, height, value_x, value_y, value_label, INK, 2)
     write_png(path, width, height, pixels)
 
 

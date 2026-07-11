@@ -1,0 +1,13 @@
+{
+  "status": "pass",
+  "checkedAt": "2026-07-11T17:34:59.049Z",
+  "workspace": "/private/tmp/codex-presentations/ibic2026-e433-final/poster-work",
+  "finalPptx": "/Users/derekste/Dev/codex/tbt-monitor/publication/ibic2026/poster/build/ibic2026-abstract54-poster.pptx",
+  "starterPptx": "/Users/derekste/Dev/codex/tbt-monitor/review-artifacts/publication-run-handoff/poster-starter/template-starter.pptx",
+  "mapPath": "/Users/derekste/Dev/codex/tbt-monitor/publication/ibic2026/poster/template-frame-map.json",
+  "starterLayoutDir": "/Users/derekste/Dev/codex/tbt-monitor/review-artifacts/publication-run-handoff/poster-starter/template-starter-layout",
+  "finalLayoutDir": "/Users/derekste/Dev/codex/tbt-monitor/publication/ibic2026/poster/build/layout",
+  "editDir": "/private/tmp/codex-presentations/ibic2026-e433-final/poster-work",
+  "issueCount": 0,
+  "issues": []
+}

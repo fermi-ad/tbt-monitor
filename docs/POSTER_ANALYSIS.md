@@ -311,9 +311,11 @@ roles (`top_physics`, `top10_robust`, `median_or_trimmed`,
 rejected/flagged pilot rows in diagnostics. Full mode consumes the supplied
 config list exactly.
 
-Parallel autosweep execution is opt-in with `--parallel-jobs`; use 2 as the
-initial Spark setting and increase to 3-4 only after telemetry shows remaining
-headroom. Each analyzer job writes into its own config/view directory, and the
+Parallel autosweep execution is opt-in with `--parallel-jobs`; 2 is the current
+Spark ceiling and remains gated on the guarded two-job smoke. GPU utilization
+alone is not permission to raise the count: any 3-4 job attempt requires a
+separate unified-memory watchdog qualification. Each analyzer job writes into
+its own config/view directory, and the
 run log remains sorted by deterministic job id. `--gpu-telemetry-interval-seconds`
 records run-level GPU samples and summaries under `logs/`.
 
@@ -423,7 +425,8 @@ category-diverse fill; a stronger V score cannot consume the entire review cap.
 
 For publication review, the canonical plot set is broader than the final poster
 shortlist. It includes Best-N blind agreement and selected/held-out contrast
-with block intervals, beam/fit/fold sensitivity, cross-collection transfer,
+with block intervals, beam/fit/fold sensitivity, cross-collection transfer, the
+same-protocol all-training mean/median control,
 exact-point-paired full-buffer legacy comparisons, all meaningful requested-N
 difference maps, H-loss diagnostics, and the block-aware intensity gallery.
 
@@ -437,6 +440,9 @@ greedy tracking, a 0.005 half-width/maximum step, confidence threshold 2.0,
 usable spills; white curves are across-spill median/percentile tracks. The
 adaptive comparison must hold this geometry and visual grammar fixed while
 changing only the declared fit-prefix Best-N aggregation.
+Exact local hashes, Spark source paths, the legacy selector audit, and the
+three-stage comparison contract are preserved in
+`publication/ibic2026/LEGACY_RIDGE_PROVENANCE.md`.
 The primary persistence candidate is the per-N four-panel H/V comparison:
 legacy/adaptive columns, exact paired points, column-normalized pick
 probability, one shared P98-clipped color scale, and white P10/median/P90
@@ -444,20 +450,28 @@ tracks. Keep its quantitative caption and the separate sample-fraction and
 subtractive diagnostics in the review package; the composite alone cannot
 distinguish true persistence from missing observations or establish physical
 noise removal.
+The verification receipt must accompany that review. It reports the complete
+structural row grid separately from finite in-band, blank-confidence, and
+bounded edge-excluded picks. Because each density column is normalized over its
+available picks, a sharper high-N image without comparable sample fraction is
+not evidence of better tune recovery; use exact paired panels and the
+sample-fraction diagnostic together.
 Because the historical normalized-single selector was defective, also review
 the exact-paired corrected Best-1-versus-selected panel and the three-column
 legacy/corrected-Best-1/selected-Best-N control. Only the corrected
 Best-1-to-selected transition isolates the effect of ensemble size; the
 legacy-to-Best-1 transition is selector repair.
-The turn-resolved legacy contrast must also retain its unsmoothed exact-paired
-CSV. Review the adaptive-minus-legacy IQR and P10-P90 widths together with
-peak-bin-fraction, normalized-entropy, and shared-center-mass changes. The
-five-window-smoothed PNGs can locate intervals of diffuse-pick suppression,
-but neither their sign nor a visual change point establishes beam noise,
-absolute tune accuracy, or extraction onset.
-The selected-H/V versions use stacked panels and one shared y scale. This is
-the publication treatment for P10-P90 width because two half-column native
-PNGs would make their labels unreadable.
+The turn-resolved legacy contrast must retain its unsmoothed exact-paired CSV,
+but it is historical context rather than the ensemble-size estimator. Review
+its adaptive-minus-legacy IQR, P10-P90, peak-bin, entropy, and shared-mass
+changes alongside the separate all-pairs adaptive tables. The latter include a
+zero Best-1 self-control and provide the clean selected-Best-N-minus-corrected-
+Best-1 contrast. Five-window-smoothed PNGs can locate intervals of changed
+cross-spill pick concentration, but neither their sign nor a visual change
+point establishes beam noise, absolute tune accuracy, or extraction onset.
+Use the clean selected-H/V P10-P90 contrast, stacked with one shared y scale,
+for publication. Keep its landscape form in the paper and its portrait twin in
+the poster because two half-column native PNGs would make labels unreadable.
 Use that all-spill contrast in the poster's upper-right evidence frame instead
 of an anecdotal selected-spill panel. Keep every selected-spill example in the
 separate exhaustive review gallery.
@@ -479,22 +493,69 @@ finite metrics, detail/summary agreement, cross-collection products, native
 plots, and the three-larger-N recommendation boundary. The beam/fit/fold matrix
 uses seven unique sample runs with one shared baseline; it does not replace the
 all-row primary curve.
+The two poster-facing Best-N panels show only blind full-band selected-versus-
+held-out agreement, with moving-block intervals and one shared zero-based H/V
+scale. This preserves direct plane comparison and keeps the conditioned
+near-training-tune curve in a separate review image rather than presenting it
+as equivalent validation.
+The review gallery also carries a pass/fail matrix for blind agreement, blind
+tune difference, selected prominence/power, held-out prominence/power, and the
+combined all-gates result at every N. It explains why the earliest eligible N
+is selected even when a later point has a slightly higher agreement rate.
+Keep the separate gate-margin matrix in the exhaustive review gallery. It
+varies the blind-agreement and selected/held-out power non-inferiority margins
+around the declared cell while retaining the tune-difference and prominence
+rules. It is post-selection robustness evidence only: use it to distinguish a
+stable low-to-mid-N region from an H-plane tradeoff, never to retune the
+published selector after seeing the result.
+Every matrix run must verify, but a reduced sample may legitimately have no
+automatic knee when selected-power and prominence margins do not intersect.
+Publication requires eligible knees from at least four of seven runs in each
+plane. It preserves every unavailable run and reason and prints the available
+count and N range; no unresolved case is silently assigned an N.
+The same-metric direct-control gallery must also include all-BPM mean and median
+beside adaptive and frozen N=1/3/5. All-BPM median currently scores higher in
+both planes, and all-BPM mean does so vertically, under the reused-window
+evolution metric. Keep that descriptive panel, then review the independent
+all-training control under the exact Best-N purge and held-out folds. Its two H/V
+scoreboards, eight raw-unit paired scatters, and eight favorable-delta CDFs must
+remain in the exhaustive gallery whether selected Best-N wins, loses, or is
+unresolved. Only this second control can support a same-protocol comparison.
 `scripts/prepare_ibic2026_publication.py` is the final provenance gate. It
-requires accepted primary/follow-up, Best-N 10/20/40-block, intensity, and
-ridge reports plus the exact 2200-manifest raw-payload audit; checks
+requires accepted primary/follow-up, Best-N 10/20/40-block, all-training,
+intensity, and
+    ridge reports plus the exact 2200-manifest/263983-position-row raw-payload
+    audit and its hashed 17-row absent-stream inventory; checks
 cross-collection transfer and the seven-run matrix; and
-copies the exact figures while writing the poster JSON, paper table, results
+copies the exact figures while writing the poster JSON, paper table, generated
+all-training outcome macros, results
 payload, and source manifest. The paper copy additionally binds the selected-H
 and selected-V exact-paired P10-P90 width-contrast plots so the time-resolved
 method comparison cannot drift from the ridge contract.
+The source manifest includes the exact numerical source-table hashes and all 14
+materialized outputs. Finalization must parse that manifest and re-hash every
+declared output rather than treating the CSV's presence as provenance proof.
 Poster and manuscript copy must distinguish the 4000 H/V spill-plane cases in
 the full N curve from the evenly stratified 1000-case, five-fold held-out
 validation sample. Those counts come from the accepted verifier and generated
 macros, not manually maintained prose.
+The same gate derives primary capture completeness and selected full-buffer
+ridge coverage. The nominal 60 H plus 60 V topology must be accompanied by the
+16 source absences across 12 flagged partial primary captures. H Best-5 and V
+Best-12 structural rows must be split into finite in-band picks,
+blank-confidence rows, and bounded edge exclusions; this is especially
+important when visually comparing planes because density columns normalize the
+available finite picks rather than proving equal observation coverage.
+Final closure compares those structured poster evidence fields with the results
+payload and the corresponding generated manuscript macros, then writes the
+exact counts into the compliance report.
 Every subtractive ridge caption must say that color represents probability-mass
 redistribution, not measured physical noise. The primary density figures do not
 show a fixed extraction onset; a broad 10000--20000-turn context band may appear
 only in separately named exploratory variants.
+Standalone and paired density rasters use a nonzero P98 display clip;
+subtractive rasters use a symmetric absolute-P99 display clip. These clips must
+be disclosed in captions and must never alter the exported quantitative rows.
 The gallery must also pass strict spill/window coverage, selected-cardinality,
 tune-band, exact legacy-pair, contrast-metric, warning, PNG, and caption checks
 before a ridge panel enters the poster shortlist.
@@ -502,8 +563,34 @@ The intensity gallery is held to the same closure standard: the audited capture
 counts, first-50000-turn integrity, complete method grids, exact Best-1
 zero-effect control, all statistical/practical/tune-shift gates, and every PNG
 with its claim guardrail must pass before an intensity panel is considered.
+Best-1 is computed by direct singleton spectrum pass-through; scale/divide
+roundoff is not accepted as a weighting effect or hidden by verifier tolerance.
+Its subtraction panels additionally require identical exact
+collection/spill/plane/N/window/center keys and common finite in-band ridge
+picks. Red and blue mean higher and lower column-normalized ridge-pick
+probability versus unweighted aggregation, not physical noise added or removed;
+the symmetric absolute-P99 clip changes display color only.
+An exact-zero subtraction, including every valid Best-1 weighting control, is
+annotated as no ridge-pick probability redistribution rather than presented as
+an unexplained blank panel.
+All intensity heatmaps use proportional inclusive raster bounds so color fills
+the complete axis and remains registered to overlaid tracks. Standalone ridge
+and binned relationship captions disclose their nonzero-P98 display clips.
+Concentration is rendered twice: a common 0-1 scale for cross-panel context and
+a zero-based scale at 110% of that panel's maximum for inspecting small
+within-panel method separation. Only the common-scale version supports visual
+amplitude comparison across N or plane.
+Crossing-turn scatters likewise retain a common 0-50000-turn x/y view for
+cross-panel context and a separately labeled observed-range detail view. They
+omit absent crossings and remain association diagnostics, not extraction-onset
+or causal measurements.
+Lag correlations retain both the common -1 to 1 Spearman scale and a symmetric
+panel-detail scale. The detail variant exposes small lag-shape changes but does
+not change the overlapping-window, exploratory, noncausal interpretation.
 The independent raw-payload audit also covers both position-only collections;
-passing intensity-pair checks cannot waive a position source failure.
+passing intensity-pair checks cannot waive a position source failure. The 13
+recorded partial captures remain explicit, and absent streams are not converted
+to zero-valued waveforms.
 Held-out support captions and tables must state their evaluable numerator and
 denominator. A finalist row without finite `q_hat` is retained as an explicitly
 flagged unavailable observation; it contributes neither a zero candidate
@@ -521,6 +608,17 @@ separately; none is an extraction-time marker.
 
 The final A0 poster must be built from the supplied Fermilab vertical template,
 preserve its master/header/footer, remain editable, and pass rendered visual QA.
+The named full-size PNG is the 150 dpi PDF raster and must remain byte-identical
+to it; the direct artifact-tool PNG is retained only as a geometry diagnostic
+because it does not render master-level footer media.
+Final closure also parses every exported slide XML member read-only and rejects
+an empty title, body, or other structural placeholder while allowing
+intentionally empty ordinary shapes.
+The final build tree must retain the artifact-tool layout inventory,
+`slides_test` inspection, font report, and zero-issue template-fidelity JSON and
+text reports. Their package-relative checksum inventory is recomputed during
+finalization together with every content, asset, output, and PNG-dimension entry
+in the poster source manifest.
 The poster should use four to six final evidence panels even though the complete
 indexed review gallery is intentionally much larger.
 
