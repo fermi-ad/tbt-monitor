@@ -1,6 +1,6 @@
 # Current Publication Handoff
 
-Last updated: 2026-07-10 19:48 CDT.
+Last updated: 2026-07-10 20:01 CDT.
 
 This file records the live publication run state. Permanent behavior and
 rationale remain in `docs/ARCHITECTURE.md`, `docs/DESIGN_DECISIONS.md`, and
@@ -49,7 +49,7 @@ Checkpoint after the system clock correction:
 shard 0: validation 250/250, complete
 shard 1: validation 250/250, complete
 shard 2: validation 250/250, complete
-shard 3: validation 50/250, 10000/50000 rows
+shard 3: validation 90/250, 18000/50000 rows
 memory watchdog: clear
 full-run COMPLETE marker: absent
 ```
@@ -85,7 +85,7 @@ The active chain is marker-gated and survives loss of the client SSH session:
    `/home/derekste/tbt-publication-20260710/delivery_ring_payload_audit` and
    requires the exact 263999-position-row/23999-paired-row contract before its
    own `COMPLETE` marker.
-4. `/home/derekste/spark_publication_tail_3832ee84.sh` holds the final launch
+4. `/home/derekste/spark_publication_tail_f9f7a5ce.sh` holds the final launch
    lock and waits for the payload-audit marker. Before using the GPU it requires
    passing 10/20/40-block Best-N reports, four OK transfer rows, seven verified
    sensitivity runs, and eligible H/V recommendations in every sensitivity
@@ -96,9 +96,11 @@ The active chain is marker-gated and survives loss of the client SSH session:
    source-side review archive. The 32 GiB three-sample memory watchdog remains
    active throughout the GPU stages.
 
-The final continuation is detached as PID `594785` in its own session and
-process group. Its SHA-256 is
-`b0acea6a355c1bcd37fbe9b479b775c2206136864361b5cbc4c875cdd63a4ce9`.
+The final continuation is detached as PID `609117` in its own session and
+process group. Its script SHA-256 is
+`785705610a81d21f827063828c215a574d9df69c1bc9defba0a258388143873f`.
+It uses source commit `f9f7a5ce`, extracted only after the archive matched
+SHA-256 `8044abd5af4c633830102dadc4bff8c373e61a501722f1f161524b55a1145ff7`.
 No intensity or ridge computation can begin merely because the earlier marker
 appears; the selected-N and sensitivity preflight must pass first.
 
