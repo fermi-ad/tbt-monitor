@@ -18,9 +18,10 @@ narrower corrected-Best-1 ridge-pick distribution. The V Best-12 ridge width is
 slightly broader than corrected Best-1, so the publication does not call the
 ensemble a universal denoiser.
 
-Repository presentation closeout is the only remaining activity: package the
-complete local review bundle, merge PR #53, remove superseded branch/stash
-state, and prove a clean `main`.
+Repository presentation closeout is complete. The checksummed local review
+bundle is under `review-artifacts/final-ibic2026-review-20260711`, PR #53 is the
+scoped merge vehicle, and the superseded autosweep branch/worktree and preserved
+handoff stash are removed only after their equivalence checks.
 
 ## Accepted Results
 
@@ -140,12 +141,16 @@ BPM-only IBIC poster.
 
 ## Handoff State
 
-- Working branch: `dev/ibic2026-final-delivery`.
+- Publication branch: `dev/ibic2026-final-delivery` (merged through PR #53).
 - Source-bound publication commit: `e43348318b6ff96b7570181e2eedda2737a4b3c9`.
-- Draft publication PR: #53.
+- Publication PR: #53.
 - Spark materialization archive SHA-256:
   `6cb27a5c36fa738861590f97884f3d1dfdf2dad8231b2c3e55b79892d2cffc4d`.
 - Complete accepted Spark review package is local under
   `review-artifacts/spark-final-e5707035/` and independently verifies.
-- Final local review repack and repository merge/cleanup are the remaining
-  closeout steps.
+- Final local review package:
+  `review-artifacts/final-ibic2026-review-20260711` plus its `.tar.gz` archive,
+  archive SHA-256 sidecar, and package verification receipt.
+- Final repository state: `main` synchronized with `origin/main`; superseded
+  autosweep branch/worktree and the preserved Task-F stash removed after the
+  documented equivalence audit.

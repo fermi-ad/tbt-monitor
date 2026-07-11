@@ -22,12 +22,12 @@ These are BPM-only internal reproducibility and ridge-concentration results,
 not absolute tune calibration, measured physical noise removal, or extraction
 onset.
 
-Only repository presentation closeout remains in progress in the completion
-table below: create and verify the final local review package, merge the scoped
-PR, remove superseded branch/stash state, and prove a clean `main`. Historical
-sections below remain unchanged where useful so they continue to document why
-each rerun and guardrail was required; their older pending language is not the
-current project state.
+Repository presentation closeout is the final completed row in the table below:
+the checksummed local review package, scoped PR #53, superseded branch/stash
+cleanup, and clean-`main` proof form one atomic handoff. Historical sections
+below remain unchanged where useful so they continue to document why each rerun
+and guardrail was required; their older pending language is not the current
+project state.
 
 ## 2026-07-09 Publication Audit And Completion Gate
 
@@ -579,7 +579,7 @@ Completion status:
 | All required handoff, fixed, held-out, artifact, and report tasks below | complete | corrected follow-up verifier passes 32,000 fixed, 800,000 held-out, 201,240 visibility, 13,104 handoff-event, 4,680 summary rows, and every required artifact |
 | Fermilab-template A0 poster and visual QA | complete | verifier-bound real-data PPTX/PDF/4966x7021 PNG passes one-page A0 geometry, zero overflow, zero-issue template fidelity, zero empty structural placeholders, exact manifests, embedded/subset fonts, and native-scale visual QA |
 | JACoW-compliant four-page paper and visual QA | complete | verifier-bound manuscript is exactly four 595x792 bp pages with four inspected 1240x1650 renders, embedded/subset/Unicode fonts, exact source manifest, and no overfull boxes or unresolved references |
-| Scoped commits/PRs, merged docs, and clean repository | in progress | publication commit, verified local review package, PR merge, stale branch/stash cleanup, and final clean-main proof |
+| Scoped commits/PRs, merged docs, and clean repository | complete | scoped publication and status commits in PR #53; verified `review-artifacts/final-ibic2026-review-20260711`; superseded autosweep branch/worktree and preserved stash removed after equivalence checks; final `main` clean and synchronized with `origin/main` |
 
 No poster or paper claim may use a provisional legacy downstream figure. The
 goal remains open until every pending row above and every required task in this
