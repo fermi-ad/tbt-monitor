@@ -437,6 +437,9 @@ greedy tracking, a 0.005 half-width/maximum step, confidence threshold 2.0,
 usable spills; white curves are across-spill median/percentile tracks. The
 adaptive comparison must hold this geometry and visual grammar fixed while
 changing only the declared fit-prefix Best-N aggregation.
+Exact local hashes, Spark source paths, the legacy selector audit, and the
+three-stage comparison contract are preserved in
+`publication/ibic2026/LEGACY_RIDGE_PROVENANCE.md`.
 The primary persistence candidate is the per-N four-panel H/V comparison:
 legacy/adaptive columns, exact paired points, column-normalized pick
 probability, one shared P98-clipped color scale, and white P10/median/P90

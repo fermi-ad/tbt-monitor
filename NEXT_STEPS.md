@@ -233,6 +233,16 @@ the publication audit:
     verifies that the receipt matches current state. The CLI smoke passes over
     the complete template-derived poster build, and a regression detects
     same-size content tampering.
+30. The local favorite-gallery provenance note still ended by permitting the
+    phrase `suppression of diffuse ridge picks`, after the publication audit had
+    narrowed subtraction to exact-paired ridge-pick probability redistribution.
+    Because that ignored note will be included in the final visual package, its
+    stale sentence could contradict the poster and paper. The local note now
+    uses the same no-noise/no-accuracy/no-onset boundary, and the repository
+    carries `publication/ibic2026/LEGACY_RIDGE_PROVENANCE.md` with exact local
+    PNG hashes, Spark origins, archived protocol, selector-defect audit, and the
+    three required fair-comparison stages. Historical PNG bytes remain
+    immutable.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;

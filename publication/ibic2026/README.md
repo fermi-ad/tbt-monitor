@@ -53,6 +53,8 @@ The completed directory contains:
   preview;
 - `paper/`: JACoW TeX source, exact figure files, source manifest, and a
   four-page PDF;
+- `LEGACY_RIDGE_PROVENANCE.md`: hashes, origins, protocol, selector caveat, and
+  claim boundary for the immutable H/V visual references;
 - `publication_manifest.csv`: SHA-256 inventory for every delivered source and
   rendered artifact;
 - `compliance_report.md`: verifier state, page/size checks, placeholder and
