@@ -778,6 +778,22 @@ non-inferiority knee, per-collection summaries, and cross-collection global-N
 transfer. The conditioned near-training-tune metrics are never substituted for
 the blind agreement result.
 
+Regenerate the complete native-PNG plot set from an accepted summary without
+waveform access:
+
+```bash
+python3 scripts/render_best_n_summary_plots.py \
+  --summary /path/to/best-n-merged/best_n_summary.csv \
+  --out /path/to/best-n-plot-review \
+  --tune-half-width 0.0025
+```
+
+`best_n_validation_h/v.png` contains blind full-band selected-versus-held-out
+agreement only, on one shared zero-based H/V scale. The separate
+`best_n_conditioned_agreement_h/v.png` retains the near-training diagnostic.
+`best_n_decision_gates_h/v.png` shows every exact criterion as pass/fail across
+N; its blue all-gates row identifies the eligible range and earliest knee.
+
 The verifier is fail-closed: expected cache-row counts are explicit, every
 spill-plane and fold must contain exactly one row for every contiguous N,
 membership cardinality and masks must agree, fit/test supports must not overlap,

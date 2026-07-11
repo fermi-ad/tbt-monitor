@@ -58,9 +58,11 @@ from bpm_mining.best_n import (
     fold_by_digitizer,
     merge_best_n_shards,
     purged_window_split,
+    recommendation_gate_status,
     recommended_n,
     stratified_limit,
     training_candidates,
+    write_plots as write_best_n_plots,
 )
 from bpm_mining.best_n_sensitivity import (
     SensitivityRun,
@@ -637,6 +639,60 @@ class BestBpmMiningTests(unittest.TestCase):
         chosen, reason = recommended_n(rows, "V", 0.0025)
         self.assertIsNone(chosen)
         self.assertIn("boundary-limited", reason)
+
+    def test_best_n_publication_plot_separates_blind_and_conditioned_agreement(self) -> None:
+        rows = []
+        for plane, blind_base, conditioned_base in (("H", 0.07, 0.34), ("V", 0.15, 0.45)):
+            for subset_size in range(1, 5):
+                rows.append(
+                    {
+                        "plane": plane,
+                        "subset_size": subset_size,
+                        "validation_row_count": 100,
+                        "blind_q_agreement_rate": blind_base + 0.02 * subset_size,
+                        "blind_q_agreement_ci_low": blind_base + 0.02 * subset_size - 0.01,
+                        "blind_q_agreement_ci_high": blind_base + 0.02 * subset_size + 0.01,
+                        "q_agreement_rate": conditioned_base + 0.02 * subset_size,
+                        "q_agreement_ci_low": conditioned_base + 0.02 * subset_size - 0.01,
+                        "q_agreement_ci_high": conditioned_base + 0.02 * subset_size + 0.01,
+                        "median_blind_selected_heldout_abs_q_delta": 0.01 - 0.001 * subset_size,
+                        "blind_selected_heldout_abs_q_delta_ci_low": 0.009 - 0.001 * subset_size,
+                        "blind_selected_heldout_abs_q_delta_ci_high": 0.011 - 0.001 * subset_size,
+                        "median_selected_heldout_abs_q_delta": 0.002,
+                        "median_test_peak_prominence": 8.0 + subset_size,
+                        "test_peak_prominence_ci_low": 7.5 + subset_size,
+                        "test_peak_prominence_ci_high": 8.5 + subset_size,
+                        "median_test_power_support": 2.0 + subset_size,
+                        "test_power_support_ci_low": 1.8 + subset_size,
+                        "test_power_support_ci_high": 2.2 + subset_size,
+                        "median_heldout_prominence": 7.0 + subset_size,
+                        "heldout_prominence_ci_low": 6.5 + subset_size,
+                        "heldout_prominence_ci_high": 7.5 + subset_size,
+                        "median_heldout_power_support": 1.5 + subset_size,
+                        "heldout_power_support_ci_low": 1.3 + subset_size,
+                        "heldout_power_support_ci_high": 1.7 + subset_size,
+                        "median_subset_score": 0.2 + 0.01 * subset_size,
+                        "median_curve_test_visible_fraction": 0.1 * subset_size,
+                    }
+                )
+        out = self.root / "best-n-plots"
+        write_best_n_plots(rows, out, 0.0025)
+        for plane in ("h", "v"):
+            blind = out / f"best_n_validation_{plane}.png"
+            conditioned = out / f"best_n_conditioned_agreement_{plane}.png"
+            gates = out / f"best_n_decision_gates_{plane}.png"
+            self.assertEqual(png_dimensions(blind), (1400, 800))
+            self.assertEqual(png_dimensions(conditioned), (1400, 800))
+            self.assertEqual(png_dimensions(gates), (1400, 640))
+            self.assertNotEqual(blind.read_bytes(), conditioned.read_bytes())
+            caption = gates.with_name(f"{gates.stem}_caption.md").read_text(encoding="utf-8")
+            self.assertIn("earliest eligible value", caption)
+            statuses, _context, reason = recommendation_gate_status(rows, plane.upper(), 0.0025)
+            self.assertEqual(reason, "")
+            chosen, _reason = recommended_n(rows, plane.upper(), 0.0025)
+            self.assertIsNotNone(chosen)
+            eligible = [int(status["subset_size"]) for status in statuses if status["all_gates"]]
+            self.assertEqual(int(chosen["subset_size"]), min(eligible))
 
     def test_peak_candidate_and_consensus(self) -> None:
         tune_axis = np.linspace(0.60, 0.70, 200, dtype=np.float32)

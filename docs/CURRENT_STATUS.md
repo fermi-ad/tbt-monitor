@@ -72,6 +72,14 @@ Spark continuation remains correctly pinned to `25c41237` because no waveform
 or GPU science path changed; after transfer, regenerate the control PNG and
 final report/poster/paper locally from the accepted CSV with the newer branch.
 
+The local publication renderer now also regenerates poster/paper Best-N panels
+from that accepted summary. Those panels isolate blind full-band agreement on a
+shared zero-based H/V scale; conditioned near-training agreement remains in a
+separate diagnostic PNG. A criterion-by-N matrix renders the six exact gates
+and all-gates result used by the recommendation. This is reporting-only and
+does not change the Spark selection, validation rows, recommendation, or active
+continuation.
+
 The full-run source archive SHA-256 is
 `588705e83934ffa3a379eaf6b9ab746fb12d8cb5ef2620469eaff71198486a30`.
 The post-run source archive is commit `3832ee84`, with SHA-256
@@ -250,7 +258,7 @@ executive text and a detached, explicitly descriptive native-PNG panel.
 ## Current Local Validation
 
 ```text
-Best-BPM Python tests: 71 run, 65 passed, 6 process-pool tests skipped by local sandbox
+Best-BPM Python tests: 72 run, 66 passed, 6 process-pool tests skipped by local sandbox
 Autosweep Python tests: 9 passed
 Rust tests: 44 passed
 GPU analyzer self-test: passed

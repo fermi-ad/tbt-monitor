@@ -298,6 +298,16 @@ the publication audit:
     frozen, and all-BPM methods together. Publication copy is narrowed to
     improvement over adaptive Best-1 and frozen small sets; all-BPM aggregation
     remains an explicit baseline pending a leakage-controlled head-to-head test.
+37. The first poster-facing Best-N validation PNG overlaid blind full-band
+    agreement with agreement conditioned near the training tune on a fixed
+    0-1 axis. That mixed the primary digitizer-disjoint result with a secondary
+    conditioned diagnostic and visually compressed the H/V difference. The
+    final publication panel shows only blind selected-versus-held-out agreement
+    with block intervals on one shared zero-based H/V scale; the conditioned
+    curve remains a separate gallery diagnostic. A criterion-by-N gate matrix
+    shows every exact pass/fail decision and the earliest all-gate N.
+    Publication preparation regenerates the set directly from the accepted
+    summary CSV.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;

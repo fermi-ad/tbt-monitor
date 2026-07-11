@@ -22,7 +22,8 @@ will report" or lacks any required publication figure. Numerical Results, Abstra
 Conclusion, and captions must be regenerated from verifier-clean outputs in
 the same pass. The final source must include:
 
-- the H/V leakage-controlled Best-N figure;
+- the H/V leakage-controlled Best-N figure, isolating blind full-band
+  selected-versus-held-out agreement on one shared zero-based scale;
 - the exact-paired, shared-scale H/V legacy-versus-adaptive ridge figure;
 - the exact-paired selected-H/V P10-P90 width-contrast composite with an explicit
   zero reference and non-noise/non-extraction guardrail;

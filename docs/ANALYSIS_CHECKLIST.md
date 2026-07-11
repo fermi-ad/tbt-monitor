@@ -48,6 +48,10 @@ Treat these as baseline rather than open TODOs:
   sensitivity comparisons, cross-collection global-N transfer, and a strict
   verifier for contiguous coverage, identities, timing, metrics, summaries,
   recommendation boundaries, and plots
+- poster-facing Best-N blind-agreement H/V plots on one shared zero-based scale,
+  with the conditioned near-training diagnostic retained separately
+- criterion-by-N Best-N gate matrices whose all-gates row matches the declared
+  recommendation exactly
 - an initial exact-pair intensity weighting/covariate study over 199 complete
   spills; that provisional block-aware result rejects intensity weighting and retains only
   integrity and exploratory timing diagnostics. A corrected all-zero gate

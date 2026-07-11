@@ -541,6 +541,13 @@ Decision:
   near the training tune. Choose the smallest non-inferior N only after blind
   agreement, channel-disjoint tune difference, selected contrast, and held-out
   contrast all pass declared margins.
+- Do not overlay conditioned near-training agreement in the poster-facing
+  Best-N validation panel. Render blind selected-versus-held-out agreement with
+  moving-block intervals on one shared zero-based H/V scale, and retain the
+  conditioned curve as a separate diagnostic image.
+- Render a criterion-by-N pass/fail matrix from the recommendation function's
+  exact gate statuses. Its all-gates row must identify every eligible N and the
+  earliest declared knee; do not infer eligibility from plotted curve shape.
 - Collapse repeated folds within each spill before a moving-block bootstrap
   within acquisition collection. Require beam-width, fit-window, fold-seed,
   bootstrap-block-length, and cross-collection global-N sensitivity checks.

@@ -147,6 +147,10 @@ Notes:
   and disjoint validation.
 - Blind full-band selected/held-out agreement is the ensemble-size guardrail.
   Near-training-tune support is useful but conditioned and cannot replace it.
+  Publication plots therefore show blind agreement alone on a common H/V
+  zero-based scale; a separate conditioned panel preserves the secondary check.
+  A separate gate matrix exposes all six non-inferiority tests across N; the
+  earliest all-gate pass, not the visually highest agreement point, is selected.
 - A reduced-sample sensitivity run with no automatic knee is a physical-analysis
   limitation, not a missing-data value. All seven runs must verify, a strict
   majority per plane must yield eligible knees, and unavailable runs must retain

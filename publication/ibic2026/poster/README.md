@@ -24,6 +24,9 @@ prints the eligible-count and N range from seven verified sensitivity runs;
 unavailable reduced-sample knees remain explicit rather than being assigned N.
 Conclusion copy must say Best-N improves on adaptive Best-1 and must retain
 all-BPM aggregation as a strong descriptive baseline.
+The H/V Best-N frames use blind full-band selected-versus-held-out agreement on
+one shared zero-based scale. Do not substitute or overlay conditioned
+near-training agreement in those frames.
 
 `content.json` must provide the text and asset keys enforced by
 `build_poster.mjs`. The builder rejects missing/undersized images, unresolved

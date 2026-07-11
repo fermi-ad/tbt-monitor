@@ -484,6 +484,15 @@ finite metrics, detail/summary agreement, cross-collection products, native
 plots, and the three-larger-N recommendation boundary. The beam/fit/fold matrix
 uses seven unique sample runs with one shared baseline; it does not replace the
 all-row primary curve.
+The two poster-facing Best-N panels show only blind full-band selected-versus-
+held-out agreement, with moving-block intervals and one shared zero-based H/V
+scale. This preserves direct plane comparison and keeps the conditioned
+near-training-tune curve in a separate review image rather than presenting it
+as equivalent validation.
+The review gallery also carries a pass/fail matrix for blind agreement, blind
+tune difference, selected prominence/power, held-out prominence/power, and the
+combined all-gates result at every N. It explains why the earliest eligible N
+is selected even when a later point has a slightly higher agreement rate.
 Every matrix run must verify, but a reduced sample may legitimately have no
 automatic knee when selected-power and prominence margins do not intersect.
 Publication requires eligible knees from at least four of seven runs in each

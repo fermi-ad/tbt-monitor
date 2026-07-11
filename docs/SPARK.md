@@ -385,6 +385,12 @@ curves remain boundary-limited;
 five-fold validation cannot select more channels than remain in a training
 fold.
 
+The accepted summary can regenerate publication and diagnostic plots without
+waveform access. `best_n_validation_h/v.png` contains blind full-band agreement
+only on a shared H/V scale; `best_n_conditioned_agreement_h/v.png` retains the
+near-training diagnostic separately, and `best_n_decision_gates_h/v.png`
+records the exact criterion-by-N pass/fail decision.
+
 The reproducible sample sensitivity matrix is:
 
 ```bash

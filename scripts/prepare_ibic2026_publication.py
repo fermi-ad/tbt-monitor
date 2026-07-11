@@ -13,7 +13,7 @@ from pathlib import Path
 from statistics import median
 from typing import Mapping, Sequence
 
-from bpm_mining.best_n import recommended_n
+from bpm_mining.best_n import recommended_n, write_plots as write_best_n_plots
 from bpm_mining.ridge_verification import png_dimensions
 
 
@@ -666,6 +666,8 @@ def prepare_publication(
     paper_root = publication_root / "paper"
     poster_assets = poster_root / "assets"
     paper_figures = paper_root / "figures"
+    publication_best_n_plots = publication_root / "reports" / "best_n_plots"
+    write_best_n_plots(best_n_summary, publication_best_n_plots, tune_half_width)
     manifest: list[dict[str, str]] = []
     provenance_sources = {
         "analysis:primary_subset_comparison": primary_root
@@ -707,8 +709,8 @@ def prepare_publication(
         )
 
     sources = {
-        "best_n_h": best_n_block20 / "best_n_validation_h.png",
-        "best_n_v": best_n_block20 / "best_n_validation_v.png",
+        "best_n_h": publication_best_n_plots / "best_n_validation_h.png",
+        "best_n_v": publication_best_n_plots / "best_n_validation_v.png",
         "ridge_hv": ridge_root
         / f"ridge_density_legacy_single_vs_best_h{selected_sizes['H']}_v{selected_sizes['V']}_hv.png",
         "h_loss": ridge_root

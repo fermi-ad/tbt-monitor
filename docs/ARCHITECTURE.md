@@ -262,7 +262,11 @@ config ranking. Its package modules cover:
 - `best_n.py`: contiguous ensemble-size beam search with fit-prefix selection,
   complete overlap purging, blind and conditioned later-window metrics,
   digitizer-disjoint folds, moving-block intervals, sensitivity-ready shard
-  outputs, and cross-collection global-N transfer.
+  outputs, and cross-collection global-N transfer. Its publication plot isolates
+  blind full-band agreement on one zero-based scale shared by H and V; the
+  near-training-tune conditioned curve is emitted separately. A native gate
+  matrix renders the six recommendation criteria and their all-gates result for
+  every contiguous N from the same calculation used by `recommended_n()`.
 - `contracts.py`: canonical JSON and SHA-256 run contracts. Resumable analyses
   reject parameter drift, sharded merges require one compatible contract per
   declared shard, and duplicate science keys fail instead of being silently

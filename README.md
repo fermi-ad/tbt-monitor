@@ -40,6 +40,9 @@ populations cannot be conflated in publication copy. All seven reduced-sample
 sensitivity runs must verify; at least four per plane must yield an eligible
 knee, while every unavailable run and reason remains visible in the payload and
 publication copy.
+Poster-facing Best-N panels isolate blind full-band selected-versus-held-out
+agreement on one shared H/V scale. Near-training-tune agreement remains a
+separate conditioned diagnostic and is never overlaid as equivalent evidence.
 The reused-window direct-control gallery keeps all-BPM mean/median beside
 adaptive and frozen small sets; those controls are descriptive and currently
 preclude a claim that the small ensemble is the best aggregation method.

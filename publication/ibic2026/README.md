@@ -32,6 +32,10 @@ the exact poster JSON, paper table/figures, results payload, preparation report,
 and source manifest used by the two build pipelines. The manifest hashes the
 exact numerical source tables and all 15 materialized outputs; finalization
 parses its fixed schema and re-hashes the complete output inventory.
+The materializer regenerates the H/V Best-N panels from the accepted summary:
+the publication pair contains only blind held-out agreement on a common scale,
+while conditioned near-training agreement and an exact criterion-by-N gate
+matrix remain separate report assets.
 All seven declared beam/fit/fold sensitivity runs must verify. At least four of
 seven must produce an eligible recommendation in each plane. A structurally
 valid run with no recommendation remains sensitivity evidence: its identity and

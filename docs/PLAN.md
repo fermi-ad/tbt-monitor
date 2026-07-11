@@ -355,6 +355,11 @@ Current publication interpretation:
   reuse selection windows. Their executive table and PNG must include all-BPM
   mean and median; the current stronger all-BPM rows limit the inferential claim
   to Best-N versus Best-1 and frozen small sets.
+- Poster and paper Best-N panels use only blind full-band selected-versus-held-
+  out agreement on a shared zero-based H/V scale. Conditioned near-training
+  agreement remains in the review gallery and cannot carry the headline claim.
+- The Best-N review gallery also includes an exact criterion-by-N decision
+  matrix so the earliest eligible knee can be audited against every gate.
 - The old ``Best-10 deferred'' note is historical, not an active missing run.
   The publication evaluates every N contiguously through at least N=20 (target
   N=30) under the separate leakage-controlled protocol. The bounded N=30 trial
