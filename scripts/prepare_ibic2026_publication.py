@@ -504,7 +504,8 @@ def publication_content(
         "author": "Derek Steinkamp | Fermi National Accelerator Laboratory",
         "methodHeading": "ADAPTIVE, LEAKAGE-CONTROLLED BPM ENSEMBLES",
         "methodBody": (
-            "Synchronized 2,000-spill snapshots provide 60 H and 60 V channels.\n"
+            "Synchronized 2,000-spill raw snapshots provide 60 H and 60 V channels; "
+            "scaled threshold-substituted streams are excluded.\n"
             "Members are selected from eight fit windows; overlapping windows are purged.\n"
             f"Later validation uses {best_n_design['validation_spill_plane_count']:,} stratified spill-plane "
             f"cases across {best_n_design['digitizer_fold_count']} held-out-digitizer folds."

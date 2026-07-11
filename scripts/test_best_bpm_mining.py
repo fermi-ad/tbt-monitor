@@ -1128,6 +1128,7 @@ class BestBpmMiningTests(unittest.TestCase):
         manifest_figures = set(re.findall(figure_pattern, build_script))
         self.assertEqual(manifest_figures, manuscript_figures)
         self.assertNotIn("horizontal_loss_diagnostic.png", manuscript_figures)
+        self.assertIn("raw host-published position arrays", manuscript)
 
     def test_publication_requires_pdf_derived_poster_preview(self) -> None:
         preview = self.root / "poster.png"
@@ -1327,6 +1328,7 @@ class BestBpmMiningTests(unittest.TestCase):
             0,
         )
         self.assertEqual(content["author"], "Derek Steinkamp | Fermi National Accelerator Laboratory")
+        self.assertIn("scaled threshold-substituted streams are excluded", content["methodBody"])
         self.assertIn("H Best-7", content["ridgeCaption"])
         self.assertIn("V Best-11", content["ridgeCaption"])
         self.assertIn("minus corrected adaptive Best-1", content["ridgeContrastCaption"])

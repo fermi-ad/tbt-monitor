@@ -277,7 +277,7 @@ paper build routing smoke: flagged and unflagged shell paths plus portable 9-ent
 review-package transfer smoke: 13 files, 3 images, exact manifest/gallery/receipt verification passes; same-size tampering is detected
 JACoW layout smoke: the current manuscript is exactly four 595 x 792 bp pages after keeping the noncausal H-loss diagnostic in the poster/gallery; no overfull boxes or unresolved references, and all fonts are embedded/subset/Unicode-mapped
 accepted references: abstract and poster-template hashes reverified; manuscript title and abstract match abstract 54
-local branch: `dev/ibic2026-final-delivery` contains unpushed reporting/layout commits `d603bad8` and `20b98f5d`; this handoff refresh is documentation-only
+local branch: `dev/ibic2026-final-delivery` contains unpushed reporting, layout, and provenance commits; inspect `git log origin/dev/ibic2026-final-delivery..HEAD` after reconnecting
 ```
 
 The six process-pool probes passed on Spark in the accepted staged source tree.
