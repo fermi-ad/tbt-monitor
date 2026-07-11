@@ -1,6 +1,6 @@
 # Current Publication Handoff
 
-Last updated: 2026-07-10 20:19 CDT.
+Last updated: 2026-07-10 21:10 CDT.
 
 This file records the live publication run state. Permanent behavior and
 rationale remain in `docs/ARCHITECTURE.md`, `docs/DESIGN_DECISIONS.md`, and
@@ -49,7 +49,7 @@ Checkpoint after the system clock correction:
 shard 0: validation 250/250, complete
 shard 1: validation 250/250, complete
 shard 2: validation 250/250, complete
-shard 3: validation 160/250, 32000/50000 rows
+shard 3: validation 200/250, 40000/50000 rows
 memory watchdog: clear
 full-run COMPLETE marker: absent
 ```
@@ -85,7 +85,7 @@ The active chain is marker-gated and survives loss of the client SSH session:
    `/home/derekste/tbt-publication-20260710/delivery_ring_payload_audit` and
    requires the exact 263999-position-row/23999-paired-row contract before its
    own `COMPLETE` marker.
-4. `/home/derekste/spark_publication_tail_ef5e348e.sh` holds the final launch
+4. `/home/derekste/spark_publication_tail_c651ed5d.sh` holds the final launch
    lock and waits for the payload-audit marker. Before using the GPU it requires
    passing 10/20/40-block Best-N reports, four OK transfer rows, seven verified
    sensitivity runs, and eligible H/V recommendations in every sensitivity
@@ -96,13 +96,25 @@ The active chain is marker-gated and survives loss of the client SSH session:
    source-side review archive. The 32 GiB three-sample memory watchdog remains
    active throughout the GPU stages.
 
-The final continuation is detached as PID `630048` in its own session and
+The final continuation is detached as PID `645280` in its own session and
 process group. Its script SHA-256 is
-`8cc43c819e932d5e77a169374b4e566fc8b82c4aaf2d2fd56a308c5e9ee3884b`.
-It uses source commit `ef5e348e`, extracted only after the archive matched
-SHA-256 `b1562257ad2f97568896486ed3c00d18d1dfb9ed61c4bb0467c54bcf1f6d8b30`.
+`0b9919b2e1dcfbfde7de343024a201cb44a1784dd20f71ba333ba7ab8ec3934a`.
+It uses source commit `c651ed5d`, extracted only after the archive matched
+SHA-256 `1754858edbbaf3b0a2437e9fa1163385476d26ae2da2406bcfa71aaa8d9c63d4`.
 No intensity or ridge computation can begin merely because the earlier marker
 appears; the selected-N and sensitivity preflight must pass first.
+
+The latest local publication source is commit `23efff20`. Its prepared archive
+SHA-256 is
+`1e0bcfebc4290313cc0f3c73e6f40b020d8a62176a4b0607721d6565a87f7e2e`,
+and its prepared continuation-wrapper SHA-256 is
+`7ab96b2f97b46ebdeef9f08c725d2c99ad92609ba84fa6a631b1d2ebb9a808d0`.
+That version adds exact-zero control labels, common/detail intensity gallery
+scales, and citation-order polish. Staging is temporarily deferred by the local
+Codex remote-execution approval window until 23:45 CDT, not by Spark or SSH.
+If the older wrapper reaches intensity first, its waveform rows remain reusable;
+the expanded gallery and strict verifier can be rerun deterministically without
+another GPU waveform pass.
 
 The exact 142 MB legacy `gpu_sliding_tune.csv` is already on Spark under the
 `18d321db` combined output. `ssh -K drbpm1` remains available only if another
@@ -192,7 +204,7 @@ absolute-P99 clip.
 ## Current Local Validation
 
 ```text
-Best-BPM Python tests: 66 run, 60 passed, 6 process-pool tests skipped by local sandbox
+Best-BPM Python tests: 67 run, 61 passed, 6 process-pool tests skipped by local sandbox
 Autosweep Python tests: 9 passed
 Rust tests: 44 passed
 GPU analyzer self-test: passed
@@ -203,6 +215,10 @@ JACoW layout smoke: exactly four 595 x 792 bp pages, no overfull boxes or unreso
 ```
 
 The six process-pool probes passed on Spark in the accepted staged source tree.
+The stricter intensity-pairing gates were also streamed over the completed
+199-spill tables: all four methods had identical hashes for 288000 window keys
+and 3200 spill keys apiece, with zero nonfinite global picks, zero center-grid
+errors, and zero membership mismatches.
 The poster and paper smoke outputs prove layout only; final real-data builds and
 full-size visual QA remain required. No final physics claim, poster panel, or
 paper number may come from a provisional June downstream artifact.
