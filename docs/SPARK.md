@@ -423,7 +423,9 @@ The matrix uses descriptive internal labels such as `beam16`, but the standalone
 beam-width comparer accepts numeric `WIDTH=/path` keys. The runner converts those
 three labels to `16/32/64` at that subprocess boundary. A post-evaluator failure
 in comparison or gallery generation must be resumed with the same command and
-contracts; do not delete or recompute already verified run directories.
+contracts. In `--resume` mode the coordinator strictly verifies each existing
+run before scheduling and does not spawn an evaluator for a passing directory;
+do not delete or recompute already verified run directories.
 An otherwise valid sample run may report no knee when its selected-power and
 prominence margins do not intersect. Do not relabel that as a failed run or
 choose N manually. Publication requires all seven verified outputs and eligible

@@ -245,10 +245,28 @@ def _execute_jobs(
         write_csv(out / "sensitivity_run_manifest.csv", manifest, MANIFEST_FIELDS)
         return manifest
 
-    pending = list(jobs)
+    pending: list[_RunJob] = []
     active: list[_RunJob] = []
     completed: dict[str, dict[str, object]] = {}
     order = {job.run.slug: index for index, job in enumerate(jobs)}
+    for job in jobs:
+        if not getattr(args, "resume", False):
+            pending.append(job)
+            continue
+        try:
+            verify_run(args, job)
+        except Exception as exc:
+            print(
+                f"sensitivity_run={job.run.slug} status=resume_required reason={type(exc).__name__}",
+                flush=True,
+            )
+            pending.append(job)
+            continue
+        completed[job.run.slug] = _manifest_row(args, job, "verified")
+        print(f"sensitivity_run={job.run.slug} status=reused_verified", flush=True)
+    if completed:
+        manifest = sorted(completed.values(), key=lambda row: order[str(row["run"])])
+        write_csv(out / "sensitivity_run_manifest.csv", manifest, MANIFEST_FIELDS)
     low_memory_samples = 0
     try:
         while pending or active:

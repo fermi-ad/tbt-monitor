@@ -526,6 +526,46 @@ class BestBpmMiningTests(unittest.TestCase):
             self.assertEqual(abort["status"], "aborted")
             self.assertEqual(abort["active_runs"], [run.slug for run in runs])
 
+    def test_best_n_sensitivity_resume_skips_verified_evaluator_processes(self) -> None:
+        args = argparse.Namespace(
+            dry_run=False,
+            resume=True,
+            parallel_runs=2,
+            minimum_available_memory_gib=32.0,
+            memory_check_seconds=0.01,
+            low_memory_samples=3,
+            max_n=1,
+            curve_limit=1,
+            validation_limit=1,
+            folds=1,
+            bootstrap_block_spills=1,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            out = root / "out"
+            out.mkdir()
+            launch_marker = root / "launched"
+            job = _RunJob(
+                run=SensitivityRun(16, 8, 20260709),
+                output=root / "verified",
+                command=[
+                    sys.executable,
+                    "-c",
+                    f"from pathlib import Path; Path({str(launch_marker)!r}).touch()",
+                ],
+            )
+            manifest = _execute_jobs(
+                args,
+                [job],
+                root,
+                out,
+                verify_run=lambda _args, _job: None,
+                read_available_memory_gib=lambda: 128.0,
+            )
+            self.assertEqual([row["status"] for row in manifest], ["verified"])
+            self.assertIsNone(job.process)
+            self.assertFalse(launch_marker.exists())
+
     def test_best_n_resume_requires_exact_contiguous_rows(self) -> None:
         key = {"collection": "a", "spill_id": "1", "plane": "H"}
         curve = [{**key, "subset_size": value} for value in (1, 3)]

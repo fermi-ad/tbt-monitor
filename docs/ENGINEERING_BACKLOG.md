@@ -38,10 +38,10 @@ None.
 - Owner: project
 - Type: reliability
 - Why: the seven expensive sensitivity evaluators all verified, but final comparison failed because the matrix runner passed internal `beam16` labels to a CLI that requires integer width keys.
-- Scope: translate internal beam labels only at the beam-width comparison subprocess boundary; preserve the documented standalone comparer contract and resumable verified run directories.
-- Acceptance: a regression test requires exact numeric `16/32/64` run keys and reference width `64`; a Spark `--resume` pass reuses all seven verified runs, regenerates every comparison/gallery/index product, and writes the sensitivity `COMPLETE` marker without launching an evaluator.
+- Scope: translate internal beam labels only at the beam-width comparison subprocess boundary; pre-verify existing runs in `--resume` mode and skip their evaluator processes; preserve the documented standalone comparer contract and resumable verified run directories.
+- Acceptance: regression tests require exact numeric `16/32/64` run keys and reference width `64` and prove that a verified resume job never spawns its evaluator command; a Spark `--resume` pass reuses all seven verified runs, regenerates every comparison/gallery/index product, and writes the sensitivity `COMPLETE` marker without launching an evaluator.
 - Docs: NEXT_STEPS.md, docs/SPARK.md, docs/CURRENT_STATUS.md, docs/ENGINEERING_BACKLOG.md
-- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/run_best_n_sensitivity_matrix.py scripts/compare_best_n_beam_widths.py scripts/test_best_bpm_mining.py; PYTHONPATH=scripts PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m unittest scripts.test_best_bpm_mining.BestBpmMiningTests.test_best_n_beam_comparison_command_uses_numeric_width_labels -v; hash-bound Spark `--resume` pass and process audit
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/run_best_n_sensitivity_matrix.py scripts/compare_best_n_beam_widths.py scripts/test_best_bpm_mining.py; PYTHONPATH=scripts PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m unittest scripts.test_best_bpm_mining.BestBpmMiningTests.test_best_n_beam_comparison_command_uses_numeric_width_labels scripts.test_best_bpm_mining.BestBpmMiningTests.test_best_n_sensitivity_resume_skips_verified_evaluator_processes -v; hash-bound Spark `--resume` pass and process audit
 - Notes: the failed coordinator wrote status 1 after all seven manifest rows became `verified`; no memory-abort marker exists, so recovery must not repeat the GPU evaluations.
 
 ### [ENG-039] Leakage-controlled Best-N versus all-training baseline
