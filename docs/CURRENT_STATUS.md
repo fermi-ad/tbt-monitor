@@ -1,6 +1,6 @@
 # Current Publication Handoff
 
-Last updated: 2026-07-10 20:01 CDT.
+Last updated: 2026-07-10 20:19 CDT.
 
 This file records the live publication run state. Permanent behavior and
 rationale remain in `docs/ARCHITECTURE.md`, `docs/DESIGN_DECISIONS.md`, and
@@ -49,7 +49,7 @@ Checkpoint after the system clock correction:
 shard 0: validation 250/250, complete
 shard 1: validation 250/250, complete
 shard 2: validation 250/250, complete
-shard 3: validation 90/250, 18000/50000 rows
+shard 3: validation 160/250, 32000/50000 rows
 memory watchdog: clear
 full-run COMPLETE marker: absent
 ```
@@ -85,7 +85,7 @@ The active chain is marker-gated and survives loss of the client SSH session:
    `/home/derekste/tbt-publication-20260710/delivery_ring_payload_audit` and
    requires the exact 263999-position-row/23999-paired-row contract before its
    own `COMPLETE` marker.
-4. `/home/derekste/spark_publication_tail_f9f7a5ce.sh` holds the final launch
+4. `/home/derekste/spark_publication_tail_ef5e348e.sh` holds the final launch
    lock and waits for the payload-audit marker. Before using the GPU it requires
    passing 10/20/40-block Best-N reports, four OK transfer rows, seven verified
    sensitivity runs, and eligible H/V recommendations in every sensitivity
@@ -96,11 +96,11 @@ The active chain is marker-gated and survives loss of the client SSH session:
    source-side review archive. The 32 GiB three-sample memory watchdog remains
    active throughout the GPU stages.
 
-The final continuation is detached as PID `609117` in its own session and
+The final continuation is detached as PID `630048` in its own session and
 process group. Its script SHA-256 is
-`785705610a81d21f827063828c215a574d9df69c1bc9defba0a258388143873f`.
-It uses source commit `f9f7a5ce`, extracted only after the archive matched
-SHA-256 `8044abd5af4c633830102dadc4bff8c373e61a501722f1f161524b55a1145ff7`.
+`8cc43c819e932d5e77a169374b4e566fc8b82c4aaf2d2fd56a308c5e9ee3884b`.
+It uses source commit `ef5e348e`, extracted only after the archive matched
+SHA-256 `b1562257ad2f97568896486ed3c00d18d1dfb9ed61c4bb0467c54bcf1f6d8b30`.
 No intensity or ridge computation can begin merely because the earlier marker
 appears; the selected-N and sensitivity preflight must pass first.
 
@@ -128,7 +128,10 @@ The June downstream figures are provisional because the audit found:
 9. a continuation command that would rerun subset search despite `--resume`,
    and
 10. a 10,000-draw permutation configuration silently capped at 5,000 executed
-    draws.
+    draws, and
+11. an intensity subtraction renderer that assumed common spill/window rows
+    after checking only center turns and labeled probability redistribution as
+    weighted signal `adds`/`suppresses`.
 
 Corrected code uses exact source keys and masks, token-derived ring order,
 same-metric direct controls, a plane-balanced shortlist, and a nonempty gate
@@ -140,6 +143,10 @@ canonical cache and changes only duration, with before/after hashes. Scientific
 plots now use their named source tables and deterministic native PNG rendering;
 semantic verification rejects placeholder, blank, invalid-transition, or
 single-plane poster artifacts.
+Intensity subtraction now requires exact common finite spill/window keys,
+verifies identical method populations and memberships, and labels only
+higher/lower column-normalized ridge-pick probability with a display-only
+absolute-P99 clip.
 
 ## Evidence Protocol
 
@@ -162,6 +169,8 @@ single-plane poster artifacts.
 - Intensity is never multiplied into position. Retention requires FDR evidence,
   a minimum practical effect, median tune stability, 95% spillwise tune
   stability, and agreement at 10/20/40-spill block lengths.
+- Intensity density subtraction uses identical exact finite spill/window points;
+  red/blue is ridge-pick probability redistribution, not physical denoising.
 - Ridge subtraction is exact-point-paired probability redistribution, not
   physical noise removal. H-loss diagnostics do not impose an extraction-onset
   turn.
@@ -183,7 +192,7 @@ single-plane poster artifacts.
 ## Current Local Validation
 
 ```text
-Best-BPM Python tests: 65 run, 59 passed, 6 process-pool tests skipped by local sandbox
+Best-BPM Python tests: 66 run, 60 passed, 6 process-pool tests skipped by local sandbox
 Autosweep Python tests: 9 passed
 Rust tests: 44 passed
 GPU analyzer self-test: passed
