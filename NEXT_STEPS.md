@@ -4,6 +4,31 @@ Last updated: 2026-07-11.
 
 This file is a handoff for the next Codex/DevSpace pass. It consolidates the current repo review, Spark run status, physics assumptions, validation gaps, and the most important next analysis questions for the Delivery Ring BPM tune-tracking work.
 
+## 2026-07-11 Final Publication Closure
+
+Every scientific, implementation, rerun, verifier, gallery, poster, and paper
+task in this document is complete. The exact e433 source passed all 81 tests on
+Spark and materialized the accepted H Best-5/V Best-12 publication inputs. The
+cross-artifact finalizer verified 69 files, exact source and build manifests,
+one A0 poster page, four JACoW paper pages, zero empty structural PowerPoint
+placeholders, and explicit native-scale visual QA for both deliverables.
+
+The accepted result is deliberately bounded. Adaptive ensembles improve blind
+selected-versus-held-out agreement and tune-difference behavior relative to
+Best-1, with the strongest evidence in V. H Best-5 narrows the corrected-Best-1
+ridge-pick distribution, while V Best-12 broadens it slightly; same-protocol
+all-training outcomes are mixed. Intensity weighting retains zero effects.
+These are BPM-only internal reproducibility and ridge-concentration results,
+not absolute tune calibration, measured physical noise removal, or extraction
+onset.
+
+Only repository presentation closeout remains in progress in the completion
+table below: create and verify the final local review package, merge the scoped
+PR, remove superseded branch/stash state, and prove a clean `main`. Historical
+sections below remain unchanged where useful so they continue to document why
+each rerun and guardrail was required; their older pending language is not the
+current project state.
+
 ## 2026-07-09 Publication Audit And Completion Gate
 
 The June 28 interpretation below is retained as run history, but its downstream
@@ -535,24 +560,26 @@ strongest finite channel when finite values exist. Every weighted method falls
 back explicitly to unweighted aggregation when a window has no usable selected
 intensity at all, restoring the declared N=1 invariance without dropping the
 position spectrum.
-The continuous-weight results and block-aware re-summary remain valid, but the
-gate rows and final gallery require a short waveform refresh before closure.
+The clean source-bound refresh restored bit-exact Best-1 invariance, passed the
+strict verifier at 10/20/40-spill block lengths, and retained zero weighting
+effects. The final indexed gallery and publication materialization use that
+accepted refresh.
 
 Completion status:
 
 | Deliverable | Status | Completion evidence |
 | --- | --- | --- |
-| Exact identity/ring-order implementation and regression tests | complete | local 73-test Best-BPM suite (67 pass, 6 expected process-pool sandbox skips), 9 autosweep tests, 44 Rust tests, and Python byte compilation pass; staged-source Spark rerun remains part of final handoff |
+| Exact identity/ring-order implementation and regression tests | complete | e433 suite completes locally with six expected process-pool sandbox skips; all 81 tests pass in the exact staged Spark source, alongside 9 autosweep tests, 44 Rust tests, self-tests, byte compilation, and `git diff --check` |
 | Corrected Best-1/3/5 primary and downstream rerun | complete | primary and follow-up strict verifiers both report zero failures and zero warnings; every required fixed, held-out, artifact, and handoff product is present |
-| Best-N curve through at least N=20 | in progress | full N=1-40 run and 10/20/40-block merges complete; H Best-5 and V Best-12 on the accepted block-20 curve; five of seven reduced-sample sensitivity runs verified before the clock correction, with two bounded evaluators still active at the last network-confirmed probe |
-| Leakage-controlled Best-N versus all-training control | pending | implementation, strict verifier, 18-image native gallery, publication binding, and exact four-page paper smoke pass locally; full 1000-spill-plane CPU/cache run waits for the active Spark publication chain to become idle |
-| 200-spill intensity hypothesis test | in progress | all four corrected waveform shards completed and still found 0 FDR-significant/0 practical effects, but strict closure exposed singleton float32 scale/divide roundoff in 4,105 Best-1 rows; bit-exact pass-through passes locally and a clean source-bound rerun is required |
-| Delivery Ring producer and raw-payload integrity audit | in progress | live raw/scaled separation and HP303/VP304 roll behavior confirmed read-only on drbpm2; exhaustive first-50000-turn scan over all three publication collections pending on Spark |
-| Corrected 50000-turn ridge/difference/concentration gallery | pending | exact-source-key full-buffer sidecar plus strict spill/window/pair/metric/PNG/caption verifier |
+| Best-N curve through at least N=20 | complete | accepted N=1-40 curve and 10/20/40-block merges select H Best-5 and V Best-12; all seven reduced-sample runs verify, with eligible knees in 5/7 H (N=2-13) and 6/7 V (N=10-28), and all four cross-collection transfer rows are OK |
+| Leakage-controlled Best-N versus all-training control | complete | exact accepted control has 10,000 detail rows, 8,000 pairs, 16 comparisons, four summaries, 18 PNGs, and zero verifier issues; selected/all-training/unresolved outcomes are H 2/3/3 and V 3/3/2 |
+| 200-spill intensity hypothesis test | complete | clean source-bound four-shard refresh covers 23,999 exact pairs and 240 paired effects; Best-1 is bit-exact, all 10/20/40-block verifiers pass, and 0 FDR-significant, 0 practical, and 0 retained weighting effects remain |
+| Delivery Ring producer and raw-payload integrity audit | complete | live raw/scaled separation and HP303/VP304 roll behavior were confirmed read-only; exhaustive first-50,000-turn audit accepts 263,983 position rows and 23,999 pairs, with 17 recorded absences across 13 partial captures and zero blocking findings |
+| Corrected 50000-turn ridge/difference/concentration gallery | complete | strict verifier accepts all 2,000 manifests, nine requested N values, both planes, 360,000 structural rows per plane, every exact finite intersection, 200 PNGs, 200 captions, and the corrected Best-1-versus-selected contrasts |
 | All required handoff, fixed, held-out, artifact, and report tasks below | complete | corrected follow-up verifier passes 32,000 fixed, 800,000 held-out, 201,240 visibility, 13,104 handoff-event, 4,680 summary rows, and every required artifact |
-| Fermilab-template A0 poster and visual QA | pending | current all-training-copy stress smoke passes editable PPTX, one-page A0 PDF, PDF-derived full-size PNG, zero overflow, zero-issue template fidelity, and embedded/subset fonts; verifier-bound real-data rebuild and final visual QA remain |
-| JACoW-compliant four-page paper and visual QA | pending | current all-training-copy offline smoke passes exactly four pages with embedded/subset/Unicode fonts and no overfull boxes or unresolved references; verifier-bound real-data rebuild and final visual QA remain |
-| Scoped commits/PRs, merged docs, and clean repository | pending | merged PR URLs and clean `git status` |
+| Fermilab-template A0 poster and visual QA | complete | verifier-bound real-data PPTX/PDF/4966x7021 PNG passes one-page A0 geometry, zero overflow, zero-issue template fidelity, zero empty structural placeholders, exact manifests, embedded/subset fonts, and native-scale visual QA |
+| JACoW-compliant four-page paper and visual QA | complete | verifier-bound manuscript is exactly four 595x792 bp pages with four inspected 1240x1650 renders, embedded/subset/Unicode fonts, exact source manifest, and no overfull boxes or unresolved references |
+| Scoped commits/PRs, merged docs, and clean repository | in progress | publication commit, verified local review package, PR merge, stale branch/stash cleanup, and final clean-main proof |
 
 No poster or paper claim may use a provisional legacy downstream figure. The
 goal remains open until every pending row above and every required task in this

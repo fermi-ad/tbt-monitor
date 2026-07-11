@@ -31,10 +31,20 @@ Copy this block for each new item:
 
 None.
 
-## In Progress
+## Done
+
+Final closure on 2026-07-11 accepted the corrected primary, Best-N,
+all-training, intensity, payload-integrity, and 50,000-turn ridge roots. The
+e433 publication materialization passed 81 tests on Spark; the finalizer then
+verified 69 publication files, the one-page A0 poster, the four-page JACoW
+paper, exact source/build manifests, and explicit visual QA. The autosweep v2
+acceptance smoke completed all 6 jobs with two analyzer-bound PIDs overlapping
+for 3.927 seconds above the memory floor. Notes below that describe a required
+rerun or pending closure are retained as defect-discovery history and are
+superseded by this closure record and the per-item acceptance evidence.
 
 ### [ENG-040] Numeric beam-width sensitivity handoff
-- Status: in_progress
+- Status: done
 - Owner: project
 - Type: reliability
 - Why: the seven expensive sensitivity evaluators all verified, but final comparison failed because the matrix runner passed internal `beam16` labels to a CLI that requires integer width keys.
@@ -67,7 +77,7 @@ None.
 - Notes: a same-ID HP101 live event contained zero device-coded values in both raw arrays and 221215 in both scaled arrays, resolving the threshold-placeholder concern for the raw boundary. The exhaustive scan found five/seven/one partial manifests across the two position collections and intensity collection; all listed payloads pass, and none of the 16 position-only absent streams intersects the accepted H Best-5 or V Best-12 membership. The primary 2000-spill publication copy therefore reports 12 partial captures and 16 absences, while the full 2200-manifest audit retains the 13/17 totals. The loaded process predates the current bind-mounted source, so the exact corpus scan is the accepted runtime evidence.
 
 ### [ENG-037] Verifier-bound IBIC publication materialization
-- Status: in_progress
+- Status: done
 - Owner: project
 - Type: reliability
 - Coverage closure: finalization requires the primary and selected-ridge
@@ -81,7 +91,7 @@ None.
 - Notes: plane-specific N is allowed because H and V are independent diagnostics. The mixed four-panel image still uses one shared P98-clipped color scale, but visual thickness is compared only within each plane because the tune-band widths differ. Per-turn contrast CSVs are unsmoothed; five-window plot smoothing is visual only, and no contrast metric is labeled as physical noise or extraction timing. Selected coverage is H 359018 finite/14 blank/968 edge and V 289210 finite/69684 blank/1106 edge out of 360000 structural rows; density color normalizes available picks and does not erase that support difference. A verified reduced-sample sensitivity run may legitimately have no automatic knee when selected power and prominence trade off; the run and reason remain visible, while a strict four-of-seven majority per plane is required before the full-data selection can populate the publication. Poster copy lists the 4000 full-curve cases, 1000 stratified validation cases, and five held-out-digitizer folds as separate design counts rather than multiplying the validation population by the fold count. The poster uses the author's full name from the accepted abstract; the JACoW manuscript retains its conventional initialized author form. Artifact-tool preserves the supplied master in the PPTX but omits master media from its direct PNG, so the branded PDF raster is the authoritative full-size PNG and the direct render remains a separate diagnostic. Placeholder verification parses slide XML without rewriting the user-supplied OOXML package. Build manifests use package-relative logical labels; absolute paths may remain only as explanatory provenance inside the builder's JSON and are not trusted for final hash verification. The fake-Tectonic manifest smoke proves shell routing and downstream gates only; it is never cited as a manuscript compile.
 
 ### [ENG-036] Semantic publication artifacts and nonduplicating continuation
-- Status: in_progress
+- Status: done
 - Owner: project
 - Type: fix
 - Why: subset visibility duration used the whole fit span after one visible window; compatibility plots reused unrelated data or mislabeled local index/N as ring order/compute cost; handoff top-five counts were constant even without visible channels; and the waiting `--resume` continuation would repeat the completed subset search.
@@ -92,7 +102,7 @@ None.
 - Notes: selection scores and memberships were unaffected by the duration-field defect; the repair changes only that descriptive field before dependent summaries are regenerated. Held-out summaries report both total and evaluable rows because missing `q_hat` is a scientific coverage result, not a numerical zero.
 
 ### [ENG-035] Fail-closed run provenance and shard merging
-- Status: in_progress
+- Status: done
 - Owner: project
 - Type: reliability
 - Why: resumable Best-N rows were not bound to their original parameters, and the Best-N and intensity mergers silently replaced duplicate shard keys. Either behavior could produce structurally complete output with ambiguous provenance.
@@ -103,7 +113,7 @@ None.
 - Notes: source payloads remain read-only; contracts hash configuration and source inventories rather than copying or mutating raw data.
 
 ### [ENG-034] Strict intensity-study publication contract
-- Status: in_progress
+- Status: done
 - Owner: project
 - Type: reliability
 - Why: the corrected gate and block-aware inference still need one closure check tying the audited raw capture shape, complete method grids, zero-effect control, decision rules, and broad gallery together.
@@ -114,7 +124,7 @@ None.
 - Notes: intensity remains auxiliary; payload-horizon and lag diagnostics cannot establish beam-loss or extraction timing. Red/blue subtraction color is column-normalized ridge-pick probability redistribution, not measured noise removal. The first full corrected refresh exposed 4105 Best-1 rows whose nonlinear shape metrics moved only because a singleton float32 spectrum was multiplied and divided by its weight; the combiner now passes a usable singleton through bit-exactly, and closure requires a clean source-bound rerun rather than a relaxed verifier or in-place CSV repair.
 
 ### [ENG-033] Strict full-buffer ridge publication contract
-- Status: in_progress
+- Status: done
 - Owner: project
 - Type: reliability
 - Why: the ridge renderer could exit successfully while only reporting an aggregate warning count, so missing memberships, incomplete exact pairing, or absent figure files could escape publication review.
@@ -125,7 +135,7 @@ None.
 - Notes: subtractive plots remain exact-pair probability redistribution diagnostics, not physical noise measurements. Visible legends use higher/lower pick probability, captions disclose standalone/pair P98 and subtractive absolute-P99 raster clipping, and exported metrics remain unclipped. The older standalone raster used floor-divided cell heights and could misalign density with percentile overlays; paired panels were unaffected, and all corrected panels use proportional inclusive cell bounds. Deficiency 45 exposed a verifier-only mismatch after the full GPU pass: it equated structural rows with finite picks, assumed constant full-source pair counts, rejected bounded parabolic edge refinements, and applied landscape minima to portrait figures. The completed root is internally consistent and passes the corrected mask-reconstruction verifier diagnostically; source-bound closure remains required.
 
 ### [ENG-032] Non-circular block inference and matched-pairs effect size
-- Status: in_progress
+- Status: done
 - Owner: project
 - Type: fix
 - Why: moving-block intervals wrapped nonadjacent collection/turn endpoints, and the exported rank-biserial field used only sign counts rather than ranked absolute paired differences.
@@ -136,7 +146,7 @@ None.
 - Notes: block length remains a sensitivity parameter; no single block choice may determine a retained method or Best-N conclusion.
 
 ### [ENG-031] Plane-balanced curated poster examples
-- Status: in_progress
+- Status: done
 - Owner: project
 - Type: fix
 - Why: the first eight-example poster shortlist filled entirely with higher-priority V rows even though H limitation examples existed in the full artifact manifest.
@@ -147,7 +157,7 @@ None.
 - Notes: this balances review coverage, not the physics conclusion; V may remain the strongest final panel.
 
 ### [ENG-030] Same-metric dynamic/fixed/all-BPM control recomputation
-- Status: in_progress
+- Status: done
 - Owner: project
 - Type: fix
 - Why: the first fixed-set sidecar recomputed frozen and all-BPM rows with the evolution score but copied dynamic rows carrying the unrelated subset-search score, making plotted bar heights incomparable.
@@ -158,7 +168,7 @@ None.
 - Notes: do not reuse the June fixed-vs-dynamic plot or its numeric conclusion in a publication artifact. The corrected table shows all-BPM aggregation as the strongest descriptive control in both planes; leakage-controlled Best-N establishes a knee relative to Best-1, not superiority to all-BPM aggregation.
 
 ### [ENG-028] Intensity-assisted tune-quality sidecar
-- Status: in_progress
+- Status: done
 - Owner: project
 - Type: feature
 - Why: the 200-spill raw capture contains timestamp-matched position/intensity pairs, but intensity has never been tested as a quality covariate or ensemble weight.
@@ -169,7 +179,7 @@ None.
 - Notes: raw intensity is never multiplied into position waveforms; it only changes per-window spectral aggregation weights or serves as a covariate. The publication run uses the explicit canonical N grid `1,3,5,7,10,12,15,20` plus each distinct accepted H/V recommendation outside that grid; analysis and verification must use the same union and corresponding spill-row count.
 
 ### [ENG-027] Time- and digitizer-disjoint Best-N model selection
-- Status: in_progress
+- Status: done
 - Owner: project
 - Type: feature
 - Why: completed Best-1/3/5 runs do not establish the optimal ensemble size, and training score alone can improve with N without demonstrating later-window reproducibility.
@@ -180,7 +190,7 @@ None.
 - Notes: the automatic knee is a declared reproducibility/contrast non-inferiority rule; full metric curves remain the primary evidence. An unavailable reduced-sample knee is a sensitivity result, not a verifier failure and not permission to coerce an N. Four concurrent max-N=40 evaluators exceeded 115 GiB on Spark's single GB10 and forced a reboot. A later two-process qualification peaked near 83 GB (77 GiB) host use with about 44 GiB available and mostly 70-96% GPU utilization. Full-run shards and independent sensitivity configurations may therefore use at most two evaluators under a 32 GiB `MemAvailable` floor sampled every five seconds with three low samples before process-group termination; intensity and ridge remain serialized until separately qualified.
 
 ### [ENG-026] Exact BPM identity and ring-order provenance correction
-- Status: in_progress
+- Status: done
 - Owner: project
 - Type: fix
 - Why: each digitizer contributes two same-plane channels, but legacy subset artifacts serialized only the digitizer label, and ring order was parsed from the first number in the IP address. Follow-up reconstruction could select the wrong channel and the ring-span diversity term was disabled.
@@ -191,7 +201,7 @@ None.
 - Notes: original Best-1/3/5 score rows remain useful diagnostics because masks preserve local indices, but downstream products that reconstructed channels from digitizer labels must be regenerated.
 
 ### [ENG-021] Autosweep parallel runner and GPU telemetry
-- Status: in_progress
+- Status: done
 - Owner: project
 - Type: perf
 - Why: Spark autosweep and Best-BPM runs need better host/GPU utilization and first-class accounting for GPU wall time, utilized GPU-hours, and power draw.
@@ -200,8 +210,6 @@ None.
 - Docs: README.md, docs/USAGE.md, docs/POSTER_ANALYSIS.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/ENGINEERING_BACKLOG.md
 - Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/gpu_run_telemetry.py scripts/run_autosweep.py scripts/bpm_mining/pipeline.py scripts/test_autosweep.py scripts/test_best_bpm_mining.py; python3 scripts/test_autosweep.py; python3 scripts/test_best_bpm_mining.py
 - Notes: Spark two-job smoke is intentionally deferred until the complete publication chain, including the CPU/cache all-training control, releases unified memory. The prepared marker-gated wrapper is `review-artifacts/publication-run-handoff/spark_autosweep_parallel_smoke_cf43cb1d.sh`, SHA-256 `059258579881d539911033c7b5b54c0d704d6ddec67ae12540b16a8084901886`; it verifies source hashes, requires three 48 GiB preflight samples, and aborts after three consecutive samples below 32 GiB. Two jobs are the current ceiling; 3-4 require a separate guarded qualification.
-
-## Done
 
 ### [ENG-029] Checksummed publication review packaging
 - Status: done
