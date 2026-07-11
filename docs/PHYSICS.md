@@ -185,6 +185,12 @@ Notes:
   uses exact-paired selected Best-N minus corrected Best-1, with an exact-zero
   Best-1 self-control. Adaptive-minus-legacy intervals combine selector repair
   and ensemble size and remain historical context only.
+- Ridge-density sample retention is itself a physics-quality diagnostic. Every
+  spill/window row remains present, but no-confidence tunes stay blank and
+  bounded parabolic edge refinements are excluded from the in-band density.
+  Column normalization must therefore be interpreted with the exported sample
+  fraction and exact paired counts, especially at larger N; visually stronger
+  contrast cannot be credited to an ensemble when coverage has fallen.
 - Intensity-weighting subtraction uses the same rule independently: methods
   must share exact collection/spill/plane/N/window/center keys, and only common
   finite in-band global ridge picks enter each column. Red/blue therefore means

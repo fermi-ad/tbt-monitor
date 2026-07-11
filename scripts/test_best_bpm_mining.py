@@ -78,7 +78,9 @@ from bpm_mining.all_training import verify_outputs as verify_all_training_output
 from bpm_mining.ridge_verification import (
     audit_sliding_file,
     contracted_center_grid,
+    paired_mask_coverage,
     png_dimensions,
+    valid_figure_dimensions,
     verify_ridge_density_outputs,
 )
 from bpm_mining.intensity import (
@@ -629,9 +631,14 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertEqual(grid, (2, 4, 6))
         path = self.root / "ridge_sliding.csv"
         rows = []
-        for spill_id, centers in (("1", grid), ("2", grid[:-1]), ("1", grid)):
+        for spill_index, spill_id, centers in (
+            (0, "1", grid),
+            (1, "2", grid[:-1]),
+            (0, "1", grid),
+        ):
             rows.extend(
                 {
+                    "spill_index": spill_index,
                     "run_name": "run",
                     "target_ms": spill_id,
                     "spill_id": spill_id,
@@ -639,14 +646,92 @@ class BestBpmMiningTests(unittest.TestCase):
                     "center_turn": center,
                     "selected_bpm_count": 3,
                     "selected_tune": 0.65,
+                    "selected_confidence": 3.0,
                 }
                 for center in centers
             )
         write_csv(path, rows, list(rows[0]))
-        audit = audit_sliding_file(path, subset_size=3, expected_center_grid=grid)
+        audit = audit_sliding_file(
+            path,
+            subset_size=3,
+            expected_center_grid=grid,
+            expected_spill_count=2,
+        )
         self.assertEqual(audit["group_counts"]["H"], 3)
         self.assertEqual(audit["duplicate_groups"]["H"], 1)
         self.assertEqual(audit["bad_center_grids"]["H"], 1)
+
+    def test_ridge_sliding_audit_reconstructs_finite_point_intersections(self) -> None:
+        grid = (2, 4)
+
+        def write_sliding(path: Path, tunes: list[list[object]]) -> None:
+            rows = []
+            for spill_index, spill_tunes in enumerate(tunes):
+                for center, tune in zip(grid, spill_tunes):
+                    rows.append(
+                        {
+                            "spill_index": spill_index,
+                            "run_name": "run",
+                            "target_ms": str(spill_index + 1),
+                            "spill_id": f"spill_{spill_index + 1}",
+                            "plane": "H",
+                            "center_turn": center,
+                            "selected_bpm_count": 3,
+                            "selected_tune": tune,
+                            "selected_confidence": "" if tune == "" else 3.0,
+                        }
+                    )
+            write_csv(path, rows, list(rows[0]))
+
+        baseline_path = self.root / "ridge_baseline.csv"
+        ensemble_path = self.root / "ridge_ensemble.csv"
+        write_sliding(baseline_path, [[0.65, ""], [0.6197, 0.66]])
+        write_sliding(ensemble_path, [[0.651, 0.652], ["", 0.661]])
+        baseline = audit_sliding_file(
+            baseline_path,
+            subset_size=3,
+            expected_center_grid=grid,
+            expected_spill_count=2,
+            edge_tolerance=0.001,
+        )
+        ensemble = audit_sliding_file(
+            ensemble_path,
+            subset_size=3,
+            expected_center_grid=grid,
+            expected_spill_count=2,
+            edge_tolerance=0.001,
+        )
+        self.assertEqual(baseline["row_counts"]["H"], 4)
+        self.assertEqual(baseline["missing_tunes"]["H"], 1)
+        self.assertEqual(baseline["edge_excluded_tunes"]["H"], 1)
+        self.assertEqual(baseline["tune_bad"]["H"], 0)
+        self.assertEqual(baseline["valid_center_masks"]["H"], [1, 2])
+        self.assertEqual(ensemble["valid_center_masks"]["H"], [1, 3])
+        self.assertEqual(
+            paired_mask_coverage(baseline, ensemble, "H"),
+            {
+                "common_spill_count": 2,
+                "common_ridge_point_count": 2,
+                "common_center_count": 2,
+                "paired_counts": (1, 1),
+            },
+        )
+        outside_path = self.root / "ridge_outside_tolerance.csv"
+        write_sliding(outside_path, [[0.618, 0.65], [0.65, 0.66]])
+        outside = audit_sliding_file(
+            outside_path,
+            subset_size=3,
+            expected_center_grid=grid,
+            expected_spill_count=2,
+            edge_tolerance=0.001,
+        )
+        self.assertEqual(outside["tune_bad"]["H"], 1)
+
+    def test_ridge_figure_dimension_gate_is_orientation_aware(self) -> None:
+        self.assertTrue(valid_figure_dimensions((1400, 900), 1000, 600))
+        self.assertTrue(valid_figure_dimensions((800, 1250), 1000, 600))
+        self.assertFalse(valid_figure_dimensions((800, 900), 1000, 600))
+        self.assertFalse(valid_figure_dimensions(None, 1000, 600))
 
     def test_intensity_fallback_label_presence(self) -> None:
         self.assertFalse(has_weight_fallback(""))

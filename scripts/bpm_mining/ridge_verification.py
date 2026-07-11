@@ -135,6 +135,13 @@ def _finite(value: object) -> float:
     return number if math.isfinite(number) else math.nan
 
 
+def _integer(value: object) -> int | None:
+    number = _finite(value)
+    if not math.isfinite(number) or not number.is_integer():
+        return None
+    return int(number)
+
+
 def _iter_csv(path: Path):
     if not path.is_file():
         return
@@ -174,9 +181,12 @@ def audit_sliding_file(
     path: Path,
     subset_size: int,
     expected_center_grid: Sequence[int],
+    expected_spill_count: int | None = None,
+    edge_tolerance: float = 0.0,
 ) -> dict[str, object]:
-    """Audit an exact sliding table while retaining only spill identities."""
+    """Audit a sliding table and retain compact finite-point coverage masks."""
     expected_grid = tuple(int(value) for value in expected_center_grid)
+    center_indices = {center: index for index, center in enumerate(expected_grid)}
     row_counts: Counter[str] = Counter()
     group_counts: Counter[str] = Counter()
     duplicate_groups: Counter[str] = Counter()
@@ -184,10 +194,30 @@ def audit_sliding_file(
     bad_center_examples: dict[str, list[str]] = defaultdict(list)
     seen_groups: set[tuple[str, str, str, str]] = set()
     cardinality_bad: Counter[str] = Counter()
+    missing_tunes: Counter[str] = Counter()
+    edge_excluded_tunes: Counter[str] = Counter()
+    malformed_tunes: Counter[str] = Counter()
     tune_bad: Counter[str] = Counter()
     tune_examples: dict[str, list[str]] = defaultdict(list)
+    peak_state_bad: Counter[str] = Counter()
+    malformed_centers: Counter[str] = Counter()
+    malformed_spill_indices: Counter[str] = Counter()
+    spill_index_out_of_range: Counter[str] = Counter()
+    spill_identity_conflicts: Counter[str] = Counter()
+    spill_identities: dict[str, dict[int, tuple[str, str, str]]] = {
+        "H": {},
+        "V": {},
+    }
+    identity_indices: dict[str, dict[tuple[str, str, str], int]] = {
+        "H": {},
+        "V": {},
+    }
+    valid_center_masks: dict[str, list[int]] = {
+        "H": [0] * len(expected_grid),
+        "V": [0] * len(expected_grid),
+    }
     unknown_planes: Counter[str] = Counter()
-    current_group: tuple[str, str, str, str] | None = None
+    current_group: tuple[str, str, str, str, int] | None = None
     current_centers: list[int] = []
 
     def finish_group() -> None:
@@ -195,16 +225,31 @@ def audit_sliding_file(
         if current_group is None:
             return
         group_plane = current_group[3]
+        spill_index = current_group[4]
+        identity = current_group[:3]
         group_counts[group_plane] += 1
-        if current_group in seen_groups:
+        identity_group = current_group[:4]
+        if identity_group in seen_groups:
             duplicate_groups[group_plane] += 1
         else:
-            seen_groups.add(current_group)
+            seen_groups.add(identity_group)
+        if spill_index >= 0 and (
+            expected_spill_count is None or spill_index < expected_spill_count
+        ):
+            existing_identity = spill_identities[group_plane].get(spill_index)
+            existing_index = identity_indices[group_plane].get(identity)
+            if existing_identity is not None and existing_identity != identity:
+                spill_identity_conflicts[group_plane] += 1
+            elif existing_index is not None and existing_index != spill_index:
+                spill_identity_conflicts[group_plane] += 1
+            else:
+                spill_identities[group_plane][spill_index] = identity
+                identity_indices[group_plane][identity] = spill_index
         if tuple(current_centers) != expected_grid:
             bad_center_grids[group_plane] += 1
             if len(bad_center_examples[group_plane]) < 5:
                 bad_center_examples[group_plane].append(
-                    f"{current_group[:3]} centers={len(current_centers)}"
+                    f"{identity} centers={len(current_centers)}"
                 )
         current_group = None
         current_centers = []
@@ -214,23 +259,59 @@ def audit_sliding_file(
         if plane not in {"H", "V"}:
             unknown_planes[plane] += 1
             continue
+        spill_index = _integer(row.get("spill_index"))
+        if spill_index is None:
+            malformed_spill_indices[plane] += 1
+            spill_index = -1
+        elif expected_spill_count is not None and not 0 <= spill_index < expected_spill_count:
+            spill_index_out_of_range[plane] += 1
         group = (
             row.get("run_name", ""),
             row.get("target_ms", ""),
             row.get("spill_id", ""),
             plane,
+            spill_index,
         )
         if current_group is not None and group != current_group:
             finish_group()
         if current_group is None:
             current_group = group
         row_counts[plane] += 1
-        current_centers.append(int(float(row.get("center_turn") or 0)))
-        if int(row.get("selected_bpm_count") or 0) != subset_size:
+        center = _integer(row.get("center_turn"))
+        if center is None:
+            malformed_centers[plane] += 1
+            current_centers.append(-1)
+        else:
+            current_centers.append(center)
+        if _integer(row.get("selected_bpm_count")) != subset_size:
             cardinality_bad[plane] += 1
         low, high = (0.620, 0.680) if plane == "H" else (0.690, 0.740)
-        selected_tune = row.get("selected_tune", "")
-        if not (low <= _finite(selected_tune) <= high):
+        selected_tune = str(row.get("selected_tune", "") or "").strip()
+        selected_confidence = str(row.get("selected_confidence", "") or "").strip()
+        if not selected_tune:
+            missing_tunes[plane] += 1
+            if selected_confidence:
+                peak_state_bad[plane] += 1
+            continue
+        tune = _finite(selected_tune)
+        if not math.isfinite(tune):
+            malformed_tunes[plane] += 1
+            if len(tune_examples[plane]) < 5:
+                tune_examples[plane].append(selected_tune)
+            continue
+        if not math.isfinite(_finite(selected_confidence)):
+            peak_state_bad[plane] += 1
+        if low <= tune <= high:
+            center_index = center_indices.get(center) if center is not None else None
+            if (
+                spill_index >= 0
+                and (expected_spill_count is None or spill_index < expected_spill_count)
+                and center_index is not None
+            ):
+                valid_center_masks[plane][center_index] |= 1 << spill_index
+        elif max(low - tune, tune - high, 0.0) <= edge_tolerance:
+            edge_excluded_tunes[plane] += 1
+        else:
             tune_bad[plane] += 1
             if len(tune_examples[plane]) < 5:
                 tune_examples[plane].append(selected_tune)
@@ -242,9 +323,42 @@ def audit_sliding_file(
         "bad_center_grids": bad_center_grids,
         "bad_center_examples": bad_center_examples,
         "cardinality_bad": cardinality_bad,
+        "missing_tunes": missing_tunes,
+        "edge_excluded_tunes": edge_excluded_tunes,
+        "malformed_tunes": malformed_tunes,
         "tune_bad": tune_bad,
         "tune_examples": tune_examples,
+        "peak_state_bad": peak_state_bad,
+        "malformed_centers": malformed_centers,
+        "malformed_spill_indices": malformed_spill_indices,
+        "spill_index_out_of_range": spill_index_out_of_range,
+        "spill_identity_conflicts": spill_identity_conflicts,
+        "spill_identities": spill_identities,
+        "valid_center_masks": valid_center_masks,
         "unknown_planes": unknown_planes,
+    }
+
+
+def paired_mask_coverage(
+    baseline_audit: Mapping[str, object],
+    ensemble_audit: Mapping[str, object],
+    plane: str,
+) -> dict[str, object]:
+    baseline_masks = baseline_audit["valid_center_masks"][plane]
+    ensemble_masks = ensemble_audit["valid_center_masks"][plane]
+    paired_masks = [
+        int(baseline) & int(ensemble)
+        for baseline, ensemble in zip(baseline_masks, ensemble_masks)
+    ]
+    common_spills = 0
+    for mask in paired_masks:
+        common_spills |= mask
+    paired_counts = tuple(mask.bit_count() for mask in paired_masks)
+    return {
+        "common_spill_count": common_spills.bit_count(),
+        "common_ridge_point_count": sum(paired_counts),
+        "common_center_count": sum(count > 0 for count in paired_counts),
+        "paired_counts": paired_counts,
     }
 
 
@@ -256,6 +370,16 @@ def png_dimensions(path: Path) -> tuple[int, int] | None:
     if len(header) < 24 or header[:8] != b"\x89PNG\r\n\x1a\n" or header[12:16] != b"IHDR":
         return None
     return struct.unpack(">II", header[16:24])
+
+
+def valid_figure_dimensions(
+    dimensions: tuple[int, int] | None,
+    minimum_width: int,
+    minimum_height: int,
+) -> bool:
+    if dimensions is None:
+        return False
+    return min(dimensions) >= minimum_height and max(dimensions) >= minimum_width
 
 
 def verification_markdown(report: Mapping[str, object]) -> str:
@@ -270,8 +394,8 @@ def verification_markdown(report: Mapping[str, object]) -> str:
         "",
         "## Coverage",
         "",
-        "| plane | N | spills | centers | ridge points | paired legacy spills | paired points |",
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "| plane | N | spills | centers | rows | finite in-band | blank picks | edge-excluded | paired legacy spills | paired points |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     coverage = report.get("coverage", [])
     if isinstance(coverage, Sequence):
@@ -280,7 +404,9 @@ def verification_markdown(report: Mapping[str, object]) -> str:
             lines.append(
                 f"| {row.get('plane', '')} | {row.get('subset_size', '')} | "
                 f"{row.get('spill_count', '')} | {row.get('center_count', '')} | "
-                f"{row.get('ridge_points', '')} | {row.get('legacy_spill_count', '')} | "
+                f"{row.get('sliding_rows', '')} | {row.get('ridge_points', '')} | "
+                f"{row.get('missing_tune_rows', '')} | {row.get('edge_excluded_rows', '')} | "
+                f"{row.get('legacy_spill_count', '')} | "
                 f"{row.get('legacy_point_count', '')} |"
             )
     lines.extend(["", "## Findings", ""])
@@ -322,6 +448,7 @@ def verify_ridge_density_outputs(
 
     contract: dict[str, object] = {}
     expected_center_grid: tuple[int, ...] = ()
+    edge_tolerance = 0.0
     expected_adaptive_spills = 0
     expected_legacy_spills: dict[str, int] = {}
     expected_legacy_points: dict[str, int] = {}
@@ -374,6 +501,9 @@ def verify_ridge_density_outputs(
         if window_turns > 0 and stride_turns > 0 and turn_span >= window_turns:
             expected_contract_centers = (turn_span - window_turns) // stride_turns + 1
             expected_center_grid = contracted_center_grid(turn_span, window_turns, stride_turns)
+            # The lower search bin is floored and parabolic refinement may move
+            # one more bin, so two FFT bins are the algorithmic hard bound.
+            edge_tolerance = 2.0 / window_turns
         if expected_contract_centers != expected_centers:
             _issue(issues, "error", "run_contract_centers", "ridge run contract window geometry does not match verification")
         if contract.get("planes") != ["H", "V"]:
@@ -458,6 +588,69 @@ def verify_ridge_density_outputs(
             "legacy_turn_coverage",
             "legacy turn-contrast table does not cover every requested H/V N",
         )
+    sliding_audits: dict[int, dict[str, object]] = {}
+    canonical_spill_identities: dict[int, tuple[str, str, str]] = {}
+    cross_file_identity_conflicts = 0
+    for size in sizes:
+        path = root / f"ridge_density_best{size}_sliding_tune.csv"
+        if not path.is_file() or path.stat().st_size == 0:
+            _issue(
+                issues,
+                "error",
+                "missing_sliding_file",
+                f"missing or empty sliding ridge table: {path.name}",
+            )
+        audit = audit_sliding_file(
+            path,
+            size,
+            expected_center_grid,
+            expected_adaptive_spills or None,
+            edge_tolerance,
+        )
+        unknown_planes = audit["unknown_planes"]
+        if unknown_planes:
+            _issue(
+                issues,
+                "error",
+                "sliding_unknown_plane",
+                f"Best-{size} sliding table contains unknown plane labels",
+                sum(unknown_planes.values()),
+                list(unknown_planes),
+            )
+        for plane in ("H", "V"):
+            for field, code, message in (
+                ("malformed_centers", "sliding_center_value", "malformed center-turn values"),
+                ("malformed_spill_indices", "sliding_spill_index", "malformed spill indices"),
+                ("spill_index_out_of_range", "sliding_spill_index_range", "out-of-range spill indices"),
+                ("spill_identity_conflicts", "sliding_spill_identity", "conflicting spill identities"),
+                ("malformed_tunes", "sliding_tune_value", "malformed nonblank tune values"),
+                ("peak_state_bad", "sliding_peak_state", "inconsistent selected tune/confidence states"),
+            ):
+                count = audit[field][plane]
+                if count:
+                    _issue(
+                        issues,
+                        "error",
+                        code,
+                        f"{plane} Best-{size} has {message}",
+                        count,
+                    )
+            for spill_index, identity in audit["spill_identities"][plane].items():
+                existing = canonical_spill_identities.get(spill_index)
+                if existing is None:
+                    canonical_spill_identities[spill_index] = identity
+                elif existing != identity:
+                    cross_file_identity_conflicts += 1
+        sliding_audits[size] = audit
+    if cross_file_identity_conflicts:
+        _issue(
+            issues,
+            "error",
+            "sliding_cross_file_identity",
+            "sliding files disagree on spill identity for a contracted spill index",
+            cross_file_identity_conflicts,
+        )
+
     adaptive_size_pairs = list(combinations(sizes, 2))
     if 1 in sizes:
         adaptive_size_pairs.insert(0, (1, 1))
@@ -505,18 +698,25 @@ def verify_ridge_density_outputs(
     for key in sorted(expected_adaptive_pair_keys):
         row = adaptive_pair_by_key.get(key, {})
         plane, baseline, ensemble = key
+        reconstructed = paired_mask_coverage(
+            sliding_audits[baseline],
+            sliding_audits[ensemble],
+            plane,
+        )
         if (
-            int(row.get("common_spill_count") or 0) != expected_adaptive_spills
-            or int(row.get("common_ridge_point_count") or 0)
-            != expected_adaptive_spills * expected_centers
-            or int(row.get("common_center_count") or 0) != expected_centers
-            or int(row.get("subset_size") or 0) != ensemble
+            _integer(row.get("common_spill_count"))
+            != reconstructed["common_spill_count"]
+            or _integer(row.get("common_ridge_point_count"))
+            != reconstructed["common_ridge_point_count"]
+            or _integer(row.get("common_center_count"))
+            != reconstructed["common_center_count"]
+            or _integer(row.get("subset_size")) != ensemble
         ):
             _issue(
                 issues,
                 "error",
                 "adaptive_pair_exact_coverage",
-                f"{plane} Best-{baseline} versus Best-{ensemble} lacks exact adaptive pairing coverage",
+                f"{plane} Best-{baseline} versus Best-{ensemble} does not match the reconstructed finite-point intersection",
             )
         missing_numeric = [
             field
@@ -532,104 +732,195 @@ def verify_ridge_density_outputs(
                 len(missing_numeric),
                 missing_numeric,
             )
+        expected_counts = dict(
+            zip(expected_center_grid, reconstructed["paired_counts"])
+        )
         turn_rows = adaptive_turn_groups.get(key, [])
-        turn_centers = [
-            int(float(turn_row.get("center_turn") or 0)) for turn_row in turn_rows
-        ]
+        turn_centers = [_integer(turn_row.get("center_turn")) for turn_row in turn_rows]
         bad_turn_rows = [
             turn_row.get("center_turn", "")
             for turn_row in turn_rows
-            if int(turn_row.get("paired_ridge_count") or 0) != expected_adaptive_spills
-            or int(turn_row.get("subset_size") or 0) != ensemble
+            if _integer(turn_row.get("center_turn")) not in expected_counts
+            or _integer(turn_row.get("paired_ridge_count"))
+            != expected_counts.get(_integer(turn_row.get("center_turn")))
+            or _integer(turn_row.get("subset_size")) != ensemble
             or any(
                 not math.isfinite(_finite(turn_row.get(field)))
                 for field in ADAPTIVE_TURN_NUMERIC_FIELDS
             )
         ]
+        finite_turn_centers = [center for center in turn_centers if center is not None]
         if (
             len(turn_rows) != expected_centers
-            or len(set(turn_centers)) != expected_centers
-            or tuple(sorted(turn_centers)) != expected_center_grid
+            or tuple(sorted(finite_turn_centers)) != expected_center_grid
             or bad_turn_rows
         ):
             _issue(
                 issues,
                 "error",
                 "adaptive_pair_turn_metrics",
-                f"{plane} Best-{baseline} versus Best-{ensemble} lacks the exact finite turn grid",
+                f"{plane} Best-{baseline} versus Best-{ensemble} does not match the reconstructed per-turn intersection",
                 max(1, len(bad_turn_rows)),
                 bad_turn_rows,
             )
-    sliding_audits: dict[int, dict[str, object]] = {}
-    for size in sizes:
-        path = root / f"ridge_density_best{size}_sliding_tune.csv"
-        if not path.is_file() or path.stat().st_size == 0:
-            _issue(issues, "error", "missing_sliding_file", f"missing or empty sliding ridge table: {path.name}")
-        audit = audit_sliding_file(path, size, expected_center_grid)
-        unknown_planes = audit["unknown_planes"]
-        if unknown_planes:
-            _issue(issues, "error", "sliding_unknown_plane", f"Best-{size} sliding table contains unknown plane labels", sum(unknown_planes.values()), list(unknown_planes))
-        sliding_audits[size] = audit
+
     coverage: list[dict[str, object]] = []
     for plane, size in sorted(expected_keys):
         metric = metric_by_key.get((plane, size), {})
         legacy_row = legacy_by_key.get((plane, size), {})
         center_rows = center_groups.get((plane, size), [])
-        center_values = [int(float(row.get("center_turn") or 0)) for row in center_rows]
-        spill_count = int(metric.get("spill_count") or 0)
-        ridge_points = int(metric.get("ridge_points") or 0)
-        valid_centers = int(metric.get("valid_center_count") or 0)
-        legacy_spills = int(legacy_row.get("common_spill_count") or 0)
-        legacy_points = int(legacy_row.get("common_ridge_point_count") or 0)
+        center_values = [_integer(row.get("center_turn")) for row in center_rows]
+        finite_center_values = [center for center in center_values if center is not None]
+        spill_count = _integer(metric.get("spill_count")) or 0
+        ridge_points = _integer(metric.get("ridge_points")) or 0
+        valid_centers = _integer(metric.get("valid_center_count")) or 0
+        legacy_spills = _integer(legacy_row.get("common_spill_count")) or 0
+        legacy_points = _integer(legacy_row.get("common_ridge_point_count")) or 0
+        audit = sliding_audits[size]
+        center_masks = audit["valid_center_masks"][plane]
+        reconstructed_center_counts = [int(mask).bit_count() for mask in center_masks]
+        reconstructed_ridge_points = sum(reconstructed_center_counts)
+        reconstructed_valid_centers = sum(count > 0 for count in reconstructed_center_counts)
+        row_count = audit["row_counts"][plane]
+        group_count = audit["group_counts"][plane]
         coverage.append(
             {
                 "plane": plane,
                 "subset_size": size,
                 "spill_count": spill_count,
-                "center_count": len(set(center_values)),
+                "center_count": len(set(finite_center_values)),
+                "sliding_rows": row_count,
                 "ridge_points": ridge_points,
+                "missing_tune_rows": audit["missing_tunes"][plane],
+                "edge_excluded_rows": audit["edge_excluded_tunes"][plane],
                 "legacy_spill_count": legacy_spills,
                 "legacy_point_count": legacy_points,
             }
         )
         if spill_count < minimum_spills:
-            _issue(issues, "error", "insufficient_spill_coverage", f"{plane} Best-{size} has {spill_count} spills; minimum is {minimum_spills}")
-        if spill_count != expected_adaptive_spills:
+            _issue(
+                issues,
+                "error",
+                "insufficient_spill_coverage",
+                f"{plane} Best-{size} has {spill_count} spills; minimum is {minimum_spills}",
+            )
+        if spill_count != expected_adaptive_spills or group_count != expected_adaptive_spills:
             _issue(
                 issues,
                 "error",
                 "adaptive_spill_coverage",
-                f"{plane} Best-{size} has {spill_count} adaptive spills; contract requires {expected_adaptive_spills}",
+                f"{plane} Best-{size} does not contain all {expected_adaptive_spills} contracted spill groups",
+            )
+        if row_count != group_count * expected_centers:
+            _issue(
+                issues,
+                "error",
+                "sliding_row_coverage",
+                f"{plane} Best-{size} does not contain one structural row per spill and turn center",
             )
         if (
-            valid_centers != expected_centers
-            or len(set(center_values)) != expected_centers
-            or len(center_values) != expected_centers
-            or tuple(sorted(center_values)) != expected_center_grid
+            valid_centers != reconstructed_valid_centers
+            or len(finite_center_values) != expected_centers
+            or tuple(sorted(finite_center_values)) != expected_center_grid
         ):
-            _issue(issues, "error", "center_coverage", f"{plane} Best-{size} lacks the exact contracted turn-center grid")
-        if ridge_points != spill_count * expected_centers:
-            _issue(issues, "error", "ridge_point_coverage", f"{plane} Best-{size} does not contain one ridge point per accepted spill and turn center")
+            _issue(
+                issues,
+                "error",
+                "center_coverage",
+                f"{plane} Best-{size} center metrics do not match the contracted grid and finite sliding coverage",
+            )
+        if ridge_points != reconstructed_ridge_points:
+            _issue(
+                issues,
+                "error",
+                "ridge_point_coverage",
+                f"{plane} Best-{size} ridge-point count does not match finite in-band sliding picks",
+            )
+        center_indices = {center: index for index, center in enumerate(expected_center_grid)}
+        bad_center_counts: list[object] = []
+        for center_row in center_rows:
+            center = _integer(center_row.get("center_turn"))
+            center_index = center_indices.get(center) if center is not None else None
+            expected_count = (
+                reconstructed_center_counts[center_index]
+                if center_index is not None
+                else None
+            )
+            sample_count = _integer(center_row.get("sample_count"))
+            sample_fraction = _finite(center_row.get("sample_fraction"))
+            expected_fraction = (
+                expected_count / group_count
+                if expected_count is not None and group_count
+                else math.nan
+            )
+            if (
+                expected_count is None
+                or sample_count != expected_count
+                or not math.isclose(
+                    sample_fraction,
+                    expected_fraction,
+                    rel_tol=0.0,
+                    abs_tol=1e-8,
+                )
+            ):
+                bad_center_counts.append(center_row.get("center_turn", ""))
+        if bad_center_counts:
+            _issue(
+                issues,
+                "error",
+                "center_sample_coverage",
+                f"{plane} Best-{size} center sample counts do not match finite sliding picks",
+                len(bad_center_counts),
+                bad_center_counts,
+            )
         low, high = (0.620, 0.680) if plane == "H" else (0.690, 0.740)
-        bad_tunes = [row.get("median_tune", "") for row in center_rows if not (low <= _finite(row.get("median_tune")) <= high)]
+        bad_tunes = [
+            row.get("median_tune", "")
+            for row in center_rows
+            if not low <= _finite(row.get("median_tune")) <= high
+        ]
         if bad_tunes:
-            _issue(issues, "error", "center_tune_band", f"{plane} Best-{size} center medians leave the legacy comparison band", len(bad_tunes), bad_tunes)
-        if (
-            legacy_spills != expected_legacy_spills.get(plane, 0)
-            or legacy_points != expected_legacy_points.get(plane, 0)
-            or legacy_points != legacy_spills * expected_centers
-            or int(legacy_row.get("common_center_count") or 0) != expected_centers
-        ):
-            _issue(issues, "error", "legacy_pair_coverage", f"{plane} Best-{size} does not meet exact legacy pairing coverage")
-        missing_numeric = [field for field in LEGACY_NUMERIC_FIELDS if not math.isfinite(_finite(legacy_row.get(field)))]
-        if missing_numeric:
-            _issue(issues, "error", "legacy_metric_nonfinite", f"{plane} Best-{size} has incomplete paired legacy metrics", len(missing_numeric), missing_numeric)
+            _issue(
+                issues,
+                "error",
+                "center_tune_band",
+                f"{plane} Best-{size} center medians leave the legacy comparison band",
+                len(bad_tunes),
+                bad_tunes,
+            )
+
         turn_rows = legacy_turn_groups.get((plane, size), [])
-        turn_centers = [int(float(row.get("center_turn") or 0)) for row in turn_rows]
+        turn_centers = [_integer(row.get("center_turn")) for row in turn_rows]
+        finite_turn_centers = [center for center in turn_centers if center is not None]
+        legacy_counts_by_center: dict[int, int] = {}
+        bad_turn_rows: list[object] = []
+        for turn_row in turn_rows:
+            center = _integer(turn_row.get("center_turn"))
+            paired_count = _integer(turn_row.get("paired_ridge_count"))
+            center_index = center_indices.get(center) if center is not None else None
+            maximum_count = (
+                reconstructed_center_counts[center_index]
+                if center_index is not None
+                else 0
+            )
+            if (
+                center is None
+                or center in legacy_counts_by_center
+                or paired_count is None
+                or paired_count <= 0
+                or paired_count > maximum_count
+                or paired_count > expected_legacy_spills.get(plane, 0)
+                or any(
+                    not math.isfinite(_finite(turn_row.get(field)))
+                    for field in LEGACY_TURN_NUMERIC_FIELDS
+                )
+            ):
+                bad_turn_rows.append(turn_row.get("center_turn", ""))
+            elif center is not None and paired_count is not None:
+                legacy_counts_by_center[center] = paired_count
         if (
             len(turn_rows) != expected_centers
-            or len(set(turn_centers)) != expected_centers
-            or tuple(sorted(turn_centers)) != expected_center_grid
+            or tuple(sorted(finite_turn_centers)) != expected_center_grid
         ):
             _issue(
                 issues,
@@ -637,32 +928,55 @@ def verify_ridge_density_outputs(
                 "legacy_turn_center_coverage",
                 f"{plane} Best-{size} lacks the exact paired turn-contrast grid",
             )
-        bad_turn_rows = [
-            row.get("center_turn", "")
-            for row in turn_rows
-            if int(row.get("paired_ridge_count") or 0) != expected_legacy_spills.get(plane, 0)
-            or any(not math.isfinite(_finite(row.get(field))) for field in LEGACY_TURN_NUMERIC_FIELDS)
-        ]
         if bad_turn_rows:
             _issue(
                 issues,
                 "error",
                 "legacy_turn_metrics",
-                f"{plane} Best-{size} has incomplete or nonfinite paired turn contrasts",
+                f"{plane} Best-{size} has impossible or nonfinite paired turn contrasts",
                 len(bad_turn_rows),
                 bad_turn_rows,
             )
+        paired_count_sum = sum(legacy_counts_by_center.values())
+        paired_center_count = sum(count > 0 for count in legacy_counts_by_center.values())
+        maximum_turn_count = max(legacy_counts_by_center.values(), default=0)
+        if (
+            legacy_spills < maximum_turn_count
+            or legacy_spills > min(expected_legacy_spills.get(plane, 0), group_count)
+            or legacy_points != paired_count_sum
+            or legacy_points > min(expected_legacy_points.get(plane, 0), ridge_points)
+            or _integer(legacy_row.get("common_center_count")) != paired_center_count
+        ):
+            _issue(
+                issues,
+                "error",
+                "legacy_pair_coverage",
+                f"{plane} Best-{size} aggregate legacy pairing does not match per-turn counts and source bounds",
+            )
+        missing_numeric = [
+            field
+            for field in LEGACY_NUMERIC_FIELDS
+            if not math.isfinite(_finite(legacy_row.get(field)))
+        ]
+        if missing_numeric:
+            _issue(
+                issues,
+                "error",
+                "legacy_metric_nonfinite",
+                f"{plane} Best-{size} has incomplete paired legacy metrics",
+                len(missing_numeric),
+                missing_numeric,
+            )
 
-        audit = sliding_audits[size]
-        row_count = audit["row_counts"][plane]
-        if row_count != ridge_points:
-            _issue(issues, "error", "sliding_metric_count", f"{plane} Best-{size} sliding rows do not match the exported ridge-point count")
-        group_count = audit["group_counts"][plane]
-        if group_count != spill_count:
-            _issue(issues, "error", "sliding_spill_count", f"{plane} Best-{size} sliding groups do not match the exported accepted-spill count")
         duplicate_group_count = audit["duplicate_groups"][plane]
         if duplicate_group_count:
-            _issue(issues, "error", "duplicate_sliding_groups", f"{plane} Best-{size} sliding table repeats a spill-plane group", duplicate_group_count)
+            _issue(
+                issues,
+                "error",
+                "duplicate_sliding_groups",
+                f"{plane} Best-{size} sliding table repeats a spill-plane group",
+                duplicate_group_count,
+            )
         bad_grid_count = audit["bad_center_grids"][plane]
         if bad_grid_count:
             _issue(
@@ -675,10 +989,23 @@ def verify_ridge_density_outputs(
             )
         bad_cardinality = audit["cardinality_bad"][plane]
         if bad_cardinality:
-            _issue(issues, "error", "sliding_member_cardinality", f"{plane} Best-{size} sliding rows have incorrect selected BPM counts", bad_cardinality)
+            _issue(
+                issues,
+                "error",
+                "sliding_member_cardinality",
+                f"{plane} Best-{size} sliding rows have incorrect selected BPM counts",
+                bad_cardinality,
+            )
         bad_selected_tunes = audit["tune_bad"][plane]
         if bad_selected_tunes:
-            _issue(issues, "error", "sliding_tune_band", f"{plane} Best-{size} selected tunes leave the configured band", bad_selected_tunes, audit["tune_examples"][plane])
+            _issue(
+                issues,
+                "error",
+                "sliding_tune_band",
+                f"{plane} Best-{size} selected tunes exceed the allowed two-bin edge-refinement tolerance",
+                bad_selected_tunes,
+                audit["tune_examples"][plane],
+            )
 
     figure_names = [row.get("figure", "") for row in figures]
     duplicate_figures = len(figure_names) - len(set(figure_names))
@@ -688,7 +1015,7 @@ def verify_ridge_density_outputs(
         figure = root / row.get("figure", "")
         caption = root / row.get("caption_file", "")
         dimensions = png_dimensions(figure)
-        if dimensions is None or dimensions[0] < minimum_width or dimensions[1] < minimum_height:
+        if not valid_figure_dimensions(dimensions, minimum_width, minimum_height):
             _issue(issues, "error", "invalid_figure", f"figure is missing, invalid, or undersized: {figure.name}")
         if not caption.is_file() or caption.stat().st_size == 0:
             _issue(issues, "error", "missing_caption", f"caption is missing or empty: {caption.name}")
@@ -771,6 +1098,7 @@ def verify_ridge_density_outputs(
         "subset_sizes": sizes,
         "minimum_spills": minimum_spills,
         "expected_centers": expected_centers,
+        "edge_refinement_tolerance": edge_tolerance,
         "figure_count": len(figures),
         "warning_count": len(warning_text),
         "error_count": error_count,

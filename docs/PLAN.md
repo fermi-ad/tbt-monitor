@@ -337,6 +337,12 @@ Current publication interpretation:
   anchor. Review PNGs apply only five-window visual smoothing. These locate
   changes in ridge-pick concentration without assigning a fixed extraction
   onset or claiming physical noise removal.
+  Verification treats the 2,000-spill by 180-center row grid as structural
+  coverage and reconstructs finite in-band point masks separately. Blank
+  confidence misses and bounded band-edge refinements therefore remain visible
+  sample-coverage evidence instead of being imputed or mistaken for corrupt
+  rows; all adaptive aggregate and per-turn intersections must match those
+  masks exactly.
 - Best-N, intensity, and full-buffer ridge passes write checksummed JSON run
   contracts before science output. Resumes reject parameter drift; merges
   require complete compatible shard sets and reject duplicate science keys.

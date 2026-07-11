@@ -1115,12 +1115,21 @@ python3 scripts/verify_ridge_density_outputs.py \
   --expected-centers 180
 ```
 
-The verifier requires all 2000 adaptive spill-planes and all 1988 legacy
-spill-planes at the exact 180-center grid. It rejects duplicate memberships or
-points, wrong selected-member cardinality, out-of-band tune picks, incomplete exact legacy
-pairing or contrast metrics, unresolved membership/payload warnings, and any
-missing, invalid, undersized, or uncaptioned manifest figure. Other data-quality
-warnings remain visible and require written review.
+The verifier requires all 2000 adaptive spill groups at the exact 180-center
+structural grid and binds the 1988-spill legacy source inventory. A structural
+row is not automatically a ridge measurement: a blank `selected_tune` is the
+explicit no-peak-above-confidence state, while a finite tune just outside the
+declared band may be retained in the sliding table but excluded from density
+only within the peak picker's hard two-FFT-bin floor/refinement bound. The gate
+reconstructs finite in-band masks, exact adaptive intersections, variable
+per-turn pair counts, center sample fractions, and internally closed legacy
+pair sums. It rejects duplicate groups or points, wrong selected-member
+cardinality, malformed peak states, larger band excursions, impossible legacy
+counts, unresolved membership/payload warnings, and any missing, invalid,
+undersized, or uncaptioned manifest figure. Figure size minima are
+orientation-independent so the declared 800x1250 poster variants are valid.
+Blank and edge-excluded counts remain in the verification coverage table;
+other data-quality warnings remain visible and require written review.
 
 Materialize final poster and paper inputs only after every analysis gate passes.
 First audit the complete raw publication corpus independently of the spectral

@@ -33,6 +33,10 @@ separate raw-payload gate scans every publication stream through turn
 device-coded threshold fallback pairs. It also binds the exact manifest hash
 and enumerates manifest-level channel absences from recorded partial captures;
 absent channels are never fabricated or zero-filled.
+The ridge gate distinguishes the complete spill/window row grid from finite
+in-band tune picks: blank confidence-threshold misses and bounded parabolic
+edge refinements remain explicit coverage states, while exact adaptive
+comparisons are reconstructed from common finite-point masks.
 Publication artifacts use exact channel identities, semantic verifiers, and a
 deterministic native PNG renderer for the key deconstruction, handoff,
 intensity, Best-N, and ridge figures. `prepare_ibic2026_publication.py` binds

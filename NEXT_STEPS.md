@@ -386,6 +386,26 @@ the publication audit:
     four-shard rerun, all three block summaries, gallery regeneration, and a
     passing strict verifier. Loosening the tolerance or editing CSV rows in
     place is prohibited.
+45. The first full 50,000-turn ridge pass completed 2,000 manifests, all nine
+    requested N values, both planes, 200 PNGs, and 200 captions, but its strict
+    verifier reported 1,796,222 false errors. It had equated every structural
+    spill/window row with a finite ridge pick, required constant full-source
+    counts for exact finite intersections, rejected the peak picker's bounded
+    parabolic edge refinements, and applied landscape width/height minima to
+    valid 800x1250 portrait figures. A read-only reconstruction found every
+    sliding table has exactly 360,000 rows per plane on the 2,000-spill,
+    180-center grid and that all tested adaptive aggregate/per-turn counts match
+    their finite in-band intersections exactly, including H Best-1/Best-5
+    `357943`, V Best-1/Best-12 `288457`, and H Best-30/Best-40 `59208` points.
+    The corrected verifier reconstructs compact per-center spill masks, keeps
+    blank and edge-excluded picks visible, enforces the algorithmic two-FFT-bin
+    refinement bound, reconciles variable per-turn pair counts, and accepts
+    minimum figure dimensions independent of orientation. Malformed grids,
+    identities, cardinalities, encoded nonfinite values, impossible legacy
+    counts, and larger band excursions still fail. The preserved completed
+    root passes the corrected verifier diagnostically with zero errors and zero
+    warnings; source-bound closure and final marker regeneration remain
+    required before publication use.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;

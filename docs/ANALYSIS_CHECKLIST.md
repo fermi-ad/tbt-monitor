@@ -284,6 +284,10 @@ Required for the publication review:
   paper/poster and explicit non-noise/non-extraction guardrails
 - full-axis density raster coverage with percentile and median overlays on the
   identical tune-to-pixel mapping
+- exact 2,000-spill by 180-center structural-grid closure for every requested N
+  and plane, with finite in-band, blank-confidence, and bounded edge-excluded
+  counts reported separately; adaptive aggregate/per-turn rows must equal the
+  reconstructed finite-point intersections
 - H-plane concentration, width, entropy, confidence, fallback, and data-derived
   loss-candidate diagnostics
 - block-aware intensity result tables and indexed review gallery

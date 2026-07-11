@@ -633,10 +633,16 @@ final H-loss frame. Both values are stored in `run_contract.json` and required
 by the verifier.
 The legacy table contains one tracked tune pick per spill/window, not spectral
 power. The explicit settings above match archived job `18d321dbd4fe`; the
-verifier rejects protocol drift and requires all 2000 adaptive and all 1988
-legacy spill-planes on the exact 180-center grid, every per-N combined H/V
-comparison, every other manifest PNG/caption, and machine-readable disposition
-of generation warnings.
+verifier rejects protocol drift and requires all 2000 adaptive spill groups on
+the exact 180-center structural grid plus a hash-bound 1988-spill legacy source
+inventory. Finite ridge coverage is checked separately: confidence-threshold
+misses stay blank, parabolic edge refinements within the algorithmic two-bin
+bound are excluded from in-band density, and every adaptive pair is
+reconstructed from compact exact common-point masks with variable per-turn
+counts. The gate also reconciles legacy per-turn sums and source bounds,
+accepts declared landscape or portrait dimensions, requires every per-N H/V
+comparison and other manifest PNG/caption, and preserves machine-readable
+generation-warning disposition.
 The native renderer proportionally maps every tune bin over the complete plot
 height; this keeps standalone and subtractive heatmaps aligned with their tune
 axis and percentile overlays when the pixel height is not divisible by the bin

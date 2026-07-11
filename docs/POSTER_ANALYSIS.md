@@ -450,6 +450,12 @@ tracks. Keep its quantitative caption and the separate sample-fraction and
 subtractive diagnostics in the review package; the composite alone cannot
 distinguish true persistence from missing observations or establish physical
 noise removal.
+The verification receipt must accompany that review. It reports the complete
+structural row grid separately from finite in-band, blank-confidence, and
+bounded edge-excluded picks. Because each density column is normalized over its
+available picks, a sharper high-N image without comparable sample fraction is
+not evidence of better tune recovery; use exact paired panels and the
+sample-fraction diagnostic together.
 Because the historical normalized-single selector was defective, also review
 the exact-paired corrected Best-1-versus-selected panel and the three-column
 legacy/corrected-Best-1/selected-Best-N control. Only the corrected

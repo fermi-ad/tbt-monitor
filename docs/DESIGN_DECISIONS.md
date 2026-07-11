@@ -590,6 +590,14 @@ Decision:
 - Persist every full-buffer generation warning and reject the ridge gallery if
   spill/window coverage, exact legacy pairing, tune-band bounds, selected
   cardinality, paired metrics, or any manifest PNG/caption is incomplete.
+- Distinguish structural windows from finite ridge picks. Preserve a blank tune
+  when no peak clears confidence, exclude bounded parabolic band-edge
+  refinements from density, and reconstruct every adaptive comparison from the
+  exact common finite-point mask. Do not impute missing picks or require a
+  constant paired count at every turn.
+- Validate figure minimum dimensions independent of orientation because the
+  paper uses landscape composites while the poster uses purpose-built portrait
+  twins. Both remain native, uncropped artifacts.
 - Map density bins to proportional inclusive pixel bounds. Floor-dividing plot
   height by tune-bin count can leave an unfilled band and make percentile
   overlays appear at the wrong tune even when the underlying rows are correct.

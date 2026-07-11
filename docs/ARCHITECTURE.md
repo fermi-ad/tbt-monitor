@@ -345,10 +345,15 @@ config ranking. Its package modules cover:
   spill/window, cardinality, tune-band, exact-pair, metric, warning, PNG, and
   caption coverage checks for the full-buffer ridge gallery, tied to exact
   membership, legacy-table, manifest-inventory, and window-geometry hashes.
+  The verifier streams each full structural grid into compact per-center spill
+  masks, separating blank confidence-threshold misses and bounded edge-refined
+  exclusions from finite in-band picks. Adaptive aggregate and per-turn
+  intersections are reconstructed exactly; legacy pairs must close internally
+  against per-turn sums, adaptive availability, and hash-bound source bounds.
   Turn-contrast closure additionally requires one finite exact-paired row per
   contracted center for every legacy N and adaptive N pair, complete self-
-  control coverage, every global and plane-selected metric figure role, and
-  both selector-defect control composites.
+  control coverage, every global and plane-selected metric figure role, both
+  selector-defect controls, and orientation-independent PNG dimensions.
   The publication contract additionally binds the adaptive pass to the archived
   `18d321dbd4fe` 4096/256 tracking protocol and exact 2000/1988 source coverage.
 - `scripts/prepare_ibic2026_publication.py`: accepts only verifier-clean primary,
