@@ -406,6 +406,31 @@ the publication audit:
     root passes the corrected verifier diagnostically with zero errors and zero
     warnings; source-bound closure and final marker regeneration remain
     required before publication use.
+46. The first autosweep parallel-smoke receipt counted every visible GPU
+    application. Spark already hosted an unrelated `pip2va` service, so the
+    service plus one analyzer could satisfy a superficial two-process check.
+    The corrected receipt is schema v2 and identifies only analyzer PIDs whose
+    command line is bound to the smoke root; it also proves overlap from their
+    completed run intervals while preserving the unrelated process in total-GPU
+    telemetry.
+47. The corrected autosweep smoke initially expected two result rows even
+    though two configurations crossed with two collections plus their combined
+    view produce six deterministic jobs. The final gate derives this product
+    from the submitted grid, requires all six rows to be `ok`, and records two
+    exact analyzer PIDs overlapping for 3.927 seconds. Spark remained above the
+    declared memory floor throughout the bounded two-worker run.
+48. Final publication-copy review found that the poster and manuscript treated
+    the nominal 60 H plus 60 V topology as complete in every primary spill,
+    omitted selected-ridge finite coverage, quoted a positive legacy-to-selected
+    V shared-mass point estimate despite an unresolved interval, and described
+    improvement without naming the blind-agreement/tune-delta result or its
+    power-support tradeoff. Materialization now derives the 16 source absences
+    across 12 flagged partial primary captures and selected H Best-5/V Best-12
+    finite, blank, and bounded edge-excluded counts from accepted verifier
+    reports. Generated poster copy reports finite coverage, uses exact paired
+    support counts for the legacy visual, labels selector repair, and narrows
+    the conclusion to internal blind agreement and selected/held-out tune delta.
+    The accepted abstract remains byte-for-byte unchanged.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;

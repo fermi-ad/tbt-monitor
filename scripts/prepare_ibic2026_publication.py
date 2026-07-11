@@ -170,7 +170,45 @@ def require_payload_audit(path: Path) -> dict[str, object]:
         or any(not row.get("missing_position_source_key", "").endswith(":TBT_POSITION_RAW") for row in missing_rows)
     ):
         raise ValueError("Delivery Ring missing-position inventory does not match the publication corpus")
+    report["missing_position_rows_by_collection"] = dict(sorted(rows_by_collection.items()))
     return report
+
+
+def primary_capture_summary(report: Mapping[str, object]) -> dict[str, int]:
+    topology = report.get("topology")
+    missing_by_collection = report.get("missing_position_rows_by_collection")
+    if not isinstance(topology, Mapping) or not isinstance(missing_by_collection, Mapping):
+        raise ValueError("payload audit is missing validated collection-level completeness")
+    primary = {
+        name: raw
+        for name, raw in topology.items()
+        if isinstance(raw, Mapping) and int(raw.get("manifests") or 0) == 1_000
+    }
+    if len(primary) != 2:
+        raise ValueError("payload audit must contain exactly two 1000-spill primary collections")
+    h_counts = {int(raw.get("unique_h_streams") or 0) for raw in primary.values()}
+    v_counts = {int(raw.get("unique_v_streams") or 0) for raw in primary.values()}
+    values = {
+        "spill_count": sum(int(raw.get("manifests") or 0) for raw in primary.values()),
+        "nominal_h_channels": h_counts.pop() if len(h_counts) == 1 else 0,
+        "nominal_v_channels": v_counts.pop() if len(v_counts) == 1 else 0,
+        "partial_capture_count": sum(
+            int(raw.get("incomplete_manifests") or 0) for raw in primary.values()
+        ),
+        "source_absence_count": sum(
+            int(missing_by_collection.get(name) or 0) for name in primary
+        ),
+    }
+    expected = {
+        "spill_count": 2_000,
+        "nominal_h_channels": 60,
+        "nominal_v_channels": 60,
+        "partial_capture_count": 12,
+        "source_absence_count": 16,
+    }
+    if values != expected:
+        raise ValueError(f"primary capture completeness does not match the accepted corpus: {values}")
+    return values
 
 
 def best_n_design_summary(report: Mapping[str, object]) -> dict[str, int]:
@@ -198,6 +236,59 @@ def best_n_design_summary(report: Mapping[str, object]) -> dict[str, int]:
     if mismatches:
         raise ValueError(f"Best-N verification report does not match the definitive study design: {mismatches}")
     return fields
+
+
+def selected_ridge_coverage(
+    report: Mapping[str, object],
+    selected_sizes: Mapping[str, int],
+) -> dict[str, dict[str, int]]:
+    raw_coverage = report.get("coverage")
+    if not isinstance(raw_coverage, Sequence) or isinstance(raw_coverage, (str, bytes)):
+        raise ValueError("ridge verification report is missing finite-point coverage")
+    keyed: dict[tuple[str, int], Mapping[str, object]] = {}
+    for raw in raw_coverage:
+        if not isinstance(raw, Mapping):
+            raise ValueError("ridge verification coverage contains a malformed row")
+        key = (str(raw.get("plane", "")), int(raw.get("subset_size") or 0))
+        if key in keyed:
+            raise ValueError(f"ridge verification coverage repeats {key}")
+        keyed[key] = raw
+    output: dict[str, dict[str, int]] = {}
+    for plane in ("H", "V"):
+        key = (plane, int(selected_sizes[plane]))
+        raw = keyed.get(key)
+        if raw is None:
+            raise ValueError(f"ridge verification coverage is missing selected {plane} Best-{key[1]}")
+        values = {
+            field: int(raw.get(field) or 0)
+            for field in (
+                "spill_count",
+                "center_count",
+                "sliding_rows",
+                "ridge_points",
+                "missing_tune_rows",
+                "edge_excluded_rows",
+                "legacy_spill_count",
+                "legacy_point_count",
+            )
+        }
+        if (
+            values["spill_count"] != 2_000
+            or values["center_count"] != 180
+            or values["sliding_rows"] != 360_000
+            or values["ridge_points"] <= 0
+            or values["sliding_rows"]
+            != values["ridge_points"]
+            + values["missing_tune_rows"]
+            + values["edge_excluded_rows"]
+            or values["legacy_spill_count"] <= 0
+            or values["legacy_point_count"] <= 0
+        ):
+            raise ValueError(
+                f"ridge verification coverage does not close for selected {plane} Best-{key[1]}: {values}"
+            )
+        output[plane] = values
+    return output
 
 
 def all_training_control_summary(
@@ -528,6 +619,8 @@ def publication_numeric_summary(
     best_n_design: Mapping[str, int],
     sensitivity: Mapping[str, object],
     all_training: Mapping[str, object],
+    ridge_coverage: Mapping[str, Mapping[str, int]],
+    primary_capture: Mapping[str, int],
 ) -> dict[str, object]:
     output: dict[str, object] = {}
     for plane in ("H", "V"):
@@ -582,6 +675,25 @@ def publication_numeric_summary(
             raise ValueError(f"publication all-training control is missing {plane}")
         for field in ("selected_favored", "baseline_favored", "unresolved"):
             output[f"all_training_{plane.lower()}_{field}"] = int(raw[field])
+    for plane in ("H", "V"):
+        raw = ridge_coverage.get(plane)
+        if not isinstance(raw, Mapping):
+            raise ValueError(f"publication ridge coverage is missing {plane}")
+        for field in (
+            "sliding_rows",
+            "ridge_points",
+            "missing_tune_rows",
+            "edge_excluded_rows",
+        ):
+            output[f"ridge_{plane.lower()}_{field}"] = int(raw[field])
+    for field in (
+        "spill_count",
+        "nominal_h_channels",
+        "nominal_v_channels",
+        "partial_capture_count",
+        "source_absence_count",
+    ):
+        output[f"primary_{field}"] = int(primary_capture[field])
     return output
 
 
@@ -618,6 +730,19 @@ def render_results_macros(values: Mapping[str, object]) -> str:
         ("AllTrainingVSelectedFavored", "all_training_v_selected_favored", 0),
         ("AllTrainingVBaselineFavored", "all_training_v_baseline_favored", 0),
         ("AllTrainingVUnresolved", "all_training_v_unresolved", 0),
+        ("RidgeHStructuralRows", "ridge_h_sliding_rows", 0),
+        ("RidgeHFinitePicks", "ridge_h_ridge_points", 0),
+        ("RidgeHBlankPicks", "ridge_h_missing_tune_rows", 0),
+        ("RidgeHEdgeExcludedPicks", "ridge_h_edge_excluded_rows", 0),
+        ("RidgeVStructuralRows", "ridge_v_sliding_rows", 0),
+        ("RidgeVFinitePicks", "ridge_v_ridge_points", 0),
+        ("RidgeVBlankPicks", "ridge_v_missing_tune_rows", 0),
+        ("RidgeVEdgeExcludedPicks", "ridge_v_edge_excluded_rows", 0),
+        ("PrimarySpillCount", "primary_spill_count", 0),
+        ("PrimaryNominalHChannels", "primary_nominal_h_channels", 0),
+        ("PrimaryNominalVChannels", "primary_nominal_v_channels", 0),
+        ("PrimaryPartialCaptures", "primary_partial_capture_count", 0),
+        ("PrimarySourceAbsences", "primary_source_absence_count", 0),
     )
     lines = ["% Generated by scripts/prepare_ibic2026_publication.py; do not edit."]
     for command, key, digits in commands:
@@ -640,6 +765,8 @@ def publication_content(
     best_n_design: Mapping[str, int],
     sensitivity: Mapping[str, object],
     all_training: Mapping[str, object],
+    ridge_coverage: Mapping[str, Mapping[str, int]],
+    primary_capture: Mapping[str, int],
     intensity_effect_count: int,
     retained_intensity_effects: int,
 ) -> dict[str, object]:
@@ -655,6 +782,8 @@ def publication_content(
     all_training_by_plane = all_training["by_plane"]
     h_all_training = all_training_by_plane["H"]
     v_all_training = all_training_by_plane["V"]
+    h_coverage = ridge_coverage["H"]
+    v_coverage = ridge_coverage["V"]
     adaptive_status = {}
     for plane, row in (("H", h_adaptive), ("V", v_adaptive)):
         low = finite(row.get("median_iqr_delta_ci_low"))
@@ -680,9 +809,11 @@ def publication_content(
         "author": "Derek Steinkamp | Fermi National Accelerator Laboratory",
         "methodHeading": "ADAPTIVE, LEAKAGE-CONTROLLED BPM ENSEMBLES",
         "methodBody": (
-            "Synchronized 2,000-spill raw snapshots provide 60 H and 60 V channels; "
-            "scaled threshold-substituted streams are excluded.\n"
-            "Members are selected from eight fit windows; overlapping windows are purged.\n"
+            f"Synchronized {primary_capture['spill_count']:,}-spill raw snapshots use a nominal "
+            f"{primary_capture['nominal_h_channels']} H / {primary_capture['nominal_v_channels']} V topology; "
+            f"{primary_capture['source_absence_count']} source absences across "
+            f"{primary_capture['partial_capture_count']} flagged partial captures are hash-bound.\n"
+            "Scaled threshold-substituted streams are excluded; members use eight fit windows with overlap purged.\n"
             f"Later validation uses {best_n_design['validation_spill_plane_count']:,} stratified spill-plane "
             f"cases across {best_n_design['digitizer_fold_count']} held-out-digitizer folds."
         ),
@@ -703,14 +834,14 @@ def publication_content(
             f"{v_sensitivity['available']}/7 runs; {v_sensitivity['unavailable']} unresolved."
         ),
         "ridgeCaption": (
-            f"Exact-paired 50,000-turn ridge-pick density: H Best-{selected_sizes['H']} and "
-            f"V Best-{selected_sizes['V']} versus the audited legacy normalized-single selector. "
-            f"Shared-ridge mass gains are H {fmt(h_ridge.get('median_shared_ridge_mass_gain'))} and "
-            f"V {fmt(v_ridge.get('median_shared_ridge_mass_gain'))}; color is pick probability, not power."
+            f"Exact-paired 50,000-turn density versus the audited legacy selector: "
+            f"H Best-{selected_sizes['H']} {int(h_ridge.get('common_ridge_point_count') or 0):,} picks; "
+            f"V Best-{selected_sizes['V']} {int(v_ridge.get('common_ridge_point_count') or 0):,}. "
+            "Legacy-to-selected change includes selector repair; color is pick probability, not power."
         ),
         "conclusionHeading": "RESULT AND LIMIT",
         "conclusionBody": (
-            "Relative to adaptive Best-1, plane-specific ensembles improve later-window internal reproducibility.\n"
+            f"Versus adaptive Best-1, H Best-{selected_sizes['H']} and V Best-{selected_sizes['V']} improve blind agreement and median selected/held-out tune delta, with power-support tradeoffs.\n"
             f"Full-buffer ensemble-size contrast: H {adaptive_status['H']}; V {adaptive_status['V']}.\n"
             f"Same-protocol all-training control favors Best-N in H {h_all_training['selected_favored']}/8 and "
             f"V {v_all_training['selected_favored']}/8 comparisons; it favors all-training in H "
@@ -723,13 +854,16 @@ def publication_content(
             "zero is no ensemble-size difference."
         ),
         "quantitativeBody": (
-            f"2,000 spills; {best_n_design['curve_spill_plane_count']:,} H/V curve cases; "
+            f"{primary_capture['spill_count']:,} spills; "
+            f"{best_n_design['curve_spill_plane_count']:,} H/V curve cases; "
             f"{best_n_design['validation_spill_plane_count']:,} stratified validation cases; "
             f"{best_n_design['digitizer_fold_count']} held-out-digitizer folds. "
             f"H Best-{selected_sizes['H']} blind agreement {pct(h_best.get('blind_q_agreement_rate'))}; "
             f"V Best-{selected_sizes['V']} {pct(v_best.get('blind_q_agreement_rate'))}. "
             f"Median IQR change vs corrected Best-1: H {fmt(h_adaptive.get('median_iqr_delta_ensemble_minus_baseline'), 4)}, "
             f"V {fmt(v_adaptive.get('median_iqr_delta_ensemble_minus_baseline'), 4)}. "
+            f"Finite full-buffer pick coverage: H {pct(h_coverage['ridge_points'] / h_coverage['sliding_rows'])}, "
+            f"V {pct(v_coverage['ridge_points'] / v_coverage['sliding_rows'])}. "
             f"Intensity weighting retained {retained_intensity_effects}/{intensity_effect_count} tested effects."
         ),
         "hLossCaption": " ".join(loss_parts),
@@ -773,6 +907,7 @@ def prepare_publication(
     ]
     accepted_reports = {path: require_report(path) for path in verification_paths[:-1]}
     payload_audit = require_payload_audit(verification_paths[-1])
+    primary_capture = primary_capture_summary(payload_audit)
     best_n_design = best_n_design_summary(
         accepted_reports[best_n_block20 / "best_n_verification.json"]
     )
@@ -781,6 +916,10 @@ def prepare_publication(
     tune_half_width = float(best_n_contract.get("tune_half_width") or 0.0025)
     best_n_summary = read_csv(best_n_block20 / "best_n_summary.csv")
     selected_sizes, best_n_rows, rationales = selected_best_n_rows(best_n_summary, tune_half_width)
+    ridge_coverage = selected_ridge_coverage(
+        accepted_reports[ridge_root / "ridge_density_verification.json"],
+        selected_sizes,
+    )
     all_training = all_training_control_summary(all_training_root, selected_sizes)
 
     transfers = read_csv(best_n_block20 / "best_n_cross_collection_transfer.csv")
@@ -838,6 +977,8 @@ def prepare_publication(
         best_n_design,
         sensitivity,
         all_training,
+        ridge_coverage,
+        primary_capture,
     )
     retained_effects = [
         row for row in intensity_effects if row.get("retain_method_for_tune_analysis", "").lower() == "true"
@@ -939,6 +1080,8 @@ def prepare_publication(
         best_n_design,
         sensitivity,
         all_training,
+        ridge_coverage,
+        primary_capture,
         len(intensity_effects),
         len(retained_effects),
     )
@@ -969,12 +1112,14 @@ def prepare_publication(
         "all_training_control": all_training,
         "ridge_rows": selected_ridge_rows,
         "adaptive_ridge_rows": selected_adaptive_rows,
+        "ridge_coverage": ridge_coverage,
         "h_loss": h_loss,
         "numeric_summary": numeric_summary,
         "intensity_effect_count": len(intensity_effects),
         "retained_intensity_effects": len(retained_effects),
         "best_n_design": best_n_design,
         "payload_integrity": payload_audit,
+        "primary_capture": primary_capture,
         "verification_reports": [str(path.resolve()) for path in verification_paths],
     }
     payload_path = publication_root / "results_payload.json"
@@ -1028,8 +1173,22 @@ def prepare_publication(
         f"- Best-N validation spill-plane cases: `{best_n_design['validation_spill_plane_count']}` across `{best_n_design['digitizer_fold_count']}` digitizer folds",
         f"- raw payload rows scanned through 50000 turns: `{payload_audit['stream_rows']}`",
         f"- raw device-coded fallback pairs: `{payload_audit['raw_device_fallback_pair_rows']}`",
+        (
+            "- primary capture completeness: "
+            f"`{primary_capture['spill_count']}` spills, nominal "
+            f"`{primary_capture['nominal_h_channels']} H + {primary_capture['nominal_v_channels']} V`, "
+            f"`{primary_capture['partial_capture_count']}` partial captures, "
+            f"`{primary_capture['source_absence_count']}` source absences"
+        ),
         f"- H selected-minus-corrected-Best-1 median IQR: `{selected_adaptive_rows['H']['median_iqr_delta_ensemble_minus_baseline']}`",
         f"- V selected-minus-corrected-Best-1 median IQR: `{selected_adaptive_rows['V']['median_iqr_delta_ensemble_minus_baseline']}`",
+        (
+            "- selected full-buffer finite picks: "
+            f"H `{ridge_coverage['H']['ridge_points']}/{ridge_coverage['H']['sliding_rows']}` "
+            f"(blank `{ridge_coverage['H']['missing_tune_rows']}`, edge-excluded `{ridge_coverage['H']['edge_excluded_rows']}`); "
+            f"V `{ridge_coverage['V']['ridge_points']}/{ridge_coverage['V']['sliding_rows']}` "
+            f"(blank `{ridge_coverage['V']['missing_tune_rows']}`, edge-excluded `{ridge_coverage['V']['edge_excluded_rows']}`)"
+        ),
         "",
         "The wide ridge figure preserves the exact-paired legacy visual reference; the width-contrast panel and clean metrics compare selected Best-N directly with corrected adaptive Best-1. Neither measures physical noise or absolute tune accuracy.",
         "",

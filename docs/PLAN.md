@@ -364,6 +364,11 @@ Current publication interpretation:
   turns. It binds all 263983 captured position streams, 23999 exact intensity
   pairs, and the 17 manifest-level absences across 13 recorded partial captures;
   no spectral result can waive a payload-integrity failure.
+- Primary-set copy states the nominal 60 H plus 60 V topology together with its
+  12 partial captures and 16 explicit source absences. Selected full-buffer
+  ridge copy is verifier-derived and reports structural, finite in-band,
+  blank-confidence, and bounded edge-excluded rows for H and V; normalized
+  density color is never presented as equal observation coverage.
 - All seven reduced-sample beam/fit/fold sensitivity runs must verify. A plane
   may proceed only when at least four runs produce an eligible knee; every
   unavailable run and its non-inferiority reason remains in the payload and

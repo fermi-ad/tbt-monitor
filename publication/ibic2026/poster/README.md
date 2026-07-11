@@ -23,6 +23,10 @@ The generated copy distinguishes the full Best-N curve
 population from the smaller stratified held-out validation population. It also
 prints the eligible-count and N range from seven verified sensitivity runs;
 unavailable reduced-sample knees remain explicit rather than being assigned N.
+It also distinguishes nominal primary topology from recorded completeness (16
+source absences across 12 flagged partial captures) and reports selected H/V
+finite full-buffer pick coverage from the strict ridge verifier. Do not infer
+equal coverage from the column-normalized density colors.
 Conclusion copy must separate Best-N improvement over adaptive Best-1 from the
 same-protocol all-training control and report the H/V selected-favored and
 all-training-favored counts. An unresolved or baseline-favored result is not

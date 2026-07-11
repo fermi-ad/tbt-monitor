@@ -47,6 +47,12 @@ populations cannot be conflated in publication copy. All seven reduced-sample
 sensitivity runs must verify; at least four per plane must yield an eligible
 knee, while every unavailable run and reason remains visible in the payload and
 publication copy.
+The materializer also derives the primary-set capture topology and the selected
+H/V full-buffer finite-pick closure from the accepted payload and ridge
+verifiers. Publication copy therefore reports the 16 source absences in 12
+partial primary captures and keeps finite, blank-confidence, and bounded
+edge-excluded ridge rows separate instead of implying 60+60 recorded channels
+or one finite tune pick in every structural window.
 Poster-facing Best-N panels isolate blind full-band selected-versus-held-out
 agreement on one shared H/V scale. Near-training-tune agreement remains a
 separate conditioned diagnostic and is never overlaid as equivalent evidence.

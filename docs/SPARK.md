@@ -660,6 +660,12 @@ the final paper build rejects a missing macro or figure file. The generated
 `source_manifest.csv` includes exact numerical source hashes and the complete
 14-output materialization inventory; finalization re-hashes that inventory
 after copy-back.
+Materialization reads the selected-N coverage rows directly from the accepted
+ridge verifier and emits finite, blank-confidence, and bounded edge-excluded
+counts for both planes. It also reads the corpus audit's collection split so
+the 2000-spill primary copy reports its 12 partial captures and 16 source
+absences rather than silently inheriting the three-collection 13/17 totals or
+claiming every nominal 60+60 channel was recorded.
 
 If an original artifact must be revisited, Spark can reach the acquisition host
 with forwarded credentials via `ssh -K drbpm1`; copy or package the smallest

@@ -539,6 +539,13 @@ Poster and manuscript copy must distinguish the 4000 H/V spill-plane cases in
 the full N curve from the evenly stratified 1000-case, five-fold held-out
 validation sample. Those counts come from the accepted verifier and generated
 macros, not manually maintained prose.
+The same gate derives primary capture completeness and selected full-buffer
+ridge coverage. The nominal 60 H plus 60 V topology must be accompanied by the
+16 source absences across 12 flagged partial primary captures. H Best-5 and V
+Best-12 structural rows must be split into finite in-band picks,
+blank-confidence rows, and bounded edge exclusions; this is especially
+important when visually comparing planes because density columns normalize the
+available finite picks rather than proving equal observation coverage.
 Every subtractive ridge caption must say that color represents probability-mass
 redistribution, not measured physical noise. The primary density figures do not
 show a fixed extraction onset; a broad 10000--20000-turn context band may appear

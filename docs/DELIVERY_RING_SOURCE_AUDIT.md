@@ -89,6 +89,9 @@ omitted from manifests that already record `Partial` capture state. None of the
 16 position-only absences intersects the accepted per-spill H Best-5 or V
 Best-12 membership. That join is preserved by
 `scripts/compare_payload_absences_to_best_n.py` with source-table and output
-hashes. Source payloads are read-only. A failed audit
+hashes. Accordingly, publication prose about the 2000-spill primary analysis
+uses the first two collections' 12 partial captures and 16 absences; corpus-wide
+integrity prose retains the full three-collection 13/17 totals. Source payloads
+are read-only. A failed audit
 blocks intensity interpretation, the full-buffer ridge gallery, and final
 poster/paper materialization.

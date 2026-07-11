@@ -55,19 +55,18 @@ Treat these as baseline rather than open TODOs:
 - post-selection Best-N gate-margin matrices over the bounded agreement and
   selected/held-out power floors, with the declared cell identified and an
   explicit prohibition on replacing the published knee
-- an initial exact-pair intensity weighting/covariate study over 199 complete
-  spills; that provisional block-aware result rejects intensity weighting and retains only
-  integrity and exploratory timing diagnostics. A corrected all-zero gate
-  fallback plus an explicit no-usable-intensity unweighted fallback restore N=1
-  invariance and require one final 200-spill refresh.
+- a completed exact-pair intensity weighting/covariate study over 199 complete
+  spills; the final block-aware result retains zero of 240 tested effects and
+  keeps only integrity and exploratory timing diagnostics. Corrected all-zero
+  gate fallback, no-usable-intensity fallback, and direct singleton spectrum
+  pass-through preserve bit-exact N=1 invariance.
 - strict intensity verification of the audited pair count, complete method/turn
   grids, payload horizon, bit-exact N=1 equality from direct singleton spectrum
   pass-through, effect decisions, and gallery assets; 10/20/40 blocks must
   retain the same exact effect identities
 - verifier-bound publication materialization with independent H/V Best-N,
   exact-paired mixed ridge comparison, selected-N H-loss panel, poster copy,
-  paper table, and source hashes; final execution remains gated on the active
-  Best-N, intensity, and ridge passes
+  paper table, verifier-derived capture/finite-pick coverage, and source hashes
 
 ## 2. Deferred Production Enhancements (Not Publication TODO)
 
@@ -288,6 +287,13 @@ Required for the publication review:
   and plane, with finite in-band, blank-confidence, and bounded edge-excluded
   counts reported separately; adaptive aggregate/per-turn rows must equal the
   reconstructed finite-point intersections
+- selected publication coverage stated numerically: H Best-5 has 359018 finite,
+  14 blank-confidence, and 968 edge-excluded rows; V Best-12 has 289210 finite,
+  69684 blank-confidence, and 1106 edge-excluded rows, each from 360000
+  structural rows
+- primary nominal 60 H plus 60 V topology accompanied by the 16 explicit source
+  absences across 12 flagged partial captures; no absent channel is fabricated
+  or zero-filled
 - H-plane concentration, width, entropy, confidence, fallback, and data-derived
   loss-candidate diagnostics
 - block-aware intensity result tables and indexed review gallery

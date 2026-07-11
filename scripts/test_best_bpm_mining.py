@@ -155,6 +155,7 @@ from prepare_ibic2026_publication import (
     publication_numeric_summary,
     render_results_macros,
     render_results_table,
+    selected_ridge_coverage,
     sensitivity_summary,
 )
 from repair_best_bpm_visibility_duration import repair_visibility_durations
@@ -1537,6 +1538,7 @@ class BestBpmMiningTests(unittest.TestCase):
         }
         ridge = {
             plane: {
+                "common_ridge_point_count": "350000",
                 "median_iqr_delta_ensemble_minus_legacy": "-0.002",
                 "median_iqr_delta_ci_low": "-0.0025",
                 "median_iqr_delta_ci_high": "-0.0015",
@@ -1562,6 +1564,20 @@ class BestBpmMiningTests(unittest.TestCase):
             "validation_spill_plane_count": 1000,
             "digitizer_fold_count": 5,
         }
+        coverage = {
+            "H": {
+                "sliding_rows": 360000,
+                "ridge_points": 359000,
+                "missing_tune_rows": 10,
+                "edge_excluded_rows": 990,
+            },
+            "V": {
+                "sliding_rows": 360000,
+                "ridge_points": 288000,
+                "missing_tune_rows": 71000,
+                "edge_excluded_rows": 1000,
+            },
+        }
         table = render_results_table(best, ridge, adaptive, sizes)
         self.assertIn("H & 7", table)
         self.assertIn("V & 11", table)
@@ -1585,17 +1601,27 @@ class BestBpmMiningTests(unittest.TestCase):
                     "V": {"selected_favored": 3, "baseline_favored": 2, "unresolved": 3},
                 }
             },
+            coverage,
+            {
+                "spill_count": 2000,
+                "nominal_h_channels": 60,
+                "nominal_v_channels": 60,
+                "partial_capture_count": 12,
+                "source_absence_count": 16,
+            },
             240,
             0,
         )
         self.assertEqual(content["author"], "Derek Steinkamp | Fermi National Accelerator Laboratory")
-        self.assertIn("scaled threshold-substituted streams are excluded", content["methodBody"])
+        self.assertIn("16 source absences across 12 flagged partial captures", content["methodBody"])
+        self.assertIn("Scaled threshold-substituted streams are excluded", content["methodBody"])
         self.assertIn("H Best-7", content["ridgeCaption"])
         self.assertIn("V Best-11", content["ridgeCaption"])
         self.assertIn("minus corrected adaptive Best-1", content["ridgeContrastCaption"])
         self.assertIn("H narrower than corrected Best-1", content["conclusionBody"])
         self.assertIn("V narrower than corrected Best-1", content["conclusionBody"])
         self.assertIn("Same-protocol all-training control", content["conclusionBody"])
+        self.assertIn("with power-support tradeoffs", content["conclusionBody"])
         self.assertIn("H 2/8", content["conclusionBody"])
         self.assertIn("6/7 runs; 1 unresolved", content["bestNHCaption"])
         self.assertIn("7/7 runs; 0 unresolved", content["bestNVCaption"])
@@ -1604,6 +1630,8 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertIn("4,000 H/V curve cases", content["quantitativeBody"])
         self.assertIn("1,000 stratified validation cases", content["quantitativeBody"])
         self.assertIn("5 held-out-digitizer folds", content["quantitativeBody"])
+        self.assertIn("H 99.7%", content["quantitativeBody"])
+        self.assertIn("V 80.0%", content["quantitativeBody"])
         self.assertNotIn("cases x5", content["quantitativeBody"])
         self.assertIn("1,000 stratified spill-plane", content["methodBody"])
 
@@ -1654,6 +1682,27 @@ class BestBpmMiningTests(unittest.TestCase):
             design,
             sensitivity,
             all_training,
+            {
+                "H": {
+                    "sliding_rows": 360000,
+                    "ridge_points": 359018,
+                    "missing_tune_rows": 14,
+                    "edge_excluded_rows": 968,
+                },
+                "V": {
+                    "sliding_rows": 360000,
+                    "ridge_points": 289210,
+                    "missing_tune_rows": 69684,
+                    "edge_excluded_rows": 1106,
+                },
+            },
+            {
+                "spill_count": 2000,
+                "nominal_h_channels": 60,
+                "nominal_v_channels": 60,
+                "partial_capture_count": 12,
+                "source_absence_count": 16,
+            },
         )
         macros = render_results_macros(summary)
         self.assertIn(r"\newcommand{\PrimaryHBestOneScore}{0.300}", macros)
@@ -1668,8 +1717,41 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertIn(r"\newcommand{\BestNVSensitivityMaximum}{26}", macros)
         self.assertIn(r"\newcommand{\AllTrainingHSelectedFavored}{2}", macros)
         self.assertIn(r"\newcommand{\AllTrainingVUnresolved}{3}", macros)
+        self.assertIn(r"\newcommand{\RidgeHFinitePicks}{359018}", macros)
+        self.assertIn(r"\newcommand{\RidgeVBlankPicks}{69684}", macros)
+        self.assertIn(r"\newcommand{\PrimaryPartialCaptures}{12}", macros)
+        self.assertIn(r"\newcommand{\PrimarySourceAbsences}{16}", macros)
         with self.assertRaisesRegex(ValueError, "definitive study design"):
             best_n_design_summary({"curve_cache_key_count": 4000})
+
+    def test_publication_ridge_coverage_requires_exact_selected_row_closure(self) -> None:
+        report = {
+            "coverage": [
+                {
+                    "plane": plane,
+                    "subset_size": size,
+                    "spill_count": 2000,
+                    "center_count": 180,
+                    "sliding_rows": 360000,
+                    "ridge_points": points,
+                    "missing_tune_rows": missing,
+                    "edge_excluded_rows": edge,
+                    "legacy_spill_count": 1988,
+                    "legacy_point_count": points - 1000,
+                }
+                for plane, size, points, missing, edge in (
+                    ("H", 5, 359018, 14, 968),
+                    ("V", 12, 289210, 69684, 1106),
+                )
+            ]
+        }
+        coverage = selected_ridge_coverage(report, {"H": 5, "V": 12})
+        self.assertEqual(coverage["H"]["ridge_points"], 359018)
+        self.assertEqual(coverage["V"]["missing_tune_rows"], 69684)
+        broken = json.loads(json.dumps(report))
+        broken["coverage"][1]["edge_excluded_rows"] -= 1
+        with self.assertRaisesRegex(ValueError, "does not close"):
+            selected_ridge_coverage(broken, {"H": 5, "V": 12})
 
     def test_publication_requires_majority_best_n_sensitivity_coverage(self) -> None:
         root = self.root / "best-n-sensitivity"
@@ -1964,10 +2046,33 @@ class BestBpmMiningTests(unittest.TestCase):
         csv_file(best_n / "sensitivity" / "sensitivity_run_manifest.csv", sensitivity_manifest)
 
         json_file(ridge / "run_contract.json", {"selected_plane_sizes": {"H": 1, "V": 1}})
+        json_file(
+            ridge / "ridge_density_verification.json",
+            {
+                "status": "pass",
+                "error_count": 0,
+                "coverage": [
+                    {
+                        "plane": plane,
+                        "subset_size": 1,
+                        "spill_count": 2000,
+                        "center_count": 180,
+                        "sliding_rows": 360000,
+                        "ridge_points": 359000,
+                        "missing_tune_rows": 10,
+                        "edge_excluded_rows": 990,
+                        "legacy_spill_count": 1988,
+                        "legacy_point_count": 350000,
+                    }
+                    for plane in ("H", "V")
+                ],
+            },
+        )
         ridge_rows = [
             {
                 "plane": plane,
                 "subset_size": 1,
+                "common_ridge_point_count": 350000,
                 "median_iqr_delta_ensemble_minus_legacy": -0.002,
                 "median_iqr_delta_ci_low": -0.0025,
                 "median_iqr_delta_ci_high": -0.0015,
@@ -2092,6 +2197,9 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertEqual(payload["payload_integrity"]["stream_rows"], 263983)
         self.assertEqual(payload["best_n_design"]["validation_spill_plane_count"], 1000)
         self.assertEqual(payload["all_training_control"]["comparison_count"], 16)
+        self.assertEqual(payload["ridge_coverage"]["H"]["ridge_points"], 359000)
+        self.assertEqual(payload["primary_capture"]["partial_capture_count"], 12)
+        self.assertEqual(payload["primary_capture"]["source_absence_count"], 16)
         missing_inventory_path = payload_audit / "missing_position_streams.csv"
         missing_inventory_bytes = missing_inventory_path.read_bytes()
         missing_inventory_path.write_bytes(missing_inventory_bytes + b" ")
@@ -2144,6 +2252,8 @@ class BestBpmMiningTests(unittest.TestCase):
             (publication / "paper" / "figures" / "horizontal_loss_diagnostic.png").exists()
         )
         self.assertIn("IntensityEffectCount}{1}", (publication / "paper" / "results_macros.tex").read_text())
+        self.assertIn("RidgeHFinitePicks}{359000}", (publication / "paper" / "results_macros.tex").read_text())
+        self.assertIn("PrimarySourceAbsences}{16}", (publication / "paper" / "results_macros.tex").read_text())
         manifest = read_csv(publication / "source_manifest.csv")
         self.assertTrue(any(row["role"] == "poster:ridge_width_hv_poster" for row in manifest))
         self.assertTrue(any(row["role"] == "paper:ridge_width_hv" for row in manifest))

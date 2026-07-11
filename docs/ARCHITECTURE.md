@@ -367,7 +367,12 @@ config ranking. Its package modules cover:
   copy, results payload, and source hashes. The macros prevent primary-score or
   intensity-count or all-training outcome prose from drifting when the accepted run grid changes and
   distinguish the full Best-N curve population from the stratified
-  digitizer-disjoint validation sample.
+  digitizer-disjoint validation sample. The materializer also selects the
+  accepted H/V coverage rows from the ridge verifier, requires exact closure of
+  structural = finite + blank + bounded-edge rows, emits all eight counts as
+  manuscript macros, and derives the primary-only 12-partial/16-absence capture
+  disclosure from the corpus audit rather than treating nominal topology as
+  recorded completeness.
 - `scripts/package_publication_review.py`: copies labeled publication, report,
   and gallery components into one lazy-loading review index. It records every
   copied path, size, and hash, rejects unsafe or unmanifested paths, proves each

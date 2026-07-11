@@ -1188,6 +1188,13 @@ spill-plane cases, 1000 stratified validation cases, and five digitizer folds
 from the accepted block-20 Best-N verifier; materialization rejects any other
 study design. Six additional macros bind the selected-favored,
 all-training-favored, and unresolved comparison counts for each plane.
+Eight ridge-coverage macros bind the selected H/V structural, finite in-band,
+blank-confidence, and bounded edge-excluded row counts from the strict ridge
+verifier. Poster and paper copy must use those values rather than treating the
+complete 2000-spill by 180-center grid as 360000 measured tune picks. The
+materializer also distinguishes the two position-only primary collections (12
+partial captures and 16 absences) from the complete three-collection audit (13
+partial captures and 17 absences); absent channels remain missing in both.
 Every sensitivity run's recommendation or unavailable reason is retained in
 `results_payload.json`; poster and paper copy disclose the available count and
 observed range rather than hiding an unresolved reduced sample.

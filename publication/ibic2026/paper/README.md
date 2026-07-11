@@ -31,7 +31,8 @@ the same pass. The final source must include:
   estimates and intervals;
 - verifier-derived `results_macros.tex` for every primary-score, intensity-
   effect count, sensitivity availability/range, and H/V all-training outcome
-  count quoted in prose;
+  count quoted in prose, plus the selected H/V structural, finite, blank, and
+  bounded edge-excluded ridge counts;
 - the current Fermilab contract number `89243024CSC000002`;
 - no claim of absolute tune calibration, measured physical noise removal, or
   a fixed extraction-onset turn;
@@ -45,15 +46,18 @@ the same pass. The final source must include:
   status fields from the right because names such as `CID Type 0C` span several
   whitespace columns in `pdffonts` output.
 
-The accepted abstract is intentionally quoted in the manuscript abstract until
-the corrected results justify a narrower factual update.
+The accepted abstract is intentionally quoted in the manuscript abstract and
+must remain verbatim; corrected result disclosures belong in the body, table,
+captions, and conclusion.
 
 Generate `results_table.tex`, `results_macros.tex`, and the four files under
 `figures/` with `scripts/prepare_ibic2026_publication.py`; the script rejects any mismatch
 between the selected Best-N rows and the plane-specific full-buffer ridge
 contract and requires the passing all-training and 2200-manifest raw-payload
 audits, including the exact 263983 captured position rows and hashed 17-row
-absent-stream inventory.
+absent-stream inventory. Generated data copy reports the primary-only 12
+partial captures and 16 absences, while the ridge subsection reports selected
+finite/blank/edge closure instead of implying every structural row has a tune.
 The data-derived horizontal tracking-loss diagnostic remains a required poster
 and review-gallery asset, but it is deliberately not a manuscript figure: it
 is a noncausal, plane-specific diagnostic and would displace references from

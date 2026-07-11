@@ -721,6 +721,14 @@ Decision:
   exact numerical source-table hashes, require one fixed safe output inventory,
   and re-hash every materialized content, table, payload, report, and figure at
   finalization. Manifest-file presence alone is not provenance verification.
+- Derive capture-completeness prose from the accepted audit's collection split.
+  The 2000-spill primary analysis has a nominal 60 H plus 60 V topology but 16
+  explicit source absences across 12 partial captures; the additional intensity
+  collection brings the corpus-wide totals to 17 absences across 13 captures.
+- Derive selected full-buffer coverage from the strict ridge verifier. Require
+  exact structural-row closure and publish finite, blank-confidence, and
+  bounded edge-exclusion counts for each plane. A column-normalized ridge map
+  cannot by itself establish equal finite-pick coverage across H and V.
 
 Why:
 - Correct filenames and valid CSV headers do not prove that a figure visualizes
@@ -740,6 +748,9 @@ Why:
   make the copied review package independently interpretable.
 - A checksummed CSV that is never parsed cannot detect stale or modified
   materialized outputs; the hashes must be checked against current bytes.
+- Nominal detector topology is not the same as recorded per-spill completeness,
+  and normalized density color is not a substitute for reporting its finite
+  support population.
 
 Tradeoffs:
 - Semantic verification reads more small/medium tables and intentionally fails

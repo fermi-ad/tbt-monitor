@@ -252,20 +252,23 @@ measured absence of support.
 ## 6. Known Limitations
 
 - no direct Schottky ingestion/auto-sync path in this repository
-- the definitive same-protocol all-training control is implemented but its full
-  accepted 1000-spill-plane run remains pending the active Spark publication
-  chain; descriptive all-BPM rankings cannot substitute for it
+- the definitive same-protocol all-training control is complete, but its mixed
+  H/V metric outcomes do not establish a universal Best-N advantage;
+  descriptive all-BPM rankings still cannot substitute for this held-out test
 - no dedicated cross-BPM coherence metric exported as first-class batch field
 - no dedicated clipping/saturation diagnostic exported yet
-- the provisional June block-aware intensity sidecar found no FDR-significant
-  directional or practically meaningful benefit from intensity weighting; RAW
-  intensity is therefore not used in tune extraction unless the corrected
-  refresh overturns every declared gate, and lag/crossing plots remain exploratory
-- in the provisional June 0-50000 turn ridge-density sidecar, H-plane ridge
-  concentration peaks early and falls below half-peak before the soft
-  extraction-review band; the corrected exact-pair rerun must confirm this, and
-  even then it indicates weak H observability rather than a causal extraction
-  onset
+- the final corrected block-aware intensity sidecar retains zero of 240 tested
+  effects, so RAW intensity is not used in tune extraction; lag and crossing
+  plots remain exploratory
+- the corrected exact-pair 0-50000-turn ridge sidecar places the H sustained
+  half-peak candidate near turn 5632 and a multimetric change near turn 5760.
+  These locate loss of H tracking support in this data set, not a causal or
+  fixed extraction onset
+- the selected structural grids each contain 360000 rows, but finite coverage
+  differs: H Best-5 retains 359018 finite picks, 14 blank-confidence rows, and
+  968 bounded edge exclusions; V Best-12 retains 289210 finite picks, 69684
+  blanks, and 1106 edge exclusions. Column-normalized density therefore permits
+  shape comparison, not an equal-coverage claim
 - live Redis payload depth remains a configuration-dependent acquisition issue;
   the reviewed preserved position collections contain 50000 clean turns, while
   the separate intensity capture advertises a longer array whose tail becomes
@@ -274,7 +277,7 @@ measured absence of support.
   threshold in scaled streams. A same-ID live comparison found those values in
   scaled HP101 arrays but not either raw array, so raw captures are the correct
   analysis boundary. Source/runtime drift still requires the independent
-  first-50000-turn corpus scan before publication. That scan found 17
+  first-50000-turn corpus scan before publication. That completed scan found 17
   manifest-level absences across 13 captures already marked `Partial`, but no
   listed-payload corruption and no overlap between the 16 position-only
   absences and the accepted per-spill H Best-5/V Best-12 memberships

@@ -51,6 +51,11 @@ blocking publication when a plane lacks reproducible recommendation coverage.
 It also requires a passing first-50000-turn audit over the exact 2200-manifest,
 263983-captured-position-row, and 23999-paired-row publication corpus, including
 the hash-bound 17-row absent-stream inventory from 13 recorded partial captures.
+For the two 1000-spill primary collections, generated copy separately reports
+the nominal 60 H plus 60 V topology and its 16 source absences across 12 flagged
+partial captures. The materializer also selects the accepted H Best-5 and V
+Best-12 ridge coverage rows, verifies structural = finite + blank + edge
+closure, and generates all eight counts into poster/paper payload and macros.
 The paper figure set includes the selected-plane turn-resolved P10-P90 ridge-
 width contrast against corrected adaptive Best-1, copied from the same accepted
 ridge root. Its source CSV is unsmoothed, its rendered five-window smoothing is
@@ -61,7 +66,8 @@ Primary adaptive-score values and intensity-effect counts in manuscript prose
 are generated into `results_macros.tex` from the same accepted roots. The macro
 set also distinguishes 4000 full-curve spill-plane cases from 1000 stratified
 validation cases evaluated across five digitizer folds and binds the six H/V
-all-training outcome counts quoted in the manuscript.
+all-training outcome counts plus selected H/V ridge-coverage counts quoted in
+the manuscript.
 
 ## Deliverables
 
