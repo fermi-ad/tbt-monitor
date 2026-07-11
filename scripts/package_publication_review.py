@@ -25,6 +25,15 @@ PACKAGE_METADATA = {
     "PACKAGE_VERIFICATION.json",
     "index.html",
 }
+COPY_IGNORE = shutil.ignore_patterns(
+    ".DS_Store",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    "__pycache__",
+    "*.pyc",
+    "*.pyo",
+)
 
 
 def parse_component(value: str) -> tuple[str, Path]:
@@ -56,7 +65,7 @@ def copied_files(destination: Path) -> list[Path]:
 def copy_component(label: str, source: Path, package_root: Path) -> list[dict[str, object]]:
     component_root = package_root / label
     if source.is_dir():
-        shutil.copytree(source, component_root, copy_function=shutil.copy2)
+        shutil.copytree(source, component_root, copy_function=shutil.copy2, ignore=COPY_IGNORE)
         destination = component_root
     else:
         component_root.mkdir(parents=True)

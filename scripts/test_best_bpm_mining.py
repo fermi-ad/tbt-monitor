@@ -1001,11 +1001,17 @@ class BestBpmMiningTests(unittest.TestCase):
         source_dir = self.root / "gallery-source"
         source_dir.mkdir()
         (source_dir / "figure.png").write_bytes(b"figure")
+        (source_dir / ".DS_Store").write_bytes(b"finder")
+        cache = source_dir / "__pycache__"
+        cache.mkdir()
+        (cache / "generated.pyc").write_bytes(b"bytecode")
         out = self.root / "review-package"
         rows = package_review((("paper", source_file), ("gallery", source_dir)), out)
         self.assertEqual(len(rows), 2)
         self.assertEqual((out / "paper" / "paper.pdf").read_bytes(), b"paper")
         self.assertEqual((out / "gallery" / "figure.png").read_bytes(), b"figure")
+        self.assertFalse((out / "gallery" / ".DS_Store").exists())
+        self.assertFalse((out / "gallery" / "__pycache__").exists())
         manifest = read_csv(out / "MANIFEST.csv")
         self.assertEqual(len(manifest), 2)
         self.assertTrue(all(len(row["sha256"]) == 64 for row in manifest))

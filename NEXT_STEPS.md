@@ -243,6 +243,14 @@ the publication audit:
     PNG hashes, Spark origins, archived protocol, selector-defect audit, and the
     three required fair-comparison stages. Historical PNG bytes remain
     immutable.
+31. Directory packaging copied host metadata and runtime caches such as
+    `.DS_Store` and `__pycache__`. The exact source snapshot would therefore
+    acquire non-source bytecode merely because analysis scripts ran before the
+    handoff, and legacy local galleries already contained Finder metadata.
+    Copying now excludes only generated host/test/type-check/bytecode cache
+    names while retaining hidden repository files and every scientific output.
+    Regression coverage proves these files do not enter the manifest or copied
+    component.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;

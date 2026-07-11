@@ -1114,6 +1114,10 @@ python3 scripts/package_publication_review.py \
   --verify-only review-artifacts/ibic2026-final-review-YYYYMMDD
 ```
 
+Directory components omit only generated `.DS_Store`, Python bytecode, and
+pytest/mypy/ruff cache paths. Repository dotfiles and all analysis products are
+copied and manifested normally.
+
 After visually inspecting the final poster and all four paper pages, close the
 publication directory with the explicit human-QA gate:
 
