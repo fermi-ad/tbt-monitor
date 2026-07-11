@@ -799,13 +799,23 @@ python3 scripts/run_best_n_sensitivity_matrix.py \
   --beam-widths 16 32 64 \
   --fit-windows 4 8 16 \
   --fold-seeds 20260709 20260710 20260711 \
+  --parallel-runs 2 \
+  --minimum-available-memory-gib 32 \
+  --memory-check-seconds 5 \
+  --low-memory-samples 3 \
   --resume
 ```
 
 This executes seven unique runs, verifies each one, compares summary curves for
 all three dimensions, performs exact membership/score/tune convergence checks
 for beam width, and writes an indexed native-PNG gallery plus the complete
-command manifest.
+command manifest. Serial execution is the default. The optional two-run mode is
+the maximum setting qualified on Spark's single GB10; it requires Linux
+`MemAvailable` and terminates both evaluators after three consecutive
+five-second samples below the declared 32 GiB floor. Checkpoint files remain
+resumable, `memory_guard_abort.json` records any guard trip, and
+`execution_controls.json` records the operational settings without changing
+the scientific run contracts.
 The sensitivity gallery includes central curves and their interval endpoints;
 block-length comparisons are expected to change uncertainty even when central
 estimates and the recommended N are unchanged.
