@@ -1,6 +1,6 @@
 # Current Publication Handoff
 
-Last updated: 2026-07-11 00:17 CDT.
+Last updated: 2026-07-11 00:23 CDT.
 
 This file records the live publication run state. Permanent behavior and
 rationale remain in `docs/ARCHITECTURE.md`, `docs/DESIGN_DECISIONS.md`, and
@@ -89,12 +89,8 @@ The active chain is marker-gated and survives loss of the client SSH session:
    `/home/derekste/tbt-publication-20260710/delivery_ring_payload_audit` and
    requires the exact 263999-position-row/23999-paired-row contract before its
    own `COMPLETE` marker.
-4. `/home/derekste/spark_publication_tail_b4896a50.sh` currently holds the final
-   launch lock and waits for the payload-audit marker. It still carries the
-   superseded all-seven-recommendations sensitivity gate.
-5. `/home/derekste/spark_publication_tail_25c41237.sh` is uploaded but not
-   started. After exact staged-source tests pass, a guarded identity-checked
-   swap replaces only the waiting watcher. The replacement requires passing
+4. `/home/derekste/spark_publication_tail_25c41237.sh` holds the final launch
+   lock and waits for the payload-audit marker. It requires passing
    10/20/40-block Best-N reports, four OK transfer rows, all seven verified
    sensitivity runs, and eligible H/V recommendations in a strict majority of
    those runs. Every unavailable run and reason remains publication evidence.
@@ -105,12 +101,12 @@ The active chain is marker-gated and survives loss of the client SSH session:
    source-side review archive. The 32 GiB three-sample memory watchdog remains
    active throughout the GPU stages.
 
-The final continuation is detached as PID/PGID/SID `831404` in its own session
+The final continuation is detached as PID/PGID/SID `869490` in its own session
 and process group. Its script SHA-256 is
-`0dd002f5625119bc4ae4d854ea8e9f688c67abc88162fd10fce54d1a855e0910`.
-It uses source commit `b4896a50`, extracted only after the archive matched
-SHA-256 `3a4ded10519956843a2cb50d717ddaefec329d22923d3d9d68920dcf871a4a0e`.
-The exact staged source passed all 70 Best-BPM tests, all nine autosweep tests,
+`eebb60e4dbab0604cc9f92f9d062a29ab88a3bce394e56e6a61b8bd12a7728ef`.
+It uses source commit `25c41237`, extracted only after the archive matched
+SHA-256 `04c48280432947f27325d518aee5c7e7fc800f36909ec847835a29866564a018`.
+The exact staged source passed all 71 Best-BPM tests, all nine autosweep tests,
 and the poster self-test on Spark. The immutable stage receipt records all
 three source/archive/wrapper identities. The watcher log records the same
 source and archive identities and is waiting for the payload-audit marker.
@@ -124,8 +120,8 @@ and its prepared continuation-wrapper SHA-256 is
 `eebb60e4dbab0604cc9f92f9d062a29ab88a3bce394e56e6a61b8bd12a7728ef`.
 The archive and wrapper plus the guarded stage/swap helpers match those local
 bytes on Spark. The exact archive locally passes all 71 Best-BPM tests, all nine
-autosweep tests, and the poster self-test. Remote staging is intentionally held
-until one of the two large sensitivity evaluators releases memory.
+autosweep tests, and the poster self-test. The same tests pass in the extracted
+Spark source, and the hash-bound stage receipt enabled the guarded watcher swap.
 This version retains the earlier exact-paired metrics and complete turn grids
 for every adaptive N pair plus the zero Best-1 self-control, binds the
 paper/poster width contrast to selected Best-N minus corrected Best-1, and
