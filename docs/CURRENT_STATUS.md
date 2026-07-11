@@ -1,6 +1,6 @@
 # Current Publication Handoff
 
-Last updated: 2026-07-10 22:37 CDT.
+Last updated: 2026-07-10 22:39 CDT.
 
 This file records the live publication run state. Permanent behavior and
 rationale remain in `docs/ARCHITECTURE.md`, `docs/DESIGN_DECISIONS.md`, and
@@ -104,11 +104,11 @@ SHA-256 `1754858edbbaf3b0a2437e9fa1163385476d26ae2da2406bcfa71aaa8d9c63d4`.
 No intensity or ridge computation can begin merely because the earlier marker
 appears; the selected-N and sensitivity preflight must pass first.
 
-The latest local publication source is commit `2d46a7dc`. Its prepared archive
+The latest local publication source is commit `b4896a50`. Its prepared archive
 SHA-256 is
-`6a243da541993d01bc880c1e9e89d02b6558021cb02a3b6fcf10f818bab15d75`,
+`3a4ded10519956843a2cb50d717ddaefec329d22923d3d9d68920dcf871a4a0e`,
 and its prepared continuation-wrapper SHA-256 is
-`1d55afc82aa9e970a9fa1ec498cb8bd66871555901cc86fbfed8b75f0c0d0408`.
+`b6bfe1fc5ec476fab9fdd1cc7622c0fb289c23311fda47816e5c773170dcc3c8`.
 That version adds exact-paired metrics and complete turn grids for every
 adaptive N pair plus the zero Best-1 self-control, binds the paper/poster width
 contrast to selected Best-N minus corrected Best-1, and strictly verifies the
