@@ -1,6 +1,6 @@
 # Current Publication Handoff
 
-Last updated: 2026-07-11 00:23 CDT.
+Last updated: 2026-07-11 01:35 CDT.
 
 This file records the live publication run state. Permanent behavior and
 rationale remain in `docs/ARCHITECTURE.md`, `docs/DESIGN_DECISIONS.md`, and
@@ -148,7 +148,7 @@ labels, the read-only final-PPTX empty-placeholder gate, preserved poster
 layout/overflow/template-fidelity evidence, portable poster/paper build
 manifests, and both flagged and unflagged macOS Bash 3.2 Tectonic invocation
 paths. Publication preparation now records exact numerical source-table hashes,
-and finalization re-hashes the fixed 15-file materialized-output inventory.
+and finalization re-hashes the fixed 14-file materialized-output inventory.
 The wrapper accepts an existing ridge root only after the current strict
 verifier passes, preserves any incompatible ridge/publication tree under a
 timestamped `.incomplete` name, and trusts `ANALYSIS_COMPLETE` only when it
@@ -247,6 +247,12 @@ executive text and a detached, explicitly descriptive native-PNG panel.
 
 ## Access And Handoff
 
+- At the 2026-07-11 01:35 CDT local check, DNS still did not resolve either
+  `api.github.com` or `outland.fnal.gov`, and `klist` reported a credential-cache
+  I/O failure after the clock correction. Do not infer a Spark failure from
+  local connectivity. Renew Kerberos only after network service returns, then
+  reconcile the detached chain from markers, process identity/elapsed time,
+  hashes, and row counts rather than cross-correction wall-clock stamps.
 - Local to Spark: use the configured `spark` alias with bounded SSH options and
   `ClearAllForwardings=yes`; the alias uses `ProxyJump outland.fnal.gov`.
 - Spark to raw capture host: delegated Kerberos works with `ssh -K drbpm1`.
@@ -258,7 +264,7 @@ executive text and a detached, explicitly descriptive native-PNG panel.
 ## Current Local Validation
 
 ```text
-Best-BPM Python tests: 72 run, 66 passed, 6 process-pool tests skipped by local sandbox
+Best-BPM Python tests: 73 run, 67 passed, 6 process-pool tests skipped by local sandbox
 Autosweep Python tests: 9 passed
 Rust tests: 44 passed
 GPU analyzer self-test: passed
@@ -267,9 +273,11 @@ git diff --check: passed
 current A0 template frame map: 0 validation issues; full A0 smoke passes overflow, fidelity, PDF/font, and branded PNG identity gates
 template-derived smoke PPTX: 0 empty structural placeholders under the finalizer's read-only slide-XML gate
 poster build provenance smoke: portable 10-entry manifest, audited starter hash, delivered layout/inspection, 0 fidelity issues
-paper build routing smoke: flagged and unflagged shell paths plus portable 10-entry manifest pass without claiming a new TeX compile
+paper build routing smoke: flagged and unflagged shell paths plus portable 9-entry manifest pass
 review-package transfer smoke: 13 files, 3 images, exact manifest/gallery/receipt verification passes; same-size tampering is detected
-JACoW layout smoke: exactly four 595 x 792 bp pages, no overfull boxes or unresolved references, all fonts embedded/subset/Unicode-mapped
+JACoW layout smoke: the current manuscript is exactly four 595 x 792 bp pages after keeping the noncausal H-loss diagnostic in the poster/gallery; no overfull boxes or unresolved references, and all fonts are embedded/subset/Unicode-mapped
+accepted references: abstract and poster-template hashes reverified; manuscript title and abstract match abstract 54
+local branch: `dev/ibic2026-final-delivery` contains unpushed reporting/layout commits `d603bad8` and `20b98f5d`; this handoff refresh is documentation-only
 ```
 
 The six process-pool probes passed on Spark in the accepted staged source tree.
