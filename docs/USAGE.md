@@ -1125,8 +1125,15 @@ payload, seven sensitivity runs, four OK transfer rows, zero retained intensity
 effects, the exact raw-payload corpus, unresolved-copy gates, and every final
 slide XML placeholder. It reads the PPTX as a ZIP package without modifying it
 and rejects a placeholder shape whose DrawingML text is empty or whitespace.
-It writes `compliance_report.md` and `publication_manifest.csv`; the manifest
-inventories every publication file except itself.
+It also recomputes the exact portable poster and paper checksum inventories,
+the poster builder's recorded content/asset/output hashes and dimensions, and
+the delivered zero-issue template-fidelity report. It writes
+`compliance_report.md` and `publication_manifest.csv`; the manifest inventories
+every publication file except itself.
+
+`TECTONIC_FLAGS` is optional. Leaving it unset uses the ordinary Tectonic
+command, while `TECTONIC_FLAGS=--only-cached` explicitly forbids resource
+downloads; both shell paths are valid under the system Bash 3.2 runtime.
 
 ## Timing Semantics
 

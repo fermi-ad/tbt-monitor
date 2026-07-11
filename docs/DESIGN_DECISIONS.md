@@ -677,6 +677,10 @@ Decision:
   Parse slide OOXML read-only, distinguish placeholder shapes from ordinary
   empty design shapes, and record the accepted zero count in the compliance
   report.
+- Preserve layout, overflow-inspection, font, and zero-issue template-fidelity
+  evidence beside the poster deliverables. Use package-relative checksum labels
+  for poster and paper manifests and recompute their exact inventories during
+  finalization rather than trusting a file merely because it exists.
 
 Why:
 - Correct filenames and valid CSV headers do not prove that a figure visualizes
@@ -691,6 +695,9 @@ Why:
 - A one-off manual XML inspection does not protect a later poster rebuild;
   binding the same check into finalization keeps editable-source and rendered
   acceptance criteria aligned.
+- Scratch-only QA reports and unchecked absolute-path manifests do not survive
+  artifact handoff as auditable evidence. Portable labels plus recomputation
+  make the copied review package independently interpretable.
 
 Tradeoffs:
 - Semantic verification reads more small/medium tables and intentionally fails

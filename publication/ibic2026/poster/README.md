@@ -11,7 +11,9 @@ parallel visual rebuild are not permitted.
 - `template-audit.txt`: inherited layout, brand, typography, and QA contract;
 - `deviation-log.txt`: allowed departures from the source slide;
 - `content.json`: final verifier-derived copy and relative paths to five PNGs;
-- a prepared `template-starter.pptx` generated from the supplied POTX.
+- the audited prepared `template-starter.pptx` generated from the supplied
+  POTX, SHA-256
+  `b21f8c2e1d121f0d39ec1428576ae19d7ffdf1dd50a55b0a29df8e195ac8be60`.
 
 Do not edit `content.json` or copy the five final PNGs by hand. Generate them
 with `scripts/prepare_ibic2026_publication.py`, which preserves independent H/V
@@ -23,8 +25,8 @@ population from the smaller stratified held-out validation population.
 `build_poster.mjs`. The builder rejects missing/undersized images, unresolved
 copy, and nonnumeric result text. `build_poster.sh` runs that builder and the
 complete delivery gate: editable PPTX, one-page A0 PDF, full-size PNG, PDF
-raster, layout JSON, template-fidelity report, overflow check, embedded-font
-check, and checksums.
+raster, delivered layout JSON, zero-issue template-fidelity JSON/text reports,
+PPTX overflow inspection, embedded-font report, and portable checksums.
 The named full-size PNG is copied from the 150 dpi PDF raster and must remain
 byte-identical to it. This preserves master-level Fermilab/DOE artwork that the
 artifact-tool geometry preview does not render; the direct artifact preview is
@@ -64,7 +66,9 @@ Before delivery:
    branding, axis/legend readability, clipping, and unintended overlap;
 4. run the publication finalizer's read-only slide-XML gate and confirm the
    compliance report records zero empty structural placeholders;
-5. render the PPTX to PDF and confirm one A0 portrait page with all fonts and
+5. confirm the finalizer recomputes the delivered source/deliverable manifests
+   and zero-issue fidelity report;
+6. render the PPTX to PDF and confirm one A0 portrait page with all fonts and
    authentic Fermilab branding preserved.
 
 The complete review gallery, including selected-spill examples, is packaged

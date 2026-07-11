@@ -13,15 +13,25 @@ import subprocess
 import zipfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Sequence
+from typing import Mapping, Sequence
 
 from bpm_mining.ridge_verification import png_dimensions
 
 
 ABSTRACT_SHA256 = "e125b5889dbd28e35e17154297a0abb7abd2ce2ec26538a6c7d5301c67b8eea4"
 POSTER_TEMPLATE_SHA256 = "ca9647b1db39860ebdc83854c432842f0dd09b0a7601c8f4af1bd2bf405468a9"
+POSTER_STARTER_SHA256 = "b21f8c2e1d121f0d39ec1428576ae19d7ffdf1dd50a55b0a29df8e195ac8be60"
 JACOW_SHA256 = "e902c3c4ff34a98604d17ba3dd44989b9ed6c042bfdd179eb4f1b700515f291c"
 MANIFEST_FIELDS = ("path", "size_bytes", "sha256")
+SHA256_LINE = re.compile(r"^([0-9a-f]{64})  (.+)$")
+POSTER_BASE = "ibic2026-abstract54-poster"
+POSTER_ASSET_FILES = {
+    "bestNH": "best_n_validation_h.png",
+    "bestNV": "best_n_validation_v.png",
+    "ridgeHV": "ridge_density_comparison.png",
+    "ridgeContrast": "ridge_width_contrast_hv.png",
+    "hLoss": "horizontal_loss_diagnostic.png",
+}
 UNRESOLVED = re.compile(
     r"\b(?:pending|provisional|tbd|todo)\b|\[\s+\]|final manuscript will report",
     re.IGNORECASE,
@@ -99,6 +109,91 @@ def read_json(path: Path) -> dict[str, object]:
     if not isinstance(value, dict):
         raise ValueError(f"publication JSON root is not an object: {path}")
     return value
+
+
+def verify_sha256_manifest(path: Path, expected: Mapping[str, Path]) -> None:
+    require_file(path)
+    rows: dict[str, str] = {}
+    for line_number, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        match = SHA256_LINE.fullmatch(raw)
+        if not match:
+            raise ValueError(f"invalid SHA-256 manifest row: {path}:{line_number}")
+        digest, label = match.groups()
+        logical_path = Path(label)
+        if logical_path.is_absolute() or ".." in logical_path.parts:
+            raise ValueError(f"nonportable SHA-256 manifest path: {path}:{line_number}: {label}")
+        if label in rows:
+            raise ValueError(f"duplicate SHA-256 manifest path: {path}: {label}")
+        rows[label] = digest
+    if set(rows) != set(expected):
+        missing = sorted(set(expected) - set(rows))
+        extra = sorted(set(rows) - set(expected))
+        raise ValueError(f"SHA-256 manifest inventory mismatch: {path}: missing={missing}, extra={extra}")
+    for label, source in expected.items():
+        actual = sha256(require_file(source))
+        if rows[label] != actual:
+            raise ValueError(
+                f"SHA-256 manifest mismatch: {path}: {label}: {rows[label]} != {actual}"
+            )
+
+
+def require_recorded_sha256(label: str, value: object, source: Path) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise ValueError(f"poster source manifest is missing {label}")
+    recorded = str(value.get("sha256") or "")
+    actual = sha256(require_file(source))
+    if recorded != actual:
+        raise ValueError(f"poster source manifest mismatch: {label}: {recorded} != {actual}")
+    return value
+
+
+def verify_poster_source_manifest(root: Path) -> None:
+    poster = root / "poster"
+    build = poster / "build"
+    manifest = read_json(build / "source_manifest.json")
+    if manifest.get("schema") != "tbt-monitor.ibic2026-poster-source/v1":
+        raise ValueError("poster source manifest has the wrong schema")
+    starter = manifest.get("starter")
+    if not isinstance(starter, dict) or starter.get("sha256") != POSTER_STARTER_SHA256:
+        raise ValueError("poster source manifest has the wrong prepared-starter hash")
+    require_recorded_sha256("content", manifest.get("content"), poster / "content.json")
+
+    assets = manifest.get("assets")
+    if not isinstance(assets, dict) or set(assets) != set(POSTER_ASSET_FILES):
+        raise ValueError("poster source manifest has the wrong asset inventory")
+    for key, filename in POSTER_ASSET_FILES.items():
+        source = poster / "assets" / filename
+        record = require_recorded_sha256(f"asset {key}", assets.get(key), source)
+        dimensions = png_dimensions(source)
+        raw_dimensions = record.get("dimensions")
+        if (
+            dimensions is None
+            or not isinstance(raw_dimensions, dict)
+            or int(raw_dimensions.get("width") or 0) != dimensions[0]
+            or int(raw_dimensions.get("height") or 0) != dimensions[1]
+        ):
+            raise ValueError(f"poster source manifest dimension mismatch: asset {key}")
+
+    outputs = manifest.get("outputs")
+    expected_outputs = {
+        "pptx": build / f"{POSTER_BASE}.pptx",
+        "artifactPreview": build / f"{POSTER_BASE}-artifact-preview.png",
+        "layout": build / "layout" / "final-slide-01.layout.json",
+    }
+    if not isinstance(outputs, dict) or set(outputs) != set(expected_outputs):
+        raise ValueError("poster source manifest has the wrong output inventory")
+    for key, source in expected_outputs.items():
+        require_recorded_sha256(f"output {key}", outputs.get(key), source)
+
+
+def verify_template_fidelity(path: Path) -> None:
+    report = read_json(path)
+    if (
+        report.get("status") != "pass"
+        or report.get("issueCount") != 0
+        or report.get("issues") != []
+    ):
+        raise ValueError("poster template-fidelity report is not a zero-issue pass")
 
 
 def parse_pdfinfo(text: str) -> dict[str, object]:
@@ -206,22 +301,73 @@ def finalize(
         root / "results_payload.json",
         root / "source_manifest.csv",
         root / "poster" / "content.json",
-        root / "poster" / "build" / "ibic2026-abstract54-poster.pptx",
-        root / "poster" / "build" / "ibic2026-abstract54-poster.pdf",
-        root / "poster" / "build" / "ibic2026-abstract54-poster.png",
+        root / "poster" / "build" / f"{POSTER_BASE}.pptx",
+        root / "poster" / "build" / f"{POSTER_BASE}.pdf",
+        root / "poster" / "build" / f"{POSTER_BASE}.png",
+        root / "poster" / "build" / f"{POSTER_BASE}-artifact-preview.png",
+        root / "poster" / "build" / f"{POSTER_BASE}.pptx.inspect.ndjson",
         root / "poster" / "build" / "source_manifest.json",
+        root / "poster" / "build" / "deliverable-sha256.txt",
+        root / "poster" / "build" / "layout" / "final-slide-01.layout.json",
+        root / "poster" / "build" / "qa" / "template-fidelity-check.json",
+        root / "poster" / "build" / "qa" / "template-fidelity-check.txt",
+        root / "poster" / "build" / "pdffonts.txt",
         root / "poster" / "build" / "rendered" / "poster-1.png",
         root / "paper" / "ABSTRACT54.tex",
         root / "paper" / "results_table.tex",
         root / "paper" / "results_macros.tex",
         root / "paper" / "build" / "ABSTRACT54.pdf",
         root / "paper" / "build" / "source_manifest.sha256",
+        root / "paper" / "build" / "pdffonts.txt",
         *(root / "paper" / "build" / "rendered" / f"page-{page}.png" for page in range(1, 5)),
     )
     for path in required:
         require_file(path)
+    verify_poster_source_manifest(root)
+    verify_template_fidelity(
+        root / "poster" / "build" / "qa" / "template-fidelity-check.json"
+    )
+    poster_build = root / "poster" / "build"
+    verify_sha256_manifest(
+        poster_build / "deliverable-sha256.txt",
+        {
+            f"{POSTER_BASE}.pptx": poster_build / f"{POSTER_BASE}.pptx",
+            f"{POSTER_BASE}.pdf": poster_build / f"{POSTER_BASE}.pdf",
+            f"{POSTER_BASE}.png": poster_build / f"{POSTER_BASE}.png",
+            f"{POSTER_BASE}-artifact-preview.png": poster_build
+            / f"{POSTER_BASE}-artifact-preview.png",
+            "source_manifest.json": poster_build / "source_manifest.json",
+            "layout/final-slide-01.layout.json": poster_build
+            / "layout"
+            / "final-slide-01.layout.json",
+            f"{POSTER_BASE}.pptx.inspect.ndjson": poster_build
+            / f"{POSTER_BASE}.pptx.inspect.ndjson",
+            "qa/template-fidelity-check.json": poster_build
+            / "qa"
+            / "template-fidelity-check.json",
+            "qa/template-fidelity-check.txt": poster_build
+            / "qa"
+            / "template-fidelity-check.txt",
+            "pdffonts.txt": poster_build / "pdffonts.txt",
+        },
+    )
+    paper = root / "paper"
+    verify_sha256_manifest(
+        paper / "build" / "source_manifest.sha256",
+        {
+            "ABSTRACT54.tex": paper / "ABSTRACT54.tex",
+            "jacow.cls": paper / "jacow.cls",
+            "results_table.tex": paper / "results_table.tex",
+            "results_macros.tex": paper / "results_macros.tex",
+            **{
+                f"figures/{filename}": paper / "figures" / filename
+                for filename in POSTER_ASSET_FILES.values()
+            },
+            "build/ABSTRACT54.pdf": paper / "build" / "ABSTRACT54.pdf",
+        },
+    )
     empty_placeholders = empty_structural_placeholders(
-        root / "poster" / "build" / "ibic2026-abstract54-poster.pptx"
+        root / "poster" / "build" / f"{POSTER_BASE}.pptx"
     )
     if empty_placeholders:
         raise ValueError(
@@ -238,14 +384,14 @@ def finalize(
         require_png(root / "paper" / "figures" / figure, (500, 300))
         require_png(root / "poster" / "assets" / figure, (500, 300))
 
-    poster_pdf = root / "poster" / "build" / "ibic2026-abstract54-poster.pdf"
+    poster_pdf = root / "poster" / "build" / f"{POSTER_BASE}.pdf"
     paper_pdf = root / "paper" / "build" / "ABSTRACT54.pdf"
     poster_info = pdf_info(pdfinfo, poster_pdf)
     paper_info = pdf_info(pdfinfo, paper_pdf)
     require_geometry("poster PDF", poster_info, 1, 2383.94, 3370.39, 4.0)
     require_geometry("paper PDF", paper_info, 4, 595.0, 792.0, 2.0)
     poster_preview = require_png(
-        root / "poster" / "build" / "ibic2026-abstract54-poster.png",
+        root / "poster" / "build" / f"{POSTER_BASE}.png",
         (3000, 4000),
     )
     poster_render = require_png(
@@ -254,7 +400,7 @@ def finalize(
     )
     require_identical_files(
         "poster preview and PDF raster",
-        root / "poster" / "build" / "ibic2026-abstract54-poster.png",
+        root / "poster" / "build" / f"{POSTER_BASE}.png",
         root / "poster" / "build" / "rendered" / "poster-1.png",
     )
     paper_renders = [
@@ -351,7 +497,11 @@ def finalize(
         f"- poster preview pixels: {poster_preview[0]} x {poster_preview[1]}",
         f"- poster PDF render pixels: {poster_render[0]} x {poster_render[1]}",
         "- poster preview source: byte-identical 150 dpi PDF raster with inherited master artwork",
+        "- poster source/deliverable manifests: verified",
+        f"- prepared poster starter: `{POSTER_STARTER_SHA256}`",
+        "- poster template fidelity: pass, 0 issues",
         "- empty structural poster placeholders: 0",
+        "- paper source manifest: verified",
         "- paper render pixels: " + ", ".join(f"{width} x {height}" for width, height in paper_renders),
         f"- poster visual QA: {poster_visual_qa}",
         f"- paper visual QA: {paper_visual_qa}",

@@ -202,6 +202,26 @@ the publication audit:
     `p:ph` whose DrawingML text is empty or whitespace, and records a zero
     count in the compliance report. A synthetic PPTX regression distinguishes
     empty placeholders from intentionally empty ordinary shapes.
+27. The poster build ran overflow and template-fidelity checks in scratch but
+    did not preserve their layout, inspection, or report files in the delivered
+    build tree. Poster and paper checksum manifests were required to exist but
+    finalization never recomputed their entries, and their absolute source
+    paths were not portable to the review bundle. The poster build now delivers
+    its layout inventory, `slides_test` inspection, zero-issue fidelity JSON and
+    text reports, font report, and a portable exact checksum inventory. The
+    paper build likewise writes logical package-relative checksum labels.
+    Finalization recomputes both exact inventories, verifies every poster
+    source-manifest content/asset/output hash and recorded PNG dimension, and
+    rejects a stale or nonzero-issue fidelity report. The template-derived
+    smoke passes all of these gates.
+28. The paper build initialized `TECTONIC_ARGS` as an empty Bash array and then
+    expanded it under `set -u`. macOS Bash 3.2 treats that empty-array expansion
+    as an unbound variable, so the documented default invocation failed before
+    Tectonic unless `TECTONIC_FLAGS` happened to be set. The build now branches
+    explicitly between flagged and unflagged invocations. A non-compiling
+    harness over the already verified four-page smoke PDF exercises both paths
+    and the portable manifest writer; a real cached Tectonic rebuild remains a
+    separate final-paper gate.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;

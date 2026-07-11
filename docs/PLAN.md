@@ -337,7 +337,8 @@ Current publication interpretation:
   geometry and payload closure, requires the named poster PNG to be the
   byte-identical PDF raster with inherited master artwork, rejects empty
   structural placeholders found by a read-only scan of final slide XML, and
-  inventories every delivered publication file by SHA-256.
+  recomputes portable poster/paper build manifests and zero-issue template
+  fidelity before inventorying every delivered publication file by SHA-256.
 - Full-buffer galleries are publication-eligible only after their strict
   spill/window, exact-pair, metric, warning, PNG, and caption verifier passes.
 - Publication materialization also requires the independent Delivery Ring raw

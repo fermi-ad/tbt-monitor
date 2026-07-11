@@ -1,5 +1,6 @@
 Template audit: FNAL Scientific Poster A0 Vertical, May 2025
 Source SHA-256: ca9647b1db39860ebdc83854c432842f0dd09b0a7601c8f4af1bd2bf405468a9
+Prepared one-slide starter SHA-256: b21f8c2e1d121f0d39ec1428576ae19d7ffdf1dd50a55b0a29df8e195ac8be60
 
 Source structure
 - Two A0 portrait source slides, each 33.1 x 46.8 inches.

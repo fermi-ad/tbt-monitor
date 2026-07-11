@@ -15,6 +15,7 @@ layout development but not as publication evidence.
 | --- | --- |
 | Accepted abstract `abstract-54.pdf` | `e125b5889dbd28e35e17154297a0abb7abd2ce2ec26538a6c7d5301c67b8eea4` |
 | Fermilab A0 vertical poster template, May 2025 | `ca9647b1db39860ebdc83854c432842f0dd09b0a7601c8f4af1bd2bf405468a9` |
+| Audited one-slide poster starter | `b21f8c2e1d121f0d39ec1428576ae19d7ffdf1dd50a55b0a29df8e195ac8be60` |
 | JACoW class v3.01, 2026-03-11 | `ad1f381eb56b22cac36f59b0947ae5ef20b8dcdc56f4867434754fb698347d0d` |
 
 The accepted abstract and Fermilab template are user-supplied reference files
@@ -63,8 +64,11 @@ poster and all four paper pages. The finalizer requires explicit `pass` values
 for both visual reviews and rechecks the reference hashes, page geometry,
 render dimensions, results payload, and final PPTX slide XML. It rejects any
 empty structural placeholder without rewriting the OOXML package and records
-the accepted zero count in the compliance report. `publication_manifest.csv`
-inventories every file under this directory except itself.
+the accepted zero count in the compliance report. It also recomputes exact
+package-relative poster/paper build manifests, poster content/asset/output
+hashes and dimensions, and the delivered zero-issue template-fidelity report.
+`publication_manifest.csv` inventories every file under this directory except
+itself.
 
 The working paper name is `ABSTRACT54` until IBIC assigns a programme code.
 Rename the TeX and PDF together when that code becomes available.

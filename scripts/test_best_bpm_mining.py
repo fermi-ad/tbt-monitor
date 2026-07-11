@@ -149,9 +149,14 @@ from compare_intensity_block_sensitivity import (
 from compare_best_n_beam_widths import compare_table as compare_best_n_beam_table
 from compare_best_n_sensitivity import comparison_rows as compare_best_n_sensitivity_rows
 from finalize_ibic2026_publication import (
+    POSTER_STARTER_SHA256,
     empty_structural_placeholders,
     parse_pdfinfo,
     require_identical_files,
+    sha256 as publication_sha256,
+    verify_poster_source_manifest,
+    verify_sha256_manifest,
+    verify_template_fidelity,
 )
 
 
@@ -1075,6 +1080,98 @@ class BestBpmMiningTests(unittest.TestCase):
                 slide_xml.replace(">   </a:t>", ">Results</a:t>"),
             )
         self.assertEqual(empty_structural_placeholders(clean_pptx), [])
+
+    def test_publication_verifies_portable_checksum_manifests(self) -> None:
+        alpha = self.root / "alpha.txt"
+        beta = self.root / "nested" / "beta.txt"
+        alpha.write_text("alpha", encoding="utf-8")
+        beta.parent.mkdir()
+        beta.write_text("beta", encoding="utf-8")
+        manifest = self.root / "checksums.txt"
+        manifest.write_text(
+            f"{publication_sha256(alpha)}  alpha.txt\n"
+            f"{publication_sha256(beta)}  nested/beta.txt\n",
+            encoding="utf-8",
+        )
+        expected = {"alpha.txt": alpha, "nested/beta.txt": beta}
+        verify_sha256_manifest(manifest, expected)
+
+        beta.write_text("changed", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "SHA-256 manifest mismatch"):
+            verify_sha256_manifest(manifest, expected)
+        manifest.write_text(f"{'a' * 64}  /absolute/path\n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "nonportable"):
+            verify_sha256_manifest(manifest, {"/absolute/path": alpha})
+
+    def test_publication_verifies_poster_source_and_fidelity_manifests(self) -> None:
+        publication = self.root / "publication"
+        poster = publication / "poster"
+        assets = poster / "assets"
+        build = poster / "build"
+        layout = build / "layout" / "final-slide-01.layout.json"
+        assets.mkdir(parents=True)
+        layout.parent.mkdir(parents=True)
+        content = poster / "content.json"
+        content.write_text("{}", encoding="utf-8")
+
+        png_header = (
+            b"\x89PNG\r\n\x1a\n"
+            + b"\x00\x00\x00\rIHDR"
+            + (640).to_bytes(4, "big")
+            + (480).to_bytes(4, "big")
+        )
+        asset_names = {
+            "bestNH": "best_n_validation_h.png",
+            "bestNV": "best_n_validation_v.png",
+            "ridgeHV": "ridge_density_comparison.png",
+            "ridgeContrast": "ridge_width_contrast_hv.png",
+            "hLoss": "horizontal_loss_diagnostic.png",
+        }
+        asset_records = {}
+        for key, filename in asset_names.items():
+            path = assets / filename
+            path.write_bytes(png_header)
+            asset_records[key] = {
+                "sha256": publication_sha256(path),
+                "dimensions": {"width": 640, "height": 480},
+            }
+
+        pptx = build / "ibic2026-abstract54-poster.pptx"
+        preview = build / "ibic2026-abstract54-poster-artifact-preview.png"
+        pptx.write_bytes(b"pptx")
+        preview.write_bytes(png_header)
+        layout.write_text("{}", encoding="utf-8")
+        source_manifest = {
+            "schema": "tbt-monitor.ibic2026-poster-source/v1",
+            "starter": {"sha256": POSTER_STARTER_SHA256},
+            "content": {"sha256": publication_sha256(content)},
+            "assets": asset_records,
+            "outputs": {
+                "pptx": {"sha256": publication_sha256(pptx)},
+                "artifactPreview": {"sha256": publication_sha256(preview)},
+                "layout": {"sha256": publication_sha256(layout)},
+            },
+        }
+        (build / "source_manifest.json").write_text(
+            json.dumps(source_manifest), encoding="utf-8"
+        )
+        verify_poster_source_manifest(publication)
+        content.write_text('{"changed": true}', encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "poster source manifest mismatch"):
+            verify_poster_source_manifest(publication)
+
+        fidelity = build / "template-fidelity-check.json"
+        fidelity.write_text(
+            json.dumps({"status": "pass", "issueCount": 0, "issues": []}),
+            encoding="utf-8",
+        )
+        verify_template_fidelity(fidelity)
+        fidelity.write_text(
+            json.dumps({"status": "pass", "issueCount": 1, "issues": ["drift"]}),
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(ValueError, "zero-issue pass"):
+            verify_template_fidelity(fidelity)
 
     def test_publication_copy_and_table_are_plane_specific(self) -> None:
         best = {

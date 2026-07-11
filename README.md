@@ -44,7 +44,9 @@ cover their complete declared axes without floor-division gaps.
 `finalize_ibic2026_publication.py` then requires explicit visual-QA passes and
 rechecks immutable references, page geometry, payload closure, checksums, and
 the final PPTX slide XML for empty structural placeholders before writing the
-final compliance report and publication inventory.
+final compliance report and publication inventory. Build provenance remains in
+the delivered tree: portable source/deliverable checksum manifests, poster
+layout and overflow inspection, and the zero-issue template-fidelity reports.
 
 ## Quick Start
 

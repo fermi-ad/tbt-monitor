@@ -552,6 +552,11 @@ because it does not render master-level footer media.
 Final closure also parses every exported slide XML member read-only and rejects
 an empty title, body, or other structural placeholder while allowing
 intentionally empty ordinary shapes.
+The final build tree must retain the artifact-tool layout inventory,
+`slides_test` inspection, font report, and zero-issue template-fidelity JSON and
+text reports. Their package-relative checksum inventory is recomputed during
+finalization together with every content, asset, output, and PNG-dimension entry
+in the poster source manifest.
 The poster should use four to six final evidence panels even though the complete
 indexed review gallery is intentionally much larger.
 

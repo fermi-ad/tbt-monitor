@@ -11,6 +11,8 @@ tree.
 When Tectonic's bundle is already cached, set `TECTONIC_FLAGS=--only-cached`
 to forbid resource downloads. Some Tectonic builds still initialize operating-
 system proxy state in cached mode; that initialization must also succeed.
+Leaving `TECTONIC_FLAGS` unset is supported on macOS Bash 3.2; the build avoids
+expanding an empty array under `set -u`.
 The synthetic layout smoke passed with Tectonic 0.16.9 and a coherent cached
 bundle, including the exact page, reference, overflow, and font gates. It does
 not substitute for rebuilding from the accepted real-data artifacts.
@@ -51,4 +53,6 @@ stratified validation case count, and fold count used in manuscript prose.
 Final package closure is shared with the poster: the finalizer will not write
 the inventory or compliance report until the poster PPTX contains zero empty
 structural placeholders and both rendered artifacts have explicit visual-QA
-passes.
+passes. `build_paper.sh` writes package-relative logical labels in
+`build/source_manifest.sha256`; finalization requires the exact expected entry
+set and recomputes every digest.
