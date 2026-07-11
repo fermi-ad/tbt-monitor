@@ -213,7 +213,11 @@ def verify_publication_source_manifest(root: Path) -> None:
         outputs.add(output_path)
         target = root.joinpath(*relative.parts)
         resolved_target = target.resolve()
-        if target.is_symlink() or root_resolved not in resolved_target.parents:
+        has_symlink = any(
+            root.joinpath(*relative.parts[:part_count]).is_symlink()
+            for part_count in range(1, len(relative.parts) + 1)
+        )
+        if has_symlink or root_resolved not in resolved_target.parents:
             raise ValueError(f"unsafe publication output path at line {line_number}: {output_path}")
         require_file(target)
         actual_digest = sha256(target)
@@ -611,6 +615,7 @@ def finalize(
         f"- poster PDF render pixels: {poster_render[0]} x {poster_render[1]}",
         "- poster preview source: byte-identical 150 dpi PDF raster with inherited master artwork",
         "- poster source/deliverable manifests: verified",
+        "- publication materialization manifest: verified",
         f"- prepared poster starter: `{POSTER_STARTER_SHA256}`",
         "- poster template fidelity: pass, 0 issues",
         "- empty structural poster placeholders: 0",

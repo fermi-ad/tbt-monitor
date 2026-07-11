@@ -1594,6 +1594,13 @@ class BestBpmMiningTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid publication output manifest row"):
             verify_publication_source_manifest(publication)
         csv_file(publication / "source_manifest.csv", manifest)
+        real_content = content_path.with_suffix(".real.json")
+        content_path.rename(real_content)
+        content_path.symlink_to(real_content.name)
+        with self.assertRaisesRegex(ValueError, "unsafe publication output path"):
+            verify_publication_source_manifest(publication)
+        content_path.unlink()
+        real_content.rename(content_path)
         audit_path = payload_audit / "delivery_ring_payload_audit.json"
         incomplete_audit = json.loads(audit_path.read_text(encoding="utf-8"))
         incomplete_audit["stream_rows"] = 263998
