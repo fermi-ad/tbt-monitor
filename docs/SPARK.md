@@ -406,6 +406,11 @@ It runs seven unique configurations because the beam-32/fit-8/seed-20260709
 baseline is shared. Each run is verified before comparison. Keep this sample
 matrix separate from the all-4000-row primary curve; it tests numerical and
 hyperparameter stability rather than replacing full-run inference.
+An otherwise valid sample run may report no knee when its selected-power and
+prominence margins do not intersect. Do not relabel that as a failed run or
+choose N manually. Publication requires all seven verified outputs and eligible
+knees from at least four runs per plane; unavailable reasons remain in the
+final payload and report.
 Serial execution remains the default. `--parallel-runs 2` is the maximum
 qualified Spark setting and requires readable Linux `MemAvailable`; a sustained
 floor breach terminates both evaluators and leaves their ten-case checkpoints

@@ -19,7 +19,9 @@ Do not edit `content.json` or copy the five final PNGs by hand. Generate them
 with `scripts/prepare_ibic2026_publication.py`, which preserves independent H/V
 Best-N choices, requires the exact corpus-wide raw-payload audit, and records
 every source hash. The generated copy distinguishes the full Best-N curve
-population from the smaller stratified held-out validation population.
+population from the smaller stratified held-out validation population. It also
+prints the eligible-count and N range from seven verified sensitivity runs;
+unavailable reduced-sample knees remain explicit rather than being assigned N.
 
 `content.json` must provide the text and asset keys enforced by
 `build_poster.mjs`. The builder rejects missing/undersized images, unresolved

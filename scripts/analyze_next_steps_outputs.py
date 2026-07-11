@@ -220,6 +220,9 @@ def main() -> int:
         best_n_contract = json.loads((args.best_n / "run_contract.json").read_text(encoding="utf-8"))
         best_n_tune_half_width = float(best_n_contract.get("tune_half_width", best_n_tune_half_width))
     sensitivity_recommendations: list[dict[str, str]] = []
+    sensitivity_values: dict[str, list[int]] = {"H": [], "V": []}
+    sensitivity_unavailable: dict[str, int] = {"H": 0, "V": 0}
+    sensitivity_run_count = 0
     for sensitivity_root in args.sensitivity:
         run_manifest = read_rows(sensitivity_root / "sensitivity_run_manifest.csv")
         run_identities = {
@@ -230,6 +233,20 @@ def main() -> int:
             raise ValueError(
                 f"Best-N sensitivity matrix must contain seven unique verified runs: {sensitivity_root}"
             )
+        for manifest_row in run_manifest:
+            sensitivity_run_count += 1
+            run_root = Path(manifest_row.get("output", ""))
+            if not run_root.is_dir():
+                run_root = sensitivity_root / "runs" / manifest_row.get("run", "")
+            run_summary = read_rows(run_root / "best_n_summary.csv")
+            run_contract = json.loads((run_root / "run_contract.json").read_text(encoding="utf-8"))
+            run_tolerance = float(run_contract.get("tune_half_width") or best_n_tune_half_width)
+            for plane in ("H", "V"):
+                selected, _reason = recommended_n(run_summary, plane, run_tolerance)
+                if selected is None:
+                    sensitivity_unavailable[plane] += 1
+                else:
+                    sensitivity_values[plane].append(int(selected["subset_size"]))
         recommendation_files = sorted(sensitivity_root.rglob("best_n_*_recommendations.csv"))
         if not recommendation_files:
             MISSING_INPUTS.add(str(sensitivity_root / "best_n_*_recommendations.csv"))
@@ -300,12 +317,13 @@ def main() -> int:
             f"- **Cross-collection transfer:** {'four of four rows pass' if transfer_ok else 'not fully resolved'}."
         )
         if args.sensitivity:
-            sensitivity_ok = bool(sensitivity_recommendations) and all(
-                row.get("status") == "OK" for row in sensitivity_recommendations
-            )
-            lines.append(
-                f"- **Beam/fit/fold sensitivity:** {'all exported recommendations are eligible' if sensitivity_ok else 'contains an unresolved recommendation'}."
-            )
+            for plane in ("H", "V"):
+                values = sensitivity_values[plane]
+                value_range = f"Best-{min(values)} to Best-{max(values)}" if values else "none"
+                lines.append(
+                    f"- **{plane} beam/fit/fold sensitivity:** {len(values)}/{sensitivity_run_count} runs "
+                    f"produce eligible knees ({value_range}); {sensitivity_unavailable[plane]} unresolved."
+                )
     if args.ridge and selected_best_n:
         adaptive_by_key = {
             (

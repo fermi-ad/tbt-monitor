@@ -279,6 +279,17 @@ the publication audit:
     names, rebuilds publication materialization from a clean directory, and
     treats analysis completion as valid only when the marker contains the exact
     source commit.
+35. The first five completed reduced-sample Best-N sensitivity runs exposed a
+    real H-plane tradeoff: one structurally valid baseline run had stable N
+    candidates, but low N preserved selected later-window power while larger N
+    improved prominence, so no single N cleared both non-inferiority margins.
+    The publication gate incorrectly treated any such unresolved run as corrupt
+    output and would have encouraged a false recommendation. All seven runs must
+    still verify, but final materialization now requires a strict majority
+    (`4/7`) of eligible recommendations per plane, records every run's N or
+    unavailable reason, and prints availability plus the observed N range in
+    the poster, paper, preparation report, payload, and compliance report. A
+    plane with fewer than four eligible runs still blocks publication.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;
@@ -381,7 +392,7 @@ Completion status:
 
 | Deliverable | Status | Completion evidence |
 | --- | --- | --- |
-| Exact identity/ring-order implementation and regression tests | complete | local 70-test Best-BPM suite (64 pass, 6 expected process-pool sandbox skips), 9 autosweep tests, 44 Rust tests, and Python byte compilation pass; staged-source Spark rerun remains part of final handoff |
+| Exact identity/ring-order implementation and regression tests | complete | local 71-test Best-BPM suite (65 pass, 6 expected process-pool sandbox skips), 9 autosweep tests, 44 Rust tests, and Python byte compilation pass; staged-source Spark rerun remains part of final handoff |
 | Corrected Best-1/3/5 primary and downstream rerun | complete | primary and follow-up strict verifiers both report zero failures and zero warnings; every required fixed, held-out, artifact, and handoff product is present |
 | Best-N curve through at least N=20 | in progress | bounded N=30 trial put V at the boundary; four-way N=40 exceeded unified memory and forced a reboot, while the watchdog-bounded two-way recovery has completed shards 0/1 and is advancing shards 2/3 before block and seven-run beam/fit/fold sensitivity |
 | 200-spill intensity hypothesis test | in progress | initial 199-spill pass and block-aware re-summary found 0 FDR-significant/0 practical effects; corrected all-zero gate fallback, exact N=1 contract, and strict payload/window/effect/gallery verifier pass locally; 200-spill gate-refresh merge/gallery pending |

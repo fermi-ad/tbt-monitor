@@ -29,8 +29,8 @@ the same pass. The final source must include:
 - the data-derived horizontal tracking-loss diagnostic with no imposed onset;
 - a verifier-derived `results_table.tex` with per-plane Best-N and paired-ridge
   estimates and intervals;
-- verifier-derived `results_macros.tex` for every primary-score and intensity-
-  effect count quoted in prose;
+- verifier-derived `results_macros.tex` for every primary-score, intensity-
+  effect count, and sensitivity availability/range quoted in prose;
 - the current Fermilab contract number `89243024CSC000002`;
 - no claim of absolute tune calibration, measured physical noise removal, or
   a fixed extraction-onset turn;
@@ -49,7 +49,10 @@ Generate `results_table.tex`, `results_macros.tex`, and the five files under `fi
 between the selected Best-N rows and the plane-specific full-buffer ridge
 contract and requires the passing 2200-manifest raw-payload audit.
 The generated macro set also supplies the definitive full-curve case count,
-stratified validation case count, and fold count used in manuscript prose.
+stratified validation case count, fold count, and strict-majority sensitivity
+summary used in manuscript prose. All seven sensitivity runs must verify, at
+least four per plane must yield a knee, and every unavailable reason remains in
+the results payload.
 Final package closure is shared with the poster: the finalizer will not write
 the inventory or compliance report until the poster PPTX contains zero empty
 structural placeholders and both rendered artifacts have explicit visual-QA

@@ -38,6 +38,8 @@ PAYLOAD_AUDIT_EXPECTED = {
     "raw_device_fallback_pair_rows": 0,
 }
 
+SENSITIVITY_RUN_COUNT = 7
+
 
 def read_csv(path: Path) -> list[dict[str, str]]:
     if not path.is_file():
@@ -201,10 +203,15 @@ def sensitivity_summary(root: Path, tune_half_width: float) -> dict[str, object]
         (row.get("beam_width", ""), row.get("fit_windows", ""), row.get("fold_seed", ""))
         for row in manifest
     }
-    if len(manifest) != 7 or len(identities) != 7 or any(row.get("status") != "verified" for row in manifest):
+    if (
+        len(manifest) != SENSITIVITY_RUN_COUNT
+        or len(identities) != SENSITIVITY_RUN_COUNT
+        or any(row.get("status") != "verified" for row in manifest)
+    ):
         raise ValueError("Best-N sensitivity matrix must contain seven unique verified runs")
     recommendations: dict[str, list[int]] = {"H": [], "V": []}
     unavailable: dict[str, int] = {"H": 0, "V": 0}
+    run_results: list[dict[str, object]] = []
     for row in manifest:
         run_root = Path(row["output"])
         if not run_root.is_dir():
@@ -212,25 +219,60 @@ def sensitivity_summary(root: Path, tune_half_width: float) -> dict[str, object]
         summary = read_csv(run_root / "best_n_summary.csv")
         contract = read_json(run_root / "run_contract.json")
         run_tolerance = float(contract.get("tune_half_width") or tune_half_width)
+        run_recommendations: dict[str, int | None] = {}
+        run_reasons: dict[str, str] = {}
+        run_result: dict[str, object] = {
+            "run": row["run"],
+            "beam_width": int(row["beam_width"]),
+            "fit_windows": int(row["fit_windows"]),
+            "fold_seed": int(row["fold_seed"]),
+            "recommendations": run_recommendations,
+            "reasons": run_reasons,
+        }
         for plane in ("H", "V"):
-            selected, _reason = recommended_n(summary, plane, run_tolerance)
+            selected, reason = recommended_n(summary, plane, run_tolerance)
             if selected is None:
                 unavailable[plane] += 1
+                run_recommendations[plane] = None
             else:
-                recommendations[plane].append(int(selected["subset_size"]))
-    if any(unavailable.values()):
+                selected_n = int(selected["subset_size"])
+                recommendations[plane].append(selected_n)
+                run_recommendations[plane] = selected_n
+            run_reasons[plane] = reason
+        run_results.append(run_result)
+
+    minimum_available = len(manifest) // 2 + 1
+    insufficient = {
+        plane: len(values)
+        for plane, values in recommendations.items()
+        if len(values) < minimum_available
+    }
+    if insufficient:
         detail = ", ".join(
-            f"{plane}={unavailable[plane]}/{len(manifest)}"
-            for plane in ("H", "V")
-            if unavailable[plane]
+            f"{plane}={available}/{len(manifest)} available"
+            for plane, available in sorted(insufficient.items())
         )
         raise ValueError(
-            "Best-N sensitivity matrix contains unresolved recommendations: " + detail
+            "Best-N sensitivity matrix lacks majority recommendation coverage: "
+            f"{detail}; minimum={minimum_available}"
         )
+    ranges = {
+        plane: {
+            "available": len(values),
+            "unavailable": unavailable[plane],
+            "minimum": min(values),
+            "median": median(values),
+            "maximum": max(values),
+        }
+        for plane, values in recommendations.items()
+    }
     return {
         "run_count": len(manifest),
+        "minimum_available_per_plane": minimum_available,
         "recommendations": recommendations,
         "unavailable": unavailable,
+        "ranges": ranges,
+        "runs": run_results,
     }
 
 
@@ -328,6 +370,7 @@ def publication_numeric_summary(
     paired_rows: Sequence[dict[str, str]],
     intensity_effects: Sequence[dict[str, str]],
     best_n_design: Mapping[str, int],
+    sensitivity: Mapping[str, object],
 ) -> dict[str, object]:
     output: dict[str, object] = {}
     for plane in ("H", "V"):
@@ -364,6 +407,15 @@ def publication_numeric_summary(
         for row in intensity_effects
     )
     output.update(best_n_design)
+    raw_ranges = sensitivity.get("ranges")
+    if not isinstance(raw_ranges, Mapping):
+        raise ValueError("publication sensitivity summary is missing plane ranges")
+    for plane in ("H", "V"):
+        raw = raw_ranges.get(plane)
+        if not isinstance(raw, Mapping):
+            raise ValueError(f"publication sensitivity summary is missing {plane} range")
+        for field in ("available", "unavailable", "minimum", "maximum"):
+            output[f"sensitivity_{plane.lower()}_{field}"] = int(raw[field])
     return output
 
 
@@ -386,6 +438,14 @@ def render_results_macros(values: Mapping[str, object]) -> str:
         ("BestNCurveSpillPlaneCount", "curve_spill_plane_count", 0),
         ("BestNValidationSpillPlaneCount", "validation_spill_plane_count", 0),
         ("BestNDigitizerFoldCount", "digitizer_fold_count", 0),
+        ("BestNHSensitivityAvailable", "sensitivity_h_available", 0),
+        ("BestNHSensitivityUnavailable", "sensitivity_h_unavailable", 0),
+        ("BestNHSensitivityMinimum", "sensitivity_h_minimum", 0),
+        ("BestNHSensitivityMaximum", "sensitivity_h_maximum", 0),
+        ("BestNVSensitivityAvailable", "sensitivity_v_available", 0),
+        ("BestNVSensitivityUnavailable", "sensitivity_v_unavailable", 0),
+        ("BestNVSensitivityMinimum", "sensitivity_v_minimum", 0),
+        ("BestNVSensitivityMaximum", "sensitivity_v_maximum", 0),
     )
     lines = ["% Generated by scripts/prepare_ibic2026_publication.py; do not edit."]
     for command, key, digits in commands:
@@ -406,6 +466,7 @@ def publication_content(
     adaptive_rows: Mapping[str, Mapping[str, object]],
     loss_row: Mapping[str, object],
     best_n_design: Mapping[str, int],
+    sensitivity: Mapping[str, object],
     intensity_effect_count: int,
     retained_intensity_effects: int,
 ) -> dict[str, object]:
@@ -415,6 +476,9 @@ def publication_content(
     v_ridge = ridge_rows["V"]
     h_adaptive = adaptive_rows["H"]
     v_adaptive = adaptive_rows["V"]
+    sensitivity_ranges = sensitivity["ranges"]
+    h_sensitivity = sensitivity_ranges["H"]
+    v_sensitivity = sensitivity_ranges["V"]
     adaptive_status = {}
     for plane, row in (("H", h_adaptive), ("V", v_adaptive)):
         low = finite(row.get("median_iqr_delta_ci_low"))
@@ -449,13 +513,17 @@ def publication_content(
             f"H Best-{selected_sizes['H']}: blind full-band selected/held-out agreement "
             f"{pct(h_best.get('blind_q_agreement_rate'))} "
             f"[{pct(h_best.get('blind_q_agreement_ci_low'))}, {pct(h_best.get('blind_q_agreement_ci_high'))}]; "
-            f"median |Delta q| {fmt(h_best.get('median_blind_selected_heldout_abs_q_delta'), 4)}."
+            f"median |Delta q| {fmt(h_best.get('median_blind_selected_heldout_abs_q_delta'), 4)}. "
+            f"Reduced-sample knees span {h_sensitivity['minimum']}-{h_sensitivity['maximum']} in "
+            f"{h_sensitivity['available']}/7 runs; {h_sensitivity['unavailable']} unresolved."
         ),
         "bestNVCaption": (
             f"V Best-{selected_sizes['V']}: blind full-band selected/held-out agreement "
             f"{pct(v_best.get('blind_q_agreement_rate'))} "
             f"[{pct(v_best.get('blind_q_agreement_ci_low'))}, {pct(v_best.get('blind_q_agreement_ci_high'))}]; "
-            f"median |Delta q| {fmt(v_best.get('median_blind_selected_heldout_abs_q_delta'), 4)}."
+            f"median |Delta q| {fmt(v_best.get('median_blind_selected_heldout_abs_q_delta'), 4)}. "
+            f"Reduced-sample knees span {v_sensitivity['minimum']}-{v_sensitivity['maximum']} in "
+            f"{v_sensitivity['available']}/7 runs; {v_sensitivity['unavailable']} unresolved."
         ),
         "ridgeCaption": (
             f"Exact-paired 50,000-turn ridge-pick density: H Best-{selected_sizes['H']} and "
@@ -585,6 +653,7 @@ def prepare_publication(
         read_csv(primary_root / "statistics" / "paired_method_tests.csv"),
         intensity_effects,
         best_n_design,
+        sensitivity,
     )
     retained_effects = [
         row for row in intensity_effects if row.get("retain_method_for_tune_analysis", "").lower() == "true"
@@ -675,6 +744,7 @@ def prepare_publication(
         selected_adaptive_rows,
         h_loss,
         best_n_design,
+        sensitivity,
         len(intensity_effects),
         len(retained_effects),
     )

@@ -32,10 +32,13 @@ the exact poster JSON, paper table/figures, results payload, preparation report,
 and source manifest used by the two build pipelines. The manifest hashes the
 exact numerical source tables and all 15 materialized outputs; finalization
 parses its fixed schema and re-hashes the complete output inventory.
-All seven declared beam/fit/fold sensitivity runs must also produce eligible H
-and V recommendations. A structurally valid run with no recommendation remains
-a reportable analysis result, but it blocks this selected-N publication layout
-rather than being hidden by the full-data recommendation.
+All seven declared beam/fit/fold sensitivity runs must verify. At least four of
+seven must produce an eligible recommendation in each plane. A structurally
+valid run with no recommendation remains sensitivity evidence: its identity and
+reason are preserved in the results payload and its unavailable count appears
+in poster, paper, preparation, and compliance copy. The majority gate prevents
+one weak reduced sample from being coerced into a false knee while still
+blocking publication when a plane lacks reproducible recommendation coverage.
 It also requires a passing first-50000-turn audit over the exact 2200-manifest,
 263999-position-row, and 23999-paired-row publication corpus.
 The paper figure set includes the selected-plane turn-resolved P10-P90 ridge-

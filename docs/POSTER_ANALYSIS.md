@@ -484,6 +484,11 @@ finite metrics, detail/summary agreement, cross-collection products, native
 plots, and the three-larger-N recommendation boundary. The beam/fit/fold matrix
 uses seven unique sample runs with one shared baseline; it does not replace the
 all-row primary curve.
+Every matrix run must verify, but a reduced sample may legitimately have no
+automatic knee when selected-power and prominence margins do not intersect.
+Publication requires eligible knees from at least four of seven runs in each
+plane. It preserves every unavailable run and reason and prints the available
+count and N range; no unresolved case is silently assigned an N.
 `scripts/prepare_ibic2026_publication.py` is the final provenance gate. It
 requires accepted primary/follow-up, Best-N 10/20/40-block, intensity, and
 ridge reports plus the exact 2200-manifest raw-payload audit; checks

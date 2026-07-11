@@ -545,9 +545,11 @@ Decision:
 - Execute beam 16/32/64, fit-prefix 4/8/16, and three fold seeds as seven unique
   stratified sample runs with one shared baseline. Keep this convergence matrix
   distinct from the all-row primary curve.
-- Keep a no-recommendation sensitivity run as a valid analysis outcome, but do
-  not materialize a poster or paper that claims a selected N while any declared
-  beam/fit/fold run lacks an eligible recommendation in either plane.
+- Keep a no-recommendation sensitivity run as a valid analysis outcome and
+  never coerce it into an N. Require all seven runs to verify and at least four
+  eligible recommendations per plane before materializing the full-data N.
+  Preserve each unavailable reason and print the available count and N range in
+  publication artifacts; fewer than four remains a blocking sensitivity result.
 - Fail closed on the declared full/sample cache-row counts, contiguous N and
   fold coverage, exact member cardinality and masks, purged timing, finite
   metrics, detail/summary agreement, cross-collection products, native plots,

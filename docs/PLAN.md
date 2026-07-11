@@ -347,6 +347,10 @@ Current publication interpretation:
 - Publication materialization also requires the independent Delivery Ring raw
   payload audit over all 2200 manifests and first 50000 turns; no spectral
   result can waive a payload-integrity failure.
+- All seven reduced-sample beam/fit/fold sensitivity runs must verify. A plane
+  may proceed only when at least four runs produce an eligible knee; every
+  unavailable run and its non-inferiority reason remains in the payload and
+  publication copy. This reports weak-sample instability without inventing N.
 - The old ``Best-10 deferred'' note is historical, not an active missing run.
   The publication evaluates every N contiguously through at least N=20 (target
   N=30) under the separate leakage-controlled protocol. The bounded N=30 trial

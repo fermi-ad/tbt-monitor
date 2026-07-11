@@ -369,6 +369,71 @@ def write_manifest(path: Path, root: Path, files: Sequence[Path]) -> None:
             )
 
 
+def validate_sensitivity_payload(value: object) -> dict[str, object]:
+    if not isinstance(value, dict) or int(value.get("run_count") or 0) != 7:
+        raise ValueError("publication payload does not contain seven sensitivity runs")
+    minimum_available = int(value.get("minimum_available_per_plane") or 0)
+    if minimum_available != 4:
+        raise ValueError("publication sensitivity majority threshold is not four of seven")
+    recommendations = value.get("recommendations")
+    unavailable = value.get("unavailable")
+    ranges = value.get("ranges")
+    runs = value.get("runs")
+    if (
+        not isinstance(recommendations, dict)
+        or not isinstance(unavailable, dict)
+        or not isinstance(ranges, dict)
+        or not isinstance(runs, list)
+        or len(runs) != 7
+    ):
+        raise ValueError("publication sensitivity payload is incomplete")
+    run_names = {
+        str(row.get("run") or "")
+        for row in runs
+        if isinstance(row, dict)
+    }
+    if len(run_names) != 7 or "" in run_names:
+        raise ValueError("publication sensitivity payload does not identify seven unique runs")
+    for plane in ("H", "V"):
+        plane_values = recommendations.get(plane)
+        raw_range = ranges.get(plane)
+        if not isinstance(plane_values, list) or len(plane_values) < minimum_available:
+            raise ValueError(f"publication sensitivity lacks majority {plane} coverage")
+        if not all(isinstance(item, int) and item > 0 for item in plane_values):
+            raise ValueError(f"publication sensitivity contains an invalid {plane} recommendation")
+        expected_unavailable = 7 - len(plane_values)
+        if int(unavailable.get(plane) or 0) != expected_unavailable:
+            raise ValueError(f"publication sensitivity {plane} unavailable count is inconsistent")
+        if not isinstance(raw_range, dict) or any(
+            int(raw_range.get(field) or 0) != expected
+            for field, expected in (
+                ("available", len(plane_values)),
+                ("unavailable", expected_unavailable),
+                ("minimum", min(plane_values)),
+                ("maximum", max(plane_values)),
+            )
+        ):
+            raise ValueError(f"publication sensitivity {plane} range is inconsistent")
+        run_values = []
+        for row in runs:
+            if not isinstance(row, dict):
+                raise ValueError("publication sensitivity run detail is incomplete")
+            run_recommendations = row.get("recommendations")
+            run_reasons = row.get("reasons")
+            if not isinstance(run_recommendations, dict) or not isinstance(run_reasons, dict):
+                raise ValueError("publication sensitivity run detail is incomplete")
+            run_value = run_recommendations.get(plane)
+            if run_value is not None:
+                if not isinstance(run_value, int) or run_value <= 0:
+                    raise ValueError(f"publication sensitivity run has invalid {plane} N")
+                run_values.append(run_value)
+            if not str(run_reasons.get(plane) or "").strip():
+                raise ValueError(f"publication sensitivity run lacks its {plane} disposition")
+        if sorted(run_values) != sorted(plane_values):
+            raise ValueError(f"publication sensitivity {plane} run details do not match its summary")
+    return value
+
+
 def finalize(
     root: Path,
     abstract: Path,
@@ -579,9 +644,9 @@ def finalize(
             raise ValueError(f"publication raw-payload topology mismatch: {collection}")
     if len(str(payload_integrity.get("manifest_inventory_sha256") or "")) != 64:
         raise ValueError("publication raw-payload audit is missing its manifest hash")
-    sensitivity = payload.get("sensitivity")
-    if not isinstance(sensitivity, dict) or int(sensitivity.get("run_count") or 0) != 7:
-        raise ValueError("publication payload does not contain seven sensitivity runs")
+    sensitivity = validate_sensitivity_payload(payload.get("sensitivity"))
+    sensitivity_recommendations = sensitivity.get("recommendations")
+    assert isinstance(sensitivity_recommendations, dict)
     transfers = payload.get("cross_collection_transfer")
     if not isinstance(transfers, list) or len(transfers) != 4 or any(
         not isinstance(row, dict) or row.get("status") != "OK" for row in transfers
@@ -607,7 +672,13 @@ def finalize(
         "- retained intensity weighting effects: 0",
         "- Best-N design: 4000 full-curve spill-plane cases; 1000 validation cases x 5 folds",
         "- raw payload audit: 263999 streams through turn 50000, no blocking findings",
-        "- Best-N sensitivity runs: 7",
+        (
+            "- Best-N sensitivity: 7 verified runs; "
+            f"H {len(sensitivity_recommendations['H'])}/7 available "
+            f"(N={min(sensitivity_recommendations['H'])}-{max(sensitivity_recommendations['H'])}); "
+            f"V {len(sensitivity_recommendations['V'])}/7 available "
+            f"(N={min(sensitivity_recommendations['V'])}-{max(sensitivity_recommendations['V'])})"
+        ),
         "- cross-collection transfer rows: 4 OK",
         f"- poster: {poster_info['pages']} A0 page, {poster_info['width_points']} x {poster_info['height_points']} pt",
         f"- paper: {paper_info['pages']} pages, {paper_info['width_points']} x {paper_info['height_points']} pt",

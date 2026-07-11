@@ -829,8 +829,8 @@ follow-up, Best-N, ridge, or intensity roots unless their JSON verifier reports
 are accepted; the executive interpretation cannot silently consume a
 provisional tree. A supplied sensitivity root must contain exactly seven unique
 verified runs; the report discovers all nested beam/fit/seed recommendation
-tables and recomputes the full-run H/V recommendation with the contract-bound
-tune tolerance.
+tables, recomputes each run's H/V recommendation with the contract-bound tune
+tolerance, and reports the eligible count, N range, and unavailable count.
 
 Compare fit-window, fold-seed, beam-width, or other completed sensitivity runs:
 
@@ -1080,7 +1080,7 @@ python3 scripts/prepare_ibic2026_publication.py \
 
 This command requires accepted 10/20/40-block Best-N outputs, four OK
 cross-collection transfer rows, seven verified beam/fit/fold sensitivity runs
-with an eligible H and V recommendation in every run,
+with eligible H and V recommendations in at least four runs per plane,
 an accepted mixed-N ridge contract, zero retained intensity effects, and the
 exact corpus-bound raw-payload audit. It
 writes `poster/content.json`, `paper/results_table.tex`, verifier-derived
@@ -1091,6 +1091,9 @@ preserving literals from an earlier run. They also bind 4000 full-curve
 spill-plane cases, 1000 stratified validation cases, and five digitizer folds
 from the accepted block-20 Best-N verifier; materialization rejects any other
 study design.
+Every sensitivity run's recommendation or unavailable reason is retained in
+`results_payload.json`; poster and paper copy disclose the available count and
+observed range rather than hiding an unresolved reduced sample.
 The source manifest also hashes the exact primary, Best-N, sensitivity, ridge,
 and intensity tables used for numerical materialization. Finalization parses
 its fixed schema and re-hashes the exact 15 materialized content/table/payload/
@@ -1145,7 +1148,8 @@ The finalizer verifies immutable reference hashes, required source and render
 files, A0 poster and four-page paper geometry, PNG dimensions, byte identity
 between the named poster PNG and its 150 dpi PDF raster, the selected H/V
 payload, seven sensitivity runs, four OK transfer rows, zero retained intensity
-effects, the exact raw-payload corpus, unresolved-copy gates, and every final
+effects, strict-majority sensitivity coverage with consistent run details, the
+exact raw-payload corpus, unresolved-copy gates, and every final
 slide XML placeholder. It reads the PPTX as a ZIP package without modifying it
 and rejects a placeholder shape whose DrawingML text is empty or whitespace.
 It also recomputes the exact portable poster and paper checksum inventories,

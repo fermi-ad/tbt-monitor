@@ -333,8 +333,9 @@ config ranking. Its package modules cover:
   `18d321dbd4fe` 4096/256 tracking protocol and exact 2000/1988 source coverage.
 - `scripts/prepare_ibic2026_publication.py`: accepts only verifier-clean primary,
   follow-up, three-block Best-N, intensity, full-buffer ridge, and raw-payload
-  audit roots; checks
-  cross-collection and hyperparameter sensitivity, rejects any retained
+  audit roots; checks cross-collection transfer and all seven verified
+  hyperparameter-sensitivity runs, requires eligible knees from a strict
+  majority per plane while preserving every unavailable run and reason, rejects any retained
   intensity weighting, and materializes the exact poster/paper figures,
   plane-specific results table including selected-versus-Best-1 and legacy
   ridge-width intervals, verifier-derived manuscript macros, poster
@@ -351,6 +352,7 @@ config ranking. Its package modules cover:
   delivery closure gate. It verifies immutable references, PDF geometry, render
   dimensions, byte identity between the named poster PNG and the authoritative
   PDF raster, required sources/figures, selected-N and sensitivity payload
+  majority/range/run-detail consistency,
   state, zero retained intensity effects, exact corpus-wide raw-payload audit,
   unresolved copy, and read-only slide-OOXML absence of empty structural
   placeholders. It also recomputes the poster/paper portable checksum

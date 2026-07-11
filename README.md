@@ -36,7 +36,10 @@ intensity, Best-N, and ridge figures. `prepare_ibic2026_publication.py` binds
 the final plane-specific N, numerical copy, tables, and figure files to the
 same accepted analysis roots before the poster or paper can be built. It also
 binds the full-curve and stratified-validation sample counts so the two Best-N
-populations cannot be conflated in publication copy.
+populations cannot be conflated in publication copy. All seven reduced-sample
+sensitivity runs must verify; at least four per plane must yield an eligible
+knee, while every unavailable run and reason remains visible in the payload and
+publication copy.
 Subtractive intensity and ridge panels require exact common spill/window
 points and describe only ridge-pick probability redistribution; display color
 clipping is disclosed and does not alter exported metrics. Native heatmap cells

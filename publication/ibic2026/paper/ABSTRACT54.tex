@@ -65,6 +65,8 @@ Two agreement measures are retained. The conditioned measure searches near the t
 
 Across 4,000 corrected spill-plane rows per subset size, the median adaptive-search score rises from \PrimaryHBestOneScore{} to \PrimaryHBestThreeScore{} and \PrimaryHBestFiveScore{} for horizontal Best-1, Best-3, and Best-5, and from \PrimaryVBestOneScore{} to \PrimaryVBestThreeScore{} and \PrimaryVBestFiveScore{} vertically. Paired Best-1-to-Best-3 gains are \PrimaryHOneToThreeGain{} horizontally and \PrimaryVOneToThreeGain{} vertically; Best-3-to-Best-5 gains are \PrimaryHThreeToFiveGain{} and \PrimaryVThreeToFiveGain{}. These are in-sample model-selection scores, not tune-accuracy measurements. Leakage-controlled later-window results and exact-paired persistence metrics are reported in Table~\ref{tab:results}.
 
+Across seven verified reduced-sample beam, fit-window, and fold-seed checks, eligible H knees span Best-\BestNHSensitivityMinimum{}--Best-\BestNHSensitivityMaximum{} in \BestNHSensitivityAvailable{}/7 runs, with \BestNHSensitivityUnavailable{} unresolved; V spans Best-\BestNVSensitivityMinimum{}--Best-\BestNVSensitivityMaximum{} in \BestNVSensitivityAvailable{}/7, with \BestNVSensitivityUnavailable{} unresolved. Unresolved cases are retained as sensitivity evidence rather than coerced into a recommendation; the full-data selections drive the persistence figures.
+
 \IfFileExists{figures/best_n_validation_h.png}{%
 \begin{figure*}[!htb]
   \centering

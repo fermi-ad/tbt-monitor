@@ -89,8 +89,9 @@ The active chain is marker-gated and survives loss of the client SSH session:
 4. `/home/derekste/spark_publication_tail_b4896a50.sh` holds the final launch
    lock and waits for the payload-audit marker. Before using the GPU it requires
    passing 10/20/40-block Best-N reports, four OK transfer rows, seven verified
-   sensitivity runs, and eligible H/V recommendations in every sensitivity
-   run. It then propagates the accepted plane-specific N values into the exact
+   sensitivity runs, and eligible H/V recommendations in a strict majority of
+   those runs. Every unavailable run and reason remains publication evidence.
+   It then propagates the accepted full-data plane-specific N values into the exact
    intensity and ridge unions, runs all four intensity shards sequentially,
    verifies the three intensity block summaries, runs the full 50000-turn ridge
    gallery serially, materializes the publication inputs, and creates a
@@ -225,7 +226,7 @@ absolute-P99 clip.
 ## Current Local Validation
 
 ```text
-Best-BPM Python tests: 70 run, 64 passed, 6 process-pool tests skipped by local sandbox
+Best-BPM Python tests: 71 run, 65 passed, 6 process-pool tests skipped by local sandbox
 Autosweep Python tests: 9 passed
 Rust tests: 44 passed
 GPU analyzer self-test: passed

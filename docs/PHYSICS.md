@@ -147,6 +147,10 @@ Notes:
   and disjoint validation.
 - Blind full-band selected/held-out agreement is the ensemble-size guardrail.
   Near-training-tune support is useful but conditioned and cannot replace it.
+- A reduced-sample sensitivity run with no automatic knee is a physical-analysis
+  limitation, not a missing-data value. All seven runs must verify, a strict
+  majority per plane must yield eligible knees, and unavailable runs must retain
+  their selected-power/prominence tradeoff reason. They are never assigned N.
 - Exact common spill/window pairing is required for ridge-density subtraction.
   Narrowing or probability-mass redistribution can be described as reduced
   diffuse ridge-pick probability, not physical noise removal or absolute tune

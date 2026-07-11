@@ -156,6 +156,7 @@ from finalize_ibic2026_publication import (
     parse_pdfinfo,
     require_identical_files,
     sha256 as publication_sha256,
+    validate_sensitivity_payload,
     verify_poster_source_manifest,
     verify_publication_source_manifest,
     verify_sha256_manifest,
@@ -1245,6 +1246,12 @@ class BestBpmMiningTests(unittest.TestCase):
             adaptive,
             {"first_sustained_half_peak_loss_turn": "12000", "most_likely_change_turn": "14000"},
             design,
+            {
+                "ranges": {
+                    "H": {"available": 6, "unavailable": 1, "minimum": 5, "maximum": 13},
+                    "V": {"available": 7, "unavailable": 0, "minimum": 10, "maximum": 26},
+                }
+            },
             240,
             0,
         )
@@ -1254,6 +1261,8 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertIn("minus corrected adaptive Best-1", content["ridgeContrastCaption"])
         self.assertIn("H narrower than corrected Best-1", content["conclusionBody"])
         self.assertIn("V narrower than corrected Best-1", content["conclusionBody"])
+        self.assertIn("6/7 runs; 1 unresolved", content["bestNHCaption"])
+        self.assertIn("7/7 runs; 0 unresolved", content["bestNVCaption"])
         self.assertIn("Median IQR change vs corrected Best-1", content["quantitativeBody"])
         self.assertIn("0/240", content["quantitativeBody"])
         self.assertIn("4,000 H/V curve cases", content["quantitativeBody"])
@@ -1290,7 +1299,13 @@ class BestBpmMiningTests(unittest.TestCase):
             "curve_evaluation_row_count": 160000,
             "validation_evaluation_row_count": 200000,
         }
-        summary = publication_numeric_summary(primary, paired, intensity, design)
+        sensitivity = {
+            "ranges": {
+                "H": {"available": 6, "unavailable": 1, "minimum": 5, "maximum": 13},
+                "V": {"available": 7, "unavailable": 0, "minimum": 10, "maximum": 26},
+            }
+        }
+        summary = publication_numeric_summary(primary, paired, intensity, design, sensitivity)
         macros = render_results_macros(summary)
         self.assertIn(r"\newcommand{\PrimaryHBestOneScore}{0.300}", macros)
         self.assertIn(r"\newcommand{\PrimaryVThreeToFiveGain}{0.0300}", macros)
@@ -1300,10 +1315,12 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertIn(r"\newcommand{\BestNCurveSpillPlaneCount}{4000}", macros)
         self.assertIn(r"\newcommand{\BestNValidationSpillPlaneCount}{1000}", macros)
         self.assertIn(r"\newcommand{\BestNDigitizerFoldCount}{5}", macros)
+        self.assertIn(r"\newcommand{\BestNHSensitivityAvailable}{6}", macros)
+        self.assertIn(r"\newcommand{\BestNVSensitivityMaximum}{26}", macros)
         with self.assertRaisesRegex(ValueError, "definitive study design"):
             best_n_design_summary({"curve_cache_key_count": 4000})
 
-    def test_publication_rejects_unresolved_best_n_sensitivity(self) -> None:
+    def test_publication_requires_majority_best_n_sensitivity_coverage(self) -> None:
         root = self.root / "best-n-sensitivity"
         manifest = []
         for index in range(7):
@@ -1313,7 +1330,7 @@ class BestBpmMiningTests(unittest.TestCase):
                 {
                     "plane": plane,
                     "subset_size": 1,
-                    "validation_row_count": 20 if plane == "H" else 0,
+                    "validation_row_count": 20 if plane == "H" or index < 4 else 0,
                     "blind_q_agreement_rate": 0.9,
                     "median_blind_selected_heldout_abs_q_delta": 0.001,
                     "median_test_peak_prominence": 5,
@@ -1338,8 +1355,57 @@ class BestBpmMiningTests(unittest.TestCase):
                 }
             )
         write_csv(root / "sensitivity_run_manifest.csv", manifest, list(manifest[0]))
-        with self.assertRaisesRegex(ValueError, "unresolved recommendations: V=7/7"):
+        summary = sensitivity_summary(root, 0.0025)
+        self.assertEqual(summary["recommendations"]["V"], [1, 1, 1, 1])
+        self.assertEqual(summary["unavailable"]["V"], 3)
+        self.assertEqual(summary["minimum_available_per_plane"], 4)
+        self.assertEqual(len(summary["runs"]), 7)
+
+        rows = read_csv(root / "runs" / "run-3" / "best_n_summary.csv")
+        for row in rows:
+            if row["plane"] == "V":
+                row["validation_row_count"] = 0
+        write_csv(root / "runs" / "run-3" / "best_n_summary.csv", rows, list(rows[0]))
+        with self.assertRaisesRegex(ValueError, "majority recommendation coverage: V=3/7"):
             sensitivity_summary(root, 0.0025)
+
+    def test_publication_finalizer_validates_sensitivity_run_details(self) -> None:
+        h_values = [5, 6, 8, 13]
+        v_values = [10, 12, 17, 17, 20, 26, 12]
+        runs = []
+        for index in range(7):
+            runs.append(
+                {
+                    "run": f"run-{index}",
+                    "recommendations": {
+                        "H": h_values[index] if index < len(h_values) else None,
+                        "V": v_values[index],
+                    },
+                    "reasons": {"H": "eligible" if index < len(h_values) else "tradeoff", "V": "eligible"},
+                }
+            )
+        payload = {
+            "run_count": 7,
+            "minimum_available_per_plane": 4,
+            "recommendations": {"H": h_values, "V": v_values},
+            "unavailable": {"H": 3, "V": 0},
+            "ranges": {
+                "H": {"available": 4, "unavailable": 3, "minimum": 5, "median": 7, "maximum": 13},
+                "V": {"available": 7, "unavailable": 0, "minimum": 10, "median": 17, "maximum": 26},
+            },
+            "runs": runs,
+        }
+        self.assertIs(validate_sensitivity_payload(payload), payload)
+
+        inconsistent = json.loads(json.dumps(payload))
+        inconsistent["runs"][0]["recommendations"]["H"] = 9
+        with self.assertRaisesRegex(ValueError, "run details do not match"):
+            validate_sensitivity_payload(inconsistent)
+
+        insufficient = json.loads(json.dumps(payload))
+        insufficient["recommendations"]["H"] = h_values[:3]
+        with self.assertRaisesRegex(ValueError, "lacks majority H coverage"):
+            validate_sensitivity_payload(insufficient)
 
     def test_publication_materialization_binds_reports_numbers_and_figures(self) -> None:
         primary = self.root / "primary"
