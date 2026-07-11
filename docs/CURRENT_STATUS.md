@@ -1,6 +1,6 @@
 # Current Publication Handoff
 
-Last updated: 2026-07-11 01:35 CDT.
+Last updated: 2026-07-11 after the local clock correction.
 
 This file records the live publication run state. Permanent behavior and
 rationale remain in `docs/ARCHITECTURE.md`, `docs/DESIGN_DECISIONS.md`, and
@@ -100,6 +100,15 @@ accepted control but do not require Best-N to win. The synthetic end-to-end
 test, PNG inspection, publication-binding test, and exact four-page offline
 paper smoke pass. Do not start the full control until the current GPU chain is
 idle.
+
+The current template-derived A0 poster also passes an offline layout stress
+build using deliberately long current copy for the sensitivity, full-buffer,
+all-training, intensity, and H-loss statements. The editable PPTX has no
+reported overflow, the template-fidelity check reports zero issues, and the
+single-page A0 PDF has embedded/subset fonts. Full-size inspection confirms the
+expanded conclusion fits cleanly. This remains layout proof only: the final
+poster must be rebuilt and visually reviewed with verifier-bound real-data
+figures and exact accepted counts.
 
 The immutable post-chain handoff is prepared locally:
 

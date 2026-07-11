@@ -453,7 +453,7 @@ Completion status:
 
 | Deliverable | Status | Completion evidence |
 | --- | --- | --- |
-| Exact identity/ring-order implementation and regression tests | complete | local 71-test Best-BPM suite (65 pass, 6 expected process-pool sandbox skips), 9 autosweep tests, 44 Rust tests, and Python byte compilation pass; staged-source Spark rerun remains part of final handoff |
+| Exact identity/ring-order implementation and regression tests | complete | local 73-test Best-BPM suite (67 pass, 6 expected process-pool sandbox skips), 9 autosweep tests, 44 Rust tests, and Python byte compilation pass; staged-source Spark rerun remains part of final handoff |
 | Corrected Best-1/3/5 primary and downstream rerun | complete | primary and follow-up strict verifiers both report zero failures and zero warnings; every required fixed, held-out, artifact, and handoff product is present |
 | Best-N curve through at least N=20 | in progress | full N=1-40 run and 10/20/40-block merges complete; H Best-5 and V Best-12 on the accepted block-20 curve; five of seven reduced-sample sensitivity runs verified before the clock correction, with two bounded evaluators still active at the last network-confirmed probe |
 | Leakage-controlled Best-N versus all-training control | pending | implementation, strict verifier, 18-image native gallery, publication binding, and exact four-page paper smoke pass locally; full 1000-spill-plane CPU/cache run waits for the active Spark publication chain to become idle |
@@ -461,8 +461,8 @@ Completion status:
 | Delivery Ring producer and raw-payload integrity audit | in progress | live raw/scaled separation and HP303/VP304 roll behavior confirmed read-only on drbpm2; exhaustive first-50000-turn scan over all three publication collections pending on Spark |
 | Corrected 50000-turn ridge/difference/concentration gallery | pending | exact-source-key full-buffer sidecar plus strict spill/window/pair/metric/PNG/caption verifier |
 | All required handoff, fixed, held-out, artifact, and report tasks below | complete | corrected follow-up verifier passes 32,000 fixed, 800,000 held-out, 201,240 visibility, 13,104 handoff-event, 4,680 summary rows, and every required artifact |
-| Fermilab-template A0 poster and visual QA | pending | editable PPTX, PDF, rendered PNG, template audit |
-| JACoW-compliant four-page paper and visual QA | pending | source, PDF, figures, references, compliance check |
+| Fermilab-template A0 poster and visual QA | pending | current all-training-copy stress smoke passes editable PPTX, one-page A0 PDF, PDF-derived full-size PNG, zero overflow, zero-issue template fidelity, and embedded/subset fonts; verifier-bound real-data rebuild and final visual QA remain |
+| JACoW-compliant four-page paper and visual QA | pending | current all-training-copy offline smoke passes exactly four pages with embedded/subset/Unicode fonts and no overfull boxes or unresolved references; verifier-bound real-data rebuild and final visual QA remain |
 | Scoped commits/PRs, merged docs, and clean repository | pending | merged PR URLs and clean `git status` |
 
 No poster or paper claim may use a provisional legacy downstream figure. The
