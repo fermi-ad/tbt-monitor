@@ -1,6 +1,6 @@
 # Current Publication Handoff
 
-Last updated: 2026-07-10 22:30 CDT.
+Last updated: 2026-07-10 22:37 CDT.
 
 This file records the live publication run state. Permanent behavior and
 rationale remain in `docs/ARCHITECTURE.md`, `docs/DESIGN_DECISIONS.md`, and
@@ -104,11 +104,11 @@ SHA-256 `1754858edbbaf3b0a2437e9fa1163385476d26ae2da2406bcfa71aaa8d9c63d4`.
 No intensity or ridge computation can begin merely because the earlier marker
 appears; the selected-N and sensitivity preflight must pass first.
 
-The latest local publication source is commit `918d4531`. Its prepared archive
+The latest local publication source is commit `2d46a7dc`. Its prepared archive
 SHA-256 is
-`6efe51681066b0818f6edce1937c13f5da6b5cca1bb8fbcd58c6c1d79828db32`,
+`6a243da541993d01bc880c1e9e89d02b6558021cb02a3b6fcf10f818bab15d75`,
 and its prepared continuation-wrapper SHA-256 is
-`4d097f58b0d2890b2e4fea9b5cd9c971d2fcd6a6a708c875ec2d59cfb19e0d86`.
+`1d55afc82aa9e970a9fa1ec498cb8bd66871555901cc86fbfed8b75f0c0d0408`.
 That version adds exact-paired metrics and complete turn grids for every
 adaptive N pair plus the zero Best-1 self-control, binds the paper/poster width
 contrast to selected Best-N minus corrected Best-1, and strictly verifies the
@@ -117,7 +117,9 @@ common/detail gallery scales, citation-order polish, shorter ridge diagnostic
 labels, the read-only final-PPTX empty-placeholder gate, preserved poster
 layout/overflow/template-fidelity evidence, portable poster/paper build
 manifests, and both flagged and unflagged macOS Bash 3.2 Tectonic invocation
-paths. Staging is temporarily deferred by the local Codex remote-execution
+paths. Publication preparation now records exact numerical source-table hashes,
+and finalization re-hashes the fixed 15-file materialized-output inventory.
+Staging is temporarily deferred by the local Codex remote-execution
 approval window until 23:45 CDT, not by Spark or SSH.
 The wrapper now also reruns the exact review-package verifier against every
 copied path, hash, and gallery image before it creates the source-side tarball.
