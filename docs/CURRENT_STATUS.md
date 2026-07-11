@@ -1,6 +1,6 @@
 # Current Publication Handoff
 
-Last updated: 2026-07-10 03:12 CDT.
+Last updated: 2026-07-10 19:24 CDT.
 
 This file records the live publication run state. Permanent behavior and
 rationale remain in `docs/ARCHITECTURE.md`, `docs/DESIGN_DECISIONS.md`, and
@@ -20,40 +20,80 @@ locally package:
 - a four-page JACoW IBIC2026 paper and rendered PDF,
 - scoped merged PRs and a clean repository.
 
-## Corrected Spark Run
+## Accepted Primary And Active Best-N Run
 
 ```text
-post-run code: /home/derekste/tbt-monitor-publication-code-20260710-final
-root: /home/derekste/best_bpm_mining_20260709_corrected_best135
+accepted primary root: /home/derekste/best_bpm_mining_20260709_corrected_best135
+active Best-N root: /home/derekste/best_n_20260710_full40
+full-run science code: /home/derekste/tbt-monitor-publication-code-20260710-final
+post-run code: /home/derekste/tbt-monitor-publication-code-3832ee84
 python: /home/derekste/venvs/cupy-spark-cu13/bin/python
 data: two 1000-spill position-only collections, 120 exact channels
 ```
 
-The active subset process was launched from the earlier staged code tree. The
-corrected Best-1/3/5 subset phase is active on one NVIDIA GB10 with four
-workers. Do not launch another GPU-heavy pass or alter this root until that phase
-finishes. After completion, extract the staged code archive into the new empty
-code directory, run the full
-59-test Python suite on Spark, repair only the visibility-duration field, run
-the canonical downstream phases explicitly, and then run the corrected
-fixed/held-out/artifact/handoff sidecars and verifiers. Do not invoke the full
-pipeline with `--resume`: that flag reuses caches but does not skip completed
-subset search.
+The corrected Best-1/3/5 primary and every required fixed, held-out, artifact,
+handoff, and report sidecar are complete. Both strict verifiers report zero
+failures and zero warnings.
 
-A bounded probe at 01:25 CDT showed all shards at 49.3-50.4% and advancing,
-with 95% GPU utilization, 38.39 W power draw, and an observed-rate completion
-estimate near 06:45 CDT.
-The single-instance continuation watcher is active as PID `778510`; it waits for
-the parent and every subset-search worker before running the corrected downstream
-chain. The frozen source tree passed all 59 repository Python tests before
-archive construction. The regenerated archive will be clean-extracted and
-retested, then extracted into the new `20260710-final` code directory rather
-than overlaid on the earlier tree. Its local and remote SHA-256 values must be
-recorded in the transfer verification output before the watcher reaches the
-continuation; an archive cannot contain its own stable checksum.
-The exact 142 MB legacy `gpu_sliding_tune.csv` is
-already on Spark under the `18d321db` combined output; `ssh -K drbpm1` remains
-available only if another source artifact must be recovered.
+The definitive Best-N study evaluates every N from 1 through 40 over four
+logical shards. Four-way CUDA execution exceeded unified memory and forced a
+host reboot. The recovery therefore permits at most two evaluators in one
+process group under a 32 GiB `MemAvailable` floor with termination after three
+consecutive five-second low-memory samples. The two-worker qualification peaked
+near 83 GB (77 GiB) host use with about 44 GiB available and mostly 70-96% GPU
+utilization.
+
+Checkpoint after the system clock correction:
+
+```text
+shard 0: validation 250/250, complete
+shard 1: validation 250/250, complete
+shard 2: validation 240/250
+shard 3: curve 870/1000
+memory watchdog: clear
+full-run COMPLETE marker: absent
+```
+
+The machine clock was corrected by roughly 80 minutes during this run. Hashes,
+row counts, and Linux process elapsed time remain valid; wall-clock log stamps
+and evaluator `elapsed_seconds` fields that span the correction must not be used
+for rate or duration claims.
+
+The full-run source archive SHA-256 is
+`588705e83934ffa3a379eaf6b9ab746fb12d8cb5ef2620469eaff71198486a30`.
+The post-run source archive is commit `3832ee84`, with SHA-256
+`e5557d6512154da0ad4e079cc966ee4186f8eae782d4d744abb7d74f28a01c46`;
+the local and Spark copies matched before extraction. Pull request #52 changed
+the sensitivity scheduler and its tests/docs, not the full-run evaluator,
+merger, verifier, or Best-N science implementation.
+
+## Autonomous Continuation
+
+The active chain is marker-gated and survives loss of the client SSH session:
+
+1. `/home/derekste/spark_bestn_full_v4_two_way.sh` finishes shards 2/3,
+   remerges the same rows at 10/20/40-spill block lengths, verifies each merge,
+   compares block sensitivity, builds the gallery, and writes the full-run
+   `COMPLETE` marker.
+2. `/home/derekste/spark_bestn_post_full_3832ee84.sh` holds an advisory launch
+   lock, waits for that marker, rejects a watchdog-aborted state, and starts the
+   seven-run beam/fit/fold sensitivity matrix with at most two evaluators under
+   the same 32 GiB memory floor.
+3. `/home/derekste/spark_post_sensitivity_payload_audit_3832ee84.sh` holds a
+   separate lock and waits for sensitivity completion before scanning all 2200
+   manifests through turn 50000. It writes only under
+   `/home/derekste/tbt-publication-20260710/delivery_ring_payload_audit` and
+   requires the exact 263999-position-row/23999-paired-row contract before its
+   own `COMPLETE` marker.
+
+Intensity refresh and full-buffer ridge execution are intentionally not queued:
+their explicit N union depends on accepted H/V Best-N recommendations. They
+remain serialized and start only after inspecting the full and sensitivity
+verifiers.
+
+The exact 142 MB legacy `gpu_sliding_tune.csv` is already on Spark under the
+`18d321db` combined output. `ssh -K drbpm1` remains available only if another
+source artifact must be recovered.
 
 ## Publication Audit Findings
 
@@ -130,15 +170,17 @@ single-plane poster artifacts.
 ## Current Local Validation
 
 ```text
-Python tests: 59 run, 53 passed, 6 process-pool tests skipped by local sandbox
-Focused publication tests: 50 run, 44 passed, same 6 local sandbox skips
+Best-BPM Python tests: 63 run, 57 passed, 6 process-pool tests skipped by local sandbox
+Autosweep Python tests: 9 passed
 Rust tests: 44 passed
 GPU analyzer self-test: passed
 poster/DGX self-test: passed
 git diff --check: passed
-clean-extracted source archive: same 59 Python tests and 44 Rust tests passed
-JACoW draft: unchanged official class compiles with Tectonic and official TeX Gyre Termes fonts; current text-only scaffold is 3 A4 pages and visually clean
+current A0 template frame map: 0 validation issues; one-slide starter reproduced from the supplied POTX
+JACoW layout smoke: exactly four 595 x 792 bp pages, no overfull boxes or unresolved references, all fonts embedded/subset/Unicode-mapped
 ```
 
-The six process-pool probes must pass on Spark. No final physics claim, poster
-panel, or paper number may come from a provisional June downstream artifact.
+The six process-pool probes passed on Spark in the accepted staged source tree.
+The poster and paper smoke outputs prove layout only; final real-data builds and
+full-size visual QA remain required. No final physics claim, poster panel, or
+paper number may come from a provisional June downstream artifact.
