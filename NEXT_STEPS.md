@@ -270,6 +270,15 @@ the publication audit:
     rejects unsafe/duplicate paths, malformed hashes, missing or extra outputs,
     symlinks, and any source/output/current-byte mismatch for all 15 materialized
     publication outputs.
+34. The detached publication tail trusted unversioned `RIDGE/COMPLETE` and
+    `ANALYSIS_COMPLETE` marker files. If an older source revision completed
+    first, the latest wrapper could skip the newly required adaptive-pair ridge
+    outputs or exit before rematerializing the package. The final wrapper now
+    reuses a ridge root only after the current strict verifier passes, preserves
+    incompatible ridge and publication trees under timestamped `.incomplete`
+    names, rebuilds publication materialization from a clean directory, and
+    treats analysis completion as valid only when the marker contains the exact
+    source commit.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;

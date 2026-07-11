@@ -668,6 +668,10 @@ Decision:
 - Treat full-pipeline `--resume` as cache reuse only. After an externally
   completed subset search, continuation scripts must invoke downstream stages
   explicitly and may not rerun the search.
+- Do not trust an unversioned completion marker across source revisions. A
+  continuation may reuse expensive science rows only after the current verifier
+  accepts them, must preserve incompatible roots instead of mixing outputs, and
+  must bind final completion to the exact source commit.
 - Verification must check primary cross-table identity and follow-up semantics,
   including shared score formulas, held-out cardinality/finite metrics, state
   transitions, plane balance, and every recommended poster PNG.
