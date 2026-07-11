@@ -1370,7 +1370,7 @@ def draw_concentration_plot(
         return
     width, height = 1400, 780
     pixels = poster.new_canvas(width, height)
-    x0, y0, x1, y1 = poster.draw_axes(pixels, width, height, f"RIDGE CONCENTRATION {plane}", "TURN", "PEAK BIN FRACTION")
+    x0, y0, x1, y1 = poster.draw_axes(pixels, width, height, f"RIDGE CONCENTRATION {plane}", "TURN", "PEAK SHARE")
     xs = [f(row.get("center_turn")) for row in rows]
     xmin, xmax = min(xs), max(xs)
     ymax = max([f(row.get("peak_bin_fraction")) for row in rows if math.isfinite(f(row.get("peak_bin_fraction")))] + [0.05])
@@ -2445,11 +2445,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         metric_specs = (
             ("ridge_iqr_width_vs_turn", "iqr_width", "RIDGE IQR WIDTH", "TUNE IQR", False, "A sustained increase means ridge picks are spreading across spills; lower is more concentrated."),
             ("ridge_p10_p90_width_vs_turn", "p10_p90_width", "RIDGE P10-P90 WIDTH", "TUNE P10-P90", False, "This outer-width view is more sensitive than IQR to a growing diffuse population."),
-            ("ridge_valid_spill_fraction_vs_turn", "sample_fraction", "VALID RIDGE-SPILL FRACTION", "VALID SPILL FRACTION", True, "A decline means fewer accepted spills contribute a finite in-band ridge pick at that turn."),
-            ("ridge_density_entropy_vs_turn", "density_entropy", "RIDGE DENSITY ENTROPY", "NORMALIZED ENTROPY", True, "Higher entropy means the cross-spill ridge-pick distribution is more diffuse over the tune band."),
-            ("ridge_confidence_vs_turn", "median_selected_confidence", "MEDIAN RIDGE CONFIDENCE", "ROBUST PEAK CONFIDENCE", False, "Declining confidence indicates that the selected spectral peak is losing contrast against its local background."),
-            ("ridge_global_fallback_fraction_vs_turn", "global_fallback_fraction", "GLOBAL FALLBACK FRACTION", "FALLBACK FRACTION", True, "A rising fallback fraction indicates that continuity tracking could not retain a trusted local peak and reverted to the global in-band peak."),
-            ("ridge_suspicious_step_fraction_vs_turn", "suspicious_step_fraction", "SUSPICIOUS STEP FRACTION", "FLAGGED STEP FRACTION", True, "A rising fraction separates tracker discontinuities from a merely broad but continuous ridge."),
+            ("ridge_valid_spill_fraction_vs_turn", "sample_fraction", "VALID RIDGE-SPILL FRACTION", "VALID SHARE", True, "A decline means fewer accepted spills contribute a finite in-band ridge pick at that turn."),
+            ("ridge_density_entropy_vs_turn", "density_entropy", "RIDGE DENSITY ENTROPY", "NORM ENTROPY", True, "Higher entropy means the cross-spill ridge-pick distribution is more diffuse over the tune band."),
+            ("ridge_confidence_vs_turn", "median_selected_confidence", "MEDIAN RIDGE CONFIDENCE", "PEAK CONF", False, "Declining confidence indicates that the selected spectral peak is losing contrast against its local background."),
+            ("ridge_global_fallback_fraction_vs_turn", "global_fallback_fraction", "GLOBAL FALLBACK FRACTION", "FALLBACK", True, "A rising fallback fraction indicates that continuity tracking could not retain a trusted local peak and reverted to the global in-band peak."),
+            ("ridge_suspicious_step_fraction_vs_turn", "suspicious_step_fraction", "SUSPICIOUS STEP FRACTION", "STEP SHARE", True, "A rising fraction separates tracker discontinuities from a merely broad but continuous ridge."),
         )
         for stem, metric, title, y_label, fraction_scale, interpretation in metric_specs:
             metric_img = f"{stem}_{plane.lower()}.png"
@@ -2595,35 +2595,35 @@ def main(argv: Sequence[str] | None = None) -> int:
             "ridge_iqr_delta_vs_turn",
             "iqr_delta_ensemble_minus_legacy",
             "ADAPTIVE MINUS LEGACY IQR",
-            "DELTA TUNE IQR",
+            "DELTA IQR",
             "Negative values mean adaptive ridge picks are narrower across spills at that turn.",
         ),
         (
             "ridge_p10_p90_delta_vs_turn",
             "p10_p90_delta_ensemble_minus_legacy",
             "ADAPTIVE MINUS LEGACY P10-P90",
-            "DELTA TUNE P10-P90",
+            "WIDTH DELTA",
             "Negative values mean the adaptive cross-spill P10-P90 ridge-pick width is narrower.",
         ),
         (
             "ridge_peak_bin_gain_vs_turn",
             "peak_bin_fraction_gain",
             "ADAPTIVE PEAK-BIN GAIN",
-            "DELTA PEAK FRACTION",
+            "PEAK GAIN",
             "Positive values mean more adaptive picks occupy the most populated tune bin.",
         ),
         (
             "ridge_entropy_delta_vs_turn",
             "density_entropy_delta",
             "ADAPTIVE MINUS LEGACY ENTROPY",
-            "DELTA NORMALIZED ENTROPY",
+            "ENTROPY DQ",
             "Negative values mean the adaptive cross-spill pick distribution is less diffuse.",
         ),
         (
             "ridge_shared_mass_gain_vs_turn",
             "shared_ridge_mass_gain",
             "ADAPTIVE SHARED-RIDGE MASS GAIN",
-            "DELTA RIDGE MASS",
+            "MASS GAIN",
             "Positive values mean more adaptive picks lie within +/-0.0025 tune of the shared legacy/adaptive center.",
         ),
     )
