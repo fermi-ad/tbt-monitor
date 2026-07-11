@@ -1,6 +1,6 @@
 # Current Publication Handoff
 
-Last updated: 2026-07-10 22:39 CDT.
+Last updated: 2026-07-10 23:52 CDT.
 
 This file records the live publication run state. Permanent behavior and
 rationale remain in `docs/ARCHITECTURE.md`, `docs/DESIGN_DECISIONS.md`, and
@@ -46,12 +46,13 @@ utilization.
 Checkpoint after the system clock correction:
 
 ```text
-shard 0: validation 250/250, complete
-shard 1: validation 250/250, complete
-shard 2: validation 250/250, complete
-shard 3: validation 200/250, 40000/50000 rows
+full-run COMPLETE marker: present
+sensitivity COMPLETE marker: absent
+sensitivity matrix: active, two bounded CUDA evaluators
+active cases: beam32/fit8/seed20260711 and beam32/fit16/seed20260709
+MemAvailable at 23:51 probe: 56703340 KiB
+payload-audit/intensity/ridge/ANALYSIS_COMPLETE markers: absent
 memory watchdog: clear
-full-run COMPLETE marker: absent
 ```
 
 The machine clock was corrected by roughly 80 minutes during this run. Hashes,
@@ -85,7 +86,7 @@ The active chain is marker-gated and survives loss of the client SSH session:
    `/home/derekste/tbt-publication-20260710/delivery_ring_payload_audit` and
    requires the exact 263999-position-row/23999-paired-row contract before its
    own `COMPLETE` marker.
-4. `/home/derekste/spark_publication_tail_c651ed5d.sh` holds the final launch
+4. `/home/derekste/spark_publication_tail_b4896a50.sh` holds the final launch
    lock and waits for the payload-audit marker. Before using the GPU it requires
    passing 10/20/40-block Best-N reports, four OK transfer rows, seven verified
    sensitivity runs, and eligible H/V recommendations in every sensitivity
@@ -96,11 +97,15 @@ The active chain is marker-gated and survives loss of the client SSH session:
    source-side review archive. The 32 GiB three-sample memory watchdog remains
    active throughout the GPU stages.
 
-The final continuation is detached as PID `645280` in its own session and
-process group. Its script SHA-256 is
-`0b9919b2e1dcfbfde7de343024a201cb44a1784dd20f71ba333ba7ab8ec3934a`.
-It uses source commit `c651ed5d`, extracted only after the archive matched
-SHA-256 `1754858edbbaf3b0a2437e9fa1163385476d26ae2da2406bcfa71aaa8d9c63d4`.
+The final continuation is detached as PID/PGID/SID `831404` in its own session
+and process group. Its script SHA-256 is
+`0dd002f5625119bc4ae4d854ea8e9f688c67abc88162fd10fce54d1a855e0910`.
+It uses source commit `b4896a50`, extracted only after the archive matched
+SHA-256 `3a4ded10519956843a2cb50d717ddaefec329d22923d3d9d68920dcf871a4a0e`.
+The exact staged source passed all 70 Best-BPM tests, all nine autosweep tests,
+and the poster self-test on Spark. The immutable stage receipt records all
+three source/archive/wrapper identities. The watcher log records the same
+source and archive identities and is waiting for the payload-audit marker.
 No intensity or ridge computation can begin merely because the earlier marker
 appears; the selected-N and sensitivity preflight must pass first.
 
@@ -123,8 +128,6 @@ The wrapper accepts an existing ridge root only after the current strict
 verifier passes, preserves any incompatible ridge/publication tree under a
 timestamped `.incomplete` name, and trusts `ANALYSIS_COMPLETE` only when it
 contains the exact source commit.
-Staging is temporarily deferred by the local Codex remote-execution
-approval window until 23:45 CDT, not by Spark or SSH.
 The wrapper now also reruns the exact review-package verifier against every
 copied path, hash, and gallery image before it creates the source-side tarball.
 That package includes the exact analysis source tree/archive and continuation
