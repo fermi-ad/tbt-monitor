@@ -673,6 +673,10 @@ Decision:
 - Keep the artifact-tool direct PNG as a geometry diagnostic. The named poster
   PNG must instead be the byte-identical 150 dpi PDF raster so inherited
   master-level Fermilab/DOE artwork is present in both rendered deliverables.
+- Treat empty structural placeholders as a machine-checkable final-PPTX error.
+  Parse slide OOXML read-only, distinguish placeholder shapes from ordinary
+  empty design shapes, and record the accepted zero count in the compliance
+  report.
 
 Why:
 - Correct filenames and valid CSV headers do not prove that a figure visualizes
@@ -684,6 +688,9 @@ Why:
 - Artifact-tool preserves master media in the editable PPTX but does not render
   that media in its direct slide PNG. A PDF-derived final PNG avoids presenting
   a brand-incomplete preview as the poster deliverable.
+- A one-off manual XML inspection does not protect a later poster rebuild;
+  binding the same check into finalization keeps editable-source and rendered
+  acceptance criteria aligned.
 
 Tradeoffs:
 - Semantic verification reads more small/medium tables and intentionally fails

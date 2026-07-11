@@ -62,7 +62,8 @@ Before delivery:
    and final layout;
 3. inspect the PDF-derived full-size PNG for hierarchy, authentic footer
    branding, axis/legend readability, clipping, and unintended overlap;
-4. inspect exported slide XML for empty structural placeholders;
+4. run the publication finalizer's read-only slide-XML gate and confirm the
+   compliance report records zero empty structural placeholders;
 5. render the PPTX to PDF and confirm one A0 portrait page with all fonts and
    authentic Fermilab branding preserved.
 

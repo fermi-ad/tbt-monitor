@@ -344,7 +344,8 @@ config ranking. Its package modules cover:
   dimensions, byte identity between the named poster PNG and the authoritative
   PDF raster, required sources/figures, selected-N and sensitivity payload
   state, zero retained intensity effects, exact corpus-wide raw-payload audit,
-  and unresolved copy before writing
+  unresolved copy, and read-only slide-OOXML absence of empty structural
+  placeholders before writing
   the complete publication inventory and compliance report.
 - `verification.py`: structural output-contract checks for completed or
   partially completed Best-BPM output directories, including required files,

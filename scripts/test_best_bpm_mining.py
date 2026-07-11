@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
@@ -147,7 +148,11 @@ from compare_intensity_block_sensitivity import (
 )
 from compare_best_n_beam_widths import compare_table as compare_best_n_beam_table
 from compare_best_n_sensitivity import comparison_rows as compare_best_n_sensitivity_rows
-from finalize_ibic2026_publication import parse_pdfinfo, require_identical_files
+from finalize_ibic2026_publication import (
+    empty_structural_placeholders,
+    parse_pdfinfo,
+    require_identical_files,
+)
 
 
 def synthetic_collection(root: Path, spills: int = 3, bpms: int = 8, turns: int = 1024) -> None:
@@ -1034,6 +1039,42 @@ class BestBpmMiningTests(unittest.TestCase):
         render.write_bytes(b"different-png")
         with self.assertRaisesRegex(ValueError, "files differ"):
             require_identical_files("poster preview", preview, render)
+
+    def test_publication_rejects_empty_structural_poster_placeholders(self) -> None:
+        pptx = self.root / "poster.pptx"
+        slide_xml = """\
+<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+       xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+  <p:cSld><p:spTree>
+    <p:sp>
+      <p:nvSpPr><p:cNvPr id="2" name="Filled title"/><p:cNvSpPr/><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr>
+      <p:txBody><a:p><a:r><a:t>Poster title</a:t></a:r></a:p></p:txBody>
+    </p:sp>
+    <p:sp>
+      <p:nvSpPr><p:cNvPr id="3" name="Empty body"/><p:cNvSpPr/><p:nvPr><p:ph type="body"/></p:nvPr></p:nvSpPr>
+      <p:txBody><a:p><a:r><a:t>   </a:t></a:r></a:p></p:txBody>
+    </p:sp>
+    <p:sp>
+      <p:nvSpPr><p:cNvPr id="4" name="Empty ordinary shape"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>
+      <p:txBody><a:p/></p:txBody>
+    </p:sp>
+  </p:spTree></p:cSld>
+</p:sld>
+"""
+        with zipfile.ZipFile(pptx, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr("ppt/slides/slide1.xml", slide_xml)
+        self.assertEqual(
+            empty_structural_placeholders(pptx),
+            ["ppt/slides/slide1.xml: shape 3 (Empty body)"],
+        )
+
+        clean_pptx = self.root / "clean-poster.pptx"
+        with zipfile.ZipFile(clean_pptx, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr(
+                "ppt/slides/slide1.xml",
+                slide_xml.replace(">   </a:t>", ">Results</a:t>"),
+            )
+        self.assertEqual(empty_structural_placeholders(clean_pptx), [])
 
     def test_publication_copy_and_table_are_plane_specific(self) -> None:
         best = {

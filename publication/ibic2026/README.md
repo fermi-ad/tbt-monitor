@@ -61,8 +61,10 @@ Generate the last two files with
 `scripts/finalize_ibic2026_publication.py` only after inspecting the final
 poster and all four paper pages. The finalizer requires explicit `pass` values
 for both visual reviews and rechecks the reference hashes, page geometry,
-render dimensions, and results payload. `publication_manifest.csv` inventories
-every file under this directory except itself.
+render dimensions, results payload, and final PPTX slide XML. It rejects any
+empty structural placeholder without rewriting the OOXML package and records
+the accepted zero count in the compliance report. `publication_manifest.csv`
+inventories every file under this directory except itself.
 
 The working paper name is `ABSTRACT54` until IBIC assigns a programme code.
 Rename the TeX and PDF together when that code becomes available.

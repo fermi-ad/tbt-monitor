@@ -42,8 +42,9 @@ points and describe only ridge-pick probability redistribution; display color
 clipping is disclosed and does not alter exported metrics. Native heatmap cells
 cover their complete declared axes without floor-division gaps.
 `finalize_ibic2026_publication.py` then requires explicit visual-QA passes and
-rechecks immutable references, page geometry, payload closure, and checksums
-before writing the final compliance report and publication inventory.
+rechecks immutable references, page geometry, payload closure, checksums, and
+the final PPTX slide XML for empty structural placeholders before writing the
+final compliance report and publication inventory.
 
 ## Quick Start
 

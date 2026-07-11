@@ -273,7 +273,8 @@ Required for the publication review:
 - byte-identical named poster PNG and 150 dpi PDF raster, with authentic
   master-level Fermilab/DOE artwork visible in the reviewed render
 - final `compliance_report.md` and `publication_manifest.csv` produced only
-  after explicit visual-QA pass flags and page/payload/hash verification
+  after explicit visual-QA pass flags, page/payload/hash verification, and a
+  read-only final-PPTX scan reporting zero empty structural placeholders
 
 Optional but useful:
 

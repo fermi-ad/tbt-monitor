@@ -549,6 +549,9 @@ preserve its master/header/footer, remain editable, and pass rendered visual QA.
 The named full-size PNG is the 150 dpi PDF raster and must remain byte-identical
 to it; the direct artifact-tool PNG is retained only as a geometry diagnostic
 because it does not render master-level footer media.
+Final closure also parses every exported slide XML member read-only and rejects
+an empty title, body, or other structural placeholder while allowing
+intentionally empty ordinary shapes.
 The poster should use four to six final evidence panels even though the complete
 indexed review gallery is intentionally much larger.
 

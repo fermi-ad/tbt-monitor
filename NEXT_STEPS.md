@@ -193,6 +193,15 @@ the publication audit:
     display clip; subtractive captions retain the absolute-P99 disclosure. A
     regression checks complete coverage in both normal and reversed axes, and
     strict gallery verification rejects missing clip disclosures.
+26. The poster acceptance checklist required inspection of exported slide XML
+    for empty structural placeholders, but final closure depended on a one-off
+    manual ZIP/XML scan. A later rebuild could therefore reintroduce a blank
+    title or body placeholder after visual review without failing the
+    finalizer. `finalize_ibic2026_publication.py` now parses every
+    `ppt/slides/slide*.xml` member read-only, rejects any `p:sp` carrying a
+    `p:ph` whose DrawingML text is empty or whitespace, and records a zero
+    count in the compliance report. A synthetic PPTX regression distinguishes
+    empty placeholders from intentionally empty ordinary shapes.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;

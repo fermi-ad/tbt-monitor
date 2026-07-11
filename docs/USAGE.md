@@ -1122,9 +1122,11 @@ The finalizer verifies immutable reference hashes, required source and render
 files, A0 poster and four-page paper geometry, PNG dimensions, byte identity
 between the named poster PNG and its 150 dpi PDF raster, the selected H/V
 payload, seven sensitivity runs, four OK transfer rows, zero retained intensity
-effects, the exact raw-payload corpus, and unresolved-copy gates. It writes `compliance_report.md` and
-`publication_manifest.csv`; the manifest inventories every publication file
-except itself.
+effects, the exact raw-payload corpus, unresolved-copy gates, and every final
+slide XML placeholder. It reads the PPTX as a ZIP package without modifying it
+and rejects a placeholder shape whose DrawingML text is empty or whitespace.
+It writes `compliance_report.md` and `publication_manifest.csv`; the manifest
+inventories every publication file except itself.
 
 ## Timing Semantics
 

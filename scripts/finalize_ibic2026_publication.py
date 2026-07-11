@@ -10,6 +10,8 @@ import json
 import math
 import re
 import subprocess
+import zipfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Sequence
 
@@ -45,6 +47,47 @@ def require_identical_files(label: str, left: Path, right: Path) -> None:
     require_file(right)
     if left.stat().st_size != right.stat().st_size or sha256(left) != sha256(right):
         raise ValueError(f"{label} files differ: {left} != {right}")
+
+
+def empty_structural_placeholders(pptx: Path) -> list[str]:
+    """Return empty placeholder shapes found in slide XML without mutating the PPTX."""
+    require_file(pptx)
+    namespaces = {
+        "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
+        "p": "http://schemas.openxmlformats.org/presentationml/2006/main",
+    }
+    try:
+        with zipfile.ZipFile(pptx) as archive:
+            slide_members = sorted(
+                name
+                for name in archive.namelist()
+                if re.fullmatch(r"ppt/slides/slide\d+\.xml", name)
+            )
+            if not slide_members:
+                raise ValueError(f"poster PPTX contains no slide XML: {pptx}")
+            findings: list[str] = []
+            for member in slide_members:
+                root = ET.fromstring(archive.read(member))
+                for shape in root.findall(".//p:sp", namespaces):
+                    placeholder = shape.find("./p:nvSpPr/p:nvPr/p:ph", namespaces)
+                    if placeholder is None:
+                        continue
+                    text = "".join(
+                        node.text or "" for node in shape.findall(".//a:t", namespaces)
+                    ).strip()
+                    if text:
+                        continue
+                    properties = shape.find("./p:nvSpPr/p:cNvPr", namespaces)
+                    shape_id = properties.get("id", "?") if properties is not None else "?"
+                    shape_name = (
+                        properties.get("name", "unnamed")
+                        if properties is not None
+                        else "unnamed"
+                    )
+                    findings.append(f"{member}: shape {shape_id} ({shape_name})")
+            return findings
+    except (ET.ParseError, zipfile.BadZipFile) as exc:
+        raise ValueError(f"invalid poster PPTX OOXML: {pptx}: {exc}") from exc
 
 
 def read_json(path: Path) -> dict[str, object]:
@@ -177,6 +220,14 @@ def finalize(
     )
     for path in required:
         require_file(path)
+    empty_placeholders = empty_structural_placeholders(
+        root / "poster" / "build" / "ibic2026-abstract54-poster.pptx"
+    )
+    if empty_placeholders:
+        raise ValueError(
+            "poster PPTX contains empty structural placeholders: "
+            + "; ".join(empty_placeholders)
+        )
     for figure in (
         "best_n_validation_h.png",
         "best_n_validation_v.png",
@@ -300,6 +351,7 @@ def finalize(
         f"- poster preview pixels: {poster_preview[0]} x {poster_preview[1]}",
         f"- poster PDF render pixels: {poster_render[0]} x {poster_render[1]}",
         "- poster preview source: byte-identical 150 dpi PDF raster with inherited master artwork",
+        "- empty structural poster placeholders: 0",
         "- paper render pixels: " + ", ".join(f"{width} x {height}" for width, height in paper_renders),
         f"- poster visual QA: {poster_visual_qa}",
         f"- paper visual QA: {paper_visual_qa}",

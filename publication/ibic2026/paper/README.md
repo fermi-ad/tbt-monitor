@@ -48,3 +48,7 @@ between the selected Best-N rows and the plane-specific full-buffer ridge
 contract and requires the passing 2200-manifest raw-payload audit.
 The generated macro set also supplies the definitive full-curve case count,
 stratified validation case count, and fold count used in manuscript prose.
+Final package closure is shared with the poster: the finalizer will not write
+the inventory or compliance report until the poster PPTX contains zero empty
+structural placeholders and both rendered artifacts have explicit visual-QA
+passes.
