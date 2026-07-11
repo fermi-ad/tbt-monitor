@@ -122,7 +122,11 @@ from make_best_bpm_ridge_density import (
     raster_cell_bounds,
     robust_change_point,
 )
-from gpu_analyze_captured_spills import preprocess_traces, select_trace_subset
+from gpu_analyze_captured_spills import (
+    preprocess_traces,
+    raster_cell_bounds as legacy_raster_cell_bounds,
+    select_trace_subset,
+)
 from audit_legacy_single_bpm_selection import selection_row as legacy_selection_row
 from package_publication_review import package_review
 from prepare_ibic2026_publication import (
@@ -1644,14 +1648,15 @@ class BestBpmMiningTests(unittest.TestCase):
             )
 
     def test_ridge_raster_cells_fill_uneven_axes_without_gaps(self) -> None:
-        forward = [raster_cell_bounds(index, 160, 95, 815) for index in range(160)]
-        reverse = [raster_cell_bounds(index, 160, 95, 815, reverse=True) for index in range(160)]
-        self.assertEqual(forward[0][0], 95)
-        self.assertEqual(forward[-1][1], 815)
-        self.assertTrue(all(left[1] + 1 == right[0] for left, right in zip(forward, forward[1:])))
-        self.assertEqual(reverse[0][1], 815)
-        self.assertEqual(reverse[-1][0], 95)
-        self.assertTrue(all(left[0] - 1 == right[1] for left, right in zip(reverse, reverse[1:])))
+        for bounds in (raster_cell_bounds, legacy_raster_cell_bounds):
+            forward = [bounds(index, 160, 95, 815) for index in range(160)]
+            reverse = [bounds(index, 160, 95, 815, reverse=True) for index in range(160)]
+            self.assertEqual(forward[0][0], 95)
+            self.assertEqual(forward[-1][1], 815)
+            self.assertTrue(all(left[1] + 1 == right[0] for left, right in zip(forward, forward[1:])))
+            self.assertEqual(reverse[0][1], 815)
+            self.assertEqual(reverse[-1][0], 95)
+            self.assertTrue(all(left[0] - 1 == right[1] for left, right in zip(reverse, reverse[1:])))
 
     def test_ridge_memberships_reject_duplicate_spill_plane_n(self) -> None:
         best_root = self.root / "ridge_membership_best_root"

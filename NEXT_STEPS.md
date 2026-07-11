@@ -66,8 +66,12 @@ the publication audit:
     height by the tune-bin count with integer truncation. The unused remainder
     left the heatmap short of the declared tune axis while percentile tracks
     used the full axis. Paired H/V panels already used proportional cell bounds;
-    the corrected renderer now applies those bounds to every density panel and
-    a regression test requires complete, gap-free axis coverage.
+    both the current full-buffer sidecar and the original
+    `gpu_analyze_captured_spills.py` density renderer now apply those bounds to
+    every density panel, disclose P98 display clipping, and distinguish count
+    from normalized-fraction color. The archived favorite PNGs remain immutable
+    historical outputs; regression tests require complete, gap-free axes for
+    future renders.
 12. The first strict follow-up verifier treated an unavailable tune as corrupt
     even when the row correctly represented no visible tune: 19,004 fixed or
     dynamic control rows had `visible_fraction=0`, `score=0`, and no finite
