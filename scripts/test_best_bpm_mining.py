@@ -1261,6 +1261,7 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertIn("minus corrected adaptive Best-1", content["ridgeContrastCaption"])
         self.assertIn("H narrower than corrected Best-1", content["conclusionBody"])
         self.assertIn("V narrower than corrected Best-1", content["conclusionBody"])
+        self.assertIn("All-BPM aggregation remains", content["conclusionBody"])
         self.assertIn("6/7 runs; 1 unresolved", content["bestNHCaption"])
         self.assertIn("7/7 runs; 0 unresolved", content["bestNVCaption"])
         self.assertIn("Median IQR change vs corrected Best-1", content["quantitativeBody"])
@@ -2505,6 +2506,11 @@ class BestBpmMiningTests(unittest.TestCase):
         for plane in ("h", "v"):
             self.assertTrue((follow / "artifacts" / "global" / f"fixed_vs_dynamic_direct_{plane}.png").exists())
             self.assertTrue((follow / "artifacts" / "global" / f"fixed_vs_dynamic_direct_{plane}_caption.md").exists())
+            control_plot = follow / "artifacts" / "global" / f"fixed_dynamic_all_bpm_summary_{plane}.png"
+            self.assertTrue(control_plot.exists())
+            self.assertGreater(control_plot.stat().st_size, 1_000)
+            control_caption = control_plot.with_name(f"{control_plot.stem}_caption.md")
+            self.assertIn("all 60 plane channels", control_caption.read_text(encoding="utf-8"))
         report = (out / "reports" / "strong_bpm_analysis_summary.md").read_text(encoding="utf-8")
         self.assertIn("The machine tune may vary freely between spills", report)
         self.assertIn("best-5 are not globally exhaustive", report)

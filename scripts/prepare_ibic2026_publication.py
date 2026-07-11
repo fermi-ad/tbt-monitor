@@ -533,9 +533,9 @@ def publication_content(
         ),
         "conclusionHeading": "RESULT AND LIMIT",
         "conclusionBody": (
-            "Plane-specific adaptive ensembles recover the most reproducible later-window BPM tune candidates.\n"
+            "Relative to adaptive Best-1, plane-specific ensembles improve later-window internal reproducibility.\n"
             f"Full-buffer ensemble-size contrast: H {adaptive_status['H']}; V {adaptive_status['V']}.\n"
-            "This is BPM-only internal consistency, not an absolute tune calibration."
+            "All-BPM aggregation remains a strong descriptive control; no external tune calibration is claimed."
         ),
         "ridgeContrastCaption": (
             f"Selected H Best-{selected_sizes['H']} and V Best-{selected_sizes['V']} P10-P90 width "

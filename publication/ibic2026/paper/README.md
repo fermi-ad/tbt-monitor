@@ -34,6 +34,9 @@ the same pass. The final source must include:
 - the current Fermilab contract number `89243024CSC000002`;
 - no claim of absolute tune calibration, measured physical noise removal, or
   a fixed extraction-onset turn;
+- no claim that a small adaptive set outperforms all-BPM aggregation; the
+  leakage-controlled result is Best-N versus Best-1, while all-BPM remains a
+  stronger descriptive reused-window control;
 - exactly four class-defined `595 x 792 bp` pages with no overfull boxes or
   missing references. This is the explicit JACoW v3.01 page geometry; do not
   replace it with ISO A4 or US Letter geometry.

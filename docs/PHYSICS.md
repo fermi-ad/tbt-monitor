@@ -151,6 +151,11 @@ Notes:
   limitation, not a missing-data value. All seven runs must verify, a strict
   majority per plane must yield eligible knees, and unavailable runs must retain
   their selected-power/prominence tradeoff reason. They are never assigned N.
+- Same-metric reused-window controls show whether a dynamic small set beats a
+  frozen small set, but they do not support a small-set-versus-all-BPM claim.
+  The corrected all-BPM median is the strongest descriptive row in both planes,
+  and all-BPM mean also leads vertically. These rows must remain visible until
+  a leakage-controlled head-to-head comparison establishes otherwise.
 - Exact common spill/window pairing is required for ridge-density subtraction.
   Narrowing or probability-mass redistribution can be described as reduced
   diffuse ridge-pick probability, not physical noise removal or absolute tune

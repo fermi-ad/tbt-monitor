@@ -245,7 +245,10 @@ config ranking. Its package modules cover:
   tune-visibility migration without mutating canonical run outputs. The fixed
   sidecar rescores dynamic memberships, frozen memberships, and all-BPM
   controls from the same cache with one metric; it is descriptive because the
-  original dynamic memberships reuse selection windows.
+  original dynamic memberships reuse selection windows. Its collection curves
+  and all-method summary PNG keep the stronger all-BPM controls visible;
+  `render_fixed_set_control_plots.py` can regenerate both from the accepted
+  summary without repeating spectra.
   No-visible controls retain zero score with an explicit state instead of a
   fabricated prominence. Held-out rows without a finalist tune retain exact
   identity but blank support metrics, and summaries expose their evaluable

@@ -290,6 +290,14 @@ the publication audit:
     unavailable reason, and prints availability plus the observed N range in
     the poster, paper, preparation report, payload, and compliance report. A
     plane with fewer than four eligible runs still blocks publication.
+36. The corrected same-metric control table included all-BPM mean and median
+    rows, but the executive summary and control PNG considered only adaptive
+    and frozen N=1/3/5 methods. That omission hid the strongest descriptive
+    control: all-BPM aggregation scores above the small-set methods in both
+    planes. The final report and a new native-PNG summary now show adaptive,
+    frozen, and all-BPM methods together. Publication copy is narrowed to
+    improvement over adaptive Best-1 and frozen small sets; all-BPM aggregation
+    remains an explicit baseline pending a leakage-controlled head-to-head test.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;
@@ -2164,7 +2172,7 @@ Use 4096/256 first because it is more spectrally stable.
 This analysis could become a strong poster result if it shows:
 
 ```text
-Tune evidence is not uniformly distributed across BPMs. As coherent beam motion evolves, different BPM ensembles provide the strongest tune visibility. Dynamic or visibility-weighted BPM subset selection can recover tune evidence more reliably than all-BPM averaging.
+Tune evidence is not uniformly distributed across BPMs. As coherent beam motion evolves, different BPM ensembles can provide useful channel-resolved visibility. Dynamic subset selection improves on a single or frozen small set in the strongest vertical results, while all-BPM aggregation remains a strong explicit baseline.
 ```
 
 This would explain why Best-BPM mining is physically meaningful rather than merely a numerical optimization.
@@ -2192,7 +2200,7 @@ The repo and current run are ready to support an IBIC poster as a BPM-only adapt
 best1 vs best3 vs best5 comparison
 BPM rank stability and recurring useful BPM pools
 held-out support as internal consistency evidence
-direct fixed-set failure as the reason dynamic selection matters
+direct frozen-small-set weakness plus the stronger descriptive all-BPM control
 poster-grade V-plane deconstruction and subset spectra examples
 one H-plane or multimodal caution example
 ```

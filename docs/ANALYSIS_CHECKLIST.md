@@ -34,7 +34,8 @@ Treat these as baseline rather than open TODOs:
 - Best-BPM follow-up sidecars for same-metric dynamic/fixed/all-BPM
   recomputation, held-out spectral support, handoff/visibility review, curated
   plane-balanced poster PNGs, and full-buffer Best-1/3/5 ridge-density
-  comparison artifacts
+  comparison artifacts; executive copy and the control-summary PNG must retain
+  all-BPM mean/median even when they are stronger than the small-set methods
 - exact-cache visibility-duration repair plus semantic verification of result
   identities, fixed/held-out controls, handoff transitions, poster balance,
   and recommended PNG payloads

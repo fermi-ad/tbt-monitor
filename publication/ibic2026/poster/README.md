@@ -22,6 +22,8 @@ every source hash. The generated copy distinguishes the full Best-N curve
 population from the smaller stratified held-out validation population. It also
 prints the eligible-count and N range from seven verified sensitivity runs;
 unavailable reduced-sample knees remain explicit rather than being assigned N.
+Conclusion copy must say Best-N improves on adaptive Best-1 and must retain
+all-BPM aggregation as a strong descriptive baseline.
 
 `content.json` must provide the text and asset keys enforced by
 `build_poster.mjs`. The builder rejects missing/undersized images, unresolved

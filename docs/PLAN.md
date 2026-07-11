@@ -351,6 +351,10 @@ Current publication interpretation:
   may proceed only when at least four runs produce an eligible knee; every
   unavailable run and its non-inferiority reason remains in the payload and
   publication copy. This reports weak-sample instability without inventing N.
+- Same-metric adaptive/frozen/all-BPM controls remain descriptive because they
+  reuse selection windows. Their executive table and PNG must include all-BPM
+  mean and median; the current stronger all-BPM rows limit the inferential claim
+  to Best-N versus Best-1 and frozen small sets.
 - The old ``Best-10 deferred'' note is historical, not an active missing run.
   The publication evaluates every N contiguously through at least N=20 (target
   N=30) under the separate leakage-controlled protocol. The bounded N=30 trial

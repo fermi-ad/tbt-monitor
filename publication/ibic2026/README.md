@@ -91,4 +91,6 @@ not claim absolute tune calibration, physical noise removal, or a measured
 extraction-onset turn. Ridge subtraction is exact-paired probability
 redistribution. Intensity is retained as a tune weight only if the corrected
 200-spill test passes every statistical, practical-effect, and tune-stability
-gate.
+gate. Best-N improvement is relative to adaptive Best-1; stronger descriptive
+all-BPM controls remain an explicit baseline and have not been defeated by a
+leakage-controlled head-to-head test.

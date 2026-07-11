@@ -416,6 +416,38 @@ def main() -> int:
                 "This direct control is descriptive because adaptive membership selection reused these windows."
             )
 
+        all_bpm_ranked = sorted(
+            [row for row in control_plane if str(row.get("method", "")).startswith("all_bpm_")],
+            key=lambda row: fnum(row.get("median_score"))
+            if fnum(row.get("median_score")) is not None
+            else -math.inf,
+            reverse=True,
+        )
+        if all_bpm_ranked:
+            best_all_bpm = all_bpm_ranked[0]
+            same_test_dynamic = [
+                row
+                for row in control_plane
+                if str(row.get("method", "")).startswith("dynamic_")
+                and row.get("test_collection") == best_all_bpm.get("test_collection")
+            ]
+            best_dynamic = max(
+                same_test_dynamic,
+                key=lambda row: fnum(row.get("median_score"))
+                if fnum(row.get("median_score")) is not None
+                else -math.inf,
+                default=None,
+            )
+            lines.append(
+                f"- **{plane} strongest same-metric all-BPM control:** "
+                f"`{best_all_bpm.get('method', '')}` median score "
+                f"{fmt(fnum(best_all_bpm.get('median_score')), 5)} on "
+                f"`{best_all_bpm.get('test_collection', '')}` versus strongest matched adaptive "
+                f"`{best_dynamic.get('method', '') if best_dynamic else 'NA'}` "
+                f"{fmt(fnum(best_dynamic.get('median_score')), 5) if best_dynamic else 'NA'}. "
+                "This descriptive control forbids claiming that a small adaptive set outperforms all-BPM aggregation; the leakage-controlled result establishes only Best-N reproducibility and improvement over Best-1."
+            )
+
         heldout_plane = [row for row in heldout_summary if row.get("plane") == plane]
         heldout_ranked = sorted(
             heldout_plane,

@@ -704,6 +704,17 @@ controls from the same spectral cache with one evolution score. It fails on a
 cardinality mismatch. This comparison is descriptive because the original
 dynamic memberships reuse selection windows; use the leakage-controlled
 Best-N study for inferential claims.
+Regenerate the accepted collection curves and the adaptive/frozen/all-BPM
+summary PNG without repeating waveform analysis:
+
+```bash
+python3 scripts/render_fixed_set_control_plots.py \
+  --summary /path/to/followups/statistics/fixed_vs_dynamic_direct_summary.csv \
+  --out /path/to/followups
+```
+
+The all-method panel must remain in review when all-BPM mean or median exceeds
+the small-set bars; omission is not permission to claim adaptive superiority.
 Rows with no visible tune retain score zero and explicit `NO_VISIBLE_TUNE` /
 `NO_VALID_Q` flags; an unavailable prominence is not fabricated as zero.
 Held-out rows likewise preserve exact selected membership when the finalist has

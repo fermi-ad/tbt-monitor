@@ -489,6 +489,11 @@ automatic knee when selected-power and prominence margins do not intersect.
 Publication requires eligible knees from at least four of seven runs in each
 plane. It preserves every unavailable run and reason and prints the available
 count and N range; no unresolved case is silently assigned an N.
+The same-metric direct-control gallery must also include all-BPM mean and median
+beside adaptive and frozen N=1/3/5. All-BPM median currently scores higher in
+both planes, and all-BPM mean does so vertically, under the reused-window
+evolution metric. They remain an explicit limitation panel rather than being
+omitted to simplify the adaptive story.
 `scripts/prepare_ibic2026_publication.py` is the final provenance gate. It
 requires accepted primary/follow-up, Best-N 10/20/40-block, intensity, and
 ridge reports plus the exact 2200-manifest raw-payload audit; checks

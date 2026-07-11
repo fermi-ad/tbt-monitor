@@ -295,6 +295,10 @@ from the same cache with the same evolution score. Treat it as a descriptive
 control because the original dynamic memberships reuse their selection
 windows; later-window digitizer-disjoint Best-N validation is the publication
 inference.
+The control summary and executive report must include all-BPM mean/median. The
+all-BPM median currently exceeds the small-set scores in both planes, and mean
+does so vertically, so the publication claim is Best-N versus Best-1 and frozen
+small sets, not Best-N versus all BPMs.
 No-visible fixed/control rows and no-`q_hat` held-out rows are retained with
 explicit quality flags and blank unavailable metrics. The held-out summary
 reports evaluable coverage; the semantic verifier accepts those states only

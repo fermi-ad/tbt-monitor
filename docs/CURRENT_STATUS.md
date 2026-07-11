@@ -63,6 +63,15 @@ row counts, and Linux process elapsed time remain valid; wall-clock log stamps
 and evaluator `elapsed_seconds` fields that span the correction must not be used
 for rate or duration claims.
 
+The accepted same-metric fixed-control CSV also exposed a publication-reporting
+omission: all-BPM mean/median were present in the table but absent from the
+executive comparison and summary PNG. They are the strongest descriptive
+controls in both planes. The current local branch restores those rows and
+narrows the claim to Best-N versus adaptive Best-1 and frozen small sets. The
+Spark continuation remains correctly pinned to `25c41237` because no waveform
+or GPU science path changed; after transfer, regenerate the control PNG and
+final report/poster/paper locally from the accepted CSV with the newer branch.
+
 The full-run source archive SHA-256 is
 `588705e83934ffa3a379eaf6b9ab746fb12d8cb5ef2620469eaff71198486a30`.
 The post-run source archive is commit `3832ee84`, with SHA-256
@@ -176,7 +185,9 @@ The June downstream figures are provisional because the audit found:
     draws, and
 11. an intensity subtraction renderer that assumed common spill/window rows
     after checking only center turns and labeled probability redistribution as
-    weighted signal `adds`/`suppresses`.
+    weighted signal `adds`/`suppresses`, and
+12. an executive summary and summary PNG that omitted stronger all-BPM controls
+    already present in the corrected same-metric table.
 
 Corrected code uses exact source keys and masks, token-derived ring order,
 same-metric direct controls, a plane-balanced shortlist, and a nonempty gate
@@ -192,6 +203,8 @@ Intensity subtraction now requires exact common finite spill/window keys,
 verifies identical method populations and memberships, and labels only
 higher/lower column-normalized ridge-pick probability with a display-only
 absolute-P99 clip.
+All-BPM mean/median now remain beside adaptive and frozen N=1/3/5 in both the
+executive text and a detached, explicitly descriptive native-PNG panel.
 
 ## Evidence Protocol
 

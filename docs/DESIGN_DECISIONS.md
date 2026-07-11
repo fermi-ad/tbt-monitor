@@ -497,7 +497,9 @@ Tradeoffs:
   cached spectra with the same evolution score. That direct comparison remains
   descriptive because the original dynamic memberships reuse their selection
   windows; leakage-controlled Best-N validation carries the publication
-  inference.
+  inference. Executive text and plots must include the all-BPM rows; a stronger
+  all-BPM descriptive score forbids claiming that adaptive small sets are the
+  best aggregation method.
 - Preserve no-reliable-tune states as missing measurements, not numerical
   zeros. Fixed/control rows may have zero score with unavailable prominence
   only when explicitly flagged `NO_VISIBLE_TUNE`; held-out support is

@@ -126,11 +126,11 @@ None.
 - Owner: project
 - Type: fix
 - Why: the first fixed-set sidecar recomputed frozen and all-BPM rows with the evolution score but copied dynamic rows carrying the unrelated subset-search score, making plotted bar heights incomparable.
-- Scope: resolve exact dynamic memberships per spill, recompute dynamic/fixed/all-BPM spectra from the same cache, score every method with the same evolution metric, fail on incomplete cardinality, and label the comparison descriptive because original dynamic memberships reuse selection windows.
-- Acceptance: regression checks prove every output score is derived from the exported visibility and prominence fields; serial and parallel outputs match; the corrected Spark sidecar and verifier complete with exact cardinality.
+- Scope: resolve exact dynamic memberships per spill, recompute dynamic/fixed/all-BPM spectra from the same cache, score every method with the same evolution metric, fail on incomplete cardinality, render both the collection-specific adaptive/frozen curves and an all-method summary, surface the strongest all-BPM row in the executive report, and label the comparison descriptive because original dynamic memberships reuse selection windows.
+- Acceptance: regression checks prove every output score is derived from the exported visibility and prominence fields; serial and parallel outputs match; the corrected Spark sidecar and verifier complete with exact cardinality; the summary PNG contains adaptive, frozen, all-BPM mean, and all-BPM median controls; publication copy does not claim small-set superiority when the all-BPM descriptive control is stronger.
 - Docs: NEXT_STEPS.md, docs/USAGE.md, docs/SPARK.md, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md, docs/PLAN.md, docs/PHYSICS.md, docs/ANALYSIS_CHECKLIST.md, docs/ENGINEERING_BACKLOG.md
-- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/fixed_sets.py scripts/test_best_bpm_mining.py; PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; corrected Spark fixed-set sidecar and follow-up verifier
-- Notes: do not reuse the June fixed-vs-dynamic plot or its numeric conclusion in a publication artifact.
+- Validation: PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 -m py_compile scripts/bpm_mining/fixed_sets.py scripts/render_fixed_set_control_plots.py scripts/analyze_next_steps_outputs.py scripts/test_best_bpm_mining.py; PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_best_bpm_mining.py; corrected Spark fixed-set sidecar and follow-up verifier; summary-only rerender from the accepted CSV
+- Notes: do not reuse the June fixed-vs-dynamic plot or its numeric conclusion in a publication artifact. The corrected table shows all-BPM aggregation as the strongest descriptive control in both planes; leakage-controlled Best-N establishes a knee relative to Best-1, not superiority to all-BPM aggregation.
 
 ### [ENG-028] Intensity-assisted tune-quality sidecar
 - Status: in_progress
