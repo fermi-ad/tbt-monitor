@@ -1131,6 +1131,13 @@ python3 scripts/audit_delivery_ring_payloads.py \
   --out /path/to/delivery-ring-payload-audit \
   --analysis-turns 50000 \
   --plateau-turns 128
+
+python3 scripts/compare_payload_absences_to_best_n.py \
+  --missing-position-csv /path/to/delivery-ring-payload-audit/missing_position_streams.csv \
+  --best-n-curve-csv /path/to/best-n/merged_block20/best_n_curve_rows.csv \
+  --selected-h-n 5 \
+  --selected-v-n 12 \
+  --out /path/to/delivery-ring-payload-audit
 ```
 
 Publication acceptance requires the immutable 2200-manifest inventory, 263983
@@ -1138,7 +1145,9 @@ captured position rows, 23999 paired position/intensity rows, the
 120-channel/30-digitizer union topology in each collection, and an exact hashed
 inventory of the 17 manifest-level absences across 13 recorded partial captures.
 It also requires no first-50000-turn corruption, long exact plateau, or repeated
-device-coded raw fallback pair. Then bind every accepted root:
+device-coded raw fallback pair. The identity join must retain exact selected
+cardinality and zero absent-source-key overlaps for the accepted per-spill
+memberships. Then bind every accepted root:
 
 ```bash
 python3 scripts/prepare_ibic2026_publication.py \

@@ -113,6 +113,7 @@ from audit_delivery_ring_payloads import (
     audit as audit_delivery_ring_corpus,
     audit_manifest as audit_delivery_ring_manifest,
 )
+from compare_payload_absences_to_best_n import compare_absences
 from run_best_n_sensitivity_matrix import _RunJob, _comparison_command, _execute_jobs
 from make_best_bpm_ridge_density import (
     adaptive_comparison_by_turn_rows,
@@ -1020,6 +1021,57 @@ class BestBpmMiningTests(unittest.TestCase):
             report["missing_position_stream_inventory_sha256"],
             publication_sha256(out / "missing_position_streams.csv"),
         )
+
+    def test_payload_absence_join_preserves_selected_cardinality(self) -> None:
+        missing_path = self.root / "missing.csv"
+        missing_rows = [
+            {
+                "collection": "position",
+                "spill_id": "spill_1",
+                "plane": plane,
+                "missing_position_source_key": f"{{TEST}}:{plane}P999:TBT_POSITION_RAW",
+            }
+            for plane in ("H", "V")
+        ]
+        missing_rows.append(
+            {
+                "collection": "intensity",
+                "spill_id": "spill_2",
+                "plane": "V",
+                "missing_position_source_key": "{TEST}:VP998:TBT_POSITION_RAW",
+            }
+        )
+        write_csv(missing_path, missing_rows, list(missing_rows[0]))
+        curve_path = self.root / "curve.csv"
+        curve_rows = [
+            {
+                "collection": "position",
+                "spill_id": "spill_1",
+                "plane": "H",
+                "subset_size": 2,
+                "bpm_source_keys": "{TEST}:HP101:TBT_POSITION_RAW,{TEST}:HP103:TBT_POSITION_RAW",
+            },
+            {
+                "collection": "position",
+                "spill_id": "spill_1",
+                "plane": "V",
+                "subset_size": 3,
+                "bpm_source_keys": "{TEST}:VP102:TBT_POSITION_RAW,{TEST}:VP104:TBT_POSITION_RAW,{TEST}:VP106:TBT_POSITION_RAW",
+            },
+        ]
+        write_csv(curve_path, curve_rows, list(curve_rows[0]))
+        out = self.root / "absence-join"
+        report = compare_absences(missing_path, curve_path, out, {"H": 2, "V": 3})
+        self.assertEqual(report["missing_position_rows"], 3)
+        self.assertEqual(report["evaluated_position_rows"], 2)
+        self.assertEqual(report["outside_best_n_corpus_rows"], 1)
+        self.assertEqual(report["selected_overlap_rows"], 0)
+        self.assertEqual(len(read_csv(out / "missing_position_best_n_intersections.csv")), 3)
+
+        curve_rows[0]["bpm_source_keys"] = "{TEST}:HP101:TBT_POSITION_RAW"
+        write_csv(curve_path, curve_rows, list(curve_rows[0]))
+        with self.assertRaisesRegex(ValueError, "cardinality mismatch"):
+            compare_absences(missing_path, curve_path, out, {"H": 2, "V": 3})
 
     def test_tiny_intensity_entropy_shift_is_not_practically_retained(self) -> None:
         rows = []

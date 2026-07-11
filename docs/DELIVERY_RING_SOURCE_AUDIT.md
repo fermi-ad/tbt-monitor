@@ -87,6 +87,8 @@ position-only collection, seven in the second, and one in the intensity
 collection. The 17 absent streams are not missing payload files: they were
 omitted from manifests that already record `Partial` capture state. None of the
 16 position-only absences intersects the accepted per-spill H Best-5 or V
-Best-12 membership. Source payloads are read-only. A failed audit
+Best-12 membership. That join is preserved by
+`scripts/compare_payload_absences_to_best_n.py` with source-table and output
+hashes. Source payloads are read-only. A failed audit
 blocks intensity interpretation, the full-buffer ridge gallery, and final
 poster/paper materialization.

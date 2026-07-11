@@ -541,6 +541,13 @@ the complete publication corpus independently of the FFT paths:
   --out "$OUT/delivery_ring_payload_audit" \
   --analysis-turns 50000 \
   --plateau-turns 128
+
+"$PY" scripts/compare_payload_absences_to_best_n.py \
+  --missing-position-csv "$OUT/delivery_ring_payload_audit/missing_position_streams.csv" \
+  --best-n-curve-csv "$BESTN/merged_block20/best_n_curve_rows.csv" \
+  --selected-h-n "$H_N" \
+  --selected-v-n "$V_N" \
+  --out "$OUT/delivery_ring_payload_audit"
 ```
 
 The audit must cover the immutable 2200-manifest inventory, 263983 captured raw
@@ -551,6 +558,8 @@ advertised/on-disk count differences, exact plateaus of 128 turns or more, and
 repeated device-coded threshold fallback pairs. The five/seven/one incomplete
 manifest distribution across the two position collections and intensity
 collection remains counted and visible; absent channels are never zero-filled.
+The second command verifies exact selected cardinality and writes a hash-bound
+identity join; it does not infer what an absent channel would have measured.
 See `docs/DELIVERY_RING_SOURCE_AUDIT.md` for the upstream live audit.
 
 To reproduce the old `18d321db` ridge-density visual grammar with corrected

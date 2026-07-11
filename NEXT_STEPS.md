@@ -367,7 +367,8 @@ the publication audit:
     position-only collections and intensity collection). Every listed payload
     passes the first-50,000-turn finite/count/plateau/fallback checks, and none
     of the 16 position-only absences intersects the accepted per-spill H Best-5
-    or V Best-12 membership. The audit now writes and hashes an exact
+    or V Best-12 membership. `compare_payload_absences_to_best_n.py` preserves
+    that exact-cardinality identity join as CSV/JSON/Markdown evidence. The audit now writes and hashes an exact
     `missing_position_streams.csv`, binds the immutable 2,200-manifest inventory
     hash and per-collection incomplete topology, and rejects any drift from the
     observed 263,983/23,999 contract. This is capture completeness evidence, not

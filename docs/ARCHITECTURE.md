@@ -500,6 +500,10 @@ Raw payload policy:
   manifest hash, per-collection partial-capture counts, and deterministic
   `missing_position_streams.csv` distinguish streams absent from a manifest
   from payload files missing after capture; neither case is silently zero-filled.
+- `scripts/compare_payload_absences_to_best_n.py` joins that inventory to the
+  accepted per-spill H/V membership rows. It verifies selected cardinality and
+  records overlap by exact source key without estimating a counterfactual
+  waveform for an absent channel.
 - `capture-spills` writes `capture_index.csv` as the run-level bundle index,
   keyed by `redis_timestamp_ms` / `target_ms`, and also writes
   `capture_spill_diagnostics.csv`, `capture_stream_diagnostics.csv`,
