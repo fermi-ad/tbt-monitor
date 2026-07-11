@@ -1179,6 +1179,7 @@ review galleries into one local handoff directory:
 python3 scripts/package_publication_review.py \
   --component publication=publication/ibic2026 \
   --component report=/path/to/final-analysis-report \
+  --component legacy-candidate-gallery=review-artifacts/poster_candidate_gallery \
   --component best-n-gallery=/path/to/best-n-gallery \
   --component all-training=/path/to/best-n-all-training \
   --component ridge-gallery=/path/to/ridge-gallery \
@@ -1205,6 +1206,11 @@ python3 scripts/package_publication_review.py \
 Directory components omit only generated `.DS_Store`, Python bytecode, and
 pytest/mypy/ruff cache paths. Repository dotfiles and all analysis products are
 copied and manifested normally.
+The local `legacy-candidate-gallery` component is required for the final review
+handoff. `review-artifacts/` is intentionally ignored by Git and absent from the
+Spark source archive, so the final local repack is where the complete 80-image
+candidate gallery and the two immutable `18d321dbd4fe` favorite PNGs enter the
+verified package.
 
 After visually inspecting the final poster and all four paper pages, close the
 publication directory with the explicit human-QA gate:

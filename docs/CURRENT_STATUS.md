@@ -215,6 +215,11 @@ copied path, hash, and gallery image before it creates the source-side tarball.
 That package includes the exact analysis source tree/archive and continuation
 script, corrected primary/follow-up/handoff visual directories, and all new
 Best-N, sensitivity, ridge, intensity, payload, report, and publication roots.
+The final local repack must additionally include the complete 80-image
+`review-artifacts/poster_candidate_gallery` component. It is intentionally
+ignored by Git and absent from the Spark source archive; its two selected H/V
+ridge references match the immutable hashes recorded in
+`publication/ibic2026/LEGACY_RIDGE_PROVENANCE.md`.
 If the older wrapper reaches intensity first, its waveform rows remain reusable;
 the expanded gallery and strict verifier can be rerun deterministically without
 another GPU waveform pass.

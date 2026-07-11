@@ -469,6 +469,10 @@ No poster or paper claim may use a provisional legacy downstream figure. The
 goal remains open until every pending row above and every required task in this
 document is complete or is explicitly reclassified with a written scientific
 reason.
+The final local review package must include the complete 80-image
+`review-artifacts/poster_candidate_gallery` component. Git and the Spark source
+archive intentionally exclude that directory, so the two hash-bound favorite
+H/V ridge references otherwise would be missing from the delivered gallery.
 
 ## 2026-06-28 Final Review Update
 

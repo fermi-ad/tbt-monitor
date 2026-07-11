@@ -91,6 +91,13 @@ zero-issue template-fidelity report.
 `publication_manifest.csv` inventories every file under this directory except
 itself.
 
+The separate final local review package must also include
+`review-artifacts/poster_candidate_gallery/` as the
+`legacy-candidate-gallery` component. That ignored 80-image directory contains
+the two immutable H/V visual references named in
+`LEGACY_RIDGE_PROVENANCE.md`; it is intentionally absent from the Git/source
+archive and therefore cannot be supplied by the Spark-side package alone.
+
 The working paper name is `ABSTRACT54` until IBIC assigns a programme code.
 Rename the TeX and PDF together when that code becomes available.
 
