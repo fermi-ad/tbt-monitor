@@ -1,6 +1,6 @@
 # Current Publication Handoff
 
-Last updated: 2026-07-10 22:02 CDT.
+Last updated: 2026-07-10 22:05 CDT.
 
 This file records the live publication run state. Permanent behavior and
 rationale remain in `docs/ARCHITECTURE.md`, `docs/DESIGN_DECISIONS.md`, and
@@ -104,11 +104,11 @@ SHA-256 `1754858edbbaf3b0a2437e9fa1163385476d26ae2da2406bcfa71aaa8d9c63d4`.
 No intensity or ridge computation can begin merely because the earlier marker
 appears; the selected-N and sensitivity preflight must pass first.
 
-The latest local publication source is commit `37198109`. Its prepared archive
+The latest local publication source is commit `343d54b7`. Its prepared archive
 SHA-256 is
-`e8999833681b417640ac4e41c3dcbf9dea6dacba6fdc44a63f903267e2ce8b41`,
+`127e721cf0c40bf9e1c78c2b9d00602f1903256e5452796304b87552a7cbe895`,
 and its prepared continuation-wrapper SHA-256 is
-`a4d180546393dc72487b5f6d0aea697c2919a6e06b3c0203372504667fca6c00`.
+`d90e414491d27f896c7ebc507f20d9b030df3448edf29c54529b83fd240ee7a4`.
 That version includes exact-zero control labels, common/detail intensity
 gallery scales, citation-order polish, shorter ridge diagnostic labels, and a
 read-only final-PPTX empty-placeholder gate. It also preserves and verifies the
