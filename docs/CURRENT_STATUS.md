@@ -1,6 +1,6 @@
 # Current Publication Handoff
 
-Last updated: 2026-07-10 21:10 CDT.
+Last updated: 2026-07-10 21:32 CDT.
 
 This file records the live publication run state. Permanent behavior and
 rationale remain in `docs/ARCHITECTURE.md`, `docs/DESIGN_DECISIONS.md`, and
@@ -104,14 +104,16 @@ SHA-256 `1754858edbbaf3b0a2437e9fa1163385476d26ae2da2406bcfa71aaa8d9c63d4`.
 No intensity or ridge computation can begin merely because the earlier marker
 appears; the selected-N and sensitivity preflight must pass first.
 
-The latest local publication source is commit `23efff20`. Its prepared archive
+The latest local publication source is commit `a323b19c`. Its prepared archive
 SHA-256 is
-`1e0bcfebc4290313cc0f3c73e6f40b020d8a62176a4b0607721d6565a87f7e2e`,
+`0d8f3b28d6bd8ae1de9c88b7b4681d7afcb31ed883461b97e3f1b783bf64646a`,
 and its prepared continuation-wrapper SHA-256 is
-`7ab96b2f97b46ebdeef9f08c725d2c99ad92609ba84fa6a631b1d2ebb9a808d0`.
-That version adds exact-zero control labels, common/detail intensity gallery
-scales, and citation-order polish. Staging is temporarily deferred by the local
-Codex remote-execution approval window until 23:45 CDT, not by Spark or SSH.
+`5de819588eefa86c598c5cd36f2d8d718c83c12a6b797d82f7b2f6709350cdf1`.
+That version includes exact-zero control labels, common/detail intensity
+gallery scales, citation-order polish, shorter ridge diagnostic labels, and a
+read-only final-PPTX empty-placeholder gate. Staging is temporarily deferred by
+the local Codex remote-execution approval window until 23:45 CDT, not by Spark
+or SSH.
 If the older wrapper reaches intensity first, its waveform rows remain reusable;
 the expanded gallery and strict verifier can be rerun deterministically without
 another GPU waveform pass.
@@ -204,13 +206,14 @@ absolute-P99 clip.
 ## Current Local Validation
 
 ```text
-Best-BPM Python tests: 67 run, 61 passed, 6 process-pool tests skipped by local sandbox
+Best-BPM Python tests: 68 run, 62 passed, 6 process-pool tests skipped by local sandbox
 Autosweep Python tests: 9 passed
 Rust tests: 44 passed
 GPU analyzer self-test: passed
 poster/DGX self-test: passed
 git diff --check: passed
 current A0 template frame map: 0 validation issues; full A0 smoke passes overflow, fidelity, PDF/font, and branded PNG identity gates
+template-derived smoke PPTX: 0 empty structural placeholders under the finalizer's read-only slide-XML gate
 JACoW layout smoke: exactly four 595 x 792 bp pages, no overfull boxes or unresolved references, all fonts embedded/subset/Unicode-mapped
 ```
 
