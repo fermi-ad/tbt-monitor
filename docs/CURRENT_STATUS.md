@@ -1,6 +1,6 @@
 # Current Publication Handoff
 
-Last updated: 2026-07-10 19:24 CDT.
+Last updated: 2026-07-10 19:48 CDT.
 
 This file records the live publication run state. Permanent behavior and
 rationale remain in `docs/ARCHITECTURE.md`, `docs/DESIGN_DECISIONS.md`, and
@@ -48,8 +48,8 @@ Checkpoint after the system clock correction:
 ```text
 shard 0: validation 250/250, complete
 shard 1: validation 250/250, complete
-shard 2: validation 240/250
-shard 3: curve 870/1000
+shard 2: validation 250/250, complete
+shard 3: validation 50/250, 10000/50000 rows
 memory watchdog: clear
 full-run COMPLETE marker: absent
 ```
@@ -85,11 +85,22 @@ The active chain is marker-gated and survives loss of the client SSH session:
    `/home/derekste/tbt-publication-20260710/delivery_ring_payload_audit` and
    requires the exact 263999-position-row/23999-paired-row contract before its
    own `COMPLETE` marker.
+4. `/home/derekste/spark_publication_tail_3832ee84.sh` holds the final launch
+   lock and waits for the payload-audit marker. Before using the GPU it requires
+   passing 10/20/40-block Best-N reports, four OK transfer rows, seven verified
+   sensitivity runs, and eligible H/V recommendations in every sensitivity
+   run. It then propagates the accepted plane-specific N values into the exact
+   intensity and ridge unions, runs all four intensity shards sequentially,
+   verifies the three intensity block summaries, runs the full 50000-turn ridge
+   gallery serially, materializes the publication inputs, and creates a
+   source-side review archive. The 32 GiB three-sample memory watchdog remains
+   active throughout the GPU stages.
 
-Intensity refresh and full-buffer ridge execution are intentionally not queued:
-their explicit N union depends on accepted H/V Best-N recommendations. They
-remain serialized and start only after inspecting the full and sensitivity
-verifiers.
+The final continuation is detached as PID `594785` in its own session and
+process group. Its SHA-256 is
+`b0acea6a355c1bcd37fbe9b479b775c2206136864361b5cbc4c875cdd63a4ce9`.
+No intensity or ridge computation can begin merely because the earlier marker
+appears; the selected-N and sensitivity preflight must pass first.
 
 The exact 142 MB legacy `gpu_sliding_tune.csv` is already on Spark under the
 `18d321db` combined output. `ssh -K drbpm1` remains available only if another
