@@ -89,6 +89,7 @@ from bpm_mining.intensity_plots import (
     DENSITY_DELTA_DESCRIPTION,
     DENSITY_DELTA_GUARDRAIL,
     DENSITY_DELTA_NOTE,
+    DENSITY_DELTA_ZERO_NOTE,
     exact_paired_density_rows as exact_paired_intensity_density_rows,
     raster_cell_bounds as intensity_raster_cell_bounds,
 )
@@ -943,6 +944,7 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertIn("P99", DENSITY_DELTA_DESCRIPTION)
         self.assertNotIn("suppresses", copy.lower())
         self.assertNotIn("weighted adds", copy.lower())
+        self.assertEqual(DENSITY_DELTA_ZERO_NOTE, "NO RIDGE-PICK PROBABILITY REDISTRIBUTION")
 
     def test_intensity_raster_cells_fill_uneven_axes_without_gaps(self) -> None:
         for reverse in (False, True):

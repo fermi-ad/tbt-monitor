@@ -177,7 +177,10 @@ the publication audit:
     pairs, and fails instead of drawing a mismatched panel. Its visible legend
     now says higher/lower ridge-pick probability rather than `adds`/`suppresses`;
     the manifest discloses the symmetric absolute-P99 display clip and states
-    that the map does not isolate physical noise. The strict verifier also binds
+    that the map does not isolate physical noise. Exact-zero fields, including
+    the required Best-1 controls, are visibly labeled as no ridge-pick
+    probability redistribution rather than left as apparently broken blank
+    panels. The strict verifier also binds
     every method to the same spill keys, memberships, contracted window centers,
     and finite global ridge picks.
 25. The intensity ridge, subtraction, and binned relationship heatmaps still

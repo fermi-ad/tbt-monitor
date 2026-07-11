@@ -26,10 +26,12 @@ FIGURE_FIELDS = [
 METHODS = ("unweighted", "sqrt_intensity", "linear_intensity", "intensity_gate_50pct")
 
 DENSITY_DELTA_NOTE = "RED: HIGHER PICK PROBABILITY; BLUE: LOWER VS UNWEIGHTED"
+DENSITY_DELTA_ZERO_NOTE = "NO RIDGE-PICK PROBABILITY REDISTRIBUTION"
 DENSITY_DELTA_DESCRIPTION = (
     "Exact-common spill/window difference of per-turn, column-normalized "
     "global-ridge-pick distributions; raster color is symmetrically clipped "
-    "at absolute P99 for display only."
+    "at absolute P99 for display only, and a neutral field is labeled as an "
+    "exact no-redistribution result."
 )
 DENSITY_DELTA_GUARDRAIL = (
     "Red/blue are higher/lower ridge-pick probability at exact common "
@@ -279,6 +281,7 @@ def density_delta_plot(
         raise ValueError("intensity ridge subtraction produced mismatched turn centers")
     difference = _normalized_columns(density_b) - _normalized_columns(density_a)
     finite = np.abs(difference[np.isfinite(difference)])
+    maximum_abs = float(np.max(finite)) if finite.size else 0.0
     maximum = max(1e-6, float(np.percentile(finite, 99))) if finite.size else 1.0
     width, height = 1400, 900
     pixels = poster.new_canvas(width, height)
@@ -295,6 +298,18 @@ def density_delta_plot(
         _polyline(pixels, width, height, points, x_range, band, (x0, y0, x1, y1), color, thickness)
     poster.draw_text(pixels, width, height, x0, y0 - 28, DENSITY_DELTA_NOTE, poster.MUTED, 2)
     poster.draw_text(pixels, width, height, x1 - 420, y0 - 28, "WHITE: WEIGHTED MED; DARK: UNWEIGHTED MED", poster.MUTED, 2)
+    if maximum_abs <= 1e-12:
+        note_width = len(DENSITY_DELTA_ZERO_NOTE) * 12
+        poster.draw_text(
+            pixels,
+            width,
+            height,
+            (x0 + x1 - note_width) // 2,
+            (y0 + y1) // 2,
+            DENSITY_DELTA_ZERO_NOTE,
+            poster.MUTED,
+            3,
+        )
     poster.write_png(path, width, height, pixels)
 
 
