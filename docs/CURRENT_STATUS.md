@@ -1,6 +1,6 @@
 # Current Publication Handoff
 
-Last updated: 2026-07-10 23:52 CDT.
+Last updated: 2026-07-11 00:17 CDT.
 
 This file records the live publication run state. Permanent behavior and
 rationale remain in `docs/ARCHITECTURE.md`, `docs/DESIGN_DECISIONS.md`, and
@@ -49,8 +49,11 @@ Checkpoint after the system clock correction:
 full-run COMPLETE marker: present
 sensitivity COMPLETE marker: absent
 sensitivity matrix: active, two bounded CUDA evaluators
-active cases: beam32/fit8/seed20260711 and beam32/fit16/seed20260709
-MemAvailable at 23:51 probe: 56703340 KiB
+verified cases: 5/7
+active cases: beam32/fit16/seed20260709 and beam64/fit8/seed20260709
+fit16 progress at 00:12: validation 100/200, 20000 rows
+beam64 progress at 00:12: curve 140/400, 5600 rows
+MemAvailable at 00:12 probe: 43090360 KiB
 payload-audit/intensity/ridge/ANALYSIS_COMPLETE markers: absent
 memory watchdog: clear
 ```
@@ -86,13 +89,17 @@ The active chain is marker-gated and survives loss of the client SSH session:
    `/home/derekste/tbt-publication-20260710/delivery_ring_payload_audit` and
    requires the exact 263999-position-row/23999-paired-row contract before its
    own `COMPLETE` marker.
-4. `/home/derekste/spark_publication_tail_b4896a50.sh` holds the final launch
-   lock and waits for the payload-audit marker. Before using the GPU it requires
-   passing 10/20/40-block Best-N reports, four OK transfer rows, seven verified
+4. `/home/derekste/spark_publication_tail_b4896a50.sh` currently holds the final
+   launch lock and waits for the payload-audit marker. It still carries the
+   superseded all-seven-recommendations sensitivity gate.
+5. `/home/derekste/spark_publication_tail_25c41237.sh` is uploaded but not
+   started. After exact staged-source tests pass, a guarded identity-checked
+   swap replaces only the waiting watcher. The replacement requires passing
+   10/20/40-block Best-N reports, four OK transfer rows, all seven verified
    sensitivity runs, and eligible H/V recommendations in a strict majority of
    those runs. Every unavailable run and reason remains publication evidence.
-   It then propagates the accepted full-data plane-specific N values into the exact
-   intensity and ridge unions, runs all four intensity shards sequentially,
+   It then propagates the accepted full-data plane-specific N values into the
+   exact intensity and ridge unions, runs all four intensity shards sequentially,
    verifies the three intensity block summaries, runs the full 50000-turn ridge
    gallery serially, materializes the publication inputs, and creates a
    source-side review archive. The 32 GiB three-sample memory watchdog remains
@@ -110,15 +117,19 @@ source and archive identities and is waiting for the payload-audit marker.
 No intensity or ridge computation can begin merely because the earlier marker
 appears; the selected-N and sensitivity preflight must pass first.
 
-The latest local publication source is commit `b4896a50`. Its prepared archive
+The latest publication source is commit `25c41237`. Its prepared archive
 SHA-256 is
-`3a4ded10519956843a2cb50d717ddaefec329d22923d3d9d68920dcf871a4a0e`,
+`04c48280432947f27325d518aee5c7e7fc800f36909ec847835a29866564a018`,
 and its prepared continuation-wrapper SHA-256 is
-`0dd002f5625119bc4ae4d854ea8e9f688c67abc88162fd10fce54d1a855e0910`.
-That version adds exact-paired metrics and complete turn grids for every
-adaptive N pair plus the zero Best-1 self-control, binds the paper/poster width
-contrast to selected Best-N minus corrected Best-1, and strictly verifies the
-new rows and figures. It also includes exact-zero intensity control labels,
+`eebb60e4dbab0604cc9f92f9d062a29ab88a3bce394e56e6a61b8bd12a7728ef`.
+The archive and wrapper plus the guarded stage/swap helpers match those local
+bytes on Spark. The exact archive locally passes all 71 Best-BPM tests, all nine
+autosweep tests, and the poster self-test. Remote staging is intentionally held
+until one of the two large sensitivity evaluators releases memory.
+This version retains the earlier exact-paired metrics and complete turn grids
+for every adaptive N pair plus the zero Best-1 self-control, binds the
+paper/poster width contrast to selected Best-N minus corrected Best-1, and
+strictly verifies the new rows and figures. It also includes exact-zero intensity control labels,
 common/detail gallery scales, citation-order polish, shorter ridge diagnostic
 labels, the read-only final-PPTX empty-placeholder gate, preserved poster
 layout/overflow/template-fidelity evidence, portable poster/paper build
@@ -129,6 +140,10 @@ The wrapper accepts an existing ridge root only after the current strict
 verifier passes, preserves any incompatible ridge/publication tree under a
 timestamped `.incomplete` name, and trusts `ANALYSIS_COMPLETE` only when it
 contains the exact source commit.
+It also treats a verified sensitivity run without an automatic knee as an
+explicit result: at least four of seven recommendations per plane are required,
+and payload/poster/paper/compliance copy carries every unavailable reason and
+the observed N range.
 The wrapper now also reruns the exact review-package verifier against every
 copied path, hash, and gallery image before it creates the source-side tarball.
 That package includes the exact analysis source tree/archive and continuation
