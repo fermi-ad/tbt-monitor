@@ -277,6 +277,8 @@ Required for the publication review:
   master-level Fermilab/DOE artwork visible in the reviewed render
 - delivered poster layout inventory, PPTX overflow inspection, and zero-issue
   template-fidelity reports, with exact portable poster/paper checksum manifests
+- publication source manifest with exact numerical source hashes and a
+  finalizer-verified 15-file materialized-output inventory
 - final `compliance_report.md` and `publication_manifest.csv` produced only
   after explicit visual-QA pass flags, page/payload/hash verification, and a
   read-only final-PPTX scan reporting zero empty structural placeholders

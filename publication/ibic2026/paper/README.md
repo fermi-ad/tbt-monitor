@@ -55,4 +55,6 @@ the inventory or compliance report until the poster PPTX contains zero empty
 structural placeholders and both rendered artifacts have explicit visual-QA
 passes. `build_paper.sh` writes package-relative logical labels in
 `build/source_manifest.sha256`; finalization requires the exact expected entry
-set and recomputes every digest.
+set and recomputes every digest. It independently validates the publication-
+level materialization manifest covering this table, macro file, figures,
+payload, and poster inputs.

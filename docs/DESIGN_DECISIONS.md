@@ -686,6 +686,10 @@ Decision:
   evidence beside the poster deliverables. Use package-relative checksum labels
   for poster and paper manifests and recompute their exact inventories during
   finalization rather than trusting a file merely because it exists.
+- Treat the publication-level materialization manifest the same way: record the
+  exact numerical source-table hashes, require one fixed safe output inventory,
+  and re-hash every materialized content, table, payload, report, and figure at
+  finalization. Manifest-file presence alone is not provenance verification.
 
 Why:
 - Correct filenames and valid CSV headers do not prove that a figure visualizes
@@ -703,6 +707,8 @@ Why:
 - Scratch-only QA reports and unchecked absolute-path manifests do not survive
   artifact handoff as auditable evidence. Portable labels plus recomputation
   make the copied review package independently interpretable.
+- A checksummed CSV that is never parsed cannot detect stale or modified
+  materialized outputs; the hashes must be checked against current bytes.
 
 Tradeoffs:
 - Semantic verification reads more small/medium tables and intentionally fails

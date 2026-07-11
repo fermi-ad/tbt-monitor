@@ -29,7 +29,9 @@ SHA-256
 `scripts/prepare_ibic2026_publication.py` is the numerical and figure
 materialization gate. It accepts only verifier-clean analysis roots and writes
 the exact poster JSON, paper table/figures, results payload, preparation report,
-and source manifest used by the two build pipelines.
+and source manifest used by the two build pipelines. The manifest hashes the
+exact numerical source tables and all 15 materialized outputs; finalization
+parses its fixed schema and re-hashes the complete output inventory.
 All seven declared beam/fit/fold sensitivity runs must also produce eligible H
 and V recommendations. A structurally valid run with no recommendation remains
 a reportable analysis result, but it blocks this selected-N publication layout
@@ -70,8 +72,9 @@ for both visual reviews and rechecks the reference hashes, page geometry,
 render dimensions, results payload, and final PPTX slide XML. It rejects any
 empty structural placeholder without rewriting the OOXML package and records
 the accepted zero count in the compliance report. It also recomputes exact
-package-relative poster/paper build manifests, poster content/asset/output
-hashes and dimensions, and the delivered zero-issue template-fidelity report.
+package-relative poster/paper build manifests, the publication materialization
+manifest, poster content/asset/output hashes and dimensions, and the delivered
+zero-issue template-fidelity report.
 `publication_manifest.csv` inventories every file under this directory except
 itself.
 

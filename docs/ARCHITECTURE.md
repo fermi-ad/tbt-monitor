@@ -354,8 +354,10 @@ config ranking. Its package modules cover:
   state, zero retained intensity effects, exact corpus-wide raw-payload audit,
   unresolved copy, and read-only slide-OOXML absence of empty structural
   placeholders. It also recomputes the poster/paper portable checksum
-  inventories, poster source-manifest hashes/dimensions, and delivered
-  zero-issue template-fidelity report before writing
+  inventories, validates the fixed publication materialization-manifest schema
+  and exact output inventory, re-hashes all materialized outputs, checks poster
+  source-manifest hashes/dimensions, and verifies the delivered zero-issue
+  template-fidelity report before writing
   the complete publication inventory and compliance report.
 - `verification.py`: structural output-contract checks for completed or
   partially completed Best-BPM output directories, including required files,

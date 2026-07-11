@@ -579,7 +579,10 @@ copy-back when the large ridge CSVs remain in place; only the generated
 publication tree and review galleries need transfer to the local checkout.
 The generated paper tree includes `results_table.tex`, `results_macros.tex`,
 the selected-H/V turn-width contrast, and the other four contract-bound PNGs;
-the final paper build rejects a missing macro or figure file.
+the final paper build rejects a missing macro or figure file. The generated
+`source_manifest.csv` includes exact numerical source hashes and the complete
+15-output materialization inventory; finalization re-hashes that inventory
+after copy-back.
 
 If an original artifact must be revisited, Spark can reach the acquisition host
 with forwarded credentials via `ssh -K drbpm1`; copy or package the smallest

@@ -1091,6 +1091,10 @@ preserving literals from an earlier run. They also bind 4000 full-curve
 spill-plane cases, 1000 stratified validation cases, and five digitizer folds
 from the accepted block-20 Best-N verifier; materialization rejects any other
 study design.
+The source manifest also hashes the exact primary, Best-N, sensitivity, ridge,
+and intensity tables used for numerical materialization. Finalization parses
+its fixed schema and re-hashes the exact 15 materialized content/table/payload/
+report/figure outputs; mere manifest-file presence is not sufficient.
 
 Package final publication sources, rendered deliverables, reports, and broad
 review galleries into one local handoff directory:
@@ -1145,8 +1149,9 @@ effects, the exact raw-payload corpus, unresolved-copy gates, and every final
 slide XML placeholder. It reads the PPTX as a ZIP package without modifying it
 and rejects a placeholder shape whose DrawingML text is empty or whitespace.
 It also recomputes the exact portable poster and paper checksum inventories,
-the poster builder's recorded content/asset/output hashes and dimensions, and
-the delivered zero-issue template-fidelity report. It writes
+the publication materialization manifest, the poster builder's recorded
+content/asset/output hashes and dimensions, and the delivered zero-issue
+template-fidelity report. It writes
 `compliance_report.md` and `publication_manifest.csv`; the manifest inventories
 every publication file except itself.
 

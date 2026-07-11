@@ -12,7 +12,7 @@ import re
 import subprocess
 import zipfile
 import xml.etree.ElementTree as ET
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Mapping, Sequence
 
 from bpm_mining.ridge_verification import png_dimensions
@@ -32,6 +32,24 @@ POSTER_ASSET_FILES = {
     "ridgeContrast": "ridge_width_contrast_hv.png",
     "hLoss": "horizontal_loss_diagnostic.png",
 }
+MATERIALIZATION_MANIFEST_FIELDS = (
+    "role",
+    "source_path",
+    "source_sha256",
+    "output_path",
+    "output_sha256",
+)
+MATERIALIZED_OUTPUTS = frozenset(
+    {
+        "PREPARATION_REPORT.md",
+        "results_payload.json",
+        "poster/content.json",
+        "paper/results_table.tex",
+        "paper/results_macros.tex",
+        *(f"poster/assets/{filename}" for filename in POSTER_ASSET_FILES.values()),
+        *(f"paper/figures/{filename}" for filename in POSTER_ASSET_FILES.values()),
+    }
+)
 UNRESOLVED = re.compile(
     r"\b(?:pending|provisional|tbd|todo)\b|\[\s+\]|final manuscript will report",
     re.IGNORECASE,
@@ -145,6 +163,69 @@ def verify_sha256_manifest(path: Path, expected: Mapping[str, Path]) -> None:
             raise ValueError(
                 f"SHA-256 manifest mismatch: {path}: {label}: {rows[label]} != {actual}"
             )
+
+
+def safe_materialized_path(value: str) -> PurePosixPath | None:
+    if not value or "\\" in value:
+        return None
+    path = PurePosixPath(value)
+    if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+        return None
+    return path
+
+
+def verify_publication_source_manifest(root: Path) -> None:
+    path = require_file(root / "source_manifest.csv")
+    with path.open(newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        if tuple(reader.fieldnames or ()) != MATERIALIZATION_MANIFEST_FIELDS:
+            raise ValueError("publication source manifest has the wrong schema")
+        rows = list(reader)
+    if not rows:
+        raise ValueError("publication source manifest is empty")
+
+    outputs: set[str] = set()
+    row_keys: set[tuple[str, str, str]] = set()
+    root_resolved = root.resolve()
+    for line_number, row in enumerate(rows, start=2):
+        role = row.get("role", "")
+        source_path = row.get("source_path", "")
+        source_digest = row.get("source_sha256", "")
+        output_path = row.get("output_path", "")
+        output_digest = row.get("output_sha256", "")
+        key = (role, source_path, output_path)
+        if not role or not Path(source_path).is_absolute() or key in row_keys:
+            raise ValueError(f"invalid publication source manifest identity at line {line_number}")
+        row_keys.add(key)
+        if re.fullmatch(r"[0-9a-f]{64}", source_digest) is None:
+            raise ValueError(f"invalid publication source hash at line {line_number}")
+        if not output_path:
+            if output_digest:
+                raise ValueError(f"source-only manifest row has an output hash at line {line_number}")
+            continue
+        relative = safe_materialized_path(output_path)
+        if (
+            relative is None
+            or output_path in outputs
+            or re.fullmatch(r"[0-9a-f]{64}", output_digest) is None
+        ):
+            raise ValueError(f"invalid publication output manifest row at line {line_number}")
+        outputs.add(output_path)
+        target = root.joinpath(*relative.parts)
+        resolved_target = target.resolve()
+        if target.is_symlink() or root_resolved not in resolved_target.parents:
+            raise ValueError(f"unsafe publication output path at line {line_number}: {output_path}")
+        require_file(target)
+        actual_digest = sha256(target)
+        if actual_digest != output_digest or source_digest != output_digest:
+            raise ValueError(f"publication source manifest hash mismatch: {output_path}")
+
+    if outputs != MATERIALIZED_OUTPUTS:
+        missing = sorted(MATERIALIZED_OUTPUTS - outputs)
+        extra = sorted(outputs - MATERIALIZED_OUTPUTS)
+        raise ValueError(
+            f"publication source manifest output inventory mismatch: missing={missing}, extra={extra}"
+        )
 
 
 def require_recorded_sha256(label: str, value: object, source: Path) -> dict[str, object]:
@@ -333,6 +414,7 @@ def finalize(
     )
     for path in required:
         require_file(path)
+    verify_publication_source_manifest(root)
     verify_poster_source_manifest(root)
     verify_template_fidelity(
         root / "poster" / "build" / "qa" / "template-fidelity-check.json"

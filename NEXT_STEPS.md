@@ -261,6 +261,15 @@ the publication audit:
     width panel use selected Best-N minus corrected Best-1; the wider
     legacy-versus-selected composite remains a historical visual anchor and is
     not used to estimate ensemble-size gain.
+33. Publication preparation wrote `source_manifest.csv`, but finalization only
+    required the file to be nonempty; it did not parse the schema, require the
+    exact materialized-output inventory, or re-hash those outputs. A stale or
+    modified figure, content JSON, table, macro file, payload, or preparation
+    report could therefore survive this provenance gate. Preparation now records
+    the exact numerical source tables as source-only hashes, and finalization
+    rejects unsafe/duplicate paths, malformed hashes, missing or extra outputs,
+    symlinks, and any source/output/current-byte mismatch for all 15 materialized
+    publication outputs.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;

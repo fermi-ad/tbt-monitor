@@ -67,7 +67,8 @@ Before delivery:
 4. run the publication finalizer's read-only slide-XML gate and confirm the
    compliance report records zero empty structural placeholders;
 5. confirm the finalizer recomputes the delivered source/deliverable manifests
-   and zero-issue fidelity report;
+   and zero-issue fidelity report, and validates every materialized output in
+   the publication-level `source_manifest.csv`;
 6. render the PPTX to PDF and confirm one A0 portrait page with all fonts and
    authentic Fermilab branding preserved.
 

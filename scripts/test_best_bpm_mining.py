@@ -157,6 +157,7 @@ from finalize_ibic2026_publication import (
     require_identical_files,
     sha256 as publication_sha256,
     verify_poster_source_manifest,
+    verify_publication_source_manifest,
     verify_sha256_manifest,
     verify_template_fidelity,
 )
@@ -1577,6 +1578,22 @@ class BestBpmMiningTests(unittest.TestCase):
         manifest = read_csv(publication / "source_manifest.csv")
         self.assertTrue(any(row["role"] == "poster:ridge_width_hv_poster" for row in manifest))
         self.assertTrue(any(row["role"] == "paper:ridge_width_hv" for row in manifest))
+        self.assertTrue(any(row["role"] == "analysis:ridge_adaptive_metrics" for row in manifest))
+        verify_publication_source_manifest(publication)
+        content_path = publication / "poster" / "content.json"
+        original_content = content_path.read_bytes()
+        content_path.write_bytes(original_content + b" ")
+        with self.assertRaisesRegex(ValueError, "source manifest hash mismatch"):
+            verify_publication_source_manifest(publication)
+        content_path.write_bytes(original_content)
+        unsafe_manifest = [dict(row) for row in manifest]
+        next(row for row in unsafe_manifest if row["output_path"])[
+            "output_path"
+        ] = "../escape"
+        csv_file(publication / "source_manifest.csv", unsafe_manifest)
+        with self.assertRaisesRegex(ValueError, "invalid publication output manifest row"):
+            verify_publication_source_manifest(publication)
+        csv_file(publication / "source_manifest.csv", manifest)
         audit_path = payload_audit / "delivery_ring_payload_audit.json"
         incomplete_audit = json.loads(audit_path.read_text(encoding="utf-8"))
         incomplete_audit["stream_rows"] = 263998

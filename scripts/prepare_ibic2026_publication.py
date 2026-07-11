@@ -598,6 +598,44 @@ def prepare_publication(
     poster_assets = poster_root / "assets"
     paper_figures = paper_root / "figures"
     manifest: list[dict[str, str]] = []
+    provenance_sources = {
+        "analysis:primary_subset_comparison": primary_root
+        / "evolution"
+        / "subset_size_comparison.csv",
+        "analysis:primary_paired_tests": primary_root
+        / "statistics"
+        / "paired_method_tests.csv",
+        "analysis:best_n_contract": best_n_block20 / "run_contract.json",
+        "analysis:best_n_summary": best_n_block20 / "best_n_summary.csv",
+        "analysis:best_n_transfer": best_n_block20
+        / "best_n_cross_collection_transfer.csv",
+        "analysis:best_n_block_sensitivity": best_n_root
+        / "block_sensitivity"
+        / "best_n_bootstrap_block_spills_recommendations.csv",
+        "analysis:best_n_sensitivity_manifest": best_n_root
+        / "sensitivity"
+        / "sensitivity_run_manifest.csv",
+        "analysis:ridge_contract": ridge_root / "run_contract.json",
+        "analysis:ridge_legacy_metrics": ridge_root
+        / "ridge_density_legacy_comparison_metrics.csv",
+        "analysis:ridge_adaptive_metrics": ridge_root
+        / "ridge_density_adaptive_pair_comparison_metrics.csv",
+        "analysis:ridge_loss": ridge_root / "ridge_density_loss_candidates.csv",
+        "analysis:intensity_effects": intensity_block20 / "intensity_method_effects.csv",
+        "analysis:intensity_block_sensitivity": intensity_root
+        / "block_sensitivity"
+        / "intensity_block_sensitivity.csv",
+    }
+    for role, source in provenance_sources.items():
+        manifest.append(
+            {
+                "role": role,
+                "source_path": str(source.resolve()),
+                "source_sha256": sha256(source),
+                "output_path": "",
+                "output_sha256": "",
+            }
+        )
 
     sources = {
         "best_n_h": best_n_block20 / "best_n_validation_h.png",

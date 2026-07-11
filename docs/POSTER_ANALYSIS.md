@@ -492,6 +492,9 @@ copies the exact figures while writing the poster JSON, paper table, results
 payload, and source manifest. The paper copy additionally binds the selected-H
 and selected-V exact-paired P10-P90 width-contrast plots so the time-resolved
 method comparison cannot drift from the ridge contract.
+The source manifest includes the exact numerical source-table hashes and all 15
+materialized outputs. Finalization must parse that manifest and re-hash every
+declared output rather than treating the CSV's presence as provenance proof.
 Poster and manuscript copy must distinguish the 4000 H/V spill-plane cases in
 the full N curve from the evenly stratified 1000-case, five-fold held-out
 validation sample. Those counts come from the accepted verifier and generated
