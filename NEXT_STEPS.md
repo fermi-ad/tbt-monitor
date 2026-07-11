@@ -251,6 +251,16 @@ the publication audit:
     names while retaining hidden repository files and every scientific output.
     Regression coverage proves these files do not enter the manifest or copied
     component.
+32. The corrected Best-1-versus-selected ridge panel isolated ensemble size
+    visually, but the exported intervals and publication width figure still
+    compared selected Best-N only with the defective legacy selector. The
+    ensemble-size claim therefore had no matching quantitative full-buffer
+    control. The ridge pass now exports an exact-paired metric row and complete
+    turn grid for every adaptive N pair plus an identically zero Best-1
+    self-control. The selected H/V IQR and P10-P90 figures and the paper/poster
+    width panel use selected Best-N minus corrected Best-1; the wider
+    legacy-versus-selected composite remains a historical visual anchor and is
+    not used to estimate ensemble-size gain.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;
@@ -327,6 +337,11 @@ normalization, mean subtraction, DC-bin zeroing, a 4096-turn injection seed,
 confidence threshold 2.0, tracking half-width 0.005, maximum step 0.005, and the
 H 0.620-0.680 / V 0.690-0.740 bands. The paired adaptive run is verifier-bound
 to that protocol; channel aggregation is the intended method difference.
+Every adaptive N pair is also compared on exact common spill/window keys. The
+clean publication contrast is selected Best-N minus corrected adaptive Best-1,
+with an explicit zero-valued Best-1 self-control. Legacy-minus-adaptive metrics
+remain useful for provenance and visual comparison but combine selector repair
+with ensemble size and therefore cannot quantify the latter alone.
 
 The completed block-aware intensity reanalysis covered 199 complete spills,
 `1,152,000` purged-window rows, `12,800` spill-method summaries, and 240 paired
@@ -348,7 +363,7 @@ Completion status:
 
 | Deliverable | Status | Completion evidence |
 | --- | --- | --- |
-| Exact identity/ring-order implementation and regression tests | complete | local 57-test Best-BPM suite and 9 autosweep tests pass; all 62 previously committed tests plus byte compilation pass on Spark |
+| Exact identity/ring-order implementation and regression tests | complete | local 70-test Best-BPM suite (64 pass, 6 expected process-pool sandbox skips), 9 autosweep tests, 44 Rust tests, and Python byte compilation pass; staged-source Spark rerun remains part of final handoff |
 | Corrected Best-1/3/5 primary and downstream rerun | complete | primary and follow-up strict verifiers both report zero failures and zero warnings; every required fixed, held-out, artifact, and handoff product is present |
 | Best-N curve through at least N=20 | in progress | bounded N=30 trial put V at the boundary; four-way N=40 exceeded unified memory and forced a reboot, while the watchdog-bounded two-way recovery has completed shards 0/1 and is advancing shards 2/3 before block and seven-run beam/fit/fold sensitivity |
 | 200-spill intensity hypothesis test | in progress | initial 199-spill pass and block-aware re-summary found 0 FDR-significant/0 practical effects; corrected all-zero gate fallback, exact N=1 contract, and strict payload/window/effect/gallery verifier pass locally; 200-spill gate-refresh merge/gallery pending |
@@ -1398,6 +1413,14 @@ Color/artifact ideas:
    fills the poster evidence frame; the remaining variants stay in the review
    gallery.
 
+   Separately export every exact-paired adaptive N-to-N contrast in
+   `ridge_density_adaptive_pair_comparison_metrics.csv` and
+   `ridge_density_adaptive_pair_comparison_by_turn.csv`, including an exact-zero
+   Best-1 self-control. Render the five selected-Best-N-minus-corrected-Best-1
+   metric families as shared-scale H/V landscape and portrait figures. Use the
+   clean P10-P90 landscape/portrait pair for the paper/poster width contrast;
+   keep the adaptive-minus-legacy versions in the exhaustive review gallery.
+
    Actual completed outputs:
 
    ```text
@@ -1415,6 +1438,10 @@ Color/artifact ideas:
    followups/next_steps_20260628/ridge_density_best_ensemble/ridge_{iqr,p10_p90,entropy}_delta_vs_turn_{h,v}.png
    followups/next_steps_20260628/ridge_density_best_ensemble/ridge_{peak_bin,shared_mass}_gain_vs_turn_{h,v}.png
    followups/next_steps_20260628/ridge_density_best_ensemble/ridge_density_legacy_comparison_by_turn.csv
+   followups/next_steps_20260628/ridge_density_best_ensemble/ridge_density_adaptive_pair_comparison_metrics.csv
+   followups/next_steps_20260628/ridge_density_best_ensemble/ridge_density_adaptive_pair_comparison_by_turn.csv
+   followups/next_steps_20260628/ridge_density_best_ensemble/ridge_{iqr,p10_p90,entropy}_delta_vs_turn_best1_to_selected_h{H}_v{V}_hv{,_poster}.png
+   followups/next_steps_20260628/ridge_density_best_ensemble/ridge_{peak_bin,shared_mass}_gain_vs_turn_best1_to_selected_h{H}_v{V}_hv{,_poster}.png
    followups/next_steps_20260628/ridge_density_best_ensemble/ridge_density_best_ensemble_index.md
    followups/next_steps_20260628/ridge_density_best_ensemble/ridge_density_*_caption.md
    ```

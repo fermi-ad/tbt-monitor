@@ -321,11 +321,13 @@ Current publication interpretation:
   Disclosed P98 density and absolute-P99 subtraction clips affect only display
   contrast; visible legends and captions describe higher/lower pick
   probability, and exported quantitative rows remain unclipped.
-  Exact-paired turn tables retain unsmoothed adaptive-minus-legacy width,
-  entropy, peak-bin, and shared-ridge-mass contrasts; review PNGs apply only
-  five-window visual smoothing. These locate changes in ridge-pick
-  concentration without assigning a fixed extraction onset or claiming
-  physical noise removal.
+  Exact-paired turn tables retain unsmoothed adaptive-minus-legacy and every
+  adaptive N-pair width, entropy, peak-bin, and shared-ridge-mass contrast,
+  including a zero Best-1 self-control. The publication width figure uses
+  selected Best-N minus corrected Best-1; legacy contrast stays a historical
+  anchor. Review PNGs apply only five-window visual smoothing. These locate
+  changes in ridge-pick concentration without assigning a fixed extraction
+  onset or claiming physical noise removal.
 - Best-N, intensity, and full-buffer ridge passes write checksummed JSON run
   contracts before science output. Resumes reject parameter drift; merges
   require complete compatible shard sets and reject duplicate science keys.

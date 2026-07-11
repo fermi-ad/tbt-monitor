@@ -7,6 +7,7 @@ import json
 import math
 import struct
 from collections import Counter, defaultdict
+from itertools import combinations
 from pathlib import Path
 from typing import Mapping, Sequence
 
@@ -20,6 +21,8 @@ CORE_FILES = (
     "ridge_density_turn_concentration.csv",
     "ridge_density_legacy_comparison_metrics.csv",
     "ridge_density_legacy_comparison_by_turn.csv",
+    "ridge_density_adaptive_pair_comparison_metrics.csv",
+    "ridge_density_adaptive_pair_comparison_by_turn.csv",
     "ridge_density_loss_candidates.csv",
     "ridge_density_h_plane_loss_summary.md",
     "ridge_density_warnings.csv",
@@ -65,6 +68,49 @@ LEGACY_TURN_NUMERIC_FIELDS = (
     "ensemble_density_entropy",
     "density_entropy_delta",
     "legacy_shared_ridge_mass",
+    "ensemble_shared_ridge_mass",
+    "shared_ridge_mass_gain",
+)
+
+ADAPTIVE_NUMERIC_FIELDS = (
+    "baseline_median_iqr_width",
+    "ensemble_median_iqr_width",
+    "median_iqr_delta_ensemble_minus_baseline",
+    "median_iqr_delta_ci_low",
+    "median_iqr_delta_ci_high",
+    "fraction_centers_with_narrower_ensemble_iqr",
+    "baseline_median_p10_p90_width",
+    "ensemble_median_p10_p90_width",
+    "baseline_median_peak_bin_fraction",
+    "ensemble_median_peak_bin_fraction",
+    "median_peak_bin_fraction_gain",
+    "median_peak_bin_fraction_gain_ci_low",
+    "median_peak_bin_fraction_gain_ci_high",
+    "baseline_median_density_entropy",
+    "ensemble_median_density_entropy",
+    "median_density_entropy_delta",
+    "median_density_entropy_delta_ci_low",
+    "median_density_entropy_delta_ci_high",
+    "median_shared_ridge_mass_gain",
+    "median_shared_ridge_mass_gain_ci_low",
+    "median_shared_ridge_mass_gain_ci_high",
+)
+
+ADAPTIVE_TURN_NUMERIC_FIELDS = (
+    "shared_ridge_center",
+    "baseline_iqr_width",
+    "ensemble_iqr_width",
+    "iqr_delta_ensemble_minus_baseline",
+    "baseline_p10_p90_width",
+    "ensemble_p10_p90_width",
+    "p10_p90_delta_ensemble_minus_baseline",
+    "baseline_peak_bin_fraction",
+    "ensemble_peak_bin_fraction",
+    "peak_bin_fraction_gain",
+    "baseline_density_entropy",
+    "ensemble_density_entropy",
+    "density_entropy_delta",
+    "baseline_shared_ridge_mass",
     "ensemble_shared_ridge_mass",
     "shared_ridge_mass_gain",
 )
@@ -375,6 +421,8 @@ def verify_ridge_density_outputs(
     centers = read_csv(root / "ridge_density_turn_concentration.csv") if (root / "ridge_density_turn_concentration.csv").is_file() else []
     legacy = read_csv(root / "ridge_density_legacy_comparison_metrics.csv") if (root / "ridge_density_legacy_comparison_metrics.csv").is_file() else []
     legacy_turns = read_csv(root / "ridge_density_legacy_comparison_by_turn.csv") if (root / "ridge_density_legacy_comparison_by_turn.csv").is_file() else []
+    adaptive_pairs = read_csv(root / "ridge_density_adaptive_pair_comparison_metrics.csv") if (root / "ridge_density_adaptive_pair_comparison_metrics.csv").is_file() else []
+    adaptive_turns = read_csv(root / "ridge_density_adaptive_pair_comparison_by_turn.csv") if (root / "ridge_density_adaptive_pair_comparison_by_turn.csv").is_file() else []
     losses = read_csv(root / "ridge_density_loss_candidates.csv") if (root / "ridge_density_loss_candidates.csv").is_file() else []
     figures = read_csv(root / "ridge_density_best_ensemble_manifest.csv") if (root / "ridge_density_best_ensemble_manifest.csv").is_file() else []
     warnings = read_csv(root / "ridge_density_warnings.csv") if (root / "ridge_density_warnings.csv").is_file() else []
@@ -410,6 +458,108 @@ def verify_ridge_density_outputs(
             "legacy_turn_coverage",
             "legacy turn-contrast table does not cover every requested H/V N",
         )
+    adaptive_size_pairs = list(combinations(sizes, 2))
+    if 1 in sizes:
+        adaptive_size_pairs.insert(0, (1, 1))
+    expected_adaptive_pair_keys = {
+        (plane, baseline, ensemble)
+        for plane in ("H", "V")
+        for baseline, ensemble in adaptive_size_pairs
+    }
+    adaptive_pair_by_key = {
+        (
+            row.get("plane", ""),
+            int(row.get("baseline_subset_size") or 0),
+            int(row.get("ensemble_subset_size") or 0),
+        ): row
+        for row in adaptive_pairs
+    }
+    if (
+        set(adaptive_pair_by_key) != expected_adaptive_pair_keys
+        or len(adaptive_pairs) != len(expected_adaptive_pair_keys)
+    ):
+        _issue(
+            issues,
+            "error",
+            "adaptive_pair_coverage",
+            "adaptive pair metrics do not contain exactly one H/V row for every N pair plus Best-1 control",
+        )
+    adaptive_turn_groups: dict[
+        tuple[str, int, int], list[dict[str, str]]
+    ] = defaultdict(list)
+    for row in adaptive_turns:
+        adaptive_turn_groups[
+            (
+                row.get("plane", ""),
+                int(row.get("baseline_subset_size") or 0),
+                int(row.get("ensemble_subset_size") or 0),
+            )
+        ].append(row)
+    if set(adaptive_turn_groups) != expected_adaptive_pair_keys:
+        _issue(
+            issues,
+            "error",
+            "adaptive_pair_turn_coverage",
+            "adaptive pair turn contrasts do not cover every required H/V N pair",
+        )
+    for key in sorted(expected_adaptive_pair_keys):
+        row = adaptive_pair_by_key.get(key, {})
+        plane, baseline, ensemble = key
+        if (
+            int(row.get("common_spill_count") or 0) != expected_adaptive_spills
+            or int(row.get("common_ridge_point_count") or 0)
+            != expected_adaptive_spills * expected_centers
+            or int(row.get("common_center_count") or 0) != expected_centers
+            or int(row.get("subset_size") or 0) != ensemble
+        ):
+            _issue(
+                issues,
+                "error",
+                "adaptive_pair_exact_coverage",
+                f"{plane} Best-{baseline} versus Best-{ensemble} lacks exact adaptive pairing coverage",
+            )
+        missing_numeric = [
+            field
+            for field in ADAPTIVE_NUMERIC_FIELDS
+            if not math.isfinite(_finite(row.get(field)))
+        ]
+        if missing_numeric:
+            _issue(
+                issues,
+                "error",
+                "adaptive_pair_metric_nonfinite",
+                f"{plane} Best-{baseline} versus Best-{ensemble} has incomplete metrics",
+                len(missing_numeric),
+                missing_numeric,
+            )
+        turn_rows = adaptive_turn_groups.get(key, [])
+        turn_centers = [
+            int(float(turn_row.get("center_turn") or 0)) for turn_row in turn_rows
+        ]
+        bad_turn_rows = [
+            turn_row.get("center_turn", "")
+            for turn_row in turn_rows
+            if int(turn_row.get("paired_ridge_count") or 0) != expected_adaptive_spills
+            or int(turn_row.get("subset_size") or 0) != ensemble
+            or any(
+                not math.isfinite(_finite(turn_row.get(field)))
+                for field in ADAPTIVE_TURN_NUMERIC_FIELDS
+            )
+        ]
+        if (
+            len(turn_rows) != expected_centers
+            or len(set(turn_centers)) != expected_centers
+            or tuple(sorted(turn_centers)) != expected_center_grid
+            or bad_turn_rows
+        ):
+            _issue(
+                issues,
+                "error",
+                "adaptive_pair_turn_metrics",
+                f"{plane} Best-{baseline} versus Best-{ensemble} lacks the exact finite turn grid",
+                max(1, len(bad_turn_rows)),
+                bad_turn_rows,
+            )
     sliding_audits: dict[int, dict[str, object]] = {}
     for size in sizes:
         path = root / f"ridge_density_best{size}_sliding_tune.csv"
@@ -587,6 +737,19 @@ def verify_ridge_density_outputs(
             ] = 1
             expected_role_minimums[
                 f"plane-selected H/V paired legacy turn contrast poster: {metric}"
+            ] = 1
+        for metric in (
+            "iqr_delta_ensemble_minus_baseline",
+            "p10_p90_delta_ensemble_minus_baseline",
+            "peak_bin_fraction_gain",
+            "density_entropy_delta",
+            "shared_ridge_mass_gain",
+        ):
+            expected_role_minimums[
+                f"plane-selected H/V corrected Best-1 turn contrast: {metric}"
+            ] = 1
+            expected_role_minimums[
+                f"plane-selected H/V corrected Best-1 turn contrast poster: {metric}"
             ] = 1
     for role, minimum in expected_role_minimums.items():
         if roles[role] < minimum:

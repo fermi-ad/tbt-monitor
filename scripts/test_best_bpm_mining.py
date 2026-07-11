@@ -106,6 +106,8 @@ from audit_intensity_capture import audit as audit_intensity_capture
 from audit_delivery_ring_payloads import audit_manifest as audit_delivery_ring_manifest
 from run_best_n_sensitivity_matrix import _RunJob, _execute_jobs
 from make_best_bpm_ridge_density import (
+    adaptive_comparison_by_turn_rows,
+    adaptive_comparison_metrics,
     caption_for_density,
     caption_for_difference,
     caption_for_legacy_difference,
@@ -1215,13 +1217,23 @@ class BestBpmMiningTests(unittest.TestCase):
             }
             for plane in ("H", "V")
         }
+        adaptive = {
+            plane: {
+                "baseline_subset_size": "1",
+                "ensemble_subset_size": str(size),
+                "median_iqr_delta_ensemble_minus_baseline": "-0.001",
+                "median_iqr_delta_ci_low": "-0.0015",
+                "median_iqr_delta_ci_high": "-0.0005",
+            }
+            for plane, size in (("H", 7), ("V", 11))
+        }
         sizes = {"H": 7, "V": 11}
         design = {
             "curve_spill_plane_count": 4000,
             "validation_spill_plane_count": 1000,
             "digitizer_fold_count": 5,
         }
-        table = render_results_table(best, ridge, sizes)
+        table = render_results_table(best, ridge, adaptive, sizes)
         self.assertIn("H & 7", table)
         self.assertIn("V & 11", table)
         self.assertIn("concentration, not absolute tune accuracy", table)
@@ -1229,6 +1241,7 @@ class BestBpmMiningTests(unittest.TestCase):
             sizes,
             best,
             ridge,
+            adaptive,
             {"first_sustained_half_peak_loss_turn": "12000", "most_likely_change_turn": "14000"},
             design,
             240,
@@ -1237,7 +1250,10 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertEqual(content["author"], "Derek Steinkamp | Fermi National Accelerator Laboratory")
         self.assertIn("H Best-7", content["ridgeCaption"])
         self.assertIn("V Best-11", content["ridgeCaption"])
-        self.assertIn("P10-P90 width minus legacy", content["ridgeContrastCaption"])
+        self.assertIn("minus corrected adaptive Best-1", content["ridgeContrastCaption"])
+        self.assertIn("H narrower than corrected Best-1", content["conclusionBody"])
+        self.assertIn("V narrower than corrected Best-1", content["conclusionBody"])
+        self.assertIn("Median IQR change vs corrected Best-1", content["quantitativeBody"])
         self.assertIn("0/240", content["quantitativeBody"])
         self.assertIn("4,000 H/V curve cases", content["quantitativeBody"])
         self.assertIn("1,000 stratified validation cases", content["quantitativeBody"])
@@ -1460,6 +1476,21 @@ class BestBpmMiningTests(unittest.TestCase):
         ]
         csv_file(ridge / "ridge_density_legacy_comparison_metrics.csv", ridge_rows)
         csv_file(
+            ridge / "ridge_density_adaptive_pair_comparison_metrics.csv",
+            [
+                {
+                    "plane": plane,
+                    "subset_size": 1,
+                    "baseline_subset_size": 1,
+                    "ensemble_subset_size": 1,
+                    "median_iqr_delta_ensemble_minus_baseline": 0,
+                    "median_iqr_delta_ci_low": 0,
+                    "median_iqr_delta_ci_high": 0,
+                }
+                for plane in ("H", "V")
+            ],
+        )
+        csv_file(
             ridge / "ridge_density_loss_candidates.csv",
             [
                 {
@@ -1476,8 +1507,8 @@ class BestBpmMiningTests(unittest.TestCase):
             block20 / "best_n_validation_v.png",
             ridge / "ridge_density_legacy_single_vs_best_h1_v1_hv.png",
             ridge / "ridge_concentration_selected_best1_h.png",
-            ridge / "ridge_p10_p90_delta_vs_turn_selected_h1_v1_hv.png",
-            ridge / "ridge_p10_p90_delta_vs_turn_selected_h1_v1_hv_poster.png",
+            ridge / "ridge_p10_p90_delta_vs_turn_best1_to_selected_h1_v1_hv.png",
+            ridge / "ridge_p10_p90_delta_vs_turn_best1_to_selected_h1_v1_hv_poster.png",
         )
         for path in figure_paths:
             draw_turn_metric_plot(
@@ -1531,6 +1562,12 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertEqual(payload["numeric_summary"]["intensity_effect_count"], 1)
         self.assertEqual(payload["payload_integrity"]["stream_rows"], 263999)
         self.assertEqual(payload["best_n_design"]["validation_spill_plane_count"], 1000)
+        self.assertEqual(
+            payload["adaptive_ridge_rows"]["H"][
+                "median_iqr_delta_ensemble_minus_baseline"
+            ],
+            "0",
+        )
         content = json.loads((publication / "poster" / "content.json").read_text(encoding="utf-8"))
         self.assertEqual(content["assets"]["ridgeContrast"], "assets/ridge_width_contrast_hv.png")
         self.assertNotIn("selectedSpill", content["assets"])
@@ -1598,6 +1635,35 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertLess(float(metrics["median_iqr_delta_ci_high"]), 0.0)
         self.assertGreater(float(metrics["median_shared_ridge_mass_gain_ci_low"]), 0.0)
         self.assertEqual(int(metrics["turn_block_windows"]), 16)
+        adaptive = adaptive_comparison_metrics(
+            "H", "1", "5", legacy, ensemble, (0.62, 0.68), 60
+        )
+        self.assertEqual(adaptive["baseline_subset_size"], "1")
+        self.assertEqual(adaptive["ensemble_subset_size"], "5")
+        self.assertLess(float(adaptive["median_iqr_delta_ensemble_minus_baseline"]), 0.0)
+        self.assertGreater(float(adaptive["median_shared_ridge_mass_gain"]), 0.0)
+        adaptive_turns = adaptive_comparison_by_turn_rows(
+            "H", "1", "5", legacy, ensemble, (0.62, 0.68), 60
+        )
+        self.assertEqual(len(adaptive_turns), 2)
+        self.assertTrue(
+            all(row["baseline_subset_size"] == "1" for row in adaptive_turns)
+        )
+        self.assertTrue(
+            all(row["ensemble_subset_size"] == "5" for row in adaptive_turns)
+        )
+        self_control = adaptive_comparison_metrics(
+            "H", "1", "1", legacy, legacy, (0.62, 0.68), 60
+        )
+        for field in (
+            "median_iqr_delta_ensemble_minus_baseline",
+            "median_iqr_delta_ci_low",
+            "median_iqr_delta_ci_high",
+            "median_peak_bin_fraction_gain",
+            "median_density_entropy_delta",
+            "median_shared_ridge_mass_gain",
+        ):
+            self.assertEqual(float(self_control[field]), 0.0)
 
     def test_ridge_subtractive_copy_stays_on_pick_probability(self) -> None:
         density = caption_for_density(

@@ -155,7 +155,10 @@ Notes:
   exact paired counts and sample-fraction diagnostics must accompany it.
   Because the legacy normalized-single selector was defective, corrected
   Best-1 must appear beside the selected Best-N before a visual change is
-  attributed to ensemble size.
+  attributed to ensemble size. Quantitative ensemble-size evidence likewise
+  uses exact-paired selected Best-N minus corrected Best-1, with an exact-zero
+  Best-1 self-control. Adaptive-minus-legacy intervals combine selector repair
+  and ensemble size and remain historical context only.
 - Intensity-weighting subtraction uses the same rule independently: methods
   must share exact collection/spill/plane/N/window/center keys, and only common
   finite in-band global ridge picks enter each column. Red/blue therefore means

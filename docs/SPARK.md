@@ -536,8 +536,9 @@ This writes H/V ridge-density heatmaps, all pairwise requested-N difference
 maps, exact-point-paired legacy comparisons, a shared-scale four-panel H/V
 legacy-versus-adaptive comparison for every requested N, turn-concentration and
 H-loss diagnostics, exact-paired per-turn width/entropy/peak/shared-mass
-contrasts, moving-turn-block contrast intervals, metrics, captions, and an
-indexed gallery. The per-turn CSV is unsmoothed; its PNGs use five-window
+legacy contrasts, every adaptive N-pair metric and turn grid, an exact-zero
+Best-1 self-control, moving-turn-block contrast intervals, captions, and an
+indexed gallery. The per-turn CSVs are unsmoothed; their PNGs use five-window
 visual smoothing and a zero reference. They diagnose ridge-pick probability
 redistribution rather than physical noise or extraction timing. Selected-H/V
 composites stack the two planes on one shared y scale; the P10-P90-width
@@ -551,10 +552,10 @@ P98 standalone/pair color clipping and absolute-P99 subtractive clipping affect
 only raster contrast; exported counts, probabilities, and metrics are not
 clipped. Visible difference legends use higher/lower pick probability wording.
 The plane-selected outputs also include a corrected Best-1-versus-selected H/V
-comparison and a legacy/corrected-Best-1/selected-Best-N three-column control,
-both exact-paired with one probability scale. The first isolates ensemble-size
-gain; the second makes selector repair visible rather than folding it into the
-legacy-to-selected contrast.
+comparison, five clean selected-minus-Best-1 H/V turn contrasts in landscape
+and portrait form, and a legacy/corrected-Best-1/selected-Best-N three-column
+control. The clean P10-P90 pair is copied into the paper/poster; the legacy
+contrast remains a visual anchor that includes selector repair.
 Set `H_N` and `V_N` from the accepted block-20 Best-N recommendations. The
 additional mixed H/V composite uses the selected membership for each plane,
 and selected-N concentration panels avoid presenting every requested N in the

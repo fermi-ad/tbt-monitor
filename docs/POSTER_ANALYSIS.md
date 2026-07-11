@@ -452,15 +452,17 @@ the exact-paired corrected Best-1-versus-selected panel and the three-column
 legacy/corrected-Best-1/selected-Best-N control. Only the corrected
 Best-1-to-selected transition isolates the effect of ensemble size; the
 legacy-to-Best-1 transition is selector repair.
-The turn-resolved legacy contrast must also retain its unsmoothed exact-paired
-CSV. Review the adaptive-minus-legacy IQR and P10-P90 widths together with
-peak-bin-fraction, normalized-entropy, and shared-center-mass changes. The
-five-window-smoothed PNGs can locate intervals of lower diffuse-pick probability,
-but neither their sign nor a visual change point establishes beam noise,
-absolute tune accuracy, or extraction onset.
-The selected-H/V versions use stacked panels and one shared y scale. This is
-the publication treatment for P10-P90 width because two half-column native
-PNGs would make their labels unreadable.
+The turn-resolved legacy contrast must retain its unsmoothed exact-paired CSV,
+but it is historical context rather than the ensemble-size estimator. Review
+its adaptive-minus-legacy IQR, P10-P90, peak-bin, entropy, and shared-mass
+changes alongside the separate all-pairs adaptive tables. The latter include a
+zero Best-1 self-control and provide the clean selected-Best-N-minus-corrected-
+Best-1 contrast. Five-window-smoothed PNGs can locate intervals of changed
+cross-spill pick concentration, but neither their sign nor a visual change
+point establishes beam noise, absolute tune accuracy, or extraction onset.
+Use the clean selected-H/V P10-P90 contrast, stacked with one shared y scale,
+for publication. Keep its landscape form in the paper and its portrait twin in
+the poster because two half-column native PNGs would make labels unreadable.
 Use that all-spill contrast in the poster's upper-right evidence frame instead
 of an anecdotal selected-spill panel. Keep every selected-spill example in the
 separate exhaustive review gallery.

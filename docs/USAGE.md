@@ -996,10 +996,16 @@ mass within `+/-0.0025` tune of the shared method center. Global and selected-N
 PNGs use five-window visual smoothing and a zero reference; they describe
 where the adaptive picks become more or less concentrated, not a physical
 noise spectrum or an extraction-time measurement.
-When selected H/V sizes are present, each metric also receives a full-width
-stacked H/V composite with one shared y scale plus an 800x1250 portrait twin.
-The landscape form avoids unreadable half-width paper panels; the portrait form
-fills the inherited A0 evidence frame without cropping.
+The sidecar also writes
+`ridge_density_adaptive_pair_comparison_metrics.csv` and
+`ridge_density_adaptive_pair_comparison_by_turn.csv` for every requested
+adaptive N pair, plus an identically zero Best-1 self-control. These tables use
+exact common spill/window keys and isolate ensemble size without the historical
+selector defect. When selected H/V sizes are present, all five
+selected-Best-N-minus-corrected-Best-1 metrics receive a full-width stacked H/V
+composite with one shared y scale plus an 800x1250 portrait twin. The clean
+P10-P90 landscape/portrait pair is the bound paper/poster width contrast; the
+adaptive-minus-legacy versions remain review-gallery context.
 After the Best-N verifier selects H and V, pass both `--selected-h-n` and
 `--selected-v-n` and include both values in `--subset-sizes`. The run then
 writes `ridge_density_legacy_single_vs_best_h<H>_v<V>_hv.png` plus one clean
@@ -1011,7 +1017,8 @@ corrected ensemble-size contrast, while
 `ridge_density_legacy_vs_best1_vs_selected_h<H>_v<V>_hv.png` shows the legacy
 selector, corrected Best-1, and selected Best-N as separate columns on one
 probability scale. Do not attribute the full legacy-to-Best-N contrast solely
-to adding BPMs.
+to adding BPMs. The verifier requires complete finite adaptive-pair metric and
+turn grids and all selected clean-contrast figure roles.
 
 The favorite `18d321dbd4fe` images bin one tracked `selected_tune` per spill
 and window; they are not spectral-power heatmaps. For an exact paired

@@ -46,6 +46,16 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def finite_number(value: object) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
 def require_file(path: Path) -> Path:
     if not path.is_file() or path.stat().st_size == 0:
         raise ValueError(f"required publication file is missing or empty: {path}")
@@ -414,6 +424,27 @@ def finalize(
         raise ValueError("results payload is missing exact H/V selected sizes")
     if any(int(selected_sizes[plane]) <= 0 for plane in ("H", "V")):
         raise ValueError("results payload contains a nonpositive selected size")
+    adaptive_ridge_rows = payload.get("adaptive_ridge_rows")
+    if not isinstance(adaptive_ridge_rows, dict) or set(adaptive_ridge_rows) != {"H", "V"}:
+        raise ValueError("results payload is missing exact H/V corrected-Best-1 ridge contrasts")
+    for plane in ("H", "V"):
+        row = adaptive_ridge_rows[plane]
+        contrast_values = [
+            finite_number(row.get(field)) if isinstance(row, dict) else None
+            for field in (
+                "median_iqr_delta_ensemble_minus_baseline",
+                "median_iqr_delta_ci_low",
+                "median_iqr_delta_ci_high",
+            )
+        ]
+        if (
+            not isinstance(row, dict)
+            or int(row.get("baseline_subset_size") or 0) != 1
+            or int(row.get("ensemble_subset_size") or 0) != int(selected_sizes[plane])
+            or any(value is None for value in contrast_values)
+            or contrast_values[1] > contrast_values[2]
+        ):
+            raise ValueError(f"results payload has an invalid {plane} corrected-Best-1 ridge contrast")
     if int(payload.get("retained_intensity_effects") or 0) != 0:
         raise ValueError("publication payload retains an intensity weighting effect")
     best_n_design = payload.get("best_n_design")

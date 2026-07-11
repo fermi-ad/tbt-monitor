@@ -260,9 +260,11 @@ Required for the publication review:
   legacy/corrected-Best-1/selected-Best-N control composites, with only the
   corrected Best-1 transition interpreted as ensemble-size evidence
 - unsmoothed exact-paired per-turn width, entropy, peak-bin, and shared-ridge-
-  mass contrasts, with zero-referenced five-window-smoothed global and selected-
-  N review plots, shared-scale selected-H/V composites, and explicit non-noise/
-  non-extraction guardrails
+  mass contrasts for every adaptive N pair plus legacy, including an exact-zero
+  Best-1 self-control, with zero-referenced five-window-smoothed review plots
+- shared-scale selected-Best-N-minus-corrected-Best-1 H/V landscape and portrait
+  composites for all five metrics, with the clean P10-P90 pair bound to the
+  paper/poster and explicit non-noise/non-extraction guardrails
 - full-axis density raster coverage with percentile and median overlays on the
   identical tune-to-pixel mapping
 - H-plane concentration, width, entropy, confidence, fallback, and data-derived

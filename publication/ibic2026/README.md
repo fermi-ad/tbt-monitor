@@ -37,8 +37,11 @@ rather than being hidden by the full-data recommendation.
 It also requires a passing first-50000-turn audit over the exact 2200-manifest,
 263999-position-row, and 23999-paired-row publication corpus.
 The paper figure set includes the selected-plane turn-resolved P10-P90 ridge-
-width contrast copied from the same accepted ridge root; its source CSV is
-unsmoothed and its rendered five-window smoothing is descriptive only.
+width contrast against corrected adaptive Best-1, copied from the same accepted
+ridge root. Its source CSV is unsmoothed, its rendered five-window smoothing is
+descriptive only, and a zero Best-1 self-control plus every adaptive N-pair row
+must pass ridge verification. The wide legacy comparison remains a historical
+visual anchor and is not the ensemble-size estimator.
 Primary adaptive-score values and intensity-effect counts in manuscript prose
 are generated into `results_macros.tex` from the same accepted roots. The macro
 set also distinguishes 4000 full-curve spill-plane cases from 1000 stratified

@@ -164,6 +164,64 @@ LEGACY_TURN_COMPARISON_FIELDS = [
     "shared_ridge_mass_gain",
 ]
 
+ADAPTIVE_COMPARISON_FIELDS = [
+    "plane",
+    "subset_size",
+    "baseline_subset_size",
+    "ensemble_subset_size",
+    "common_spill_count",
+    "common_ridge_point_count",
+    "common_center_count",
+    "baseline_median_iqr_width",
+    "ensemble_median_iqr_width",
+    "median_iqr_delta_ensemble_minus_baseline",
+    "median_iqr_delta_ci_low",
+    "median_iqr_delta_ci_high",
+    "fraction_centers_with_narrower_ensemble_iqr",
+    "baseline_median_p10_p90_width",
+    "ensemble_median_p10_p90_width",
+    "baseline_median_peak_bin_fraction",
+    "ensemble_median_peak_bin_fraction",
+    "median_peak_bin_fraction_gain",
+    "median_peak_bin_fraction_gain_ci_low",
+    "median_peak_bin_fraction_gain_ci_high",
+    "baseline_median_density_entropy",
+    "ensemble_median_density_entropy",
+    "median_density_entropy_delta",
+    "median_density_entropy_delta_ci_low",
+    "median_density_entropy_delta_ci_high",
+    "median_shared_ridge_mass_gain",
+    "median_shared_ridge_mass_gain_ci_low",
+    "median_shared_ridge_mass_gain_ci_high",
+    "turn_block_windows",
+    "turn_block_bootstrap_samples",
+]
+
+ADAPTIVE_TURN_COMPARISON_FIELDS = [
+    "plane",
+    "subset_size",
+    "baseline_subset_size",
+    "ensemble_subset_size",
+    "center_turn",
+    "paired_ridge_count",
+    "shared_ridge_center",
+    "baseline_iqr_width",
+    "ensemble_iqr_width",
+    "iqr_delta_ensemble_minus_baseline",
+    "baseline_p10_p90_width",
+    "ensemble_p10_p90_width",
+    "p10_p90_delta_ensemble_minus_baseline",
+    "baseline_peak_bin_fraction",
+    "ensemble_peak_bin_fraction",
+    "peak_bin_fraction_gain",
+    "baseline_density_entropy",
+    "ensemble_density_entropy",
+    "density_entropy_delta",
+    "baseline_shared_ridge_mass",
+    "ensemble_shared_ridge_mass",
+    "shared_ridge_mass_gain",
+]
+
 
 def read_csv(path: Path) -> list[dict[str, str]]:
     if not path.exists():
@@ -1153,6 +1211,7 @@ def legacy_comparison_metrics(
     ridge_half_width: float = 0.0025,
     turn_block_windows: int = 16,
     bootstrap_samples: int = 500,
+    seed_scope: str = "ridge-legacy-turn-block",
 ) -> dict[str, object]:
     centers = sorted(set(legacy["grouped"]) & set(ensemble["grouped"]))
     rows: list[tuple[dict[str, float], dict[str, float], float]] = []
@@ -1188,7 +1247,7 @@ def legacy_comparison_metrics(
             values,
             bootstrap_samples,
             turn_block_windows,
-            stable_seed("ridge-legacy-turn-block", plane, subset_size, name),
+            stable_seed(seed_scope, plane, subset_size, name),
         )
         for name, values in interval_inputs.items()
     }
@@ -1222,6 +1281,130 @@ def legacy_comparison_metrics(
         "turn_block_windows": turn_block_windows,
         "turn_block_bootstrap_samples": bootstrap_samples,
     }
+
+
+def adaptive_comparison_metrics(
+    plane: str,
+    baseline_size: str,
+    ensemble_size: str,
+    baseline: dict[str, object],
+    ensemble: dict[str, object],
+    band: tuple[float, float],
+    tune_bins: int,
+    ridge_half_width: float = 0.0025,
+    turn_block_windows: int = 16,
+    bootstrap_samples: int = 500,
+) -> dict[str, object]:
+    raw = legacy_comparison_metrics(
+        plane,
+        f"{baseline_size}-{ensemble_size}",
+        baseline,
+        ensemble,
+        band,
+        tune_bins,
+        ridge_half_width,
+        turn_block_windows,
+        bootstrap_samples,
+        "ridge-adaptive-pair-turn-block",
+    )
+    return {
+        "plane": plane,
+        "subset_size": ensemble_size,
+        "baseline_subset_size": baseline_size,
+        "ensemble_subset_size": ensemble_size,
+        "common_spill_count": raw["common_spill_count"],
+        "common_ridge_point_count": raw["common_ridge_point_count"],
+        "common_center_count": raw["common_center_count"],
+        "baseline_median_iqr_width": raw["legacy_median_iqr_width"],
+        "ensemble_median_iqr_width": raw["ensemble_median_iqr_width"],
+        "median_iqr_delta_ensemble_minus_baseline": raw[
+            "median_iqr_delta_ensemble_minus_legacy"
+        ],
+        "median_iqr_delta_ci_low": raw["median_iqr_delta_ci_low"],
+        "median_iqr_delta_ci_high": raw["median_iqr_delta_ci_high"],
+        "fraction_centers_with_narrower_ensemble_iqr": raw[
+            "fraction_centers_with_narrower_iqr"
+        ],
+        "baseline_median_p10_p90_width": raw["legacy_median_p10_p90_width"],
+        "ensemble_median_p10_p90_width": raw["ensemble_median_p10_p90_width"],
+        "baseline_median_peak_bin_fraction": raw["legacy_median_peak_bin_fraction"],
+        "ensemble_median_peak_bin_fraction": raw["ensemble_median_peak_bin_fraction"],
+        "median_peak_bin_fraction_gain": raw["median_peak_bin_fraction_gain"],
+        "median_peak_bin_fraction_gain_ci_low": raw[
+            "median_peak_bin_fraction_gain_ci_low"
+        ],
+        "median_peak_bin_fraction_gain_ci_high": raw[
+            "median_peak_bin_fraction_gain_ci_high"
+        ],
+        "baseline_median_density_entropy": raw["legacy_median_density_entropy"],
+        "ensemble_median_density_entropy": raw["ensemble_median_density_entropy"],
+        "median_density_entropy_delta": raw["median_density_entropy_delta"],
+        "median_density_entropy_delta_ci_low": raw[
+            "median_density_entropy_delta_ci_low"
+        ],
+        "median_density_entropy_delta_ci_high": raw[
+            "median_density_entropy_delta_ci_high"
+        ],
+        "median_shared_ridge_mass_gain": raw["median_shared_ridge_mass_gain"],
+        "median_shared_ridge_mass_gain_ci_low": raw[
+            "median_shared_ridge_mass_gain_ci_low"
+        ],
+        "median_shared_ridge_mass_gain_ci_high": raw[
+            "median_shared_ridge_mass_gain_ci_high"
+        ],
+        "turn_block_windows": raw["turn_block_windows"],
+        "turn_block_bootstrap_samples": raw["turn_block_bootstrap_samples"],
+    }
+
+
+def adaptive_comparison_by_turn_rows(
+    plane: str,
+    baseline_size: str,
+    ensemble_size: str,
+    baseline: dict[str, object],
+    ensemble: dict[str, object],
+    band: tuple[float, float],
+    tune_bins: int,
+) -> list[dict[str, object]]:
+    raw_rows = legacy_comparison_by_turn_rows(
+        plane,
+        ensemble_size,
+        baseline,
+        ensemble,
+        band,
+        tune_bins,
+    )
+    return [
+        {
+            "plane": plane,
+            "subset_size": ensemble_size,
+            "baseline_subset_size": baseline_size,
+            "ensemble_subset_size": ensemble_size,
+            "center_turn": row["center_turn"],
+            "paired_ridge_count": row["paired_ridge_count"],
+            "shared_ridge_center": row["shared_ridge_center"],
+            "baseline_iqr_width": row["legacy_iqr_width"],
+            "ensemble_iqr_width": row["ensemble_iqr_width"],
+            "iqr_delta_ensemble_minus_baseline": row[
+                "iqr_delta_ensemble_minus_legacy"
+            ],
+            "baseline_p10_p90_width": row["legacy_p10_p90_width"],
+            "ensemble_p10_p90_width": row["ensemble_p10_p90_width"],
+            "p10_p90_delta_ensemble_minus_baseline": row[
+                "p10_p90_delta_ensemble_minus_legacy"
+            ],
+            "baseline_peak_bin_fraction": row["legacy_peak_bin_fraction"],
+            "ensemble_peak_bin_fraction": row["ensemble_peak_bin_fraction"],
+            "peak_bin_fraction_gain": row["peak_bin_fraction_gain"],
+            "baseline_density_entropy": row["legacy_density_entropy"],
+            "ensemble_density_entropy": row["ensemble_density_entropy"],
+            "density_entropy_delta": row["density_entropy_delta"],
+            "baseline_shared_ridge_mass": row["legacy_shared_ridge_mass"],
+            "ensemble_shared_ridge_mass": row["ensemble_shared_ridge_mass"],
+            "shared_ridge_mass_gain": row["shared_ridge_mass_gain"],
+        }
+        for row in raw_rows
+    ]
 
 
 def draw_density_difference(
@@ -1904,6 +2087,24 @@ This is a cross-spill ridge-pick distribution contrast. It does not measure phys
 """
 
 
+def caption_for_selected_adaptive_turn_contrast_hv(
+    selected_sizes: Mapping[str, str],
+    image_name: str,
+    metric_name: str,
+    interpretation: str,
+) -> str:
+    return f"""# Selected H/V Corrected Best-1 Contrast: {metric_name}
+
+Image: `{image_name}`
+
+The two panels show H Best-{selected_sizes['H']} and V Best-{selected_sizes['V']} minus corrected adaptive Best-1 on exact common spill/window points. Both methods use source-key memberships selected from the same fit-window prefix and the same full-buffer tracking protocol. Both panels use the same y scale and zero reference. Exported values in `ridge_density_adaptive_pair_comparison_by_turn.csv` are unsmoothed; curves use five-window visual smoothing.
+
+{interpretation}
+
+This is the clean ensemble-size contrast. It does not include the historical selector defect and does not measure absolute tune accuracy, physical noise removal, extraction timing, or a causal loss mechanism.
+"""
+
+
 def caption_for_legacy_pair(plane: str, subset_size: str, metrics: dict[str, object]) -> str:
     return f"""# Legacy Normalized-Single Versus Adaptive Best-{subset_size} {plane}
 
@@ -1998,6 +2199,7 @@ def caption_for_best1_vs_selected_hv(
     subset_sizes: Mapping[str, str],
     paired: Mapping[str, tuple[Mapping[str, dict[str, object]], tuple[float, float]]],
     image_name: str,
+    metrics_by_plane: Mapping[str, Mapping[str, object]] | None = None,
 ) -> str:
     lines = [
         "# Corrected Adaptive Best-1 Versus Plane-Selected Best-N",
@@ -2008,9 +2210,32 @@ def caption_for_best1_vs_selected_hv(
         "",
         *paired_grid_counts(paired),
         "",
-        "This is the clean ensemble-size comparison: it does not use the flawed historical normalized-single selector. Greater concentration in the selected Best-N column may be attributed to the adaptive ensemble-size choice under this protocol, subject to the leakage-controlled later-window validation. It is still BPM-only internal consistency, not absolute tune truth or measured physical noise removal.",
-        "",
     ]
+    if metrics_by_plane:
+        lines.extend(
+            [
+                "| Plane | Best-1 median IQR | Selected median IQR | Median selected-minus-Best-1 IQR [turn-block CI] | Shared-ridge mass gain [CI] |",
+                "| --- | ---: | ---: | ---: | ---: |",
+            ]
+        )
+        for plane in ("H", "V"):
+            metrics = metrics_by_plane[plane]
+            lines.append(
+                f"| {plane} | {metrics.get('baseline_median_iqr_width', '')} | "
+                f"{metrics.get('ensemble_median_iqr_width', '')} | "
+                f"{metrics.get('median_iqr_delta_ensemble_minus_baseline', '')} "
+                f"[{metrics.get('median_iqr_delta_ci_low', '')}, {metrics.get('median_iqr_delta_ci_high', '')}] | "
+                f"{metrics.get('median_shared_ridge_mass_gain', '')} "
+                f"[{metrics.get('median_shared_ridge_mass_gain_ci_low', '')}, "
+                f"{metrics.get('median_shared_ridge_mass_gain_ci_high', '')}] |"
+            )
+        lines.append("")
+    lines.extend(
+        [
+            "This is the clean ensemble-size comparison: it does not use the flawed historical normalized-single selector. Greater concentration in the selected Best-N column may be attributed to the adaptive ensemble-size choice under this protocol, subject to the leakage-controlled later-window validation. It is still BPM-only internal consistency, not absolute tune truth or measured physical noise removal.",
+            "",
+        ]
+    )
     return "\n".join(lines)
 
 
@@ -2197,7 +2422,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--ridge-anchor-v", type=float, default=0.72)
     parser.add_argument("--ridge-density-tune-bins", type=int, default=160)
     parser.add_argument("--ridge-density-normalize", action="store_true")
-    parser.add_argument("--comparison-bootstrap-samples", type=int, default=500, help="moving-block draws for paired legacy contrast metrics")
+    parser.add_argument("--comparison-bootstrap-samples", type=int, default=500, help="moving-block draws for paired ridge-contrast metrics")
     parser.add_argument("--extraction-range-start-turn", type=int, default=10000, help="optional broad review-only context marker start; never used by the loss heuristic")
     parser.add_argument("--extraction-range-end-turn", type=int, default=20000, help="optional broad review-only context marker end; never treated as a measured boundary")
     parser.add_argument("--extraction-context-variants", action="store_true", help="also render separately named plots with the broad extraction-review range marked")
@@ -2427,6 +2652,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     write_csv(out / "ridge_density_turn_concentration.csv", center_rows, CENTER_METRIC_FIELDS)
     legacy_metric_rows: list[dict[str, object]] = []
     legacy_turn_rows: list[dict[str, object]] = []
+    adaptive_metric_rows: list[dict[str, object]] = []
+    adaptive_turn_rows: list[dict[str, object]] = []
     paired_legacy_results: dict[
         tuple[str, str],
         tuple[dict[str, object], dict[str, object], tuple[float, float]],
@@ -2478,6 +2705,42 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "source": "ridge_density_turn_concentration.csv",
                 }
             )
+        if "1" in args.subset_sizes:
+            band = (args.qx_min, args.qx_max) if plane == "H" else (args.qy_min, args.qy_max)
+            best1_points = keyed_ensemble_points(sliding_by_subset["1"], plane, band)
+            baseline, ensemble = exact_paired_density_results(
+                best1_points,
+                best1_points,
+                band,
+                args.ridge_density_tune_bins,
+            )
+            adaptive_metric_rows.append(
+                adaptive_comparison_metrics(
+                    plane,
+                    "1",
+                    "1",
+                    baseline,
+                    ensemble,
+                    band,
+                    args.ridge_density_tune_bins,
+                    turn_block_windows=max(
+                        1,
+                        int(math.ceil(args.window_turns / max(1, args.stride_turns))),
+                    ),
+                    bootstrap_samples=args.comparison_bootstrap_samples,
+                )
+            )
+            adaptive_turn_rows.extend(
+                adaptive_comparison_by_turn_rows(
+                    plane,
+                    "1",
+                    "1",
+                    baseline,
+                    ensemble,
+                    band,
+                    args.ridge_density_tune_bins,
+                )
+            )
         for baseline_index, baseline_size in enumerate(args.subset_sizes):
             for ensemble_size in args.subset_sizes[baseline_index + 1 :]:
                 band = (args.qx_min, args.qx_max) if plane == "H" else (args.qy_min, args.qy_max)
@@ -2491,6 +2754,33 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
                 common_points = len(set(baseline.get("point_keys", set())) & set(ensemble.get("point_keys", set())))
                 common_spills = len(set(baseline.get("spill_keys", set())) & set(ensemble.get("spill_keys", set())))
+                adaptive_metric_rows.append(
+                    adaptive_comparison_metrics(
+                        plane,
+                        baseline_size,
+                        ensemble_size,
+                        baseline,
+                        ensemble,
+                        band,
+                        args.ridge_density_tune_bins,
+                        turn_block_windows=max(
+                            1,
+                            int(math.ceil(args.window_turns / max(1, args.stride_turns))),
+                        ),
+                        bootstrap_samples=args.comparison_bootstrap_samples,
+                    )
+                )
+                adaptive_turn_rows.extend(
+                    adaptive_comparison_by_turn_rows(
+                        plane,
+                        baseline_size,
+                        ensemble_size,
+                        baseline,
+                        ensemble,
+                        band,
+                        args.ridge_density_tune_bins,
+                    )
+                )
                 diff_img = f"ridge_density_best{ensemble_size}_minus_best{baseline_size}_{plane.lower()}.png"
                 draw_density_difference(out / diff_img, plane, baseline_size, ensemble_size, baseline, ensemble, band, args)
                 diff_cap = f"ridge_density_best{ensemble_size}_minus_best{baseline_size}_{plane.lower()}_caption.md"
@@ -2589,6 +2879,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         out / "ridge_density_legacy_comparison_by_turn.csv",
         legacy_turn_rows,
         LEGACY_TURN_COMPARISON_FIELDS,
+    )
+    write_csv(
+        out / "ridge_density_adaptive_pair_comparison_metrics.csv",
+        adaptive_metric_rows,
+        ADAPTIVE_COMPARISON_FIELDS,
+    )
+    write_csv(
+        out / "ridge_density_adaptive_pair_comparison_by_turn.csv",
+        adaptive_turn_rows,
+        ADAPTIVE_TURN_COMPARISON_FIELDS,
     )
     contrast_specs = (
         (
@@ -2758,6 +3058,120 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "source": "ridge_density_legacy_comparison_by_turn.csv",
                 }
             )
+        selected_adaptive_turn_rows = [
+            row
+            for row in adaptive_turn_rows
+            if str(row.get("baseline_subset_size")) == "1"
+            and str(row.get("ensemble_subset_size"))
+            == str(selected_sizes[str(row.get("plane", ""))])
+        ]
+        adaptive_specs = (
+            (
+                "ridge_iqr_delta_vs_turn_best1_to_selected",
+                "iqr_delta_ensemble_minus_baseline",
+                "SELECTED BEST-N MINUS CORRECTED BEST1 IQR",
+                "DELTA IQR",
+                "Negative values mean the selected Best-N ridge picks are narrower across spills than corrected Best-1 at that turn.",
+            ),
+            (
+                "ridge_p10_p90_delta_vs_turn_best1_to_selected",
+                "p10_p90_delta_ensemble_minus_baseline",
+                "SELECTED BEST-N MINUS CORRECTED BEST1 P10-P90",
+                "WIDTH DELTA",
+                "Negative values mean the selected Best-N outer ridge-pick width is narrower than corrected Best-1.",
+            ),
+            (
+                "ridge_peak_bin_gain_vs_turn_best1_to_selected",
+                "peak_bin_fraction_gain",
+                "SELECTED BEST-N PEAK-BIN GAIN VS CORRECTED BEST1",
+                "PEAK GAIN",
+                "Positive values mean more selected Best-N picks occupy the most populated tune bin than corrected Best-1.",
+            ),
+            (
+                "ridge_entropy_delta_vs_turn_best1_to_selected",
+                "density_entropy_delta",
+                "SELECTED BEST-N MINUS CORRECTED BEST1 ENTROPY",
+                "ENTROPY DQ",
+                "Negative values mean the selected Best-N cross-spill pick distribution is less diffuse than corrected Best-1.",
+            ),
+            (
+                "ridge_shared_mass_gain_vs_turn_best1_to_selected",
+                "shared_ridge_mass_gain",
+                "SELECTED BEST-N SHARED-RIDGE MASS GAIN VS CORRECTED BEST1",
+                "MASS GAIN",
+                "Positive values mean more selected Best-N picks lie within +/-0.0025 tune of the shared Best-1/Best-N center.",
+            ),
+        )
+        for stem, metric, title, y_label, interpretation in adaptive_specs:
+            image_name = (
+                f"{stem}_h{selected_sizes['H']}_v{selected_sizes['V']}_hv.png"
+            )
+            draw_selected_turn_contrast_hv(
+                out / image_name,
+                selected_adaptive_turn_rows,
+                selected_sizes,
+                metric,
+                title,
+                y_label,
+            )
+            caption_name = image_name.replace(".png", "_caption.md")
+            write_text(
+                out / caption_name,
+                caption_for_selected_adaptive_turn_contrast_hv(
+                    selected_sizes,
+                    image_name,
+                    title.title(),
+                    interpretation,
+                ),
+            )
+            figure_rows.append(
+                {
+                    "figure": image_name,
+                    "caption_file": caption_name,
+                    "plane": "H/V",
+                    "subset_size": f"H{selected_sizes['H']}/V{selected_sizes['V']}",
+                    "role": f"plane-selected H/V corrected Best-1 turn contrast: {metric}",
+                    "source": "ridge_density_adaptive_pair_comparison_by_turn.csv",
+                }
+            )
+            poster_image_name = image_name.replace(".png", "_poster.png")
+            draw_selected_turn_contrast_hv(
+                out / poster_image_name,
+                selected_adaptive_turn_rows,
+                selected_sizes,
+                metric,
+                title,
+                y_label,
+                portrait=True,
+            )
+            poster_caption_name = poster_image_name.replace(".png", "_caption.md")
+            write_text(
+                out / poster_caption_name,
+                caption_for_selected_adaptive_turn_contrast_hv(
+                    selected_sizes,
+                    poster_image_name,
+                    title.title(),
+                    interpretation,
+                ),
+            )
+            figure_rows.append(
+                {
+                    "figure": poster_image_name,
+                    "caption_file": poster_caption_name,
+                    "plane": "H/V",
+                    "subset_size": f"H{selected_sizes['H']}/V{selected_sizes['V']}",
+                    "role": f"plane-selected H/V corrected Best-1 turn contrast poster: {metric}",
+                    "source": "ridge_density_adaptive_pair_comparison_by_turn.csv",
+                }
+            )
+    adaptive_metrics_by_key = {
+        (
+            str(row.get("plane", "")),
+            str(row.get("baseline_subset_size", "")),
+            str(row.get("ensemble_subset_size", "")),
+        ): row
+        for row in adaptive_metric_rows
+    }
     legacy_metrics_by_key = {
         (str(row.get("subset_size", "")), str(row.get("plane", ""))): row
         for row in legacy_metric_rows
@@ -2867,7 +3281,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             write_text(
                 out / direct_cap,
-                caption_for_best1_vs_selected_hv(selected_sizes, best1_vs_selected, direct_img),
+                caption_for_best1_vs_selected_hv(
+                    selected_sizes,
+                    best1_vs_selected,
+                    direct_img,
+                    {
+                        plane: adaptive_metrics_by_key[
+                            (plane, "1", selected_sizes[plane])
+                        ]
+                        for plane in ("H", "V")
+                    },
+                ),
             )
             figure_rows.append(
                 {

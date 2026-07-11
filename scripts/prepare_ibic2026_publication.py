@@ -264,6 +264,7 @@ def interval(row: Mapping[str, object], value: str, low: str, high: str, digits:
 def render_results_table(
     best_n_rows: Mapping[str, Mapping[str, object]],
     ridge_rows: Mapping[str, Mapping[str, object]],
+    adaptive_rows: Mapping[str, Mapping[str, object]],
     selected_sizes: Mapping[str, int],
 ) -> str:
     lines = [
@@ -274,12 +275,13 @@ def render_results_table(
         r"  \small",
         r"  \begin{tabular}{@{}lccccc@{}}",
         r"    \toprule",
-        r"    Plane & Best-$N$ & Blind agreement & Blind $|\Delta q|$ & $\Delta$IQR & Shared mass gain \\",
+        r"    Plane & Best-$N$ & Blind agreement & Blind $|\Delta q|$ & $\Delta$IQR vs B1 & $\Delta$IQR vs legacy \\",
         r"    \midrule",
     ]
     for plane in ("H", "V"):
         best = best_n_rows[plane]
         ridge = ridge_rows[plane]
+        adaptive = adaptive_rows[plane]
         agreement = interval(
             best,
             "blind_q_agreement_rate",
@@ -300,15 +302,15 @@ def render_results_table(
             "median_iqr_delta_ci_high",
             4,
         )
-        mass_gain = interval(
-            ridge,
-            "median_shared_ridge_mass_gain",
-            "median_shared_ridge_mass_gain_ci_low",
-            "median_shared_ridge_mass_gain_ci_high",
-            3,
+        adaptive_iqr_delta = interval(
+            adaptive,
+            "median_iqr_delta_ensemble_minus_baseline",
+            "median_iqr_delta_ci_low",
+            "median_iqr_delta_ci_high",
+            4,
         )
         lines.append(
-            f"    {plane} & {selected_sizes[plane]} & {agreement} & {q_delta} & {iqr_delta} & {mass_gain} \\\\"
+            f"    {plane} & {selected_sizes[plane]} & {agreement} & {q_delta} & {adaptive_iqr_delta} & {iqr_delta} \\\\"
         )
     lines.extend(
         [
@@ -401,6 +403,7 @@ def publication_content(
     selected_sizes: Mapping[str, int],
     best_n_rows: Mapping[str, Mapping[str, object]],
     ridge_rows: Mapping[str, Mapping[str, object]],
+    adaptive_rows: Mapping[str, Mapping[str, object]],
     loss_row: Mapping[str, object],
     best_n_design: Mapping[str, int],
     intensity_effect_count: int,
@@ -410,6 +413,18 @@ def publication_content(
     v_best = best_n_rows["V"]
     h_ridge = ridge_rows["H"]
     v_ridge = ridge_rows["V"]
+    h_adaptive = adaptive_rows["H"]
+    v_adaptive = adaptive_rows["V"]
+    adaptive_status = {}
+    for plane, row in (("H", h_adaptive), ("V", v_adaptive)):
+        low = finite(row.get("median_iqr_delta_ci_low"))
+        high = finite(row.get("median_iqr_delta_ci_high"))
+        if math.isfinite(high) and high < 0:
+            adaptive_status[plane] = "narrower than corrected Best-1"
+        elif math.isfinite(low) and low > 0:
+            adaptive_status[plane] = "broader than corrected Best-1"
+        else:
+            adaptive_status[plane] = "not resolved from corrected Best-1"
     loss_turn = loss_row.get("first_sustained_half_peak_loss_turn", "")
     change_turn = loss_row.get("most_likely_change_turn", "")
     loss_parts = [f"Best-{selected_sizes['H']} H concentration is tracked over 50,000 turns."]
@@ -451,12 +466,13 @@ def publication_content(
         "conclusionHeading": "RESULT AND LIMIT",
         "conclusionBody": (
             "Plane-specific adaptive ensembles recover the most reproducible later-window BPM tune candidates.\n"
-            "The vertical plane is the clearest persistence result; horizontal tracking remains weaker and more time dependent.\n"
+            f"Full-buffer ensemble-size contrast: H {adaptive_status['H']}; V {adaptive_status['V']}.\n"
             "This is BPM-only internal consistency, not an absolute tune calibration."
         ),
         "ridgeContrastCaption": (
             f"Selected H Best-{selected_sizes['H']} and V Best-{selected_sizes['V']} P10-P90 width "
-            "minus legacy, on exact paired spill/windows. Negative is narrower; zero is no method difference."
+            "minus corrected adaptive Best-1 on exact paired spill/windows. Negative is narrower; "
+            "zero is no ensemble-size difference."
         ),
         "quantitativeBody": (
             f"2,000 spills; {best_n_design['curve_spill_plane_count']:,} H/V curve cases; "
@@ -464,6 +480,8 @@ def publication_content(
             f"{best_n_design['digitizer_fold_count']} held-out-digitizer folds. "
             f"H Best-{selected_sizes['H']} blind agreement {pct(h_best.get('blind_q_agreement_rate'))}; "
             f"V Best-{selected_sizes['V']} {pct(v_best.get('blind_q_agreement_rate'))}. "
+            f"Median IQR change vs corrected Best-1: H {fmt(h_adaptive.get('median_iqr_delta_ensemble_minus_baseline'), 4)}, "
+            f"V {fmt(v_adaptive.get('median_iqr_delta_ensemble_minus_baseline'), 4)}. "
             f"Intensity weighting retained {retained_intensity_effects}/{intensity_effect_count} tested effects."
         ),
         "hLossCaption": " ".join(loss_parts),
@@ -545,6 +563,15 @@ def prepare_publication(
     selected_ridge_rows = {
         plane: ridge_metrics[(plane, str(selected_sizes[plane]))] for plane in ("H", "V")
     }
+    adaptive_metrics = keyed_rows(
+        read_csv(ridge_root / "ridge_density_adaptive_pair_comparison_metrics.csv"),
+        ("plane", "baseline_subset_size", "ensemble_subset_size"),
+        "adaptive ridge-pair metric",
+    )
+    selected_adaptive_rows = {
+        plane: adaptive_metrics[(plane, "1", str(selected_sizes[plane]))]
+        for plane in ("H", "V")
+    }
     loss_rows = keyed_rows(
         read_csv(ridge_root / "ridge_density_loss_candidates.csv"),
         ("plane", "subset_size"),
@@ -580,9 +607,9 @@ def prepare_publication(
         "h_loss": ridge_root
         / f"ridge_concentration_selected_best{selected_sizes['H']}_h.png",
         "ridge_width_hv": ridge_root
-        / f"ridge_p10_p90_delta_vs_turn_selected_h{selected_sizes['H']}_v{selected_sizes['V']}_hv.png",
+        / f"ridge_p10_p90_delta_vs_turn_best1_to_selected_h{selected_sizes['H']}_v{selected_sizes['V']}_hv.png",
         "ridge_width_hv_poster": ridge_root
-        / f"ridge_p10_p90_delta_vs_turn_selected_h{selected_sizes['H']}_v{selected_sizes['V']}_hv_poster.png",
+        / f"ridge_p10_p90_delta_vs_turn_best1_to_selected_h{selected_sizes['H']}_v{selected_sizes['V']}_hv_poster.png",
     }
     poster_destinations = {
         "best_n_h": poster_assets / "best_n_validation_h.png",
@@ -607,6 +634,7 @@ def prepare_publication(
         selected_sizes,
         best_n_rows,
         selected_ridge_rows,
+        selected_adaptive_rows,
         h_loss,
         best_n_design,
         len(intensity_effects),
@@ -617,7 +645,12 @@ def prepare_publication(
     content_path.write_text(json.dumps(content, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     results_table_path = paper_root / "results_table.tex"
     results_table_path.write_text(
-        render_results_table(best_n_rows, selected_ridge_rows, selected_sizes),
+        render_results_table(
+            best_n_rows,
+            selected_ridge_rows,
+            selected_adaptive_rows,
+            selected_sizes,
+        ),
         encoding="utf-8",
     )
     results_macros_path = paper_root / "results_macros.tex"
@@ -632,6 +665,7 @@ def prepare_publication(
         "sensitivity": sensitivity,
         "block_recommendations": block_recommendations,
         "ridge_rows": selected_ridge_rows,
+        "adaptive_ridge_rows": selected_adaptive_rows,
         "h_loss": h_loss,
         "numeric_summary": numeric_summary,
         "intensity_effect_count": len(intensity_effects),
@@ -682,8 +716,10 @@ def prepare_publication(
         f"- Best-N validation spill-plane cases: `{best_n_design['validation_spill_plane_count']}` across `{best_n_design['digitizer_fold_count']}` digitizer folds",
         f"- raw payload rows scanned through 50000 turns: `{payload_audit['stream_rows']}`",
         f"- raw device-coded fallback pairs: `{payload_audit['raw_device_fallback_pair_rows']}`",
+        f"- H selected-minus-corrected-Best-1 median IQR: `{selected_adaptive_rows['H']['median_iqr_delta_ensemble_minus_baseline']}`",
+        f"- V selected-minus-corrected-Best-1 median IQR: `{selected_adaptive_rows['V']['median_iqr_delta_ensemble_minus_baseline']}`",
         "",
-        "The ridge figure uses exact common spill/window picks and plane-specific selected N. Its subtraction and concentration metrics do not measure physical noise or absolute tune accuracy.",
+        "The wide ridge figure preserves the exact-paired legacy visual reference; the width-contrast panel and clean metrics compare selected Best-N directly with corrected adaptive Best-1. Neither measures physical noise or absolute tune accuracy.",
         "",
     ]
     preparation_report = publication_root / "PREPARATION_REPORT.md"

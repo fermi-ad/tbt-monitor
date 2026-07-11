@@ -310,9 +310,10 @@ config ranking. Its package modules cover:
   legacy/corrected-Best-1/selected control that separate selector repair from
   ensemble-size gain,
   exact-point-paired density differences, concentration and H-loss diagnostics,
-  unsmoothed per-turn legacy contrast tables with smoothed width/entropy/peak/
-  shared-mass review plots, shared-scale selected-H/V composites, and moving-
-  turn-block legacy contrast intervals.
+  unsmoothed per-turn legacy contrast tables, every exact-paired adaptive N-pair
+  metric and turn grid plus a zero Best-1 self-control, smoothed width/entropy/
+  peak/shared-mass review plots, shared-scale selected-H/V clean contrasts, and
+  moving-turn-block intervals.
   Each selected composite has landscape and portrait render contracts so paper
   and poster placement do not rely on cropping or excessive contain padding.
   Density bins use
@@ -325,7 +326,8 @@ config ranking. Its package modules cover:
   caption coverage checks for the full-buffer ridge gallery, tied to exact
   membership, legacy-table, manifest-inventory, and window-geometry hashes.
   Turn-contrast closure additionally requires one finite exact-paired row per
-  contracted center, every global and plane-selected metric figure role, and
+  contracted center for every legacy N and adaptive N pair, complete self-
+  control coverage, every global and plane-selected metric figure role, and
   both selector-defect control composites.
   The publication contract additionally binds the adaptive pass to the archived
   `18d321dbd4fe` 4096/256 tracking protocol and exact 2000/1988 source coverage.
@@ -334,7 +336,8 @@ config ranking. Its package modules cover:
   audit roots; checks
   cross-collection and hyperparameter sensitivity, rejects any retained
   intensity weighting, and materializes the exact poster/paper figures,
-  plane-specific results table, verifier-derived manuscript macros, poster
+  plane-specific results table including selected-versus-Best-1 and legacy
+  ridge-width intervals, verifier-derived manuscript macros, poster
   copy, results payload, and source hashes. The macros prevent primary-score or
   intensity-count prose from drifting when the accepted run grid changes and
   distinguish the full Best-N curve population from the stratified
