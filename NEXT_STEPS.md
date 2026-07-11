@@ -108,7 +108,7 @@ the publication audit:
     N grid could therefore leave a verifier-clean table beside stale prose.
     Publication materialization now generates `results_macros.tex` directly
     from the accepted primary and intensity rows, and the paper build requires
-    and hashes that file together with the table and five bound figures.
+    and hashes that file together with the table and four bound figures.
 17. The publication README promised a complete manifest and compliance report,
     but no command generated them or required a human visual-QA disposition.
     `finalize_ibic2026_publication.py` now verifies the immutable references,
@@ -268,7 +268,7 @@ the publication audit:
     report could therefore survive this provenance gate. Preparation now records
     the exact numerical source tables as source-only hashes, and finalization
     rejects unsafe/duplicate paths, malformed hashes, missing or extra outputs,
-    symlinks, and any source/output/current-byte mismatch for all 15 materialized
+    symlinks, and any source/output/current-byte mismatch for all 14 materialized
     publication outputs.
 34. The detached publication tail trusted unversioned `RIDGE/COMPLETE` and
     `ANALYSIS_COMPLETE` marker files. If an older source revision completed
@@ -308,6 +308,16 @@ the publication audit:
     shows every exact pass/fail decision and the earliest all-gate N.
     Publication preparation regenerates the set directly from the accepted
     summary CSV.
+38. Adding the final sensitivity disclosure and all-BPM limitation pushed the
+    JACoW smoke manuscript onto a fifth page containing only two references.
+    The horizontal-loss plot was the least inferential paper figure: it is a
+    noncausal, plane-specific diagnostic, while the Best-N validation, paired
+    ridge density, and paired width contrast carry the central results. The
+    paper now leaves that diagnostic in the poster and review gallery, requires
+    and hashes only the four PNGs it actually references, and again renders as
+    exactly four `595 x 792 bp` pages. A regression binds the manuscript figure
+    references to the paper build manifest so unused or missing figures cannot
+    silently change the submission dependency set.
 
 Measured legacy member retention against the exact subset masks was about 48%
 for Best-1/3/5. Best-1 had 2056 of 4000 rows with zero exact-member retention;

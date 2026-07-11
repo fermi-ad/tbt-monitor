@@ -32,6 +32,12 @@ POSTER_ASSET_FILES = {
     "ridgeContrast": "ridge_width_contrast_hv.png",
     "hLoss": "horizontal_loss_diagnostic.png",
 }
+PAPER_FIGURE_FILES = (
+    "best_n_validation_h.png",
+    "best_n_validation_v.png",
+    "ridge_density_comparison.png",
+    "ridge_width_contrast_hv.png",
+)
 MATERIALIZATION_MANIFEST_FIELDS = (
     "role",
     "source_path",
@@ -47,7 +53,7 @@ MATERIALIZED_OUTPUTS = frozenset(
         "paper/results_table.tex",
         "paper/results_macros.tex",
         *(f"poster/assets/{filename}" for filename in POSTER_ASSET_FILES.values()),
-        *(f"paper/figures/{filename}" for filename in POSTER_ASSET_FILES.values()),
+        *(f"paper/figures/{filename}" for filename in PAPER_FIGURE_FILES),
     }
 )
 UNRESOLVED = re.compile(
@@ -522,7 +528,7 @@ def finalize(
             "results_macros.tex": paper / "results_macros.tex",
             **{
                 f"figures/{filename}": paper / "figures" / filename
-                for filename in POSTER_ASSET_FILES.values()
+                for filename in PAPER_FIGURE_FILES
             },
             "build/ABSTRACT54.pdf": paper / "build" / "ABSTRACT54.pdf",
         },
@@ -535,15 +541,10 @@ def finalize(
             "poster PPTX contains empty structural placeholders: "
             + "; ".join(empty_placeholders)
         )
-    for figure in (
-        "best_n_validation_h.png",
-        "best_n_validation_v.png",
-        "ridge_density_comparison.png",
-        "ridge_width_contrast_hv.png",
-        "horizontal_loss_diagnostic.png",
-    ):
-        require_png(root / "paper" / "figures" / figure, (500, 300))
+    for figure in POSTER_ASSET_FILES.values():
         require_png(root / "poster" / "assets" / figure, (500, 300))
+    for figure in PAPER_FIGURE_FILES:
+        require_png(root / "paper" / "figures" / figure, (500, 300))
 
     poster_pdf = root / "poster" / "build" / f"{POSTER_BASE}.pdf"
     paper_pdf = root / "paper" / "build" / "ABSTRACT54.pdf"

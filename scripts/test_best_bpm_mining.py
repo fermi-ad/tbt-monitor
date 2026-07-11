@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import subprocess
 import sys
 import tempfile
@@ -1114,6 +1115,20 @@ class BestBpmMiningTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "missing page count"):
             parse_pdfinfo("Title: no geometry\n")
 
+    def test_paper_manifest_matches_referenced_figures(self) -> None:
+        repo = Path(__file__).resolve().parents[1]
+        manuscript = (repo / "publication/ibic2026/paper/ABSTRACT54.tex").read_text(
+            encoding="utf-8"
+        )
+        build_script = (repo / "publication/ibic2026/paper/build_paper.sh").read_text(
+            encoding="utf-8"
+        )
+        figure_pattern = r"figures/([A-Za-z0-9_]+\.png)"
+        manuscript_figures = set(re.findall(figure_pattern, manuscript))
+        manifest_figures = set(re.findall(figure_pattern, build_script))
+        self.assertEqual(manifest_figures, manuscript_figures)
+        self.assertNotIn("horizontal_loss_diagnostic.png", manuscript_figures)
+
     def test_publication_requires_pdf_derived_poster_preview(self) -> None:
         preview = self.root / "poster.png"
         render = self.root / "poster-render.png"
@@ -1695,13 +1710,29 @@ class BestBpmMiningTests(unittest.TestCase):
         content = json.loads((publication / "poster" / "content.json").read_text(encoding="utf-8"))
         self.assertEqual(content["assets"]["ridgeContrast"], "assets/ridge_width_contrast_hv.png")
         self.assertNotIn("selectedSpill", content["assets"])
-        self.assertTrue((publication / "poster" / "assets" / "ridge_width_contrast_hv.png").is_file())
-        self.assertTrue((publication / "paper" / "figures" / "ridge_width_contrast_hv.png").is_file())
+        self.assertTrue(
+            (publication / "poster" / "assets" / "ridge_width_contrast_hv.png").is_file()
+        )
+        self.assertTrue(
+            (publication / "poster" / "assets" / "horizontal_loss_diagnostic.png").is_file()
+        )
+        self.assertTrue(
+            (publication / "paper" / "figures" / "ridge_width_contrast_hv.png").is_file()
+        )
+        self.assertFalse(
+            (publication / "paper" / "figures" / "horizontal_loss_diagnostic.png").exists()
+        )
         self.assertIn("IntensityEffectCount}{1}", (publication / "paper" / "results_macros.tex").read_text())
         manifest = read_csv(publication / "source_manifest.csv")
         self.assertTrue(any(row["role"] == "poster:ridge_width_hv_poster" for row in manifest))
         self.assertTrue(any(row["role"] == "paper:ridge_width_hv" for row in manifest))
         self.assertTrue(any(row["role"] == "analysis:ridge_adaptive_metrics" for row in manifest))
+        self.assertFalse(
+            any(
+                row["output_path"] == "paper/figures/horizontal_loss_diagnostic.png"
+                for row in manifest
+            )
+        )
         verify_publication_source_manifest(publication)
         content_path = publication / "poster" / "content.json"
         original_content = content_path.read_bytes()

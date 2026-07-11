@@ -27,8 +27,7 @@ for figure in \
   "$HERE/figures/best_n_validation_h.png" \
   "$HERE/figures/best_n_validation_v.png" \
   "$HERE/figures/ridge_density_comparison.png" \
-  "$HERE/figures/ridge_width_contrast_hv.png" \
-  "$HERE/figures/horizontal_loss_diagnostic.png"; do
+  "$HERE/figures/ridge_width_contrast_hv.png"; do
   test -s "$figure" || {
     echo "missing required publication figure: $figure" >&2
     exit 1
@@ -104,7 +103,6 @@ write_checksum() {
   write_checksum "$HERE/figures/best_n_validation_v.png" "figures/best_n_validation_v.png"
   write_checksum "$HERE/figures/ridge_density_comparison.png" "figures/ridge_density_comparison.png"
   write_checksum "$HERE/figures/ridge_width_contrast_hv.png" "figures/ridge_width_contrast_hv.png"
-  write_checksum "$HERE/figures/horizontal_loss_diagnostic.png" "figures/horizontal_loss_diagnostic.png"
   write_checksum "$PDF" "build/$(basename "$PDF")"
 } >"$OUT/source_manifest.sha256"
 printf 'paper=%s\npages=%s\npage_size=%sx%s\n' "$PDF" "$pages" "$page_width" "$page_height"

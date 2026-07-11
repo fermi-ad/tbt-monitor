@@ -30,7 +30,7 @@ SHA-256
 materialization gate. It accepts only verifier-clean analysis roots and writes
 the exact poster JSON, paper table/figures, results payload, preparation report,
 and source manifest used by the two build pipelines. The manifest hashes the
-exact numerical source tables and all 15 materialized outputs; finalization
+exact numerical source tables and all 14 materialized outputs; finalization
 parses its fixed schema and re-hashes the complete output inventory.
 The materializer regenerates the H/V Best-N panels from the accepted summary:
 the publication pair contains only blind held-out agreement on a common scale,

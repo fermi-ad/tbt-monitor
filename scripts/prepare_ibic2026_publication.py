@@ -731,7 +731,6 @@ def prepare_publication(
         "best_n_h": paper_figures / "best_n_validation_h.png",
         "best_n_v": paper_figures / "best_n_validation_v.png",
         "ridge_hv": paper_figures / "ridge_density_comparison.png",
-        "h_loss": paper_figures / "horizontal_loss_diagnostic.png",
         "ridge_width_hv": paper_figures / "ridge_width_contrast_hv.png",
     }
     for role, destination in poster_destinations.items():

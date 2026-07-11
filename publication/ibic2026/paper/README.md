@@ -27,7 +27,6 @@ the same pass. The final source must include:
 - the exact-paired, shared-scale H/V legacy-versus-adaptive ridge figure;
 - the exact-paired selected-H/V P10-P90 width-contrast composite with an explicit
   zero reference and non-noise/non-extraction guardrail;
-- the data-derived horizontal tracking-loss diagnostic with no imposed onset;
 - a verifier-derived `results_table.tex` with per-plane Best-N and paired-ridge
   estimates and intervals;
 - verifier-derived `results_macros.tex` for every primary-score, intensity-
@@ -48,10 +47,14 @@ the same pass. The final source must include:
 The accepted abstract is intentionally quoted in the manuscript abstract until
 the corrected results justify a narrower factual update.
 
-Generate `results_table.tex`, `results_macros.tex`, and the five files under `figures/` with
-`scripts/prepare_ibic2026_publication.py`; the script rejects any mismatch
+Generate `results_table.tex`, `results_macros.tex`, and the four files under
+`figures/` with `scripts/prepare_ibic2026_publication.py`; the script rejects any mismatch
 between the selected Best-N rows and the plane-specific full-buffer ridge
 contract and requires the passing 2200-manifest raw-payload audit.
+The data-derived horizontal tracking-loss diagnostic remains a required poster
+and review-gallery asset, but it is deliberately not a manuscript figure: it
+is a noncausal, plane-specific diagnostic and would displace references from
+the four-page paper without strengthening the central inference.
 The generated macro set also supplies the definitive full-curve case count,
 stratified validation case count, fold count, and strict-majority sensitivity
 summary used in manuscript prose. All seven sensitivity runs must verify, at
