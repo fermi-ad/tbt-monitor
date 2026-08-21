@@ -1,0 +1,137 @@
+{
+  "context": {
+    "sourceDeck": "external/Delivery Ring BPM Status 7-16-2026 - DAS.pptx",
+    "sourceDeckSha256": "da3de3c720aa3065492352131c9bcf9bae6a8c4f77900e0c1833dee57fcbfcb3",
+    "sourceSlide": 2
+  },
+  "evidenceGate": {
+    "path": "publication/ibic2026/poster/evidence_gate.json",
+    "sha256": "7c412fd373a2d8c2c64725004001245f93e32efbb8984ee996c42799614bdabb",
+    "sizeBytes": 2579
+  },
+  "inputs": {
+    "beamlineMap": {
+      "dimensions": {
+        "height": 545,
+        "width": 1382
+      },
+      "path": "publication/ibic2026/poster/assets/muon-campus-beamlines.png",
+      "sha256": "7422ad58a659d6149139180bd6d35cd1fc9bd05ba94af6314f9fceb069278ce6",
+      "sizeBytes": 163370
+    },
+    "bestNH": {
+      "dimensions": {
+        "height": 1000,
+        "width": 1750
+      },
+      "path": "publication/ibic2026/reports/publication_figures/poster/best_n_validation_h.png",
+      "sha256": "a0bcd05d5ea8032bc5bef25fa41e089c3b55353bdecda301bb53461a56ddf9a0",
+      "sizeBytes": 89805
+    },
+    "bestNV": {
+      "dimensions": {
+        "height": 1000,
+        "width": 1750
+      },
+      "path": "publication/ibic2026/reports/publication_figures/poster/best_n_validation_v.png",
+      "sha256": "81ded3f92a45c3aa9c604ae5c7195576cb6c81997254313174ae6079e42ab5e7",
+      "sizeBytes": 102389
+    },
+    "resultsPayload": {
+      "path": "publication/ibic2026/results_payload.json",
+      "sha256": "ddb2e6ef88a3679aafc87bd20e26bc9c38a96be56daf6a3f5ab70334228ce684",
+      "sizeBytes": 69645
+    },
+    "ridgeHV": {
+      "dimensions": {
+        "height": 1516,
+        "width": 2400
+      },
+      "path": "publication/ibic2026/reports/publication_figures/poster/ridge_density_comparison.png",
+      "sha256": "55f677ac3046f02993b43dd1d8e07ce3d5538f531b72632617a33d32b5371552",
+      "sizeBytes": 1584571
+    }
+  },
+  "mapAttribution": {
+    "affiliation": "Fermilab",
+    "confirmedOn": "2026-08-19",
+    "creator": "George Deinlein",
+    "creditLine": "Beamline layout courtesy of George Deinlein, Fermilab staff; used with permission.",
+    "permissionScope": "this poster's publication reuse",
+    "permissionStatus": "full",
+    "role": "staff"
+  },
+  "outputs": {
+    "assets": {
+      "beamlineMap": {
+        "dimensions": {
+          "height": 545,
+          "width": 1382
+        },
+        "path": "publication/ibic2026/poster/assets/muon-campus-beamlines.png",
+        "sha256": "7422ad58a659d6149139180bd6d35cd1fc9bd05ba94af6314f9fceb069278ce6",
+        "sizeBytes": 163370
+      },
+      "bestNH": {
+        "dimensions": {
+          "height": 1000,
+          "width": 1750
+        },
+        "path": "publication/ibic2026/poster/assets/best_n_validation_h.png",
+        "sha256": "a0bcd05d5ea8032bc5bef25fa41e089c3b55353bdecda301bb53461a56ddf9a0",
+        "sizeBytes": 89805
+      },
+      "bestNV": {
+        "dimensions": {
+          "height": 1000,
+          "width": 1750
+        },
+        "path": "publication/ibic2026/poster/assets/best_n_validation_v.png",
+        "sha256": "81ded3f92a45c3aa9c604ae5c7195576cb6c81997254313174ae6079e42ab5e7",
+        "sizeBytes": 102389
+      },
+      "ridgeHV": {
+        "dimensions": {
+          "height": 1516,
+          "width": 2400
+        },
+        "path": "publication/ibic2026/poster/assets/ridge_density_comparison.png",
+        "sha256": "55f677ac3046f02993b43dd1d8e07ce3d5538f531b72632617a33d32b5371552",
+        "sizeBytes": 1584571
+      }
+    },
+    "content": {
+      "path": "publication/ibic2026/poster/content.json",
+      "sha256": "4ec1b279ec2510cd209ab70319d501a5416e0f89d598a6d50fc39971acff6edf",
+      "sizeBytes": 3947
+    }
+  },
+  "paperImmutability": {
+    "pdf": {
+      "path": "publication/ibic2026/paper/build/ABSTRACT54.pdf",
+      "sha256After": "42c842efb042b1eccc77d4fe6c822f89561e1e3c3b20fa4908795080334f5c82",
+      "sha256Before": "42c842efb042b1eccc77d4fe6c822f89561e1e3c3b20fa4908795080334f5c82",
+      "unchanged": true
+    },
+    "source": {
+      "path": "publication/ibic2026/paper/ABSTRACT54.tex",
+      "sha256After": "0751688d0956b29b21738b358a95f9e600ae3efb9b90b26bdce1de4c63826428",
+      "sha256Before": "0751688d0956b29b21738b358a95f9e600ae3efb9b90b26bdce1de4c63826428",
+      "unchanged": true
+    }
+  },
+  "publicationRequirements": {
+    "acknowledgment": "This manuscript has been authored by FermiForward Discovery Group, LLC under Contract No. 89243024CSC000002 with the U.S. Department of Energy, Office of Science, Office of High Energy Physics.",
+    "confirmedOn": "2026-08-19",
+    "reportNumber": "FERMILAB-POSTER-26-0268-AD",
+    "template": {
+      "name": "FNAL Scientific Poster A0 Vertical May25",
+      "placement": {
+        "acknowledgment": "bottom-left corner",
+        "reportNumber": "upper-right blue area"
+      },
+      "url": "https://www.fnal.gov/faw/designstandards/templates/index.html"
+    }
+  },
+  "schema": "tbt-monitor.ibic2026-poster-inputs/v2"
+}

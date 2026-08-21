@@ -356,23 +356,41 @@ config ranking. Its package modules cover:
   selector-defect controls, and orientation-independent PNG dimensions.
   The publication contract additionally binds the adaptive pass to the archived
   `18d321dbd4fe` 4096/256 tracking protocol and exact 2000/1988 source coverage.
-- `scripts/prepare_ibic2026_publication.py`: accepts only verifier-clean primary,
-  follow-up, three-block Best-N, all-training, intensity, full-buffer ridge, and raw-payload
-  audit roots; checks cross-collection transfer and all seven verified
-  hyperparameter-sensitivity runs, requires eligible knees from a strict
-  majority per plane while preserving every unavailable run and reason, rejects any retained
-  intensity weighting, and materializes the exact poster/paper figures,
-  plane-specific results table including selected-versus-Best-1 and legacy
-  ridge-width intervals, verifier-derived manuscript macros, poster
-  copy, results payload, and source hashes. The macros prevent primary-score or
-  intensity-count or all-training outcome prose from drifting when the accepted run grid changes and
-  distinguish the full Best-N curve population from the stratified
-  digitizer-disjoint validation sample. The materializer also selects the
-  accepted H/V coverage rows from the ridge verifier, requires exact closure of
-  structural = finite + blank + bounded-edge rows, emits all eight counts as
-  manuscript macros, and derives the primary-only 12-partial/16-absence capture
-  disclosure from the corpus audit rather than treating nominal topology as
-  recorded completeness.
+- `scripts/prepare_ibic2026_publication.py`: the pre-acceptance evidence
+  materializer. It accepts only verifier-clean primary, follow-up, three-block
+  Best-N, all-training, full-buffer ridge, and position-only raw-payload audit
+  roots; checks cross-collection transfer and all seven verified
+  hyperparameter-sensitivity runs; requires eligible knees from a strict
+  majority per plane while preserving every unavailable run and reason; and
+  materializes the paper figures/table/macros, results payload, initial poster
+  inputs, and source hashes. The macros prevent primary-score, Best-1
+  membership, or all-training outcome prose from drifting when the accepted run
+  grid changes and distinguish the full Best-N curve population from the
+  stratified digitizer-disjoint validation sample. It also provenance-binds the
+  deterministic cross-spill null and Best-1 membership tables, selected H/V
+  ridge-row closure, and primary-only 12-partial/16-absence disclosure. Once an
+  accepted poster evidence gate exists, this command refuses to co-generate the
+  paper and poster.
+- `scripts/prepare_ibic2026_poster.py`: the post-acceptance, one-way poster
+  materializer. It consumes a schema-v3 evidence gate that pins the frozen paper
+  source/PDF, schema-v2 payload, H/V Best-N figures, H/V ridge figure, and
+  contextual beamline map, plus structured George Deinlein/Fermilab attribution
+  and full reuse permission. The same gate binds the assigned poster report
+  number, current FermiForward/DOE acknowledgment, and official template
+  identity and placements. It validates the exact hashes
+  and poster-facing scientific invariants, writes only
+  `publication/ibic2026/poster/**`, and emits a schema-v2 input manifest with
+  copied-asset hashes/dimensions, propagated attribution/publication
+  requirements, and before/after paper hashes.
+- `publication/ibic2026/poster/build_poster.mjs` and `build_poster.sh`: import the
+  audited Fermilab starter and build a graphics-first A0 poster from four assets:
+  a dominant exact-paired full-spill ridge comparison, H and V held-out Best-N
+  validation, and a secondary credited beamline map. The builder places
+  `FERMILAB-POSTER-26-0268-AD` in the upper-right blue header and the current
+  contract `89243024CSC000002` acknowledgment in the lower-left footer. The build
+  writes schema-v2 source provenance binding the evidence gate and poster input
+  manifest, then preserves the existing slide/layout, font, render, checksum,
+  and template-fidelity gates.
 - `scripts/package_publication_review.py`: copies labeled publication, report,
   and gallery components into one lazy-loading review index. It records every
   copied path, size, and hash, rejects unsafe or unmanifested paths, proves each
@@ -382,14 +400,17 @@ config ranking. Its package modules cover:
   delivery closure gate. It verifies immutable references, PDF geometry, render
   dimensions, byte identity between the named poster PNG and the authoritative
   PDF raster, required sources/figures, selected-N, all-training, and sensitivity payload
-  majority/range/run-detail consistency,
-  state, zero retained intensity effects, exact corpus-wide raw-payload audit,
+  majority/range/run-detail consistency, v2 payload schema and exact source-role
+  allowlist, and the two-collection position-only raw-payload audit,
   primary-capture and selected-ridge closure with matching poster evidence and
-  manuscript macros, unresolved copy, and read-only slide-OOXML absence of empty structural
-  placeholders. It also recomputes the poster/paper portable checksum
-  inventories, validates the fixed publication materialization-manifest schema
-  and exact output inventory, re-hashes all materialized outputs, checks poster
-  source-manifest hashes/dimensions, and verifies the delivered zero-issue
+  manuscript macros, paper-frozen poster evidence/input manifests, unresolved
+  copy, and read-only slide-OOXML absence of empty structural placeholders. It
+  also recomputes the poster/paper portable checksum inventories, validates the
+  fixed pre-acceptance materialization-manifest schema and frozen output
+  inventory, re-hashes the gate and current poster assets, checks schema-v2
+  poster source-manifest hashes/dimensions, verifies the exact visible George
+  Deinlein credit, full reuse-permission metadata, assigned report number, and
+  current acknowledgment, and verifies the delivered zero-issue
   template-fidelity report before writing
   the complete publication inventory and compliance report.
 - `verification.py`: structural output-contract checks for completed or
@@ -459,6 +480,9 @@ Main artifact families:
 - standalone poster products (`dataset_manifest.csv`, baseline/flash summaries,
   trace-density waterfalls, optional weak-label ML reports, DGX benchmark
   summaries, and copied poster-plot index)
+- final IBIC poster inputs (`poster/evidence_gate.json`, `input_manifest.json`,
+  concise `content.json`, one contextual beamline map, three scientific PNGs,
+  and a schema-v2 build source manifest)
 - raw captured-spill GPU/poster products (`gpu_spills_summary.csv`,
   `gpu_sliding_tune.csv`, `ridge_density_h/v.png`,
   `single_spill_spectrogram_h/v.png`, `spectrogram_*_{hann,multitaper}.png`,
@@ -506,13 +530,17 @@ Raw payload policy:
   Derived intensity streams are auxiliary preservation payloads and are skipped
   by offline tune analysis until intensity semantics are promoted explicitly.
 - `scripts/audit_delivery_ring_payloads.py` independently rereads every raw
-  publication payload through turn 50000. It checks the exact 120-channel,
-  30-digitizer topology; advertised/on-disk counts; finite samples; long exact
+  publication position payload through turn 50000. It checks the exact 120-channel,
+  30-digitizer topology in each of two collections; the 2000-manifest,
+  239984-position-row, 12-partial, and 16-absence contract;
+  advertised/on-disk counts; finite samples; long exact
   plateaus; and the producer's device-coded fallback pairs. Its report is a
   required publication input rather than an optional diagnostic. The exact
   manifest hash, per-collection partial-capture counts, and deterministic
   `missing_position_streams.csv` distinguish streams absent from a manifest
   from payload files missing after capture; neither case is silently zero-filled.
+  The standalone intensity sidecar retains its three-collection audit and exact
+  pair counts without exposing those roles to publication materialization.
 - `scripts/compare_payload_absences_to_best_n.py` joins that inventory to the
   accepted per-spill H/V membership rows. It verifies selected cardinality and
   records overlap by exact source key without estimating a counterfactual
@@ -584,6 +612,13 @@ When changing artifact fields or meaning, update:
 Poster/DGX script policy:
 - The poster scripts are downstream consumers of collected artifacts, not part
   of online acquisition or Rust runtime dispatch.
+- After paper acceptance, the final IBIC poster is also a one-way consumer of
+  the frozen paper/evidence gate. Poster copy, layout, or contextual-map changes
+  may write only the poster subtree; the combined pre-acceptance materializer is
+  unlocked only for a serious paper or accepted-evidence discrepancy.
+- Poster tooling verifies the required report number, acknowledgment, template,
+  and artifact geometry. Administrative publication records remain outside the
+  source and build contracts.
 - They keep CPU fallback as the reproducibility path and use CUDA/CuPy only
   for offline FFT benchmarks and raw captured-spill array-heavy products.
 - They intentionally exclude Schottky validation for the BPM-only poster phase.
@@ -606,7 +641,8 @@ for later analysis. Offline single-spill and batch commands reconstruct the same
 in-memory inputs that the current Redis paths build so tune extraction, quality
 flags, plots, and batch summaries stay shared.
 
-Implementation slices are tracked in `docs/ISSUE_MAP_DAQ_SPLIT.md`.
+The completed implementation is described in the capture and offline-analysis
+sections above.
 
 ### Add a new analysis metric
 

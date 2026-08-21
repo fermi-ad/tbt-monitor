@@ -104,13 +104,9 @@ cargo run --offline -- diagnose-captures \
   --same-spill-tolerance-ms 25
 ```
 
-## GitHub Workflow
+## Contributing
 
-Use issue-first tracking for substantive work and keep PR scope narrow. The
-repo workflow is documented in [GitHub Workflow](GITHUB_WORKFLOW.md), and
-implementation/doc sync status is tracked in
-[Engineering Backlog](ENGINEERING_BACKLOG.md).
-
-For GitHub CLI operations in this checkout, prefer authenticated `gh` locally
-when available. Keep generated or review-only artifacts out of commits unless
-they are intentionally part of the change.
+Use issue-first tracking for substantive work and keep pull requests focused.
+Run the relevant Rust and Python checks, update affected documentation, and keep
+generated or review-only artifacts out of commits unless they are intentional
+deliverables. See [CONTRIBUTING.md](../CONTRIBUTING.md).

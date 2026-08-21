@@ -1,6 +1,8 @@
 Template audit: FNAL Scientific Poster A0 Vertical, May 2025
 Source SHA-256: ca9647b1db39860ebdc83854c432842f0dd09b0a7601c8f4af1bd2bf405468a9
 Prepared one-slide starter SHA-256: b21f8c2e1d121f0d39ec1428576ae19d7ffdf1dd50a55b0a29df8e195ac8be60
+Official template listing rechecked 2026-08-19; the A0 vertical download still
+resolves to FNAL_Scientific_Poster_A0_VRT_May25.potx.
 
 Source structure
 - Two A0 portrait source slides, each 33.1 x 46.8 inches.
@@ -14,23 +16,45 @@ Inherited contract
 - Preserve inherited Helvetica typography and FNAL blue section headings; use
   the template's documented Arial fallback if the PDF renderer cannot preserve
   Helvetica.
-- Replace the five scientific sample images inside their inherited frames.
+- Replace four scientific/context sample images and delete the unused fifth
+  image frame.
 - Delete only the explicitly mapped authoring arrows, instructions, sample
   photographs, and unrelated sample logos.
 - Do not add a parallel background, replacement brand bar, or new logo system.
 
-Evidence-frame roles
-- Upper-left pair: leakage-controlled Best-N evidence for H and V.
-- Wide lower-left: exact-paired, shared-scale 50000-turn H/V ridge comparison.
-- Upper-right: selected-H/V exact-paired P10-P90 turn-width contrast.
-- Lower-right: H-plane tracking-loss diagnostic with no imposed onset.
-- Text frames: method, quantitative interpretation, limitations, and claim
-  boundaries.
+Graphics-first frame roles
+- The former upper-right image slot becomes the dominant exact-paired,
+  shared-scale 50000-turn H/V ridge comparison immediately below the header.
+- The former upper-left pair becomes a supporting full-width validation row
+  with enlarged H and V Best-N figures and one plain-language sentence per
+  plane.
+- The former wide lower-left image slot becomes a secondary, uncropped Muon
+  Campus beamline map beside the calibrated conclusion.
+- The lower-right image is deleted. Its space becomes a short, calibrated
+  conclusion beside the contextual map; the dense paragraph frame is
+  repurposed for the assigned report number in the upper-right blue header.
+- The remaining inherited text frames carry one question-led title, the
+  choose-early/test-later method, map context and credit, evidence takeaways,
+  the external-calibration limit, and the required lower-left acknowledgment.
+
+Evidence dependency
+- `poster/evidence_gate.json` pins the accepted paper source, accepted paper
+  PDF, results payload, three paper-derived poster figures, and contextual map.
+- `scripts/prepare_ibic2026_poster.py` is the post-acceptance materializer. It
+  writes only below `publication/ibic2026/poster/` and checks that the paper
+  hashes are unchanged before and after poster generation.
+- The pre-acceptance publication preparer remains an analysis/package build;
+  it is not the poster revision path after the evidence gate is accepted.
 
 QA contract
 - Author from the prepared template starter with @oai/artifact-tool.
 - Use contain fitting for every scientific plot; never crop axes or legends.
 - Reject provisional wording, unresolved placeholders, missing assets, image
   frames under 500 x 300 pixels, overlap, clipping, or template-fidelity loss.
+- Keep the beamline-map credit visible and preserve its extraction/source hash
+  in the evidence gate and source manifests. Require schema-v3 structured
+  attribution for George Deinlein, Fermilab staff, with full permission for
+  this poster's publication reuse, plus the assigned report number, current
+  FermiForward/DOE acknowledgment and template placement.
 - Inspect the full-size A0 raster, final layout JSON, exported slide XML, PDF,
   and editable PPTX before delivery.

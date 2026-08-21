@@ -17,8 +17,8 @@ def default_config() -> dict[str, Any]:
     return {
         "data": {
             "collections": [
-                "/home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-183119",
-                "/home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-231330",
+                "/path/to/captured-spills/collection-1",
+                "/path/to/captured-spills/collection-2",
             ]
         },
         "physics": {

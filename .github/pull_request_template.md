@@ -1,35 +1,31 @@
 ## Summary
+
 -
 
-## Why
--
+## Behavior and scope
 
-## Scope
-In:
--
-Out:
--
-
-## Behavior Changes
--
+- User-visible behavior:
+- Data, timing, quality, or output-contract impact:
+- Out of scope:
 
 ## Validation
-- [ ] `cargo fmt --all`
-- [ ] `cargo test -- --nocapture`
-- [ ] Artifact/output behavior verified (if applicable)
 
-## Doc Sync Gate (AGENTS.md)
-- [ ] `docs/USAGE.md` updated for user-visible behavior/CLI/artifact changes
-- [ ] `README.md` updated when the project overview or command map changed
-- [ ] `docs/ARCHITECTURE.md` updated when data flow/module boundaries changed
-- [ ] `docs/DESIGN_DECISIONS.md` updated when rationale/tradeoffs changed
-- [ ] `docs/PLAN.md` updated when roadmap alignment changed
-- [ ] `docs/PHYSICS.md` / `docs/ANALYSIS_CHECKLIST.md` updated when physics validation scope changed
-- [ ] `docs/ENGINEERING_BACKLOG.md` item status moved to `done` (or `Notes:` added for deferral)
+- [ ] `cargo fmt --all -- --check`
+- [ ] `cargo test --locked -- --nocapture`
+- [ ] Relevant Python tests pass
+- [ ] Generated artifacts or outputs were verified, if applicable
 
-## Linked Issues
-Closes #
+## Documentation
 
-## Risks / Rollback
+- [ ] User-facing commands and behavior are documented
+- [ ] Architecture or scientific interpretation is updated where needed
+- [ ] No documentation change is required
+
+## Risks
+
 - Primary risk:
-- Rollback plan:
+- Rollback approach:
+
+## Linked issues
+
+Closes #

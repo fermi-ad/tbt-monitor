@@ -3383,7 +3383,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         out / "ridge_density_best_ensemble_index.md",
         index_text(
             figure_rows,
-            str(args.legacy_sliding_csv or "/home/derekste/tbt-spills-2000-autosweep/elite-full/jobs/18d321dbd4fe/combined"),
+            str(args.legacy_sliding_csv or "legacy-autosweep/18d321dbd4fe/combined"),
             args.turn_start,
             args.turn_end,
             args.window_turns,

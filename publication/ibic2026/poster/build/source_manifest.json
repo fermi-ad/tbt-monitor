@@ -1,72 +1,71 @@
 {
-  "schema": "tbt-monitor.ibic2026-poster-source/v1",
+  "schema": "tbt-monitor.ibic2026-poster-source/v2",
   "starter": {
-    "path": "/Users/derekste/Dev/codex/tbt-monitor/review-artifacts/publication-run-handoff/poster-starter/template-starter.pptx",
+    "path": "external/template-starter.pptx",
     "sha256": "b21f8c2e1d121f0d39ec1428576ae19d7ffdf1dd50a55b0a29df8e195ac8be60"
   },
   "content": {
-    "path": "/Users/derekste/Dev/codex/tbt-monitor/publication/ibic2026/poster/content.json",
-    "sha256": "002cf374e293c6ffed248d64720d9e583b0c6e82d1512d778e68409f4fa567d2"
+    "path": "publication/ibic2026/poster/content.json",
+    "sha256": "4ec1b279ec2510cd209ab70319d501a5416e0f89d598a6d50fc39971acff6edf"
+  },
+  "evidenceGate": {
+    "path": "publication/ibic2026/poster/evidence_gate.json",
+    "sha256": "7c412fd373a2d8c2c64725004001245f93e32efbb8984ee996c42799614bdabb"
+  },
+  "inputManifest": {
+    "path": "publication/ibic2026/poster/input_manifest.json",
+    "sha256": "d9523da2909c16388d95d0a90506223b70b644834a23d7d1799815ccad233450"
   },
   "assets": {
+    "beamlineMap": {
+      "file": "publication/ibic2026/poster/assets/muon-campus-beamlines.png",
+      "role": "Muon Campus beamline layout with the Mu2e Delivery Ring",
+      "dimensions": {
+        "width": 1382,
+        "height": 545
+      },
+      "sha256": "7422ad58a659d6149139180bd6d35cd1fc9bd05ba94af6314f9fceb069278ce6"
+    },
     "bestNH": {
-      "file": "/Users/derekste/Dev/codex/tbt-monitor/publication/ibic2026/poster/assets/best_n_validation_h.png",
+      "file": "publication/ibic2026/poster/assets/best_n_validation_h.png",
       "role": "horizontal leakage-controlled Best-N validation",
       "dimensions": {
-        "width": 1400,
-        "height": 800
+        "width": 1750,
+        "height": 1000
       },
-      "sha256": "ef09cd32d3e3cc75e3731833cb1a4cf41266abad829cfc3625a8eac05b3b19e7"
+      "sha256": "a0bcd05d5ea8032bc5bef25fa41e089c3b55353bdecda301bb53461a56ddf9a0"
     },
     "bestNV": {
-      "file": "/Users/derekste/Dev/codex/tbt-monitor/publication/ibic2026/poster/assets/best_n_validation_v.png",
+      "file": "publication/ibic2026/poster/assets/best_n_validation_v.png",
       "role": "vertical leakage-controlled Best-N validation",
       "dimensions": {
-        "width": 1400,
-        "height": 800
+        "width": 1750,
+        "height": 1000
       },
-      "sha256": "3f2bf69f9ad91370e3130e01b67c76c64c883079d4f6700d42faa350066e5077"
+      "sha256": "81ded3f92a45c3aa9c604ae5c7195576cb6c81997254313174ae6079e42ab5e7"
     },
     "ridgeHV": {
-      "file": "/Users/derekste/Dev/codex/tbt-monitor/publication/ibic2026/poster/assets/ridge_density_comparison.png",
+      "file": "publication/ibic2026/poster/assets/ridge_density_comparison.png",
       "role": "exact-paired full-spill H/V ridge comparison",
       "dimensions": {
         "width": 2400,
-        "height": 900
+        "height": 1516
       },
-      "sha256": "5821536b221cee9dd74627ea4abc6a31f6ef335c32bd920a72a0c75fad734f72"
-    },
-    "ridgeContrast": {
-      "file": "/Users/derekste/Dev/codex/tbt-monitor/publication/ibic2026/poster/assets/ridge_width_contrast_hv.png",
-      "role": "selected-H/V exact-paired turn-width contrast",
-      "dimensions": {
-        "width": 800,
-        "height": 1250
-      },
-      "sha256": "faa3ac3eb9e5e96de8be3c14c65cd98c909ba70d791a5664b823aa9ac43888e6"
-    },
-    "hLoss": {
-      "file": "/Users/derekste/Dev/codex/tbt-monitor/publication/ibic2026/poster/assets/horizontal_loss_diagnostic.png",
-      "role": "horizontal tracking-loss diagnostic",
-      "dimensions": {
-        "width": 1400,
-        "height": 780
-      },
-      "sha256": "346f89812ea353b924c5fc71f54f8ff43102ca2927e78a511e25e4483fa89c6e"
+      "sha256": "55f677ac3046f02993b43dd1d8e07ce3d5538f531b72632617a33d32b5371552"
     }
   },
   "outputs": {
     "pptx": {
-      "path": "/Users/derekste/Dev/codex/tbt-monitor/publication/ibic2026/poster/build/ibic2026-abstract54-poster.pptx",
-      "sha256": "71111e4d22cc2d80084ff620d9f0821fc0a9fa449b12b1465b4ad2b828e60ebc"
+      "path": "publication/ibic2026/poster/build/ibic2026-abstract54-poster.pptx",
+      "sha256": "133d76ca55aa828dcea6b161a9f9afa4d51bba8ee2a0319730ae33208818f754"
     },
     "artifactPreview": {
-      "path": "/Users/derekste/Dev/codex/tbt-monitor/publication/ibic2026/poster/build/ibic2026-abstract54-poster-artifact-preview.png",
-      "sha256": "f76e45937624e06d6677b6fd690fa57aec3fb0edb8926dd78c6a839c3527835c"
+      "path": "publication/ibic2026/poster/build/ibic2026-abstract54-poster-artifact-preview.png",
+      "sha256": "098c2c10c2cbe50ac6472576bf6efc7ee6d16a6bfb7c4fc4395cf0da22141ed1"
     },
     "layout": {
-      "path": "/Users/derekste/Dev/codex/tbt-monitor/publication/ibic2026/poster/build/layout/final-slide-01.layout.json",
-      "sha256": "bc36f0a48af92aee3e9a2ec3e924480ada06e5a5f326dad7a6e534215656d604"
+      "path": "publication/ibic2026/poster/build/layout/final-slide-01.layout.json",
+      "sha256": "3d769e6f80bc2f511c1c7ee5e5062ca42aaed673537451d1615f281ae2e58e5d"
     }
   }
 }

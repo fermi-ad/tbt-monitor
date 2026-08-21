@@ -14,6 +14,7 @@ import unittest
 import zipfile
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 
@@ -49,16 +50,20 @@ from bpm_mining.statistics import (
 from bpm_mining.clustering import cluster_spills
 from bpm_mining.artifact_selection import select_artifacts
 from bpm_mining.best_n import (
+    _nonidentity_block_order,
     aggregate_metrics,
+    best1_membership_rows,
     block_bootstrap_ci,
     collapsed_validation_values,
     completed_curve_keys,
     completed_validation_keys,
+    cross_spill_null_rows,
     cross_collection_transfer,
     evaluate_best_n,
     fold_by_digitizer,
     merge_best_n_shards,
     purged_window_split,
+    percentile,
     recommendation_gate_status,
     recommendation_margin_sensitivity,
     recommended_n,
@@ -147,8 +152,12 @@ from audit_legacy_single_bpm_selection import selection_row as legacy_selection_
 from package_publication_review import package_review, verify_review_package
 from prepare_ibic2026_publication import (
     PAYLOAD_AUDIT_MANIFEST_SHA256,
+    PAYLOAD_AUDIT_EXPECTED,
     PAYLOAD_AUDIT_TOPOLOGY_EXPECTED,
+    PAYLOAD_MISSING_INVENTORY_SHA256,
     PAYLOAD_MISSING_ROWS_BY_COLLECTION,
+    RESULTS_PAYLOAD_FIELDS,
+    RESULTS_PAYLOAD_SCHEMA,
     best_n_design_summary,
     prepare_publication,
     publication_content,
@@ -158,6 +167,7 @@ from prepare_ibic2026_publication import (
     selected_ridge_coverage,
     sensitivity_summary,
 )
+from render_ibic2026_figures import render_ridge_density
 from repair_best_bpm_visibility_duration import repair_visibility_durations
 from analyze_next_steps_outputs import fixed_score_contract_mismatches
 from compare_intensity_block_sensitivity import (
@@ -167,12 +177,20 @@ from compare_intensity_block_sensitivity import (
 from compare_best_n_beam_widths import compare_table as compare_best_n_beam_table
 from compare_best_n_sensitivity import comparison_rows as compare_best_n_sensitivity_rows
 from finalize_ibic2026_publication import (
+    POSTER_ACKNOWLEDGMENT,
+    POSTER_MAP_ATTRIBUTION,
+    POSTER_MAP_CREDIT,
+    POSTER_PUBLICATION_REQUIREMENTS,
+    POSTER_REPORT_NUMBER,
     POSTER_STARTER_SHA256,
     empty_structural_placeholders,
+    forbidden_payload_key_paths,
     parse_pdfinfo,
+    reject_stale_results_macros,
     require_identical_files,
     sha256 as publication_sha256,
     validate_publication_coverage_payload,
+    validate_results_payload_contract,
     validate_sensitivity_payload,
     verify_poster_source_manifest,
     verify_publication_source_manifest,
@@ -749,6 +767,119 @@ class BestBpmMiningTests(unittest.TestCase):
             for value in (4.0, 5.0, 6.0)
         ]
         self.assertEqual(collapsed_validation_values(rows, "metric"), [2.0, 5.0])
+
+    def test_cross_spill_block_orders_are_deterministic_and_never_identity(self) -> None:
+        first = _nonidentity_block_order(5, "H", 5, "collection-a", 17)
+        second = _nonidentity_block_order(5, "H", 5, "collection-a", 17)
+        self.assertEqual(first, second)
+        self.assertEqual(sorted(first), list(range(5)))
+        self.assertNotEqual(first, list(range(5)))
+        self.assertTrue(all(observed != permuted for observed, permuted in enumerate(first)))
+        with self.assertRaisesRegex(ValueError, "at least two blocks"):
+            _nonidentity_block_order(1, "H", 5, "collection-a", 17)
+
+    def test_cross_spill_null_isolates_collections_and_folds_then_collapses_folds(self) -> None:
+        rows = []
+        for collection, offset in (("a", 0.0), ("b", 10.0)):
+            for fold in (0, 1):
+                for spill in range(4):
+                    tune = offset + spill * 0.1 + fold * 0.001
+                    rows.append(
+                        {
+                            "collection": collection,
+                            "spill_id": f"spill_{spill}",
+                            "plane": "H",
+                            "subset_size": 5,
+                            "fold": fold,
+                            "selected_test_blind_q_hat": tune,
+                            "heldout_blind_q_hat": tune,
+                        }
+                    )
+        result = cross_spill_null_rows(
+            rows,
+            tune_half_width=0.01,
+            permutation_draws=12,
+            block_spills=2,
+        )
+        self.assertEqual(len(result), 1)
+        row = result[0]
+        self.assertEqual(row["status"], "ok")
+        self.assertEqual(int(row["validation_spill_count"]), 8)
+        self.assertEqual(int(row["valid_permutation_draws"]), 12)
+        self.assertEqual(float(row["observed_agreement_rate"]), 1.0)
+        self.assertEqual(float(row["null_mean_agreement_rate"]), 0.0)
+        self.assertEqual(float(row["null_ci_low"]), 0.0)
+        self.assertEqual(float(row["null_ci_high"]), 0.0)
+        self.assertEqual(
+            result,
+            cross_spill_null_rows(
+                list(reversed(rows)),
+                tune_half_width=0.01,
+                permutation_draws=12,
+                block_spills=2,
+            ),
+        )
+
+    def test_best_n_percentile_uses_linear_interpolation(self) -> None:
+        values = [0.0, 10.0, 20.0, 30.0]
+        self.assertAlmostEqual(percentile(values, 0.025), 0.75)
+        self.assertEqual(percentile(values, 0.5), 15.0)
+        self.assertAlmostEqual(percentile(values, 0.975), 29.25)
+
+    def test_best1_membership_counts_exact_source_identities(self) -> None:
+        winners = {
+            "H": ("h-a", "h-a", "h-b"),
+            "V": ("v-a", "v-b", "v-b"),
+        }
+        curve_rows = []
+        for plane, source_keys in winners.items():
+            for spill, source_key in enumerate(source_keys):
+                source_index = 0 if source_key.endswith("a") else 1
+                curve_rows.append(
+                    {
+                        "plane": plane,
+                        "spill_id": str(spill),
+                        "subset_size": 1,
+                        "bpm_indices": str(source_index),
+                        "bpm_members": f"{plane}P{source_index}",
+                        "bpm_source_keys": source_key,
+                        "bpm_digitizers": f"digitizer-{source_index}",
+                    }
+                )
+        validation_rows = [
+            {
+                "plane": plane,
+                "subset_size": 1,
+                "train_channel_count": 1,
+                "heldout_channel_count": 1,
+            }
+            for plane in ("H", "V")
+        ]
+        frequency_rows, summary_rows = best1_membership_rows(curve_rows, validation_rows)
+        frequencies = {
+            (row["plane"], row["bpm_source_key"]): (
+                int(row["winner_count"]),
+                float(row["winner_fraction"]),
+            )
+            for row in frequency_rows
+        }
+        self.assertEqual(frequencies[("H", "h-a")][0], 2)
+        self.assertAlmostEqual(frequencies[("H", "h-a")][1], 2.0 / 3.0)
+        self.assertEqual(frequencies[("H", "h-b")][0], 1)
+        self.assertAlmostEqual(frequencies[("H", "h-b")][1], 1.0 / 3.0)
+        self.assertEqual(frequencies[("V", "v-a")][0], 1)
+        self.assertAlmostEqual(frequencies[("V", "v-a")][1], 1.0 / 3.0)
+        self.assertEqual(frequencies[("V", "v-b")][0], 2)
+        self.assertAlmostEqual(frequencies[("V", "v-b")][1], 2.0 / 3.0)
+        summary = {row["plane"]: row for row in summary_rows}
+        for plane in ("H", "V"):
+            self.assertEqual(summary[plane]["available_source_count"], 2)
+            self.assertEqual(summary[plane]["winning_source_count"], 2)
+            self.assertEqual(summary[plane]["all_sources_win"], "true")
+            self.assertEqual(summary[plane]["maximum_winner_count"], 2)
+            self.assertAlmostEqual(
+                float(summary[plane]["maximum_winner_fraction"]), 2.0 / 3.0
+            )
 
     def test_best_n_recommendation_transfers_global_n_between_collections(self) -> None:
         def row(collection: str, subset_size: int, agreement: float, delta: float, support: float) -> dict[str, object]:
@@ -1380,12 +1511,60 @@ class BestBpmMiningTests(unittest.TestCase):
         build_script = (repo / "publication/ibic2026/paper/build_paper.sh").read_text(
             encoding="utf-8"
         )
-        figure_pattern = r"figures/([A-Za-z0-9_]+\.png)"
+        figure_pattern = r"figures/([A-Za-z0-9_]+\.pdf)"
         manuscript_figures = set(re.findall(figure_pattern, manuscript))
         manifest_figures = set(re.findall(figure_pattern, build_script))
         self.assertEqual(manifest_figures, manuscript_figures)
-        self.assertNotIn("horizontal_loss_diagnostic.png", manuscript_figures)
-        self.assertIn("raw host-published position arrays", manuscript)
+        self.assertEqual(
+            manuscript_figures,
+            {
+                "best_n_validation_hv.pdf",
+                "ridge_density_comparison.pdf",
+                "ridge_width_contrast_hv.pdf",
+            },
+        )
+        self.assertIn("host-published ``raw'' array", manuscript)
+        self.assertNotRegex(manuscript, r"(?i)intensity")
+
+    def test_ridge_density_turn_scale_is_repeated_for_each_method_panel(self) -> None:
+        ridge = self.root / "ridge"
+        paper = self.root / "paper"
+        poster = self.root / "poster"
+        fields = (
+            "spill_index",
+            "run_name",
+            "target_ms",
+            "plane",
+            "window_index",
+            "center_turn",
+            "selected_tune",
+        )
+        rows = [
+            {
+                "spill_index": 0,
+                "run_name": "run",
+                "target_ms": "1000",
+                "plane": plane,
+                "window_index": window_index,
+                "center_turn": center,
+                "selected_tune": tune,
+            }
+            for plane, tune in (("H", 0.65), ("V", 0.72))
+            for window_index, center in enumerate((2048, 47872))
+        ]
+        for name in (
+            "ridge_density_best1_sliding_tune.csv",
+            "ridge_density_best5_sliding_tune.csv",
+            "ridge_density_best12_sliding_tune.csv",
+        ):
+            write_csv(ridge / name, rows, fields)
+        with patch("render_ibic2026_figures._render"):
+            render_ridge_density(ridge, paper, poster, {"H": 5, "V": 12})
+        svg = (paper / "ridge_density_comparison.svg").read_text(encoding="utf-8")
+        self.assertEqual(svg.count("2,048"), 4)
+        self.assertEqual(svg.count("47,872"), 4)
+        self.assertEqual(svg.count('width="208.0" height="20.0"'), 4)
+        self.assertNotIn('width="434.0" height="20.0"', svg)
 
     def test_publication_requires_pdf_derived_poster_preview(self) -> None:
         preview = self.root / "poster.png"
@@ -1455,8 +1634,62 @@ class BestBpmMiningTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "nonportable"):
             verify_sha256_manifest(manifest, {"/absolute/path": alpha})
 
+    def test_publication_v2_rejects_old_schema_and_stale_sidecar_fields(self) -> None:
+        payload = {field: None for field in RESULTS_PAYLOAD_FIELDS}
+        payload["schema"] = RESULTS_PAYLOAD_SCHEMA
+        self.assertIs(validate_results_payload_contract(payload), payload)
+
+        old_schema = dict(payload)
+        old_schema["schema"] = "tbt-monitor.ibic2026-results/v1"
+        with self.assertRaisesRegex(ValueError, "schema must be .*v2"):
+            validate_results_payload_contract(old_schema)
+
+        stale_intensity = dict(payload)
+        stale_intensity["numeric_summary"] = {"intensity_effect_count": 240}
+        with self.assertRaisesRegex(ValueError, "stale sidecar fields"):
+            validate_results_payload_contract(stale_intensity)
+
+        stale_legacy = dict(payload)
+        stale_legacy["adaptive_ridge_rows"] = {"legacy_ridge_rows": []}
+        with self.assertRaisesRegex(ValueError, "stale sidecar fields"):
+            validate_results_payload_contract(stale_legacy)
+
+    def test_publication_v2_rejects_stale_intensity_macros(self) -> None:
+        reject_stale_results_macros(r"\newcommand{\BestNHNullMean}{0.0781}")
+        with self.assertRaisesRegex(ValueError, "stale intensity command"):
+            reject_stale_results_macros(r"\newcommand{\IntensityEffectCount}{240}")
+
+    def test_position_only_publication_audit_contract_is_pinned(self) -> None:
+        self.assertEqual(
+            PAYLOAD_AUDIT_EXPECTED,
+            {
+                "analysis_turns": 50000,
+                "plateau_turns": 128,
+                "manifest_count": 2000,
+                "stream_rows": 239984,
+                "paired_stream_rows": 0,
+                "incomplete_manifests": 12,
+                "missing_position_stream_rows": 16,
+                "warning_count": 12,
+                "flagged_rows": 0,
+                "position_plateau_rows": 0,
+                "paired_plateau_rows": 0,
+                "raw_device_fallback_pair_rows": 0,
+            },
+        )
+        self.assertEqual(
+            PAYLOAD_AUDIT_MANIFEST_SHA256,
+            "15ea5d56a986a5ddac482194f14758dfc268aeaa662309900aed72563aba3db9",
+        )
+        self.assertEqual(
+            PAYLOAD_MISSING_INVENTORY_SHA256,
+            "9737965e69b95e5df9410c015d73caf89edf3efb9af45922f4423e0dba446887",
+        )
+        self.assertEqual(set(PAYLOAD_AUDIT_TOPOLOGY_EXPECTED), set(PAYLOAD_MISSING_ROWS_BY_COLLECTION))
+        self.assertEqual(sorted(PAYLOAD_MISSING_ROWS_BY_COLLECTION.values()), [6, 10])
+
     def test_publication_verifies_poster_source_and_fidelity_manifests(self) -> None:
-        publication = self.root / "publication"
+        publication = self.root / "publication" / "ibic2026"
         poster = publication / "poster"
         assets = poster / "assets"
         build = poster / "build"
@@ -1464,7 +1697,24 @@ class BestBpmMiningTests(unittest.TestCase):
         assets.mkdir(parents=True)
         layout.parent.mkdir(parents=True)
         content = poster / "content.json"
-        content.write_text("{}", encoding="utf-8")
+        content.write_text(
+            json.dumps(
+                {
+                    "mapCredit": POSTER_MAP_CREDIT,
+                    "reportNumber": POSTER_REPORT_NUMBER,
+                    "acknowledgment": POSTER_ACKNOWLEDGMENT,
+                }
+            ),
+            encoding="utf-8",
+        )
+        paper = publication / "paper"
+        (paper / "build").mkdir(parents=True)
+        paper_source = paper / "ABSTRACT54.tex"
+        paper_pdf = paper / "build" / "ABSTRACT54.pdf"
+        paper_source.write_text("frozen paper", encoding="utf-8")
+        paper_pdf.write_bytes(b"%PDF-frozen")
+        payload = publication / "results_payload.json"
+        payload.write_text("{}", encoding="utf-8")
 
         png_header = (
             b"\x89PNG\r\n\x1a\n"
@@ -1473,11 +1723,10 @@ class BestBpmMiningTests(unittest.TestCase):
             + (480).to_bytes(4, "big")
         )
         asset_names = {
+            "beamlineMap": "muon-campus-beamlines.png",
             "bestNH": "best_n_validation_h.png",
             "bestNV": "best_n_validation_v.png",
             "ridgeHV": "ridge_density_comparison.png",
-            "ridgeContrast": "ridge_width_contrast_hv.png",
-            "hLoss": "horizontal_loss_diagnostic.png",
         }
         asset_records = {}
         for key, filename in asset_names.items():
@@ -1488,15 +1737,108 @@ class BestBpmMiningTests(unittest.TestCase):
                 "dimensions": {"width": 640, "height": 480},
             }
 
+        repo_relative = lambda path: path.relative_to(self.root).as_posix()
+        evidence_gate = poster / "evidence_gate.json"
+        gate_inputs = {
+            "resultsPayload": {
+                "path": repo_relative(payload),
+                "sha256": publication_sha256(payload),
+            },
+            **{
+                key: {
+                    "path": repo_relative(assets / filename),
+                    "sha256": publication_sha256(assets / filename),
+                }
+                for key, filename in asset_names.items()
+            },
+        }
+        evidence_gate.write_text(
+            json.dumps(
+                {
+                    "schema": "tbt-monitor.ibic2026-poster-evidence-gate/v3",
+                    "paper": {
+                        "source": {
+                            "path": repo_relative(paper_source),
+                            "sha256": publication_sha256(paper_source),
+                        },
+                        "pdf": {
+                            "path": repo_relative(paper_pdf),
+                            "sha256": publication_sha256(paper_pdf),
+                        },
+                    },
+                    "inputs": gate_inputs,
+                    "mapAttribution": POSTER_MAP_ATTRIBUTION,
+                    "publicationRequirements": POSTER_PUBLICATION_REQUIREMENTS,
+                    "context": {"sourceDeck": "fixture", "sourceSlide": 2},
+                }
+            ),
+            encoding="utf-8",
+        )
+        input_manifest = poster / "input_manifest.json"
+        input_manifest.write_text(
+            json.dumps(
+                {
+                    "schema": "tbt-monitor.ibic2026-poster-inputs/v2",
+                    "evidenceGate": {
+                        "path": repo_relative(evidence_gate),
+                        "sha256": publication_sha256(evidence_gate),
+                    },
+                    "paperImmutability": {
+                        role: {
+                            "path": repo_relative(path),
+                            "sha256Before": publication_sha256(path),
+                            "sha256After": publication_sha256(path),
+                            "unchanged": True,
+                        }
+                        for role, path in {"source": paper_source, "pdf": paper_pdf}.items()
+                    },
+                    "inputs": {
+                        "resultsPayload": {
+                            "path": repo_relative(payload),
+                            "sha256": publication_sha256(payload),
+                        },
+                        **{
+                            key: {
+                                "path": repo_relative(assets / filename),
+                                "sha256": publication_sha256(assets / filename),
+                                "dimensions": {"width": 640, "height": 480},
+                            }
+                            for key, filename in asset_names.items()
+                        },
+                    },
+                    "mapAttribution": POSTER_MAP_ATTRIBUTION,
+                    "publicationRequirements": POSTER_PUBLICATION_REQUIREMENTS,
+                    "context": {"sourceDeck": "fixture", "sourceSlide": 2},
+                    "outputs": {
+                        "content": {
+                            "path": repo_relative(content),
+                            "sha256": publication_sha256(content),
+                        },
+                        "assets": {
+                            key: {
+                                "path": repo_relative(assets / filename),
+                                "sha256": publication_sha256(assets / filename),
+                                "dimensions": {"width": 640, "height": 480},
+                            }
+                            for key, filename in asset_names.items()
+                        },
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
         pptx = build / "ibic2026-abstract54-poster.pptx"
         preview = build / "ibic2026-abstract54-poster-artifact-preview.png"
         pptx.write_bytes(b"pptx")
         preview.write_bytes(png_header)
         layout.write_text("{}", encoding="utf-8")
         source_manifest = {
-            "schema": "tbt-monitor.ibic2026-poster-source/v1",
+            "schema": "tbt-monitor.ibic2026-poster-source/v2",
             "starter": {"sha256": POSTER_STARTER_SHA256},
             "content": {"sha256": publication_sha256(content)},
+            "evidenceGate": {"sha256": publication_sha256(evidence_gate)},
+            "inputManifest": {"sha256": publication_sha256(input_manifest)},
             "assets": asset_records,
             "outputs": {
                 "pptx": {"sha256": publication_sha256(pptx)},
@@ -1508,8 +1850,23 @@ class BestBpmMiningTests(unittest.TestCase):
             json.dumps(source_manifest), encoding="utf-8"
         )
         verify_poster_source_manifest(publication)
+        original_gate = evidence_gate.read_text(encoding="utf-8")
+        tampered_gate = json.loads(original_gate)
+        tampered_gate["mapAttribution"]["permissionStatus"] = "unknown"
+        evidence_gate.write_text(json.dumps(tampered_gate), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "attribution and permission"):
+            verify_poster_source_manifest(publication)
+        evidence_gate.write_text(original_gate, encoding="utf-8")
+        tampered_gate = json.loads(original_gate)
+        tampered_gate["publicationRequirements"]["reportNumber"] = (
+            "FERMILAB-POSTER-26-0000-AD"
+        )
+        evidence_gate.write_text(json.dumps(tampered_gate), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "publication metadata"):
+            verify_poster_source_manifest(publication)
+        evidence_gate.write_text(original_gate, encoding="utf-8")
         content.write_text('{"changed": true}', encoding="utf-8")
-        with self.assertRaisesRegex(ValueError, "poster source manifest mismatch"):
+        with self.assertRaisesRegex(ValueError, "poster (?:input|source) manifest mismatch"):
             verify_poster_source_manifest(publication)
 
         fidelity = build / "template-fidelity-check.json"
@@ -1537,22 +1894,11 @@ class BestBpmMiningTests(unittest.TestCase):
             }
             for plane in ("H", "V")
         }
-        ridge = {
-            plane: {
-                "common_ridge_point_count": "350000",
-                "median_iqr_delta_ensemble_minus_legacy": "-0.002",
-                "median_iqr_delta_ci_low": "-0.0025",
-                "median_iqr_delta_ci_high": "-0.0015",
-                "median_shared_ridge_mass_gain": "0.1",
-                "median_shared_ridge_mass_gain_ci_low": "0.08",
-                "median_shared_ridge_mass_gain_ci_high": "0.12",
-            }
-            for plane in ("H", "V")
-        }
         adaptive = {
             plane: {
                 "baseline_subset_size": "1",
                 "ensemble_subset_size": str(size),
+                "common_ridge_point_count": "350000",
                 "median_iqr_delta_ensemble_minus_baseline": "-0.001",
                 "median_iqr_delta_ci_low": "-0.0015",
                 "median_iqr_delta_ci_high": "-0.0005",
@@ -1579,14 +1925,13 @@ class BestBpmMiningTests(unittest.TestCase):
                 "edge_excluded_rows": 1000,
             },
         }
-        table = render_results_table(best, ridge, adaptive, sizes)
+        table = render_results_table(best, adaptive, sizes)
         self.assertIn("H & 7", table)
         self.assertIn("V & 11", table)
         self.assertIn("concentration, not absolute tune accuracy", table)
         content = publication_content(
             sizes,
             best,
-            ridge,
             adaptive,
             {"first_sustained_half_peak_loss_turn": "12000", "most_likely_change_turn": "14000"},
             design,
@@ -1610,8 +1955,28 @@ class BestBpmMiningTests(unittest.TestCase):
                 "partial_capture_count": 12,
                 "source_absence_count": 16,
             },
-            240,
-            0,
+            {
+                "selected": {
+                    plane: {
+                        "null_mean_agreement_rate": 0.08,
+                        "null_ci_low": 0.07,
+                        "null_ci_high": 0.09,
+                    }
+                    for plane in ("H", "V")
+                }
+            },
+            {
+                "by_plane": {
+                    "H": {
+                        "winning_source_count": 60,
+                        "maximum_winner_fraction": 0.037,
+                    },
+                    "V": {
+                        "winning_source_count": 60,
+                        "maximum_winner_fraction": 0.057,
+                    },
+                }
+            },
         )
         self.assertEqual(content["author"], "Derek Steinkamp | Fermi National Accelerator Laboratory")
         self.assertIn("16 source absences across 12 flagged partial captures", content["methodBody"])
@@ -1621,13 +1986,16 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertIn("minus corrected adaptive Best-1", content["ridgeContrastCaption"])
         self.assertIn("H narrower than corrected Best-1", content["conclusionBody"])
         self.assertIn("V narrower than corrected Best-1", content["conclusionBody"])
-        self.assertIn("Same-protocol all-training control", content["conclusionBody"])
-        self.assertIn("with power-support tradeoffs", content["conclusionBody"])
+        self.assertIn("stronger digitizer-disjoint agreement", content["conclusionBody"])
+        self.assertIn("ridge-concentration improvement", content["conclusionBody"])
+        self.assertIn("Same-protocol all-training remains competitive", content["conclusionBody"])
         self.assertIn("H 2/8", content["conclusionBody"])
         self.assertIn("6/7 runs; 1 unresolved", content["bestNHCaption"])
         self.assertIn("7/7 runs; 0 unresolved", content["bestNVCaption"])
         self.assertIn("Median IQR change vs corrected Best-1", content["quantitativeBody"])
-        self.assertIn("0/240", content["quantitativeBody"])
+        self.assertIn("all 60 H and 60 V sources win at least once", content["quantitativeBody"])
+        self.assertIn("3.7% H", content["quantitativeBody"])
+        self.assertIn("5.7% V", content["quantitativeBody"])
         self.assertIn("4,000 H/V curve cases", content["quantitativeBody"])
         self.assertIn("1,000 stratified validation cases", content["quantitativeBody"])
         self.assertIn("5 held-out-digitizer folds", content["quantitativeBody"])
@@ -1637,6 +2005,7 @@ class BestBpmMiningTests(unittest.TestCase):
         self.assertIn("1,000 stratified spill-plane", content["methodBody"])
         self.assertEqual(content["evidence"]["primaryCapture"]["source_absence_count"], 16)
         self.assertEqual(content["evidence"]["ridgeCoverage"]["V"]["ridge_points"], 288000)
+        self.assertNotRegex(json.dumps(content), r"(?i)intensity")
 
     def test_publication_numeric_macros_are_generated_from_accepted_rows(self) -> None:
         primary = [
@@ -1648,15 +2017,6 @@ class BestBpmMiningTests(unittest.TestCase):
             {"plane": plane, "comparison": comparison, "median_paired_difference": str(value)}
             for plane, offset in (("H", 0.0), ("V", 0.01))
             for comparison, value in (("best1 vs best3", 0.05 + offset), ("best3 vs best5", 0.02 + offset))
-        ]
-        intensity = [
-            {
-                "statistical_benefit_pass": "true" if index == 0 else "false",
-                "fdr_q_value": "0.01" if index == 0 else "1",
-                "practical_effect_pass": "false",
-                "retain_method_for_tune_analysis": "false",
-            }
-            for index in range(3)
         ]
         design = {
             "curve_spill_plane_count": 4000,
@@ -1681,10 +2041,21 @@ class BestBpmMiningTests(unittest.TestCase):
         summary = publication_numeric_summary(
             primary,
             paired,
-            intensity,
             design,
             sensitivity,
             all_training,
+            {
+                "H": {
+                    "median_iqr_delta_ensemble_minus_baseline": -0.0024,
+                    "median_iqr_delta_ci_low": -0.0031,
+                    "median_iqr_delta_ci_high": -0.0019,
+                },
+                "V": {
+                    "median_iqr_delta_ensemble_minus_baseline": 0.001,
+                    "median_iqr_delta_ci_low": 0.00039,
+                    "median_iqr_delta_ci_high": 0.0017,
+                },
+            },
             {
                 "H": {
                     "sliding_rows": 360000,
@@ -1706,13 +2077,43 @@ class BestBpmMiningTests(unittest.TestCase):
                 "partial_capture_count": 12,
                 "source_absence_count": 16,
             },
+            {
+                "selected": {
+                    "H": {
+                        "null_mean_agreement_rate": 0.0781,
+                        "null_ci_low": 0.0684,
+                        "null_ci_high": 0.0872,
+                    },
+                    "V": {
+                        "null_mean_agreement_rate": 0.1546,
+                        "null_ci_low": 0.1324,
+                        "null_ci_high": 0.1884,
+                    },
+                }
+            },
+            {
+                "by_plane": {
+                    "H": {
+                        "winning_source_count": 60,
+                        "maximum_winner_fraction": 0.037,
+                    },
+                    "V": {
+                        "winning_source_count": 60,
+                        "maximum_winner_fraction": 0.057,
+                    },
+                }
+            },
         )
         macros = render_results_macros(summary)
         self.assertIn(r"\newcommand{\PrimaryHBestOneScore}{0.300}", macros)
         self.assertIn(r"\newcommand{\PrimaryVThreeToFiveGain}{0.0300}", macros)
-        self.assertIn(r"\newcommand{\IntensityEffectCount}{3}", macros)
-        self.assertIn(r"\newcommand{\IntensityFdrCount}{1}", macros)
-        self.assertIn(r"\newcommand{\IntensityRetainedCount}{0}", macros)
+        self.assertIn(r"\newcommand{\BestNHNullMean}{0.0781}", macros)
+        self.assertIn(r"\newcommand{\BestNVNullHigh}{0.1884}", macros)
+        self.assertIn(r"\newcommand{\BestOneUniqueH}{60}", macros)
+        self.assertIn(r"\newcommand{\BestOneMaxFrequencyV}{5.7}", macros)
+        self.assertIn(r"\newcommand{\RidgeHIqrDeltaMilli}{-2.40}", macros)
+        self.assertIn(r"\newcommand{\RidgeVIqrLowMilli}{0.39}", macros)
+        self.assertNotRegex(macros, r"(?i)intensity")
         self.assertIn(r"\newcommand{\BestNCurveSpillPlaneCount}{4000}", macros)
         self.assertIn(r"\newcommand{\BestNValidationSpillPlaneCount}{1000}", macros)
         self.assertIn(r"\newcommand{\BestNDigitizerFoldCount}{5}", macros)
@@ -1892,7 +2293,6 @@ class BestBpmMiningTests(unittest.TestCase):
         best_n = self.root / "best-n"
         all_training = self.root / "all-training"
         ridge = self.root / "ridge"
-        intensity = self.root / "intensity"
         payload_audit = self.root / "payload-audit"
         publication = self.root / "publication"
 
@@ -1909,7 +2309,6 @@ class BestBpmMiningTests(unittest.TestCase):
             followup / "logs" / "best_bpm_followup_verification.json",
             *(best_n / f"merged_block{block}" / "best_n_verification.json" for block in (10, 20, 40)),
             ridge / "ridge_density_verification.json",
-            intensity / "merged_block20" / "intensity_verification.json",
         ):
             json_file(report, {"status": "pass", "error_count": 0})
         json_file(
@@ -1945,12 +2344,12 @@ class BestBpmMiningTests(unittest.TestCase):
                 "status": "pass",
                 "analysis_turns": 50000,
                 "plateau_turns": 128,
-                "manifest_count": 2200,
-                "stream_rows": 263983,
-                "paired_stream_rows": 23999,
-                "incomplete_manifests": 13,
-                "missing_position_stream_rows": 17,
-                "warning_count": 13,
+                "manifest_count": 2000,
+                "stream_rows": 239984,
+                "paired_stream_rows": 0,
+                "incomplete_manifests": 12,
+                "missing_position_stream_rows": 16,
+                "warning_count": 12,
                 "flagged_rows": 0,
                 "position_plateau_rows": 0,
                 "paired_plateau_rows": 0,
@@ -2062,6 +2461,117 @@ class BestBpmMiningTests(unittest.TestCase):
         block20 = best_n / "merged_block20"
         json_file(block20 / "run_contract.json", {"tune_half_width": 0.0025})
         csv_file(block20 / "best_n_summary.csv", best_rows)
+        null_rows = [
+            {
+                "plane": plane,
+                "subset_size": subset_size,
+                "status": "ok",
+                "observed_agreement_rate": 0.9,
+                "null_mean_agreement_rate": 0.1,
+                "null_ci_low": 0.08,
+                "null_ci_high": 0.12,
+                "validation_spill_count": 500,
+                "permutation_draws": 1000,
+                "valid_permutation_draws": 1000,
+                "block_spills": 20,
+                "tune_half_width": 0.0025,
+            }
+            for plane in ("H", "V")
+            for subset_size in range(1, 41)
+        ]
+        csv_file(block20 / "best_n_cross_spill_null.csv", null_rows)
+        membership_frequencies = []
+        membership_summaries = []
+        for plane, maximum, other_base, other_extra in (
+            ("H", 74, 32, 38),
+            ("V", 114, 31, 57),
+        ):
+            counts = [maximum] + [other_base + int(index < other_extra) for index in range(59)]
+            self.assertEqual(sum(counts), 2000)
+            self.assertEqual(max(counts), maximum)
+            for index, count in enumerate(counts):
+                membership_frequencies.append(
+                    {
+                        "plane": plane,
+                        "bpm_index": index,
+                        "bpm_member": f"{plane}P{index:03d}",
+                        "bpm_source_key": f"{plane}-source-{index:02d}",
+                        "bpm_digitizer": f"digitizer-{index // 2:02d}",
+                        "winner_count": count,
+                        "plane_spill_count": 2000,
+                        "winner_fraction": count / 2000,
+                    }
+                )
+            membership_summaries.append(
+                {
+                    "plane": plane,
+                    "plane_spill_count": 2000,
+                    "available_source_count": 60,
+                    "winning_source_count": 60,
+                    "all_sources_win": "true",
+                    "maximum_winner_count": maximum,
+                    "maximum_winner_fraction": maximum / 2000,
+                    "maximum_source_keys": f"{plane}-source-00",
+                }
+            )
+        csv_file(
+            block20 / "best_n_best1_membership_frequency.csv",
+            membership_frequencies,
+        )
+        csv_file(
+            block20 / "best_n_best1_membership_summary.csv",
+            membership_summaries,
+        )
+        control_paths = {
+            filename: block20 / filename
+            for filename in (
+                "best_n_cross_spill_null.csv",
+                "best_n_best1_membership_frequency.csv",
+                "best_n_best1_membership_summary.csv",
+            )
+        }
+        json_file(
+            block20 / "best_n_verification.json",
+            {
+                "schema": "tbt-monitor.best-n-verification/v2",
+                "status": "pass",
+                "error_count": 0,
+                "expected_max_n": 40,
+                "expected_folds": 5,
+                "curve_cache_key_count": 4000,
+                "curve_row_count": 160000,
+                "validation_cache_key_count": 1000,
+                "validation_row_count": 200000,
+                "control_output_sha256": {
+                    filename: publication_sha256(path)
+                    for filename, path in control_paths.items()
+                },
+                "cross_spill_null": {
+                    "row_count": 80,
+                    "permutation_draws": 1000,
+                    "block_spills": 20,
+                    "tune_half_width": 0.0025,
+                    "permutation_mode": "seeded_block_derangement_shared_across_folds",
+                    "seed_namespace": "best-n-cross-spill-null",
+                    "status_counts": {"ok": 80},
+                },
+                "best1_membership": {
+                    "frequency_row_count": 120,
+                    "summary_row_count": 2,
+                    "by_plane": {
+                        plane: {
+                            "plane_spill_count": 2000,
+                            "available_source_count": 60,
+                            "winning_source_count": 60,
+                            "all_sources_win": True,
+                            "maximum_winner_count": maximum,
+                            "maximum_winner_fraction": maximum / 2000,
+                        }
+                        for plane, maximum in (("H", 74), ("V", 114))
+                    },
+                },
+            },
+        )
         csv_file(
             block20 / "best_n_cross_collection_transfer.csv",
             [
@@ -2114,21 +2624,6 @@ class BestBpmMiningTests(unittest.TestCase):
                 ],
             },
         )
-        ridge_rows = [
-            {
-                "plane": plane,
-                "subset_size": 1,
-                "common_ridge_point_count": 350000,
-                "median_iqr_delta_ensemble_minus_legacy": -0.002,
-                "median_iqr_delta_ci_low": -0.0025,
-                "median_iqr_delta_ci_high": -0.0015,
-                "median_shared_ridge_mass_gain": 0.1,
-                "median_shared_ridge_mass_gain_ci_low": 0.08,
-                "median_shared_ridge_mass_gain_ci_high": 0.12,
-            }
-            for plane in ("H", "V")
-        ]
-        csv_file(ridge / "ridge_density_legacy_comparison_metrics.csv", ridge_rows)
         csv_file(
             ridge / "ridge_density_adaptive_pair_comparison_metrics.csv",
             [
@@ -2137,11 +2632,44 @@ class BestBpmMiningTests(unittest.TestCase):
                     "subset_size": 1,
                     "baseline_subset_size": 1,
                     "ensemble_subset_size": 1,
+                    "common_ridge_point_count": 350000,
                     "median_iqr_delta_ensemble_minus_baseline": 0,
                     "median_iqr_delta_ci_low": 0,
                     "median_iqr_delta_ci_high": 0,
                 }
                 for plane in ("H", "V")
+            ],
+        )
+        sliding_rows = [
+            {
+                "spill_index": spill,
+                "run_name": "run",
+                "target_ms": str(spill),
+                "plane": plane,
+                "window_index": window,
+                "center_turn": 100 + 100 * window,
+                "selected_tune": (
+                    0.65 + 0.0005 * spill + 0.0001 * window
+                    if plane == "H"
+                    else 0.715 + 0.0005 * spill + 0.0001 * window
+                ),
+            }
+            for plane in ("H", "V")
+            for spill in range(2)
+            for window in range(2)
+        ]
+        csv_file(ridge / "ridge_density_best1_sliding_tune.csv", sliding_rows)
+        csv_file(
+            ridge / "ridge_density_adaptive_pair_comparison_by_turn.csv",
+            [
+                {
+                    "plane": plane,
+                    "subset_size": 1,
+                    "center_turn": turn,
+                    "p10_p90_delta_ensemble_minus_baseline": delta,
+                }
+                for plane, sign in (("H", -1), ("V", 1))
+                for turn, delta in ((100, 0.0002 * sign), (200, 0.0001 * sign))
             ],
         )
         csv_file(
@@ -2157,12 +2685,7 @@ class BestBpmMiningTests(unittest.TestCase):
             ],
         )
         figure_paths = (
-            block20 / "best_n_validation_h.png",
-            block20 / "best_n_validation_v.png",
-            ridge / "ridge_density_legacy_single_vs_best_h1_v1_hv.png",
             ridge / "ridge_concentration_selected_best1_h.png",
-            ridge / "ridge_p10_p90_delta_vs_turn_best1_to_selected_h1_v1_hv.png",
-            ridge / "ridge_p10_p90_delta_vs_turn_best1_to_selected_h1_v1_hv_poster.png",
             *(all_training / "plots" / row["filename"] for row in all_training_plot_rows),
         )
         for path in figure_paths:
@@ -2212,35 +2735,27 @@ class BestBpmMiningTests(unittest.TestCase):
                 for comparison, value in (("best1 vs best3", 0.05), ("best3 vs best5", 0.02))
             ],
         )
-        csv_file(
-            intensity / "merged_block20" / "intensity_method_effects.csv",
-            [
-                {
-                    "statistical_benefit_pass": "false",
-                    "fdr_q_value": 1,
-                    "practical_effect_pass": "false",
-                    "retain_method_for_tune_analysis": "false",
-                }
-            ],
-        )
-        csv_file(
-            intensity / "block_sensitivity" / "intensity_block_sensitivity.csv",
-            [{"label": "block20", "retained_effects": 0}],
-        )
+        def materialize() -> dict[str, object]:
+            with patch(
+                "prepare_ibic2026_publication.PAYLOAD_MISSING_INVENTORY_SHA256",
+                missing_inventory_sha,
+            ):
+                return prepare_publication(
+                    primary,
+                    followup,
+                    best_n,
+                    all_training,
+                    ridge,
+                    payload_audit,
+                    publication,
+                )
 
-        payload = prepare_publication(
-            primary,
-            followup,
-            best_n,
-            all_training,
-            ridge,
-            intensity,
-            payload_audit,
-            publication,
-        )
+        payload = materialize()
         self.assertEqual(payload["selected_sizes"], {"H": 1, "V": 1})
-        self.assertEqual(payload["numeric_summary"]["intensity_effect_count"], 1)
-        self.assertEqual(payload["payload_integrity"]["stream_rows"], 263983)
+        self.assertEqual(payload["schema"], RESULTS_PAYLOAD_SCHEMA)
+        self.assertEqual(set(payload), RESULTS_PAYLOAD_FIELDS)
+        self.assertFalse(forbidden_payload_key_paths(payload))
+        self.assertEqual(payload["payload_integrity"]["stream_rows"], 239984)
         self.assertEqual(payload["best_n_design"]["validation_spill_plane_count"], 1000)
         self.assertEqual(payload["all_training_control"]["comparison_count"], 16)
         self.assertEqual(payload["ridge_coverage"]["H"]["ridge_points"], 359000)
@@ -2251,31 +2766,13 @@ class BestBpmMiningTests(unittest.TestCase):
         missing_inventory_bytes = missing_inventory_path.read_bytes()
         missing_inventory_path.write_bytes(missing_inventory_bytes + b" ")
         with self.assertRaisesRegex(ValueError, "missing-position inventory hash mismatch"):
-            prepare_publication(
-                primary,
-                followup,
-                best_n,
-                all_training,
-                ridge,
-                intensity,
-                payload_audit,
-                publication,
-            )
+            materialize()
         missing_inventory_path.write_bytes(missing_inventory_bytes)
         all_training_comparison_path = all_training / "best_n_vs_all_training_comparison.csv"
         all_training_comparison_bytes = all_training_comparison_path.read_bytes()
         all_training_comparison_path.write_bytes(all_training_comparison_bytes + b" ")
         with self.assertRaisesRegex(ValueError, "all-training output changed after verification"):
-            prepare_publication(
-                primary,
-                followup,
-                best_n,
-                all_training,
-                ridge,
-                intensity,
-                payload_audit,
-                publication,
-            )
+            materialize()
         all_training_comparison_path.write_bytes(all_training_comparison_bytes)
         self.assertEqual(
             payload["adaptive_ridge_rows"]["H"][
@@ -2293,18 +2790,35 @@ class BestBpmMiningTests(unittest.TestCase):
             (publication / "poster" / "assets" / "horizontal_loss_diagnostic.png").is_file()
         )
         self.assertTrue(
-            (publication / "paper" / "figures" / "ridge_width_contrast_hv.png").is_file()
+            (publication / "paper" / "figures" / "ridge_width_contrast_hv.pdf").is_file()
         )
         self.assertFalse(
             (publication / "paper" / "figures" / "horizontal_loss_diagnostic.png").exists()
         )
-        self.assertIn("IntensityEffectCount}{1}", (publication / "paper" / "results_macros.tex").read_text())
-        self.assertIn("RidgeHFinitePicks}{359000}", (publication / "paper" / "results_macros.tex").read_text())
-        self.assertIn("PrimarySourceAbsences}{16}", (publication / "paper" / "results_macros.tex").read_text())
+        macros = (publication / "paper" / "results_macros.tex").read_text()
+        self.assertNotRegex(macros, r"(?i)intensity")
+        self.assertIn("BestNHNullMean}{0.1000}", macros)
+        self.assertIn("BestOneMaxFrequencyV}{5.7}", macros)
+        self.assertIn("RidgeHFinitePicks}{359000}", macros)
+        self.assertIn("PrimarySourceAbsences}{16}", macros)
         manifest = read_csv(publication / "source_manifest.csv")
+        self.assertTrue(
+            all(
+                not Path(row["source_path"]).is_absolute()
+                and ".." not in Path(row["source_path"]).parts
+                for row in manifest
+            )
+        )
         self.assertTrue(any(row["role"] == "poster:ridge_width_hv_poster" for row in manifest))
         self.assertTrue(any(row["role"] == "paper:ridge_width_hv" for row in manifest))
         self.assertTrue(any(row["role"] == "analysis:ridge_adaptive_metrics" for row in manifest))
+        self.assertFalse(
+            any(
+                "intensity" in row["role"].lower()
+                or "legacy" in row["role"].lower()
+                for row in manifest
+            )
+        )
         self.assertFalse(
             any(
                 row["output_path"] == "paper/figures/horizontal_loss_diagnostic.png"
@@ -2312,42 +2826,47 @@ class BestBpmMiningTests(unittest.TestCase):
             )
         )
         verify_publication_source_manifest(publication)
+        stale_role_manifest = [dict(row) for row in manifest]
+        next(row for row in stale_role_manifest if not row["output_path"])[
+            "role"
+        ] = "analysis:intensity_effects"
+        csv_file(publication / "source_manifest.csv", stale_role_manifest)
+        with self.assertRaisesRegex(ValueError, "source-role inventory mismatch"):
+            verify_publication_source_manifest(publication)
+        csv_file(publication / "source_manifest.csv", manifest)
         content_path = publication / "poster" / "content.json"
         original_content = content_path.read_bytes()
         content_path.write_bytes(original_content + b" ")
-        with self.assertRaisesRegex(ValueError, "source manifest hash mismatch"):
-            verify_publication_source_manifest(publication)
+        # The accepted publication manifest freezes paper/evidence provenance;
+        # poster revisions are verified by their independent gated manifests.
+        verify_publication_source_manifest(publication)
         content_path.write_bytes(original_content)
         unsafe_manifest = [dict(row) for row in manifest]
-        next(row for row in unsafe_manifest if row["output_path"])[
+        next(
+            row
+            for row in unsafe_manifest
+            if row["output_path"] and not row["role"].startswith("poster:")
+        )[
             "output_path"
         ] = "../escape"
         csv_file(publication / "source_manifest.csv", unsafe_manifest)
         with self.assertRaisesRegex(ValueError, "invalid publication output manifest row"):
             verify_publication_source_manifest(publication)
         csv_file(publication / "source_manifest.csv", manifest)
-        real_content = content_path.with_suffix(".real.json")
-        content_path.rename(real_content)
-        content_path.symlink_to(real_content.name)
+        paper_table = publication / "paper" / "results_table.tex"
+        real_content = paper_table.with_suffix(".real.tex")
+        paper_table.rename(real_content)
+        paper_table.symlink_to(real_content.name)
         with self.assertRaisesRegex(ValueError, "unsafe publication output path"):
             verify_publication_source_manifest(publication)
-        content_path.unlink()
-        real_content.rename(content_path)
+        paper_table.unlink()
+        real_content.rename(paper_table)
         audit_path = payload_audit / "delivery_ring_payload_audit.json"
         incomplete_audit = json.loads(audit_path.read_text(encoding="utf-8"))
-        incomplete_audit["stream_rows"] = 263998
+        incomplete_audit["stream_rows"] = 239998
         audit_path.write_text(json.dumps(incomplete_audit), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "does not match the publication corpus"):
-            prepare_publication(
-                primary,
-                followup,
-                best_n,
-                all_training,
-                ridge,
-                intensity,
-                payload_audit,
-                publication,
-            )
+            materialize()
 
     def test_intensity_block_sensitivity_separates_statistical_and_practical_passes(self) -> None:
         root = self.root / "intensity-block"

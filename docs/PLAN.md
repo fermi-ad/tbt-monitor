@@ -1,9 +1,7 @@
 # Tune Analysis Plan (Mapped to Implementation)
 
-This document translates the methodology from:
-- `ChatGPT - Synchrotron Tune Calculation plan.pdf`
-
-into an implementation-facing roadmap and a gap report.
+This document maps the tune-analysis methodology to the current implementation
+and records the remaining production gaps.
 
 ## Purpose
 
@@ -152,11 +150,10 @@ Divergence:
 
 Status: `Implemented as standalone scripts`
 
-`BPM_DGX_POSTER_CODEX_PLAN.md` is handled by `scripts/bpm_dgx_poster.py` and
-the thin phase wrappers in `scripts/`. This is a downstream poster-analysis
-layer over already collected artifacts, with the complete data source expected
-to be the `drbpm1` artifact tree (`/home/derekste/out`) or a DGX-mounted/copy
-of that tree.
+`scripts/bpm_dgx_poster.py` and the thin phase wrappers in `scripts/` implement
+a downstream poster-analysis layer over already collected artifacts. The
+complete data source is expected to be the `drbpm1` artifact tree
+(`$CAPTURE_ROOT`) or a DGX-mounted copy of that tree.
 
 Implemented poster-phase products include:
 
@@ -183,10 +180,8 @@ labels. Reference-monitor validation remains a separate roadmap item.
 
 Status: `Implemented as staged standalone scripts`
 
-`SPARK_BPM_AUTOSWEEP_RANKING_AND_CLASSIFICATION_PLAN.md` is handled by the
-Stage 0/autosweep/ranking scripts in `scripts/`. The implementation is a
-BPM-only staged search over raw captured position bundles, not a full Cartesian
-sweep.
+The Stage 0/autosweep/ranking scripts in `scripts/` implement a BPM-only staged
+search over raw captured position bundles, not a full Cartesian sweep.
 
 Implemented pieces:
 
@@ -218,7 +213,7 @@ Implemented pieces:
   artifact collation for best H/V, robust H/V, and poster candidates.
 
 Tier A inputs are the two Spark raw position-only collections under
-`/home/derekste/tbt-spills-2000`. Tier B intensity/beam-loss support remains a
+`$INPUT_ROOT`. Tier B intensity/beam-loss support remains a
 later-capable extension and should not block Tier A autosweep outputs.
 
 The ranker uses the fixed score formula:
@@ -238,10 +233,10 @@ Spill labels are `GOOD`, `MARGINAL`, `BAD`, `NO_SIGNAL`,
 
 Status: `Implemented; corrected publication rerun and validation sidecars active`
 
-`BEST_BPM_2000_SPILL_MINING_IMPLEMENTATION_PLAN.md` is implemented as
-`scripts/bpm_mining/` plus pass wrappers. The pipeline mined the two Tier A
-Spark position-only collections without assuming a fixed tune, monotonic
-chronological trend, or external tune truth.
+`scripts/bpm_mining/` and its pass wrappers implement the 2,000-spill Best-BPM
+study. The pipeline mined the two Tier A Spark position-only collections
+without assuming a fixed tune, monotonic chronological trend, or external tune
+truth.
 
 Implemented structure:
 
@@ -282,13 +277,18 @@ Implemented structure:
   interval, or 18-image gallery drift
 - a 200-spill exact-pair intensity sidecar with block-aware paired inference,
   10/20/40-spill block-length sensitivity, practical-effect gates,
-  payload-horizon auditing, and an indexed review gallery
+  payload-horizon auditing, and an indexed review gallery; it is a completed
+  standalone result rather than an IBIC prerequisite
 - strict intensity closure over the audited 23999-pair capture, complete
   90-window 4096/512 spill grids, bit-exact Best-1 weighting invariance via
   singleton spectrum pass-through, effect decisions, and all gallery assets
-- verifier-bound IBIC materialization that carries independent H/V Best-N
-  recommendations into a plane-selected ridge composite, poster copy, paper
-  table, exact figure copies, results payload, and source-hash manifest
+- verifier-bound pre-acceptance IBIC materialization that carries independent
+  H/V Best-N recommendations into the paper table/figures/macros, initial poster
+  inputs, deterministic cross-spill null, Best-1 membership summary, v2 results
+  payload, and source-hash manifest
+- a post-acceptance poster-only materializer whose evidence gate pins the paper
+  source/PDF, payload, three scientific graphics, and contextual beamline map;
+  it writes only the poster subtree and records before/after paper hashes
 - `verify_best_bpm_outputs.py` checks required output groups, CSV schemas,
   row counts where practical, global/per-spill artifacts, and final reports
   before a Spark run is treated as complete
@@ -319,9 +319,10 @@ Current publication interpretation:
   Every requested N receives a shared-scale H/V-by-method composite in addition
   to its single-plane and subtractive diagnostics; no composite is interpreted
   without exact paired counts and sample-fraction checks.
-  Plane-selected review also includes corrected Best-1 versus selected Best-N
-  and a legacy/corrected-Best-1/selected three-column control. This prevents the
-  historical selector defect from being presented as an ensemble-size gain.
+  The paper and poster use corrected Best-1 versus selected Best-N. A
+  legacy/corrected-Best-1/selected three-column control remains in the audit
+  gallery so the historical selector defect is never presented as an
+  ensemble-size gain.
   If H and V select different N, an additional contract-bound mixed composite
   uses the corresponding membership for each row and selected-N concentration
   panels keep the H-loss view legible.
@@ -333,8 +334,10 @@ Current publication interpretation:
   Exact-paired turn tables retain unsmoothed adaptive-minus-legacy and every
   adaptive N-pair width, entropy, peak-bin, and shared-ridge-mass contrast,
   including a zero Best-1 self-control. The publication width figure uses
-  selected Best-N minus corrected Best-1; legacy contrast stays a historical
-  anchor. Review PNGs apply only five-window visual smoothing. These locate
+  selected Best-N minus corrected Best-1 in the paper and review package; the
+  graphics-first poster states the H narrowing result beside the larger ridge
+  comparison instead of shrinking an additional width panel. Legacy contrast
+  stays a historical anchor. Review PNGs apply only five-window visual smoothing. These locate
   changes in ridge-pick concentration without assigning a fixed extraction
   onset or claiming physical noise removal.
   Verification treats the 2,000-spill by 180-center row grid as structural
@@ -346,25 +349,44 @@ Current publication interpretation:
 - Best-N, intensity, and full-buffer ridge passes write checksummed JSON run
   contracts before science output. Resumes reject parameter drift; merges
   require complete compatible shard sets and reject duplicate science keys.
-- Paper prose values that depend on primary or intensity tables are generated
-  as verifier-bound LaTeX macros; only explanatory scientific text remains
+- Paper prose values that depend on primary, Best-1 membership, Best-N, or
+  all-training tables are generated as verifier-bound LaTeX macros; only explanatory scientific text remains
   static in the manuscript source.
+- The accepted paper is frozen before poster design iteration. The schema-v2
+  poster evidence gate pins its source/PDF and all downstream evidence inputs;
+  the combined preparer refuses to run while that gate exists. Poster-only copy,
+  asset, and layout work may not modify the paper unless a serious discrepancy
+  requires explicit gate retirement and replacement.
+- The final A0 poster is graphics-first and word-light: the 50,000-turn H/V
+  ridge graphic is the dominant persistence hero, separate H/V Best-N panels
+  expose the marginal-versus-clear null separation, and a credited beamline map
+  supplies secondary machine context. Short questions and claims come from the
+  frozen payload; the map does not expand the calibration claim.
+- Poster requirement closure adds `FERMILAB-POSTER-26-0268-AD` to the
+  upper-right blue header and the current FermiForward Discovery Group, LLC
+  contract `89243024CSC000002` acknowledgment to the lower-left footer. The
+  official A0 vertical template page was rechecked on 2026-08-19 and still links
+  the May25 POTX. These poster-only metadata changes preserve the frozen paper.
 - Final delivery is not inferred from build exit codes alone. A separate
   finalizer requires explicit poster and paper visual-QA passes, rechecks page
   geometry and payload closure, requires the named poster PNG to be the
   byte-identical PDF raster with inherited master artwork, rejects empty
   structural placeholders found by a read-only scan of final slide XML, and
-  recomputes the publication materialization manifest, portable poster/paper
-  build manifests, primary/coverage payload-to-artifact bindings, and zero-issue
-  template fidelity before inventorying every
+  recomputes the frozen publication materialization manifest, paper-frozen
+  poster evidence/input manifests, schema-v2 poster source manifest, portable
+  poster/paper build manifests, primary/coverage payload-to-artifact bindings,
+  and zero-issue template fidelity before inventorying every
   delivered publication file by SHA-256.
 - Full-buffer galleries are publication-eligible only after their strict
   spill/window, exact-pair, metric, warning, PNG, and caption verifier passes.
-- Publication materialization also requires the independent Delivery Ring raw
-  payload audit over the immutable 2200-manifest inventory and first 50000
-  turns. It binds all 263983 captured position streams, 23999 exact intensity
-  pairs, and the 17 manifest-level absences across 13 recorded partial captures;
+- Publication materialization also requires a fresh independent Delivery Ring
+  position-only audit over the two primary collections and first 50000 turns.
+  It binds exactly 2000 manifests, 239984 captured position streams, two
+  60-H/60-V and 30-digitizer topologies, and 16 manifest-level absences across
+  12 recorded partial captures;
   no spectral result can waive a payload-integrity failure.
+  The earlier 2200-manifest, 23999-pair audit remains hash-bound to the
+  standalone intensity sidecar.
 - Primary-set copy states the nominal 60 H plus 60 V topology together with its
   12 partial captures and 16 explicit source absences. Selected full-buffer
   ridge copy is verifier-derived and reports structural, finite in-band,
@@ -381,8 +403,9 @@ Current publication interpretation:
   may favor either method or remain unresolved and must be reported without
   changing the accepted Best-N selector.
 - Poster and paper Best-N panels use only blind full-band selected-versus-held-
-  out agreement on a shared zero-based H/V scale. Conditioned near-training
-  agreement remains in the review gallery and cannot carry the headline claim.
+  out agreement on a shared zero-based H/V scale, with the deterministic
+  cross-spill null band shown. Conditioned near-training agreement remains in
+  the review gallery and cannot carry the headline claim.
 - The Best-N review gallery also includes an exact criterion-by-N decision
   matrix so the earliest eligible knee can be audited against every gate.
 - The old ``Best-10 deferred'' note is historical, not an active missing run.
@@ -390,7 +413,7 @@ Current publication interpretation:
   N=30) under the separate leakage-controlled protocol. The bounded N=30 trial
   put the V knee at the upper boundary, so the definitive July pass extends
   contiguously through N=40 under the predeclared boundary rule.
-- Intensity weighting is rejected unless block-aware FDR, practical effect,
+- The standalone intensity sidecar rejects weighting unless block-aware FDR, practical effect,
   median tune-shift, and 95% spillwise tune-shift criteria all pass. Integrity
   and timing diagnostics remain useful even when weighting is rejected.
   Subtractive intensity figures require identical exact finite spill/window
@@ -403,16 +426,16 @@ Current publication interpretation:
   cross-panel amplitude or extraction-timing claims.
   Lag correlation similarly retains common -1-to-1 and symmetric detail views;
   autoscaling does not make overlapping windows independent or causal.
+  None of these intensity outputs is materialized into the IBIC poster, paper,
+  payload, macros, reports, or source roles.
 
 ## Next Milestones
 
 Post-split analysis refinement:
 
-1. Complete the corrected exact-identity Best-1/3/5 run, Best-N curve and
-   sensitivities, all-training control, exact-point-paired 50000-turn gallery, visibility-duration
-   repair, corpus-wide raw-payload audit, final poster/paper, and publication
-   artifact manifest plus post-transfer review-package verification; keep
-   deficiencies tracked in GitHub issue #39.
+1. Preserve the completed corrected analysis, finalized four-page paper, and
+   approved graphics-first poster as the frozen publication baseline. Any
+   scientific revision must pass the existing evidence and publication gates.
 2. Add explicit spectral-coherence and clipping diagnostics to production
    analysis summaries when the autosweep identifies stable criteria.
 3. Export peak-width and uncertainty-oriented metrics in summaries/CSV.
@@ -420,18 +443,23 @@ Post-split analysis refinement:
    review; do not make SVD the default without that review.
 5. Add a first-party Schottky reference ingestion path (or converter contract)
    to reduce manual matching.
-
-The acquisition/offline-analysis split is tracked in
-`docs/ISSUE_MAP_DAQ_SPLIT.md`.
+6. Run a controlled tune-control quadrupole scan with the estimator frozen in
+   advance; compare measured H/V shifts with optics-predicted sign, slope, and
+   residuals and preserve a no-reliable-tune outcome.
+7. Extend the leakage-controlled Best-N matrix across score-weight
+   perturbations, 2048/4096/8192-turn spectral windows, and tune-agreement
+   tolerances. Report stable performance plateaus rather than a unique N.
+8. Add a spill/fold disagreement taxonomy and establish one post-spill result
+   as the first operational target. Defer intra-spill updates until incremental
+   transport, causality, and latency are validated separately.
 
 Completed split work now covers versioned captured-spill bundles, live
 one-shot/free-run capture, same-spill DAQ diagnostics with explicit timestamp
 distributions, `assess`, `diagnose-captures`, offline single/batch
 captured-bundle analysis, a minimal online/offline parity guardrail, and
 auxiliary RAW intensity capture derived from configured RAW position streams.
-See `docs/USAGE.md` for command usage and `docs/ISSUE_MAP_DAQ_SPLIT.md` for the
-issue history. The parity guardrail is a split regression check, not physics
-certification of the current algorithm.
+See `docs/USAGE.md` for command usage. The parity guardrail is a split
+regression check, not physics certification of the current algorithm.
 
 ## Open Physics Questions (still external)
 
@@ -439,6 +467,12 @@ certification of the current algorithm.
 2. Final tune search bands by plane for production operation.
 3. Whether passive coherent motion is sufficient in all operating regimes.
 4. Expected tune drift scale versus window size, especially during extraction dynamics.
+5. Safe quadrupole settings and optics-predicted tune shifts for a controlled
+   response scan.
+6. Which score-weight, spectral-window, and agreement-tolerance region keeps
+   the declared H/V operating points on an acceptable held-out plateau.
+7. Which physical or machine-state mechanisms dominate weak/competing
+   later-window peaks, particularly in H.
 
 ## Revision Discipline
 

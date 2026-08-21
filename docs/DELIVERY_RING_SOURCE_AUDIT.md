@@ -1,6 +1,6 @@
 # Delivery Ring Producer And Payload Audit
 
-Last updated: 2026-07-10.
+Last updated: 2026-07-16.
 
 This note records the upstream facts relevant to the BPM tune publication. It
 does not replace the captured-payload verifier and does not authorize changes to
@@ -68,30 +68,35 @@ channels cannot support an extraction-timing claim.
 
 ## Publication Gate
 
-Run `scripts/audit_delivery_ring_payloads.py` over both 1000-spill
-position-only collections and the 200-spill intensity capture. A passing report
+Run `scripts/audit_delivery_ring_payloads.py` over the two 1000-spill
+position-only collections. A passing publication report
 must contain exactly:
 
-- 2200 manifests;
-- 263983 captured raw position rows;
-- 23999 exact raw position/intensity pairs;
-- three complete union topologies of 120 channels, 60 H plus 60 V, on 30
+- 2000 manifests;
+- 239984 captured raw position rows;
+- no intensity-pair source role;
+- two complete union topologies of 120 channels, 60 H plus 60 V, on 30
   digitizers with two channels per plane;
-- 17 manifest-level absent position streams across 13 explicitly partial
+- 16 manifest-level absent position streams across 12 explicitly partial
   captures, enumerated and hash-bound in `missing_position_streams.csv`;
 - zero first-50000-turn nonfinite samples, sample-count mismatches, exact
   plateaus of at least 128 turns, or repeated device-coded raw fallback pairs.
 
 The exact partial-capture distribution is five manifests in the first
-position-only collection, seven in the second, and one in the intensity
-collection. The 17 absent streams are not missing payload files: they were
+position-only collection and seven in the second. The 16 absent streams are not missing payload files: they were
 omitted from manifests that already record `Partial` capture state. None of the
 16 position-only absences intersects the accepted per-spill H Best-5 or V
 Best-12 membership. That join is preserved by
 `scripts/compare_payload_absences_to_best_n.py` with source-table and output
-hashes. Accordingly, publication prose about the 2000-spill primary analysis
-uses the first two collections' 12 partial captures and 16 absences; corpus-wide
-integrity prose retains the full three-collection 13/17 totals. Source payloads
-are read-only. A failed audit
-blocks intensity interpretation, the full-buffer ridge gallery, and final
-poster/paper materialization.
+hashes. Publication prose therefore uses the 12 partial captures and 16
+absences directly. Source payloads are read-only. A failed position audit blocks
+the full-buffer ridge gallery and final poster/paper materialization.
+
+## Retained intensity sidecar audit
+
+The completed intensity study keeps the earlier immutable three-collection
+audit: 2200 manifests, 263983 captured raw position rows, 23999 exact raw
+position/intensity pairs, and 17 absences across 13 partial captures. Its exact
+pair verifier, payload-horizon findings, and hashes remain valid standalone
+evidence. They are not publication source roles and cannot satisfy or waive the
+fresh two-collection IBIC audit.

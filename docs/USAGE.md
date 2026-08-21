@@ -7,6 +7,21 @@ start with [DAQ Guide](DAQ.md), [Analysis Chains](ANALYSIS_CHAINS.md),
 [Architecture](ARCHITECTURE.md) for data flow, synchronization policy, and
 artifact schema details.
 
+Portable paths are used throughout the offline examples. Set them for the
+machine and data set being analyzed:
+
+```bash
+PYTHON=python3
+INPUT_ROOT=/path/to/captured-spills
+CAPTURE_ROOT=$INPUT_ROOT
+OUTPUT_ROOT=/path/to/analysis-output
+AUTOSWEEP_ROOT=$OUTPUT_ROOT/autosweep
+BEST_BPM_ROOT=$OUTPUT_ROOT/best-bpm
+BEST_N_ROOT=$OUTPUT_ROOT/best-n
+ALL_TRAINING_ROOT=$OUTPUT_ROOT/best-n-all-training
+INTENSITY_ROOT=$OUTPUT_ROOT/intensity
+```
+
 ## Command Matrix
 
 | Command | Purpose | Redis required |
@@ -26,9 +41,9 @@ artifact schema details.
 ## Build And Help
 
 ```bash
-cargo check --offline
-cargo run --offline -- --help
-cargo run --offline -- <command> --help
+cargo check --locked
+cargo run --locked -- --help
+cargo run --locked -- <command> --help
 ```
 
 Most examples below use `config/monitor.cfg` and `out/`. Replace those paths for
@@ -403,7 +418,7 @@ should target that tree or a DGX-mounted/copy of it:
 
 ```bash
 python3 scripts/bpm_dgx_poster.py run-all \
-  --input /home/derekste/out \
+  --input $CAPTURE_ROOT \
   --out poster-artifacts/drbpm1-poster \
   --flashes 128 256 512 \
   --device auto
@@ -419,10 +434,10 @@ For the raw 2000-spill captured payload set, copy the two capture directories
 to Spark and run the GPU analyzer directly over `manifest.json`/payload bundles:
 
 ```bash
-/home/derekste/venvs/cupy-spark-cu13/bin/python scripts/gpu_analyze_captured_spills.py \
-  --input /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-183119 \
-          /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-231330 \
-  --out /home/derekste/tbt-spills-2000-gpu-upgrade \
+$PYTHON scripts/gpu_analyze_captured_spills.py \
+  --input $INPUT_ROOT/collection-1 \
+          $INPUT_ROOT/collection-2 \
+  --out $OUTPUT_ROOT/gpu-upgrade \
   --device cuda \
   --flashes 128 \
   --spectrogram-method both \
@@ -478,26 +493,26 @@ Use `--limit` for Spark smoke tests before the full pass.
 Use the autosweep scripts when you want to explore tune-tracking parameter
 space over raw captured BPM bundles without running a full Cartesian sweep.
 The v1 path is BPM-only and is intended for the two Tier A Spark position-only
-collections under `/home/derekste/tbt-spills-2000`.
+collections under `$INPUT_ROOT`.
 
 Stage 0 inventories raw captures, checks payload health, and writes a metadata
 cache:
 
 ```bash
 python3 scripts/build_collection_manifest.py \
-  --roots /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-183119 \
-          /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-231330 \
-  --out /home/derekste/tbt-spills-2000-autosweep/stage0
+  --roots $INPUT_ROOT/collection-1 \
+          $INPUT_ROOT/collection-2 \
+  --out $AUTOSWEEP_ROOT/stage0
 
 python3 scripts/validate_spill_integrity.py \
-  --manifest /home/derekste/tbt-spills-2000-autosweep/stage0/dataset_manifest.csv \
-  --out /home/derekste/tbt-spills-2000-autosweep/stage0 \
+  --manifest $AUTOSWEEP_ROOT/stage0/dataset_manifest.csv \
+  --out $AUTOSWEEP_ROOT/stage0 \
   --device cuda
 
 python3 scripts/build_spill_cache.py \
-  --manifest /home/derekste/tbt-spills-2000-autosweep/stage0/dataset_manifest.csv \
-  --health /home/derekste/tbt-spills-2000-autosweep/stage0/spill_health.csv \
-  --out /home/derekste/tbt-spills-2000-autosweep/stage0 \
+  --manifest $AUTOSWEEP_ROOT/stage0/dataset_manifest.csv \
+  --health $AUTOSWEEP_ROOT/stage0/spill_health.csv \
+  --out $AUTOSWEEP_ROOT/stage0 \
   --device cuda
 ```
 
@@ -506,24 +521,24 @@ interaction grid (`seed=20260613`, default `max-configs=300`):
 
 ```bash
 python3 scripts/run_autosweep.py \
-  --dataset /home/derekste/tbt-spills-2000-autosweep/stage0/dataset_manifest.csv \
+  --dataset $AUTOSWEEP_ROOT/stage0/dataset_manifest.csv \
   --mode pilot \
   --spills 200 \
   --max-configs 300 \
   --device cuda \
   --parallel-jobs 2 \
   --gpu-telemetry-interval-seconds 30 \
-  --out /home/derekste/tbt-spills-2000-autosweep/pilot
+  --out $AUTOSWEEP_ROOT/pilot
 ```
 
 Rank the pilot and make the initial summary package:
 
 ```bash
 python3 scripts/rank_autosweep_results.py \
-  --autosweep-dir /home/derekste/tbt-spills-2000-autosweep/pilot
+  --autosweep-dir $AUTOSWEEP_ROOT/pilot
 
 python3 scripts/make_initial_analysis_summary.py \
-  --ranking-dir /home/derekste/tbt-spills-2000-autosweep/pilot \
+  --ranking-dir $AUTOSWEEP_ROOT/pilot \
   --top 10
 ```
 
@@ -532,10 +547,10 @@ health table:
 
 ```bash
 python3 scripts/build_elite_full_stage.py \
-  --pilot-dir /home/derekste/tbt-spills-2000-autosweep/pilot \
-  --dataset /home/derekste/tbt-spills-2000-autosweep/stage0/dataset_manifest.csv \
-  --health /home/derekste/tbt-spills-2000-autosweep/stage0/spill_health.csv \
-  --out /home/derekste/tbt-spills-2000-autosweep/elite-full \
+  --pilot-dir $AUTOSWEEP_ROOT/pilot \
+  --dataset $AUTOSWEEP_ROOT/stage0/dataset_manifest.csv \
+  --health $AUTOSWEEP_ROOT/stage0/spill_health.csv \
+  --out $AUTOSWEEP_ROOT/elite-full \
   --expected-usable-spills 1988
 ```
 
@@ -544,20 +559,20 @@ baseline inclusion and usable-spill filtering:
 
 ```bash
 python3 scripts/run_autosweep.py \
-  --dataset /home/derekste/tbt-spills-2000-autosweep/elite-full/elite_dataset_manifest.csv \
+  --dataset $AUTOSWEEP_ROOT/elite-full/elite_dataset_manifest.csv \
   --mode full \
-  --config-list /home/derekste/tbt-spills-2000-autosweep/elite-full/elite_configs_for_full.csv \
+  --config-list $AUTOSWEEP_ROOT/elite-full/elite_configs_for_full.csv \
   --device cuda \
   --heavy-plots \
   --job-timeout-seconds 900 \
   --parallel-jobs 2 \
   --gpu-telemetry-interval-seconds 30 \
-  --out /home/derekste/tbt-spills-2000-autosweep/elite-full
+  --out $AUTOSWEEP_ROOT/elite-full
 python3 scripts/rank_autosweep_results.py \
-  --autosweep-dir /home/derekste/tbt-spills-2000-autosweep/elite-full \
+  --autosweep-dir $AUTOSWEEP_ROOT/elite-full \
   --min-spills 500
 python3 scripts/make_elite_full_summary.py \
-  --elite-dir /home/derekste/tbt-spills-2000-autosweep/elite-full
+  --elite-dir $AUTOSWEEP_ROOT/elite-full
 ```
 
 Autosweep outputs include `dataset_manifest.csv`, `spill_health.csv`,
@@ -589,9 +604,9 @@ later with:
 
 ```bash
 python3 scripts/gpu_run_telemetry.py summarize \
-  --input /home/derekste/tbt-spills-2000-autosweep/pilot/logs/gpu_telemetry.csv \
-  --summary-json /home/derekste/tbt-spills-2000-autosweep/pilot/logs/gpu_telemetry_summary.json \
-  --summary-md /home/derekste/tbt-spills-2000-autosweep/pilot/logs/gpu_telemetry_summary.md
+  --input $AUTOSWEEP_ROOT/pilot/logs/gpu_telemetry.csv \
+  --summary-json $AUTOSWEEP_ROOT/pilot/logs/gpu_telemetry_summary.json \
+  --summary-md $AUTOSWEEP_ROOT/pilot/logs/gpu_telemetry_summary.md
 ```
 
 `scripts/bootstrap_spark_env.sh` can create a minimal optional venv, but the
@@ -614,9 +629,9 @@ study; contiguous leakage-controlled Best-N validation below answers that
 question.
 
 ```bash
-/home/derekste/venvs/cupy-spark-cu13/bin/python scripts/run_best_bpm_pipeline.py \
+$PYTHON scripts/run_best_bpm_pipeline.py \
   --config config/best_bpm_mining.yaml \
-  --out /home/derekste/best_bpm_mining \
+  --out $BEST_BPM_ROOT \
   --device cuda \
   --workers 12 \
   --gpu-telemetry-interval-seconds 30
@@ -632,8 +647,8 @@ Verify that a completed output directory satisfies the expected artifact
 contract:
 
 ```bash
-/home/derekste/venvs/cupy-spark-cu13/bin/python scripts/verify_best_bpm_outputs.py \
-  --root /home/derekste/best_bpm_mining
+$PYTHON scripts/verify_best_bpm_outputs.py \
+  --root $BEST_BPM_ROOT
 ```
 
 Use `--limit` for a Spark smoke test and `--workers` to fan out per-spill
@@ -892,6 +907,26 @@ block-length comparisons are expected to change uncertainty even when central
 estimates and the recommended N are unchanged.
 Configured permutation sample counts are executed as declared; the primary
 block sign-flip path does not apply an undocumented upper cap.
+
+For an already verified Best-N block-20 root, regenerate only the deterministic
+cross-spill null and Best-1 membership sidecars without repeating GPU selection:
+
+```bash
+python3 scripts/derive_best_n_controls.py \
+  --root /path/to/best-n-full/merged_block20 \
+  --tune-half-width 0.0025 \
+  --draws 1000 \
+  --block-spills 20
+
+python3 scripts/verify_best_n_outputs.py \
+  --root /path/to/best-n-full/merged_block20 \
+  --max-n 40 --curve-cache-rows 4000 --validation-cache-rows 1000 \
+  --folds 5 --tune-half-width 0.0025
+```
+
+The null uses stable seeded 20-spill block derangements inside each plane, N,
+collection, and fold group, shares the order across folds before the observed
+fold-collapse rule, and never leaves a block in its original position.
 The intensity and full-buffer ridge sidecars use the same fail-closed contract
 rule. Their verifiers check the merged block length or ridge window geometry
 and the SHA-256 source inventory before accepting plots.
@@ -1078,7 +1113,9 @@ exact common spill/window keys and isolate ensemble size without the historical
 selector defect. When selected H/V sizes are present, all five
 selected-Best-N-minus-corrected-Best-1 metrics receive a full-width stacked H/V
 composite with one shared y scale plus an 800x1250 portrait twin. The clean
-P10-P90 landscape/portrait pair is the bound paper/poster width contrast; the
+P10-P90 landscape plot is bound into the paper; its portrait twin remains a
+review-gallery option. The final graphics-first poster omits that extra panel
+and gives the larger H/V ridge comparison the available space. The
 adaptive-minus-legacy versions remain review-gallery context.
 After the Best-N verifier selects H and V, pass both `--selected-h-n` and
 `--selected-v-n` and include both values in `--subset-sizes`. The run then
@@ -1131,15 +1168,15 @@ orientation-independent so the declared 800x1250 poster variants are valid.
 Blank and edge-excluded counts remain in the verification coverage table;
 other data-quality warnings remain visible and require written review.
 
-Materialize final poster and paper inputs only after every analysis gate passes.
-First audit the complete raw publication corpus independently of the spectral
-pipelines:
+Materialize the accepted evidence packet and paper inputs only after every
+analysis gate passes. This is the pre-acceptance stage; the poster becomes an
+independent downstream artifact after the paper is frozen. First audit the
+complete raw publication corpus independently of the spectral pipelines:
 
 ```bash
 python3 scripts/audit_delivery_ring_payloads.py \
   --capture-root /path/to/position-collection-a \
   --capture-root /path/to/position-collection-b \
-  --capture-root /path/to/intensity-capture \
   --out /path/to/delivery-ring-payload-audit \
   --analysis-turns 50000 \
   --plateau-turns 128
@@ -1152,14 +1189,16 @@ python3 scripts/compare_payload_absences_to_best_n.py \
   --out /path/to/delivery-ring-payload-audit
 ```
 
-Publication acceptance requires the immutable 2200-manifest inventory, 263983
-captured position rows, 23999 paired position/intensity rows, the
-120-channel/30-digitizer union topology in each collection, and an exact hashed
-inventory of the 17 manifest-level absences across 13 recorded partial captures.
+Publication acceptance requires a fresh two-collection inventory with exactly
+2000 manifests, 239984 captured position rows, no paired intensity role, the
+60-H/60-V and 30-digitizer topology in each collection, and an exact hashed
+inventory of the 16 manifest-level absences across 12 recorded partial captures.
 It also requires no first-50000-turn corruption, long exact plateau, or repeated
 device-coded raw fallback pair. The identity join must retain exact selected
 cardinality and zero absent-source-key overlaps for the accepted per-spill
-memberships. Then bind every accepted root:
+memberships. The prior 2200-manifest/23999-pair audit remains the immutable
+input to the completed standalone intensity sidecar. Then bind every IBIC root
+before creating the paper/poster evidence gate:
 
 ```bash
 python3 scripts/prepare_ibic2026_publication.py \
@@ -1168,7 +1207,6 @@ python3 scripts/prepare_ibic2026_publication.py \
   --best-n-root /path/to/best-n-full \
   --all-training-root /path/to/best-n-all-training \
   --ridge-root /path/to/ridge-50000 \
-  --intensity-root /path/to/intensity-refresh \
   --payload-audit-root /path/to/delivery-ring-payload-audit \
   --publication-root publication/ibic2026
 ```
@@ -1177,48 +1215,91 @@ This command requires accepted 10/20/40-block Best-N outputs, four OK
 cross-collection transfer rows, seven verified beam/fit/fold sensitivity runs
 with eligible H and V recommendations in at least four runs per plane,
 the accepted 10,000-row/8,000-pair/16-comparison all-training control, an
-accepted mixed-N ridge contract, zero retained intensity effects, and the
-exact corpus-bound raw-payload audit. It
-writes `poster/content.json`, `paper/results_table.tex`, verifier-derived
+accepted mixed-N ridge contract, and the exact position-only raw-payload audit.
+It writes the pre-acceptance `poster/content.json`,
+`paper/results_table.tex`, verifier-derived
 `paper/results_macros.tex`, exact figure copies, `results_payload.json`,
 `PREPARATION_REPORT.md`, and `source_manifest.csv`. The macros bind primary
-Best-1/3/5 scores and intensity effect counts to the accepted tables instead of
-preserving literals from an earlier run. They also bind 4000 full-curve
-spill-plane cases, 1000 stratified validation cases, and five digitizer folds
+Best-1/3/5 scores and diversity-independent Best-1 membership frequencies to
+the accepted tables instead of preserving literals from an earlier run. They
+also bind 4000 full-curve spill-plane cases, 1000 stratified validation cases,
+and five digitizer folds
 from the accepted block-20 Best-N verifier; materialization rejects any other
 study design. Six additional macros bind the selected-favored,
 all-training-favored, and unresolved comparison counts for each plane.
 Eight ridge-coverage macros bind the selected H/V structural, finite in-band,
 blank-confidence, and bounded edge-excluded row counts from the strict ridge
-verifier. Poster and paper copy must use those values rather than treating the
-complete 2000-spill by 180-center grid as 360000 measured tune picks. The
-materializer also distinguishes the two position-only primary collections (12
-partial captures and 16 absences) from the complete three-collection audit (13
-partial captures and 17 absences); absent channels remain missing in both.
+verifier. Structured poster evidence and paper copy must use those values rather
+than treating the complete 2000-spill by 180-center grid as 360000 measured
+tune picks. The
+materializer reports only the two position collections: 12 partial captures and
+16 absences. Absent channels remain missing rather than being normalized or
+zero-filled.
 Every sensitivity run's recommendation or unavailable reason is retained in
-`results_payload.json`; poster and paper copy disclose the available count and
-observed range rather than hiding an unresolved reduced sample.
+`results_payload.json`; the paper and review copy disclose the available count
+and observed range rather than hiding an unresolved reduced sample. The final
+poster compresses that boundary to "useful operating points - not universal
+optima."
 The source manifest also hashes the exact primary, Best-N, all-training,
-sensitivity, ridge, and intensity tables used for numerical materialization.
-Finalization parses
-its fixed schema and re-hashes the exact 14 materialized content/table/payload/
-report/figure outputs; mere manifest-file presence is not sufficient.
+sensitivity, cross-spill-null, Best-1 membership, and ridge tables used for
+numerical materialization. The v2 results payload accepts only those declared
+source roles; intensity or legacy-ridge publication roles are stale-input
+errors rather than optional fields.
+Finalization parses its fixed schema and re-hashes the frozen evidence outputs;
+mere manifest-file presence is not sufficient.
 
-Package final publication sources, rendered deliverables, reports, and broad
-review galleries into one local handoff directory:
+After the paper source and four-page PDF are accepted, create
+`publication/ibic2026/poster/evidence_gate.json` with schema
+`tbt-monitor.ibic2026-poster-evidence-gate/v3`. The gate pins repo-relative
+paths and SHA-256 values for the paper source/PDF, frozen
+`results_payload.json`, H/V Best-N PNGs, H/V ridge PNG, and contextual beamline
+map. It also requires structured attribution to George Deinlein, Fermilab
+staff, and records full permission for this poster's publication reuse. Once
+this gate exists, `prepare_ibic2026_publication.py` intentionally
+fails. Retire or replace the gate only to address a serious discrepancy in the
+paper or accepted evidence, not to revise poster wording, layout, or context.
+
+Materialize the poster independently from the frozen gate:
+
+```bash
+PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache \
+  python3 scripts/prepare_ibic2026_poster.py
+```
+
+The poster-only command validates the pinned hashes and the exact H Best-5/V
+Best-12, null-band, distributed Best-1 membership, H ridge-narrowing,
+non-unique operating-point, and mixed all-training claims. It writes only
+`publication/ibic2026/poster/`: concise `content.json`, the four copied assets
+`best_n_validation_h.png`, `best_n_validation_v.png`,
+`ridge_density_comparison.png`, and `muon-campus-beamlines.png`, plus
+`input_manifest.json`. The manifest records the gate, input/output hashes and
+PNG dimensions, contextual map provenance, exact attribution/permission, and
+before/after paper hashes.
+Run its focused stdlib tests with:
+
+```bash
+PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache \
+  python3 scripts/test_prepare_ibic2026_poster.py
+```
+
+The final poster is intentionally graphics-first. The exact-paired full-spill
+ridge comparison is the dominant hero; the H/V held-out-validation panels
+support it, and the credited beamline map provides secondary machine context.
+Short questions and captions are derived from the frozen payload; the map is
+not independent tune calibration.
+
+Optionally package final publication sources, rendered deliverables, reports,
+and supporting galleries into one checksummed directory:
 
 ```bash
 python3 scripts/package_publication_review.py \
   --component publication=publication/ibic2026 \
   --component report=/path/to/final-analysis-report \
-  --component run-handoff=review-artifacts/publication-run-handoff \
-  --component legacy-candidate-gallery=review-artifacts/poster_candidate_gallery \
   --component best-n-gallery=/path/to/best-n-gallery \
   --component all-training=/path/to/best-n-all-training \
   --component ridge-gallery=/path/to/ridge-gallery \
-  --component intensity-gallery=/path/to/intensity-gallery \
   --component payload-audit=/path/to/delivery-ring-payload-audit \
-  --out review-artifacts/ibic2026-final-review-YYYYMMDD
+  --out /path/to/ibic2026-evidence-package
 ```
 
 Each `LABEL=PATH` component is copied. `MANIFEST.csv` records every packaged
@@ -1233,22 +1314,14 @@ repeat that verification without changing the package:
 
 ```bash
 python3 scripts/package_publication_review.py \
-  --verify-only review-artifacts/ibic2026-final-review-YYYYMMDD
+  --verify-only /path/to/ibic2026-evidence-package
 ```
 
 Directory components omit only generated `.DS_Store`, Python bytecode, and
-pytest/mypy/ruff cache paths. Repository dotfiles and all analysis products are
-copied and manifested normally.
-The local `legacy-candidate-gallery` component is required for the final review
-handoff. `review-artifacts/` is intentionally ignored by Git and absent from the
-Spark source archive, so the final local repack is where the complete 80-image
-candidate gallery and the two immutable `18d321dbd4fe` favorite PNGs enter the
-verified package.
-The `run-handoff` component is also required. It preserves the checksummed
-accepted abstract, supplied Fermilab POTX, audited poster starter/layout,
-coherent offline Tectonic bundle, source archive, guarded all-training and
-autosweep wrappers, and prepared GitHub handoff text outside ephemeral local
-temp storage.
+pytest/mypy/ruff cache paths. Repository dotfiles and all named analysis
+products are copied and manifested normally.
+The completed intensity gallery may be packaged separately as a technical
+sidecar, but it is not part of the IBIC publication claim.
 
 After visually inspecting the final poster and all four paper pages, close the
 publication directory with the explicit human-QA gate:
@@ -1262,22 +1335,41 @@ python3 scripts/finalize_ibic2026_publication.py \
   --paper-visual-qa pass
 ```
 
-The finalizer verifies immutable reference hashes, required source and render
-files, A0 poster and four-page paper geometry, PNG dimensions, byte identity
-between the named poster PNG and its 150 dpi PDF raster, the selected H/V
-payload, verifier-derived primary completeness and selected-ridge closure,
-matching poster evidence and manuscript macros, seven sensitivity runs, four
-OK transfer rows, zero retained intensity
-effects, strict-majority sensitivity coverage with consistent run details, the
-exact raw-payload corpus, unresolved-copy gates, and every final
+The finalizer verifies immutable reference hashes, the poster evidence gate and
+poster-only input manifest, unchanged paper source/PDF hashes, required source
+and render files, A0 poster and four-page paper geometry, PNG dimensions, byte
+identity between the named poster PNG and its 150 dpi PDF raster, the selected
+H/V payload, verifier-derived primary completeness and selected-ridge closure,
+matching poster evidence and manuscript macros, seven sensitivity runs, four OK
+transfer rows, strict-majority sensitivity coverage with consistent run
+details, the exact position-only raw-payload corpus, v2 payload/source-role
+closure, unresolved-copy gates, and every final
 slide XML placeholder. It reads the PPTX as a ZIP package without modifying it
 and rejects a placeholder shape whose DrawingML text is empty or whitespace.
 It also recomputes the exact portable poster and paper checksum inventories,
-the publication materialization manifest, the poster builder's recorded
-content/asset/output hashes and dimensions, and the delivered zero-issue
-template-fidelity report. It writes
+the frozen publication materialization manifest, poster source-manifest v2,
+poster gate/input/content/asset/output hashes and dimensions, and the delivered
+zero-issue template-fidelity report. It writes
 `compliance_report.md` and `publication_manifest.csv`; the manifest inventories
 every publication file except itself.
+
+### Fermilab Poster Metadata
+
+The schema-v3 poster gate also binds the non-scientific publication contract.
+The generated poster must show `FERMILAB-POSTER-26-0268-AD` in the upper-right
+blue header and this current acknowledgment in the lower-left footer:
+
+> This manuscript has been authored by FermiForward Discovery Group, LLC under
+> Contract No. 89243024CSC000002 with the U.S. Department of Energy, Office of
+> Science, Office of High Energy Physics.
+
+The [official Fermilab template page](https://www.fnal.gov/faw/designstandards/templates/index.html)
+was rechecked on 2026-08-19. Its A0 vertical link still resolves to
+[`FNAL_Scientific_Poster_A0_VRT_May25.potx`](https://www.fnal.gov/faw/designstandards/filesfordownload/FNAL_Scientific_Poster_A0_VRT_May25.potx).
+These checks preserve the frozen-paper boundary: report number,
+acknowledgment, and template identity are poster-only metadata and do not
+authorize a manuscript rebuild. The finalized poster is approved for technical
+publication and has been printed.
 
 `TECTONIC_FLAGS` is optional. Leaving it unset uses the ordinary Tectonic
 command, while `TECTONIC_FLAGS=--only-cached` explicitly forbids resource

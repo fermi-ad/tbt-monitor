@@ -7,20 +7,26 @@ adds reference-monitor comparison.
 
 ## Runtime Assumptions
 
-Current Spark-side examples use:
+Set portable working paths before using the examples:
 
 ```bash
-/home/derekste/venvs/cupy-spark-cu13/bin/python
+PYTHON=/path/to/cuda-capable/python
+PYTHON_ENV=/path/to/python-environment
+INPUT_ROOT=/path/to/captured-spills
+OUTPUT_ROOT=/path/to/analysis-output
+CAPTURE_ROOT=$INPUT_ROOT
+AUTOSWEEP_ROOT=$OUTPUT_ROOT/autosweep
+BEST_BPM_ROOT=$OUTPUT_ROOT/best-bpm
+BEST_N_ROOT=$OUTPUT_ROOT/best-n
+ALL_TRAINING_ROOT=$OUTPUT_ROOT/best-n-all-training
+INTENSITY_ROOT=$OUTPUT_ROOT/intensity
 ```
 
-Tier A raw position-only inputs are:
+The primary position-only inputs are `$INPUT_ROOT/collection-1` and
+`$INPUT_ROOT/collection-2`.
 
-```bash
-/home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-183119
-/home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-231330
-```
-
-The local `spark` SSH alias reaches `spark.fnal.gov` through the configured
+In the Fermilab deployment, the `spark` SSH alias reaches `spark.fnal.gov`
+through the configured
 `outland.fnal.gov` jump host. From Spark, delegated Kerberos access to the raw
 capture host is available with `ssh -K drbpm1`; use that route for authoritative
 source-data checks or staged copies. Spark does not have unrestricted package
@@ -37,10 +43,10 @@ files.
 CUDA smoke:
 
 ```bash
-/home/derekste/venvs/cupy-spark-cu13/bin/python scripts/gpu_analyze_captured_spills.py \
-  --input /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-183119 \
-          /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-231330 \
-  --out /home/derekste/tbt-spills-2000-gpu-smoke \
+$PYTHON scripts/gpu_analyze_captured_spills.py \
+  --input $INPUT_ROOT/collection-1 \
+          $INPUT_ROOT/collection-2 \
+  --out $OUTPUT_ROOT/gpu-smoke \
   --device cuda \
   --limit 20 \
   --flashes 128
@@ -49,10 +55,10 @@ CUDA smoke:
 Full upgraded path:
 
 ```bash
-/home/derekste/venvs/cupy-spark-cu13/bin/python scripts/gpu_analyze_captured_spills.py \
-  --input /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-183119 \
-          /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-231330 \
-  --out /home/derekste/tbt-spills-2000-gpu-upgrade \
+$PYTHON scripts/gpu_analyze_captured_spills.py \
+  --input $INPUT_ROOT/collection-1 \
+          $INPUT_ROOT/collection-2 \
+  --out $OUTPUT_ROOT/gpu-upgrade \
   --device cuda \
   --turn-start 0 \
   --turn-end 50000 \
@@ -80,7 +86,7 @@ available, analyzed or ranked:
 
 ```bash
 python3 scripts/bpm_dgx_poster.py run-all \
-  --input /home/derekste/out \
+  --input $CAPTURE_ROOT \
   --out poster-artifacts/drbpm1-poster \
   --flashes 128 256 512 \
   --device auto
@@ -101,17 +107,17 @@ Stage 0 inventory and health:
 
 ```bash
 python3 scripts/build_collection_manifest.py \
-  --roots /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-183119 \
-          /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-231330 \
-  --out /home/derekste/tbt-spills-2000-autosweep/stage0
+  --roots $INPUT_ROOT/collection-1 \
+          $INPUT_ROOT/collection-2 \
+  --out $AUTOSWEEP_ROOT/stage0
 python3 scripts/validate_spill_integrity.py \
-  --manifest /home/derekste/tbt-spills-2000-autosweep/stage0/dataset_manifest.csv \
-  --out /home/derekste/tbt-spills-2000-autosweep/stage0 \
+  --manifest $AUTOSWEEP_ROOT/stage0/dataset_manifest.csv \
+  --out $AUTOSWEEP_ROOT/stage0 \
   --device cuda
 python3 scripts/build_spill_cache.py \
-  --manifest /home/derekste/tbt-spills-2000-autosweep/stage0/dataset_manifest.csv \
-  --health /home/derekste/tbt-spills-2000-autosweep/stage0/spill_health.csv \
-  --out /home/derekste/tbt-spills-2000-autosweep/stage0 \
+  --manifest $AUTOSWEEP_ROOT/stage0/dataset_manifest.csv \
+  --health $AUTOSWEEP_ROOT/stage0/spill_health.csv \
+  --out $AUTOSWEEP_ROOT/stage0 \
   --device cuda
 ```
 
@@ -119,18 +125,18 @@ Pilot:
 
 ```bash
 python3 scripts/run_autosweep.py \
-  --dataset /home/derekste/tbt-spills-2000-autosweep/stage0/dataset_manifest.csv \
+  --dataset $AUTOSWEEP_ROOT/stage0/dataset_manifest.csv \
   --mode pilot \
   --spills 200 \
   --max-configs 300 \
   --device cuda \
   --parallel-jobs 2 \
   --gpu-telemetry-interval-seconds 30 \
-  --out /home/derekste/tbt-spills-2000-autosweep/pilot
+  --out $AUTOSWEEP_ROOT/pilot
 python3 scripts/rank_autosweep_results.py \
-  --autosweep-dir /home/derekste/tbt-spills-2000-autosweep/pilot
+  --autosweep-dir $AUTOSWEEP_ROOT/pilot
 python3 scripts/make_initial_analysis_summary.py \
-  --ranking-dir /home/derekste/tbt-spills-2000-autosweep/pilot \
+  --ranking-dir $AUTOSWEEP_ROOT/pilot \
   --top 10
 ```
 
@@ -138,26 +144,26 @@ Elite full-data stage:
 
 ```bash
 python3 scripts/build_elite_full_stage.py \
-  --pilot-dir /home/derekste/tbt-spills-2000-autosweep/pilot \
-  --dataset /home/derekste/tbt-spills-2000-autosweep/stage0/dataset_manifest.csv \
-  --health /home/derekste/tbt-spills-2000-autosweep/stage0/spill_health.csv \
-  --out /home/derekste/tbt-spills-2000-autosweep/elite-full \
+  --pilot-dir $AUTOSWEEP_ROOT/pilot \
+  --dataset $AUTOSWEEP_ROOT/stage0/dataset_manifest.csv \
+  --health $AUTOSWEEP_ROOT/stage0/spill_health.csv \
+  --out $AUTOSWEEP_ROOT/elite-full \
   --expected-usable-spills 1988
 python3 scripts/run_autosweep.py \
-  --dataset /home/derekste/tbt-spills-2000-autosweep/elite-full/elite_dataset_manifest.csv \
+  --dataset $AUTOSWEEP_ROOT/elite-full/elite_dataset_manifest.csv \
   --mode full \
-  --config-list /home/derekste/tbt-spills-2000-autosweep/elite-full/elite_configs_for_full.csv \
+  --config-list $AUTOSWEEP_ROOT/elite-full/elite_configs_for_full.csv \
   --device cuda \
   --heavy-plots \
   --job-timeout-seconds 900 \
   --parallel-jobs 2 \
   --gpu-telemetry-interval-seconds 30 \
-  --out /home/derekste/tbt-spills-2000-autosweep/elite-full
+  --out $AUTOSWEEP_ROOT/elite-full
 python3 scripts/rank_autosweep_results.py \
-  --autosweep-dir /home/derekste/tbt-spills-2000-autosweep/elite-full \
+  --autosweep-dir $AUTOSWEEP_ROOT/elite-full \
   --min-spills 500
 python3 scripts/make_elite_full_summary.py \
-  --elite-dir /home/derekste/tbt-spills-2000-autosweep/elite-full
+  --elite-dir $AUTOSWEEP_ROOT/elite-full
 ```
 
 `run_autosweep.py` is serial by default. Two jobs are the current maximum on
@@ -171,9 +177,9 @@ Use Best-BPM mining when the question is which BPM subsets carry the strongest
 within-spill tune evidence, not which analyzer configuration is best.
 
 ```bash
-/home/derekste/venvs/cupy-spark-cu13/bin/python scripts/run_best_bpm_pipeline.py \
+$PYTHON scripts/run_best_bpm_pipeline.py \
   --config config/best_bpm_mining.yaml \
-  --out /home/derekste/best_bpm_mining \
+  --out $BEST_BPM_ROOT \
   --device cuda \
   --workers 12 \
   --gpu-telemetry-interval-seconds 30
@@ -188,8 +194,8 @@ wrappers explicitly. This avoids repeating the multi-hour search.
 Verify a completed output package:
 
 ```bash
-/home/derekste/venvs/cupy-spark-cu13/bin/python scripts/verify_best_bpm_outputs.py \
-  --root /home/derekste/best_bpm_mining
+$PYTHON scripts/verify_best_bpm_outputs.py \
+  --root $BEST_BPM_ROOT
 ```
 
 Output groups:
@@ -216,14 +222,14 @@ pipeline passes `--workers` through to this stage and writes progress under
 search outputs:
 
 ```bash
-/home/derekste/venvs/cupy-spark-cu13/bin/python scripts/evaluate_best_subset_evolution.py \
+$PYTHON scripts/evaluate_best_subset_evolution.py \
   --config config/best_bpm_mining.yaml \
-  --subsets /home/derekste/best_bpm_mining/subset_search \
-  --cache /home/derekste/best_bpm_mining/cache \
-  --features /home/derekste/best_bpm_mining/per_bpm \
-  --manifest /home/derekste/best_bpm_mining/manifest \
+  --subsets $BEST_BPM_ROOT/subset_search \
+  --cache $BEST_BPM_ROOT/cache \
+  --features $BEST_BPM_ROOT/per_bpm \
+  --manifest $BEST_BPM_ROOT/manifest \
   --workers 4 \
-  --out /home/derekste/best_bpm_mining/evolution
+  --out $BEST_BPM_ROOT/evolution
 ```
 
 ### Best-BPM Follow-Up Sidecar Passes
@@ -232,10 +238,10 @@ Run follow-up validation and poster-review passes against a completed Best-BPM
 run without overwriting the canonical output tree:
 
 ```bash
-ROOT=/home/derekste/best_bpm_mining_20260627_best135_from_v2
+ROOT=$BEST_BPM_ROOT
 OUT="$ROOT/followups/next_steps_20260628"
-BESTN=/home/derekste/best_n_20260709
-PY=/home/derekste/venvs/cupy-spark-cu13/bin/python
+BESTN=$BEST_N_ROOT
+PY=$PYTHON
 
 "$PY" scripts/evaluate_fixed_bpm_sets.py \
   --config config/best_bpm_mining.yaml \
@@ -274,7 +280,7 @@ PY=/home/derekste/venvs/cupy-spark-cu13/bin/python
   --best-n "$BESTN/merged" \
   --all-training "$BESTN/all_training" \
   --ridge "$OUT/ridge_density_best_ensemble" \
-  --intensity /home/derekste/tbt-intensity-study-20260709/merged \
+  --intensity $INTENSITY_ROOT/merged \
   --sensitivity "$BESTN/sensitivity" \
   --out "$OUT/analysis/next_steps_output_analysis.md"
 ```
@@ -322,7 +328,7 @@ Run this only after the corrected exact-identity cache is verifier-clean. Use
 one output directory per shard and merge after every shard completes:
 
 ```bash
-BESTN=/home/derekste/best_n_20260709
+BESTN=$BEST_N_ROOT
 "$PY" scripts/evaluate_best_n_curve.py \
   --config config/best_bpm_mining.yaml \
   --inputs "$ROOT" \
@@ -393,6 +399,10 @@ waveform access. `best_n_validation_h/v.png` contains blind full-band agreement
 only on a shared H/V scale; `best_n_conditioned_agreement_h/v.png` retains the
 near-training diagnostic separately, and `best_n_decision_gates_h/v.png`
 records the exact criterion-by-N pass/fail decision.
+`scripts/derive_best_n_controls.py` can likewise regenerate the 1,000-draw,
+20-spill cross-spill null and exact Best-1 membership tables from accepted
+curve/validation CSVs alone. It uses stable seeded block derangements and must
+be followed by `scripts/verify_best_n_outputs.py`; no GPU rerun is involved.
 
 The reproducible sample sensitivity matrix is:
 
@@ -447,7 +457,7 @@ Run this CPU/cache-only control after the Best-N block-20 verifier has selected
 both planes and after the GPU publication chain is idle:
 
 ```bash
-ALL_TRAINING=/home/derekste/best_n_20260709_all_training
+ALL_TRAINING=$ALL_TRAINING_ROOT
 "$PY" scripts/evaluate_best_n_all_training.py \
   --config config/best_bpm_mining.yaml \
   --inputs "$ROOT" \
@@ -532,13 +542,13 @@ timing or causation.
 Lag correlations retain common -1-to-1 and symmetric panel-detail views; the
 detail limits vary and do not make overlapping windows independent or causal.
 
-Before interpreting either the intensity or 50000-turn ridge products, scan
-the complete publication corpus independently of the FFT paths:
+The standalone intensity sidecar keeps the completed three-collection payload
+audit independently of the FFT paths:
 
 ```bash
 "$PY" scripts/audit_delivery_ring_payloads.py \
-  --capture-root /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-183119 \
-  --capture-root /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-231330 \
+  --capture-root $INPUT_ROOT/collection-1 \
+  --capture-root $INPUT_ROOT/collection-2 \
   --capture-root "$INTENSITY_CAPTURE" \
   --out "$OUT/delivery_ring_payload_audit" \
   --analysis-turns 50000 \
@@ -564,6 +574,21 @@ The second command verifies exact selected cardinality and writes a hash-bound
 identity join; it does not infer what an absent channel would have measured.
 See `docs/DELIVERY_RING_SOURCE_AUDIT.md` for the upstream live audit.
 
+For IBIC materialization, run a fresh audit with only the two position roots
+shown above. That publication audit must contain 2000 manifests, 239984 raw
+position rows, two 60-H/60-V and 30-digitizer topologies, 12 partial captures,
+and the exact 16-row absence inventory. Do not pass the intensity capture to
+the publication audit or materializer.
+
+```bash
+"$PY" scripts/audit_delivery_ring_payloads.py \
+  --capture-root $INPUT_ROOT/collection-1 \
+  --capture-root $INPUT_ROOT/collection-2 \
+  --out "$OUT/delivery_ring_position_payload_audit" \
+  --analysis-turns 50000 \
+  --plateau-turns 128
+```
+
 To reproduce the old `18d321db` ridge-density visual grammar with corrected
 Best-N memberships, run the full-buffer ridge-density sidecar:
 
@@ -573,8 +598,8 @@ Best-N memberships, run the full-buffer ridge-density sidecar:
   --membership-csv "$BESTN/merged_block20/best_n_curve_rows.csv" \
   --legacy-sliding-csv /path/to/18d321db/gpu_sliding_tune.csv \
   --input \
-    /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-183119 \
-    /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-231330 \
+    $INPUT_ROOT/collection-1 \
+    $INPUT_ROOT/collection-2 \
   --out "$OUT/ridge_density_best_ensemble" \
   --device cuda \
   --turn-start 0 \
@@ -624,8 +649,9 @@ clipped. Visible difference legends use higher/lower pick probability wording.
 The plane-selected outputs also include a corrected Best-1-versus-selected H/V
 comparison, five clean selected-minus-Best-1 H/V turn contrasts in landscape
 and portrait form, and a legacy/corrected-Best-1/selected-Best-N three-column
-control. The clean P10-P90 pair is copied into the paper/poster; the legacy
-contrast remains a visual anchor that includes selector repair.
+control. The corrected comparison and clean P10-P90 pair are copied into the
+paper/poster; the legacy contrast remains audit-gallery context because it
+includes selector repair.
 Set `H_N` and `V_N` from the accepted block-20 Best-N recommendations. The
 additional mixed H/V composite uses the selected membership for each plane,
 and selected-N concentration panels avoid presenting every requested N in the
@@ -648,17 +674,20 @@ height; this keeps standalone and subtractive heatmaps aligned with their tune
 axis and percentile overlays when the pixel height is not divisible by the bin
 count.
 
-After the raw-payload, all-training, intensity, and ridge verifiers pass, run
+After the position-only raw-payload, all-training, Best-N, and ridge verifiers pass, run
 `scripts/prepare_ibic2026_publication.py` with the corrected primary/follow-up,
-Best-N parent, all-training, ridge, intensity parent, and payload-audit roots.
+Best-N parent, all-training, ridge, and position-only payload-audit roots. There
+is no publication `--intensity-root` option.
 Run it on Spark before
 copy-back when the large ridge CSVs remain in place; only the generated
 publication tree and review galleries need transfer to the local checkout.
 The generated paper tree includes `results_table.tex`, `results_macros.tex`,
-the selected-H/V turn-width contrast, and the other four contract-bound PNGs;
+the selected-H/V turn-width contrast, corrected-Best-1 ridge comparison, and
+the remaining contract-bound figures;
 the final paper build rejects a missing macro or figure file. The generated
-`source_manifest.csv` includes exact numerical source hashes and the complete
-14-output materialization inventory; finalization re-hashes that inventory
+`source_manifest.csv` includes exact numerical source hashes, including the
+cross-spill null and Best-1 membership summaries, and the complete
+materialization inventory; finalization re-hashes that inventory
 after copy-back and independently matches primary/coverage payload fields to the
 poster's structured evidence and manuscript macros.
 Materialization reads the selected-N coverage rows directly from the accepted

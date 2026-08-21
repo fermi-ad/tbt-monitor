@@ -37,42 +37,48 @@ This paper reports a BPM-only internal validation. The reported values are fract
 
 \section{Data and synchronization}
 
-The primary data set contains \PrimarySpillCount{} captured spills in two acquisition collections. Its nominal topology supplies \PrimaryNominalHChannels{} horizontal and \PrimaryNominalVChannels{} vertical position channels, with two same-plane sources per digitizer; \PrimaryPartialCaptures{} flagged partial captures contain \PrimarySourceAbsences{} recorded source absences. Absent channels remain missing rather than being fabricated or zero-filled. Each recorded waveform contains approximately 50,000 turns. The analysis consumes raw host-published position arrays: ``raw'' means DSP-derived position floats before host-side threshold substitution and scaling, not electrode ADC samples. Stream timestamps are used to assemble a coherent spill snapshot. Adjacent target buckets are merged within \qty{1}{ms}, while captured streams are checked against the selected target using the separately configured \qty{25}{ms} same-spill tolerance. Incomplete or inconsistent states carry quality flags rather than being silently accepted.
+The primary data set contains \PrimarySpillCount{} captured spills in two acquisition collections. Its nominal topology supplies \PrimaryNominalHChannels{} H and \PrimaryNominalVChannels{} V position channels, with two same-plane sources per digitizer. A fresh raw-payload audit records \PrimaryPartialCaptures{} partial captures and \PrimarySourceAbsences{} source absences; missing channels remain missing rather than being zero-filled. Each waveform contains approximately 50,000 turns. Stream timestamps assemble the spill snapshot: adjacent target buckets merge within \qty{1}{ms}, and each captured stream must satisfy a separate \qty{25}{ms} same-spill tolerance. The host-published ``raw'' array is a DSP-derived position before threshold substitution and scaling, not an electrode ADC waveform.
 
-Publication auditing exposed two identity defects in an earlier analysis. First, downstream tables stored a shared digitizer label rather than the exact channel key, even though two same-plane channels could share that label. Second, ring order was parsed from the first number in the digitizer address, assigning every channel the same order and disabling the intended ring-span term. The corrected pipeline serializes plane-local indices, exact BPM tokens, full source keys, and digitizer identities. Every downstream reconstruction resolves the subset bit mask before display labels.
+Publication auditing exposed two identity defects in an earlier analysis: a shared digitizer label had replaced the exact channel key, and ring order had been parsed from the wrong address field. The corrected pipeline records exact source identities and resolves every subset bit mask before labels are displayed; detailed provenance and regression tests are retained with the repository.
 
 The waveform path subtracts the window mean, applies a Hann taper, and computes a zero-padded real fast Fourier transform. Frequencies are mapped to the upper fractional tune branch by $q=1-f$. The discovery bands are $0.60\leq q_x\leq0.70$ and $0.67\leq q_y\leq0.75$; expected values near 0.65 and 0.72 enter only as soft priors.
 
 \section{Adaptive ensemble method}
 
-For the primary search, overlapping 4,096-turn windows with 256-turn stride characterize early-spill spectral structure. Per-BPM peak candidates are clustered within each spill and plane to form an internal consensus; no distribution across other spills is used as a label. Candidate subset spectra are averaged in power. The score combines held-out channel support, robust peak prominence and entropy, agreement with the within-spill consensus, window stability, visibility, digitizer and ring diversity, and an ambiguity penalty. Turn-dependent diagnostics are retained because extraction records are nonstationary~\cite{russo:prab2024}.
+For the primary search, overlapping 4,096-turn windows with 256-turn stride characterize early-spill spectral structure. Per-BPM peak candidates are clustered within each spill and plane to form an internal consensus; no distribution across other spills is used as a label. Candidate subset spectra are averaged in power. In plain terms, one part of the data chooses the BPM members and candidate tune, while later non-overlapping data test whether that choice persists. Turn-dependent diagnostics are retained because extraction records are nonstationary~\cite{russo:prab2024}.
 
-Best-1 and Best-3 are searched exhaustively over the 60 channels in a plane. Best-5 uses exhaustive enumeration within a recorded 20-channel screening pool. Because the score is a model-selection statistic rather than a measurement uncertainty, all publication claims are checked in the independent protocol below.
+The recorded subset score can be written compactly as
+\begin{align}
+s_w &= .35U_w+.2L_w+.15C_w+.1(V_w+D_w+F_w)-A_w,\nonumber\\
+S &= .6\,\mathrm{med}_w\,s_w+.25\,P_{10,w}(s_w)+.15W.\nonumber
+\end{align}
+Here $U$ is nonselected training-channel support, $L$ combines prominence and spectral entropy, $C$ is within-spill consensus agreement, $V$ is visibility, $D$ is digitizer/ring diversity, $F$ is finite-window quality, $A$ is ambiguity, and $W$ is window stability. Thus $S$ ranks subsets; it is not a measurement uncertainty.
+
+Best-1 and Best-3 are searched exhaustively over the 60 channels in a plane. Best-5 uses exhaustive enumeration within a recorded 20-channel screening pool. The diversity-independent Best-1 result directly shows changing observability: all \BestOneUniqueH{} H and \BestOneUniqueV{} V sources win at least once, while the most frequent winners account for only \BestOneMaxFrequencyH{}\% and \BestOneMaxFrequencyV{}\% of spills, respectively.
 
 \subsection{Leakage-controlled \bestn{} selection}
 
-The ensemble-size study sweeps contiguous $N$ values instead of comparing only 1, 3, and 5. Members are selected from a prefix of eight fit windows. Every later window overlapping that prefix is purged; evaluation begins at the first non-overlapping window. Candidate tunes are derived only from fit windows.
+The ensemble-size study sweeps contiguous $N$ values instead of comparing only 1, 3, and 5. Members are selected from eight fit windows. Every later window overlapping that prefix is purged, and evaluation begins with the first non-overlapping window. Expected-tune priors and precomputed consensus are disabled during this Best-$N$ validation; candidate tunes are derived from the training fit windows only.
 
 The full $N$ curve uses \BestNCurveSpillPlaneCount{} spill-plane cases; digitizer-disjoint validation uses an evenly stratified \BestNValidationSpillPlaneCount{}-case subset, each evaluated across \BestNDigitizerFoldCount{} folds rather than being presented as the full curve population.
 
-A bounded beam search is used above $N=1$ and is repeated at multiple beam widths. Convergence is judged from membership, score, and tune differences, not membership alone. For channel-disjoint validation, complete digitizers are assigned to folds so sibling channels never appear on opposite sides. Each fold selects from the training digitizers and is evaluated on later windows; the reference is a median-power spectrum from held-out digitizers.
+A bounded beam search is used above $N=1$ and repeated at several beam widths. For channel-disjoint validation, complete digitizers are assigned to five folds so sibling channels never appear on opposite sides. Each fold selects members from training digitizers; later selected-channel spectra are then compared with a median-power reference formed only from held-out digitizers.
 
-Two agreement measures are retained. The conditioned measure searches near the training tune and answers whether later spectra support that candidate. The blind measure searches the full configured band independently for selected and held-out channels. The smallest non-inferior $N$ is chosen only after blind agreement and channel-disjoint tune difference are screened, followed by both selected-channel and held-out-channel power support and prominence. Confidence intervals collapse folds within a spill and use a moving-block bootstrap within each capture collection to retain short-range serial dependence. As a final hyperparameter check, $N$ is chosen from one acquisition collection and the same global $N$ is evaluated in the other; only the per-spill members remain adaptive.
+The conditioned measure asks whether later spectra support the fitted candidate; the blind measure searches the full band independently on the two channel groups. Agreement means $|\Delta q|\leq0.0025$. The declared operating point is the earliest $N$ passing a 0.02 blind-agreement non-inferiority margin, 95\% selected-power support, 90\% held-out-power support, and the prominence and tune-difference gates. Intervals collapse folds within each spill, then use 1,000 moving-block draws with 20-spill blocks inside each acquisition collection. A deterministic cross-spill block permutation supplies the blind-agreement null. Finally, $N$ is chosen in one collection and transferred to the other; only spill-level membership remains adaptive.
 
 \section{Results}
 
 \subsection{Corrected adaptive search}
 
-Across 4,000 corrected spill-plane rows per subset size, the median adaptive-search score rises from \PrimaryHBestOneScore{} to \PrimaryHBestThreeScore{} and \PrimaryHBestFiveScore{} for horizontal Best-1, Best-3, and Best-5, and from \PrimaryVBestOneScore{} to \PrimaryVBestThreeScore{} and \PrimaryVBestFiveScore{} vertically. Paired Best-1-to-Best-3 gains are \PrimaryHOneToThreeGain{} horizontally and \PrimaryVOneToThreeGain{} vertically; Best-3-to-Best-5 gains are \PrimaryHThreeToFiveGain{} and \PrimaryVThreeToFiveGain{}. These are in-sample model-selection scores, not tune-accuracy measurements. Leakage-controlled later-window results and exact-paired persistence metrics are reported in Table~\ref{tab:results}.
+Across 4,000 corrected spill-plane rows per subset size, median in-sample scores rise from \PrimaryHBestOneScore{} at H Best-1 to \PrimaryHBestFiveScore{} at H Best-5, and from \PrimaryVBestOneScore{} to \PrimaryVBestFiveScore{} vertically. These ranking gains are descriptive; the leakage-controlled later-window results in Table~\ref{tab:results} carry the claim.
 
-Across seven verified reduced-sample beam, fit-window, and fold-seed checks, eligible H knees span Best-\BestNHSensitivityMinimum{}--Best-\BestNHSensitivityMaximum{} in \BestNHSensitivityAvailable{}/7 runs, with \BestNHSensitivityUnavailable{} unresolved; V spans Best-\BestNVSensitivityMinimum{}--Best-\BestNVSensitivityMaximum{} in \BestNVSensitivityAvailable{}/7, with \BestNVSensitivityUnavailable{} unresolved. Unresolved cases are retained as sensitivity evidence rather than coerced into a recommendation; the full-data selections drive the persistence figures.
+Seven reduced-sample checks varying beam width, fit-window count, and fold assignment place eligible H choices at Best-\BestNHSensitivityMinimum{}--Best-\BestNHSensitivityMaximum{} in \BestNHSensitivityAvailable{}/7 runs and V choices at Best-\BestNVSensitivityMinimum{}--Best-\BestNVSensitivityMaximum{} in \BestNVSensitivityAvailable{}/7. Gate-margin checks also move the earliest eligible $N$. H Best-5 and V Best-12 are therefore operating points, not unique optima. Score weights, the 4,096-turn spectral-window length, and the $|\Delta q|$ agreement tolerance remain untested sensitivities.
 
-\IfFileExists{figures/best_n_validation_h.png}{%
+\IfFileExists{figures/best_n_validation_hv.pdf}{%
 \begin{figure*}[!htb]
   \centering
-  \includegraphics[width=0.49\textwidth]{figures/best_n_validation_h.png}\hfill
-  \includegraphics[width=0.49\textwidth]{figures/best_n_validation_v.png}
-  \caption{Leakage-controlled \bestn{} validation for the horizontal (left) and vertical (right) planes. Blind full-band selected-versus-held-out digitizer agreement is shown with moving-block intervals; conditioned support near the fitted candidate is reported separately.}
+  \includegraphics[width=0.98\textwidth]{figures/best_n_validation_hv.pdf}
+  \caption{Leakage-controlled \bestn{} validation for H (left) and V (right). Blind full-band selected-versus-held-out-digitizer agreement uses $|\Delta q|\leq0.0025$; points show observed rates and intervals, while the shaded band is the 2.5--97.5 percentile cross-spill null.}
   \label{fig:bestn}
 \end{figure*}
 }{}
@@ -81,47 +87,45 @@ Across seven verified reduced-sample beam, fit-window, and fold-seed checks, eli
 
 \subsection{Full-spill ridge-density comparison}
 
-To visualize persistence through the approximately 50,000-turn record, the selected early-window membership is applied to the raw captured spill. Each selected trace is RMS-normalized, 4,096-turn Hann spectra are computed every 256 turns, and selected-BPM powers are averaged. One locally tracked ridge pick per spill and window is binned across spills. This plot is a density of selected ridge locations, not a spectral-power heat map. Of \RidgeHStructuralRows{} structural rows per plane, H retains \RidgeHFinitePicks{} finite in-band picks (\RidgeHBlankPicks{} blank and \RidgeHEdgeExcludedPicks{} bounded edge exclusions), while V retains \RidgeVFinitePicks{} (\RidgeVBlankPicks{} blank and \RidgeVEdgeExcludedPicks{} edge exclusions); none is imputed.
+To visualize persistence through the approximately 50,000-turn record, the selected early-window membership is fixed and applied to the raw spill. Each trace is RMS-normalized, 4,096-turn Hann spectra are computed every 256 turns, and subset powers are averaged. One locally tracked ridge pick per spill and window is binned across spills; this is a ridge-location density, not a spectral-power heat map. Blank and bounded edge picks remain missing; duplicate traces beneath the methods show the shared exact-paired count by turn.
 
-The legacy comparator uses identical tune bands and binning but came from a normalized single-channel selector whose winner was effectively determined by floating-point residuals after RMS normalization. It is therefore labeled ``legacy normalized-single'', not ``best BPM''. Paired panels use exact common spill/window ridge points and one color scale. Difference maps subtract column-normalized ridge-pick densities; they quantify redistribution and concentration of ridge picks, not physical noise removal. A separate corrected-Best-1 comparison isolates ensemble size from repair of that historical selector. Moving-block intervals across turn centers test whether paired concentration changes persist despite the heavily overlapping windows; they are not uncertainty estimates over the spill population.
+The primary comparison is corrected adaptive Best-1 against H Best-5 or V Best-12 on exact common spill/window points. One shared scale is used within each plane. This isolates ensemble size from the historical selector repair; the legacy comparison is retained only in the audit gallery. Moving-block intervals across turn centers describe whether concentration differences persist despite overlapping windows, not uncertainty over the spill population.
 
-\IfFileExists{figures/ridge_density_comparison.png}{%
+\IfFileExists{figures/ridge_density_comparison.pdf}{%
 \begin{figure*}[!htb]
   \centering
-  \includegraphics[width=0.98\textwidth]{figures/ridge_density_comparison.png}
-  \caption{Full-spill ridge-pick density for the legacy normalized-single method and the selected adaptive ensemble on exact common spill/window points. Color is column-normalized cross-spill pick probability with one shared P98-clipped scale; white curves show cross-spill P10, median, and P90 tracks. Horizontal and vertical results are interpreted separately.}
+  \includegraphics[width=0.93\textwidth]{figures/ridge_density_comparison.pdf}
+  \caption{Corrected adaptive Best-1 versus H Best-5/V Best-12 on exact-paired ridge picks. Each panel spans turns 2,048--47,872. Color is column-normalized pick probability; white curves are cross-spill P10/median/P90. Repeated thin traces show the shared valid population.}
   \label{fig:ridge}
 \end{figure*}
 }{}
 
-\IfFileExists{figures/ridge_width_contrast_hv.png}{%
+\IfFileExists{figures/ridge_width_contrast_hv.pdf}{%
 \begin{figure*}[!htb]
   \centering
-  \includegraphics[width=0.82\textwidth]{figures/ridge_width_contrast_hv.png}
-  \caption{Exact-paired selected-Best-$N$ minus corrected-Best-1 P10--P90 ridge-pick width; negative values indicate a narrower selected-ensemble distribution. Panels share one y scale, and curves are five-window visual smooths of unsmoothed exports. This isolates ensemble size, not physical noise removal, absolute tune accuracy, or extraction timing.}
+  \includegraphics[width=0.82\textwidth]{figures/ridge_width_contrast_hv.pdf}
+  \caption{Descriptive exact-paired selected-Best-$N$ minus corrected-Best-1 P10--P90 ridge width. Aggregate intervals are H $\RidgeHIqrDeltaMilli\;[\RidgeHIqrLowMilli,\RidgeHIqrHighMilli]\times10^{-3}$ and V $\RidgeVIqrDeltaMilli\;[\RidgeVIqrLowMilli,\RidgeVIqrHighMilli]\times10^{-3}$. Curves are five-window visual smooths of unsmoothed exports; no pointwise confidence band or physical-noise claim is implied.}
   \label{fig:ridgewidth}
 \end{figure*}
 }{}
 
-\subsection{Fixed sets, intensity, and plane asymmetry}
+\subsection{Controls and plane asymmetry}
 
-Frozen global top-1, top-3, and top-5 sets are trained on one acquisition collection and applied to the other. Dynamic memberships, frozen memberships, and all-BPM controls are rescored from the same cached spectra with one evolution metric. This comparison is descriptive because the original dynamic memberships reuse selection windows; the corrected result is reported alongside the leakage-controlled Best-N inference rather than used as an independent validation test.
+Frozen global top-1, top-3, and top-5 sets are trained on one collection and applied to the other. Dynamic, frozen, and all-BPM methods are then rescored from the same cached spectra. This control is descriptive because the dynamic memberships reuse their selection windows; the leakage-controlled Best-$N$ test remains the independent result.
 
-Dynamic Best-5 exceeds frozen Best-5 vertically under this descriptive score, but all-BPM aggregation remains strong. A second, leakage-controlled comparison therefore aggregates every training-side channel by mean and median under the same purged later windows and held-out-digitizer folds as Best-$N$. Of eight method--metric comparisons per plane, selected Best-$N$ is favored in \AllTrainingHSelectedFavored{} H and \AllTrainingVSelectedFavored{} V comparisons, all-training aggregation is favored in \AllTrainingHBaselineFavored{} H and \AllTrainingVBaselineFavored{} V comparisons, and \AllTrainingHUnresolved{} H plus \AllTrainingVUnresolved{} V comparisons remain unresolved. This is an internal reproducibility control, not an external tune calibration.
+Dynamic Best-5 exceeds frozen Best-5 vertically under this descriptive score, but all-training aggregation remains competitive. Under the same purged windows and digitizer folds as Best-$N$, selected subsets are favored in only \AllTrainingHSelectedFavored{} H and \AllTrainingVSelectedFavored{} V comparisons, while all-training mean or median is favored in \AllTrainingHBaselineFavored{} H and \AllTrainingVBaselineFavored{} V; the remainder are unresolved. Adaptation therefore adds auditable membership and fault handling, not universal numerical superiority.
 
-A separate 200-spill capture supplies 23,999 exact raw position/intensity channel pairs; one expected pair is absent. For the pairs present, the first 50,000 turns pass the structural checks, while advertised longer arrays become unreliable near turn 64,000 and are excluded. Square-root, linear, and gated intensity weights are compared with unweighted spectral aggregation on purged later windows. A window with no usable selected intensity falls back explicitly to unweighted aggregation, and the $N=1$ case is an exact zero-effect control. Across \IntensityEffectCount{} paired method-effect tests, a 20-spill moving-block bootstrap and block sign-flip test leave \IntensityFdrCount{} false-discovery-rate-significant directional effects within tune tolerance, \IntensityPracticalCount{} effects above the declared practical thresholds, and \IntensityRetainedCount{} retained weighting effects. Intensity is therefore retained as an envelope and integrity diagnostic rather than a tune weight.
-
-The vertical plane gives the clearest sustained, channel-disjoint structure. Horizontal rankings improve with adaptive selection, but visibility decays or becomes diffuse earlier and more variably. No fixed extraction-onset turn is imposed: the machine onset can vary, and a previously suggested 10,000--20,000-turn interval is treated only as review context. Horizontal loss diagnostics therefore report turn-dependent concentration and data-derived sustained-loss points without assigning cause.
+The diagnostics are metric-dependent: V Best-12 gives stronger digitizer-disjoint agreement, whereas H Best-5 clearly narrows the corrected-Best-1 ridge. Blind agreement is low; higher conditioned agreement and below-threshold later visibility are consistent with weak competing peaks, but not their physical cause. H visibility becomes diffuse earlier, so no extraction-onset turn is inferred.
 
 \section{Limitations and operational use}
 
-The study has four principal limits. First, internal BPM agreement is not an independent tune calibration. Second, unlabeled machine states limit block-aware uncertainty; controlled scans remain necessary. Third, fixed early-window membership makes the 50,000-turn visualization a persistence test, not full-spill reselection. Fourth, ridge concentration can improve if all methods follow the same biased candidate. A matched Schottky or tune-meter reference and controlled tune-knob study are therefore required.
+The study has four principal limits. First, internal BPM agreement is not an independent tune calibration. H Best-5 only just clears its pointwise cross-spill null band, whereas V Best-12 is clearly separated; because $N$ is selected from the same validation curve, the null is diagnostic rather than a post-selection $p$-value. \mbox{Second, unlabeled machine states} limit block-aware uncertainty; controlled scans remain necessary. Third, fixed early-window membership makes the 50,000-turn visualization a persistence test, not full-spill reselection. Fourth, ridge concentration can improve if all methods follow the same biased candidate. A matched Schottky or tune-meter reference and a controlled quadrupole scan comparing measured with optics-predicted $\Delta q$ are therefore required.
 
-Within those limits, adaptive ensembles are preferable to a single BPM or static list when channel identity and quality diagnostics matter. All-training aggregation remains an explicit same-protocol control. An operational monitor should expose exact members, ensemble size, tune candidate, prominence and ambiguity, later-window support, and a no-reliable-tune state, with plane-independent quality decisions.
+Within those limits, adaptive ensembles are useful when channel identity and quality diagnostics matter. All-training aggregation remains an explicit same-protocol control. An operational monitor should expose exact members, ensemble size, tune candidate, prominence and ambiguity, later-window support, and a no-reliable-tune state, with independent decisions in the two planes. The demonstrated workflow is offline and post-spill; an initial deployment should report once after each completed spill. Intra-spill updates require incremental data transport plus separate causal and latency validation.
 
 \section{Conclusion}
 
-Adaptive BPM ensembles recover repeatable tune-like structure. Leakage-controlled, digitizer-disjoint validation selects a useful size knee relative to Best-1; vertical evidence is strongest and horizontal tracking remains limited. Frozen sets and intensity weighting do not replace adaptation, while same-protocol all-training outcomes remain explicit. This BPM-only diagnostic still requires external tune calibration.
+Adaptive BPM ensembles recover repeatable tune-like structure. Leakage-controlled tests support H Best-5 and V Best-12 as operating points rather than unique optima. Vertical agreement is stronger across digitizers, horizontal ridge concentration improves relative to corrected Best-1, and all-training aggregation remains competitive. This BPM-only candidate monitor still requires external tune calibration.
 
 \begin{thebibliography}{9}
 

@@ -1,17 +1,67 @@
 {
+  "acknowledgment": "This manuscript has been authored by FermiForward Discovery Group, LLC under Contract No. 89243024CSC000002 with the U.S. Department of Energy, Office of Science, Office of High Energy Physics.",
   "assets": {
+    "beamlineMap": "assets/muon-campus-beamlines.png",
     "bestNH": "assets/best_n_validation_h.png",
     "bestNV": "assets/best_n_validation_v.png",
-    "hLoss": "assets/horizontal_loss_diagnostic.png",
-    "ridgeContrast": "assets/ridge_width_contrast_hv.png",
     "ridgeHV": "assets/ridge_density_comparison.png"
   },
   "author": "Derek Steinkamp | Fermi National Accelerator Laboratory",
-  "bestNHCaption": "H Best-5: blind full-band selected/held-out agreement 9.1% [7.9%, 9.8%]; median |Delta q| 0.0161. Reduced-sample knees span 2-13 in 5/7 runs; 2 unresolved.",
-  "bestNVCaption": "V Best-12: blind full-band selected/held-out agreement 26.3% [19.1%, 33.0%]; median |Delta q| 0.0107. Reduced-sample knees span 10-28 in 6/7 runs; 1 unresolved.",
-  "conclusionBody": "Versus adaptive Best-1, H Best-5 and V Best-12 improve blind agreement and median selected/held-out tune delta, with power-support tradeoffs.\nFull-buffer ensemble-size contrast: H narrower than corrected Best-1; V broader than corrected Best-1.\nSame-protocol all-training control favors Best-N in H 2/8 and V 3/8 comparisons; it favors all-training in H 3/8 and V 3/8. No external tune calibration is claimed.",
-  "conclusionHeading": "RESULT AND LIMIT",
+  "bestNHCaption": "H: Best-5 reached 9.1%. The null band ends at 8.9% - promising, not decisive.",
+  "bestNVCaption": "V: Best-12 reached 26.3%. The null band ends at 18.3% - a clear separation.",
+  "conclusionBody": "H Best-5 narrows the ridge. V Best-12 agrees more strongly. All-channel aggregation remains competitive.\n\nUseful operating points - not universal optima.\n\nIs this the machine tune? Not yet. Next: change the tune on purpose (a controlled quadrupole scan) and ask whether the candidate follows.",
+  "conclusionHeading": "WHAT DID WE LEARN?",
   "evidence": {
+    "best1Membership": {
+      "H": {
+        "available_source_count": 60,
+        "maximum_source_keys": "{MUON:BPM:10.200.22.62}:HP611:TBT_POSITION_RAW",
+        "maximum_winner_count": 74,
+        "maximum_winner_fraction": 0.037,
+        "plane": "H",
+        "plane_spill_count": 2000,
+        "winning_source_count": 60
+      },
+      "V": {
+        "available_source_count": 60,
+        "maximum_source_keys": "{MUON:BPM:10.200.22.62}:VP610:TBT_POSITION_RAW",
+        "maximum_winner_count": 114,
+        "maximum_winner_fraction": 0.057,
+        "plane": "V",
+        "plane_spill_count": 2000,
+        "winning_source_count": 60
+      }
+    },
+    "crossSpillNull": {
+      "H": {
+        "block_spills": 20,
+        "null_ci_high": 0.08881,
+        "null_ci_low": 0.0692,
+        "null_mean_agreement_rate": 0.0784676,
+        "observed_agreement_rate": 0.0908,
+        "permutation_draws": 1000,
+        "plane": "H",
+        "status": "ok",
+        "subset_size": 5,
+        "tune_half_width": 0.0025,
+        "valid_permutation_draws": 1000,
+        "validation_spill_count": 500
+      },
+      "V": {
+        "block_spills": 20,
+        "null_ci_high": 0.1832,
+        "null_ci_low": 0.1296,
+        "null_mean_agreement_rate": 0.1536296,
+        "observed_agreement_rate": 0.2628,
+        "permutation_draws": 1000,
+        "plane": "V",
+        "status": "ok",
+        "subset_size": 12,
+        "tune_half_width": 0.0025,
+        "valid_permutation_draws": 1000,
+        "validation_spill_count": 500
+      }
+    },
     "primaryCapture": {
       "nominal_h_channels": 60,
       "nominal_v_channels": 60,
@@ -23,8 +73,6 @@
       "H": {
         "center_count": 180,
         "edge_excluded_rows": 968,
-        "legacy_point_count": 355688,
-        "legacy_spill_count": 1988,
         "missing_tune_rows": 14,
         "ridge_points": 359018,
         "sliding_rows": 360000,
@@ -34,8 +82,6 @@
       "V": {
         "center_count": 180,
         "edge_excluded_rows": 1106,
-        "legacy_point_count": 286646,
-        "legacy_spill_count": 1988,
         "missing_tune_rows": 69684,
         "ridge_points": 289210,
         "sliding_rows": 360000,
@@ -44,11 +90,12 @@
       }
     }
   },
-  "hLossCaption": "Best-5 H concentration is tracked over 50,000 turns. Sustained half-peak loss begins near turn 5632. The multimetric change candidate is turn 5760. No extraction timestamp or cause is inferred.",
-  "methodBody": "Synchronized 2,000-spill raw snapshots use a nominal 60 H / 60 V topology; 16 source absences across 12 flagged partial captures are hash-bound.\nScaled threshold-substituted streams are excluded; members use eight fit windows with overlap purged.\nLater validation uses 1,000 stratified spill-plane cases across 5 held-out-digitizer folds.",
-  "methodHeading": "ADAPTIVE, LEAKAGE-CONTROLLED BPM ENSEMBLES",
-  "quantitativeBody": "2,000 spills; 4,000 H/V curve cases; 1,000 stratified validation cases; 5 held-out-digitizer folds. H Best-5 blind agreement 9.1%; V Best-12 26.3%. Median IQR change vs corrected Best-1: H -0.0024, V 0.001. Finite full-buffer pick coverage: H 99.7%, V 80.3%. Intensity weighting retained 0/240 tested effects.",
-  "ridgeCaption": "Exact-paired 50,000-turn density versus the audited legacy selector: H Best-5 355,688 picks; V Best-12 286,646. Legacy-to-selected change includes selector repair; color is pick probability, not power.",
-  "ridgeContrastCaption": "Selected H Best-5 and V Best-12 P10-P90 width minus corrected adaptive Best-1 on exact paired spill/windows. Negative is narrower; zero is no ensemble-size difference.",
-  "title": "Turn-by-turn tune analysis using adaptive BPM ensembles in the Fermilab Mu2e Delivery Ring"
+  "mapCaption": "The loop at right is the Delivery Ring. Its position readouts do not behave equally.",
+  "mapCredit": "Beamline layout courtesy of George Deinlein, Fermilab staff; used with permission.",
+  "methodBody": "All 60 H and 60 V sources win at least once. Choose early; test later with held-out digitizers.",
+  "methodHeading": "THERE IS NO SINGLE BEST BPM",
+  "reportNumber": "FERMILAB-POSTER-26-0268-AD",
+  "ridgeHeading": "DOES THE CANDIDATE PERSIST FOR 50,000 TURNS?",
+  "subtitle": "Adaptive turn-by-turn tune analysis in the Mu2e Delivery Ring",
+  "title": "Which BPMs can we trust, spill by spill?"
 }
