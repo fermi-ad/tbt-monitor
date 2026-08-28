@@ -2,7 +2,10 @@
 
 ## Scope
 
-`tbt-monitor-tui` is a single Rust binary with these functional areas:
+This document explains how data moves from live BPM streams to saved spills,
+tune estimates, and publication artifacts. The repository builds one Rust
+executable, `tbt-monitor-tui`, with these functional areas:
+
 - config import and validation
 - live stream monitoring (TUI)
 - raw spill capture and capture timing diagnostics

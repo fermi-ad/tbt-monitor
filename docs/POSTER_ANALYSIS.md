@@ -1,12 +1,11 @@
 # BPM-Only Poster Analysis
 
-This workflow is a standalone analysis layer around collected `tbt-monitor`
-artifacts. It complements the Rust acquisition and tune-analysis commands; it
-does not replace live capture, online monitoring, or captured-bundle
-reanalysis.
+This guide explains how saved spill data was turned into the study's plots and
+poster material. These offline scripts complement the main monitoring, capture,
+and tune-analysis commands; they do not replace them.
 
-For the current subsystem-level Spark entry point, including raw GPU analysis,
-autosweep, Best-BPM mining, and telemetry, see [Spark Workflows](SPARK.md).
+For advanced GPU analysis, parameter sweeps, Best-BPM mining, and performance
+telemetry, see [Spark Workflows](SPARK.md).
 
 This phase is BPM-only. Do not add Schottky comparison, Schottky labels, or
 Schottky validation products to these poster outputs.

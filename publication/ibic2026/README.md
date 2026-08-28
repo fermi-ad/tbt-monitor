@@ -1,7 +1,9 @@
 # IBIC 2026 Publication Package
 
-This directory contains the finalized WEP014 proceedings paper and poster for
-abstract 54,
+This directory is the self-contained public record of the IBIC 2026 study.
+`WEP014` is the conference programme code assigned to the finalized paper,
+which began as abstract 54:
+
 *Turn-by-turn tune analysis using adaptive BPM ensembles in the Fermilab Mu2e
 Delivery Ring*.
 
@@ -14,7 +16,7 @@ printed for presentation at IBIC 2026.
 | --- | --- |
 | Proceedings paper | [`paper/build/WEP014.pdf`](paper/build/WEP014.pdf) |
 | Proceedings source | [`paper/WEP014.tex`](paper/WEP014.tex) |
-| Poster-frozen paper record | [`paper/build/ABSTRACT54.pdf`](paper/build/ABSTRACT54.pdf) |
+| Paper PDF used to prepare the poster | [`paper/build/ABSTRACT54.pdf`](paper/build/ABSTRACT54.pdf) |
 | Poster PDF | [`poster/build/ibic2026-abstract54-poster.pdf`](poster/build/ibic2026-abstract54-poster.pdf) |
 | Editable poster | [`poster/build/ibic2026-abstract54-poster.pptx`](poster/build/ibic2026-abstract54-poster.pptx) |
 | Poster preview | [`poster/build/ibic2026-abstract54-poster-artifact-preview.png`](poster/build/ibic2026-abstract54-poster-artifact-preview.png) |
@@ -28,10 +30,11 @@ DOE contract acknowledgment.
 
 ## Result in brief
 
-The analysis evaluates synchronized turn-by-turn position data from 2,000
-Delivery Ring spills. Rather than selecting one permanently preferred BPM, it
-chooses small adaptive ensembles and tests them on later, non-overlapping data
-and held-out digitizers.
+The analysis evaluates synchronized position readings from 2,000 Delivery Ring
+spills. A beam-position monitor (BPM) measures the beam on each circuit of the
+ring. Rather than selecting one permanently preferred monitor, the method
+chooses a small group for each spill and tests it on later data and digitizers
+that were not used for selection.
 
 - H Best-5 and V Best-12 are the declared operating points.
 - Vertical agreement is strongest across held-out digitizers.

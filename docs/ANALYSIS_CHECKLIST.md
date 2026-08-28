@@ -1,13 +1,13 @@
 # Analysis Checklist
 
-This checklist records the completed publication gates and the remaining work
-needed to promote the BPM-only result to a calibrated production measurement.
-Implemented command usage lives in `docs/USAGE.md`; implementation status and
-data flow live in `docs/PLAN.md` and `docs/ARCHITECTURE.md`.
+This checklist separates the checks already completed for the paper and poster
+from the experiments still needed for an independently calibrated machine-tune
+measurement. Commands live in `docs/USAGE.md`; implementation status and data
+flow live in `docs/PLAN.md` and `docs/ARCHITECTURE.md`.
 
-## 1. Already Implemented (Removed from TODO)
+## 1. Completed Publication Checks
 
-Treat these as baseline rather than open TODOs:
+The publication builds on these completed capabilities:
 
 - per-spill tune artifacts, spectrograms, validation composite, and
   `sliding_tune.csv`

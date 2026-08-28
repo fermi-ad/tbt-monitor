@@ -1,9 +1,9 @@
 # A0 Poster Source
 
-The final poster follows the user-supplied Fermilab A0 vertical May 2025
-template. It is authored by exact template duplication and inherited-element
-editing with `@oai/artifact-tool`; `python-pptx`, direct OOXML mutation, and a
-parallel visual rebuild are not permitted.
+The final poster uses Fermilab's A0 vertical May 2025 scientific-poster
+template. The build preserves the template's master artwork and edits mapped
+elements in place; direct OOXML mutation and parallel visual rebuilds are not
+permitted.
 
 ## Paper-Frozen Boundary
 

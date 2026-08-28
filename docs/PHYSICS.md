@@ -1,8 +1,10 @@
-# PHYSICS
-Beam Physics Validation Guide for BPM-Derived Tune Monitor
+# Physics Validation
 
-This document tracks the physics-validation work needed to establish that the
-existing BPM tune pipeline is physically credible for Delivery Ring operations.
+This guide explains what the BPM measurements support scientifically, what they
+do not yet establish, and what additional experiments would be needed for an
+absolute tune calibration. The current result demonstrates repeatable
+tune-like structure within the BPM data; it does not claim an independent
+measurement of the machine tune.
 
 ## 1. Implemented Baseline (Current Repository)
 

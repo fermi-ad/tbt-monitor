@@ -1,12 +1,15 @@
 # tbt-monitor
 
-`tbt-monitor-tui` collects synchronized turn-by-turn (TbT) beam-position
-monitor data, captures complete spill records, and produces transverse tune
-diagnostics for the Fermilab Mu2e Delivery Ring.
+`tbt-monitor` is research software for estimating transverse tune - the number
+of horizontal or vertical beam oscillations per revolution - in the Fermilab
+Mu2e Delivery Ring. It combines synchronized turn-by-turn samples from many
+beam-position monitors (BPMs), where each sample records the beam position on
+one circuit of the ring.
 
-The project follows a simple rule: preserve the same-spill raw data and its
-quality information first, then analyze it. Incomplete captures remain visible
-as warnings or quality flags instead of being silently discarded.
+The project follows a simple rule: keep the raw readings and quality information
+for each accelerator spill together before analyzing them. Incomplete captures
+remain visible as warnings or quality flags instead of being silently
+discarded.
 
 <p align="center">
   <a href="publication/ibic2026/poster/build/ibic2026-abstract54-poster.pdf">
@@ -26,12 +29,14 @@ approved, printed poster.
 - [Editable poster (PPTX)](publication/ibic2026/poster/build/ibic2026-abstract54-poster.pptx)
 - [Publication package and reproducibility notes](publication/ibic2026/README.md)
 
-The study found that tune observability is distributed across the ring rather
-than concentrated in one permanently best BPM. Leakage-controlled tests support
-H Best-5 and V Best-12 as useful operating points: vertical agreement is
-stronger across held-out digitizers, while the horizontal ensemble produces a
-narrower ridge distribution than corrected adaptive Best-1. Aggregating all
-available training channels remains a competitive control.
+The study tested BPM choices on data that was not used to select them. Tune
+observability was distributed around the ring rather than concentrated in one
+permanently best BPM. Ensembles of five horizontal signals (H Best-5) and 12
+vertical signals (V Best-12) were useful operating points: vertical agreement
+was stronger across digitizers kept out of selection, while the horizontal
+ensemble produced a narrower tune-candidate distribution than corrected
+adaptive Best-1. Combining all available training channels remained a
+competitive control.
 
 These are internally repeatable **tune candidates**, not an absolute tune
 calibration. A matched external reference or controlled quadrupole scan is
@@ -40,13 +45,14 @@ boundaries](docs/PHYSICS.md) for the full interpretation.
 
 ## What the software does
 
-- **Monitor:** display live Redis stream arrivals and synchronization state in a
-  terminal UI.
+- **Monitor:** show which BPM channels are reporting and whether their readings
+  belong to the same accelerator spill.
 - **Capture:** write raw, inspectable spill bundles for offline analysis.
 - **Analyze:** estimate horizontal and vertical tune candidates, follow their
   evolution through a spill, and compare adaptive BPM ensembles.
 
-The Rust application covers live operation, capture, and routine offline
+The main executable is named `tbt-monitor-tui` because its live monitor uses a
+terminal interface. It covers live operation, capture, and routine offline
 analysis. The Python tools provide the larger CPU/GPU studies, validation
 controls, publication figures, and reproducibility checks.
 
@@ -121,7 +127,7 @@ multitaper implementation, and CuPy enables the optional CUDA backend.
 - `config/`: runtime and Best-BPM analysis configuration examples.
 - `docs/`: user, architecture, and scientific documentation.
 - `publication/ibic2026/`: approved paper and poster sources, deliverables, and
-  verifier-bound supporting material.
+  checksummed supporting material.
 
 ## Development
 
@@ -147,10 +153,10 @@ published analysis boundary.
 
 ## Citation
 
-Please cite the included paper, *Turn-by-turn tune analysis using adaptive BPM
-ensembles in the Fermilab Mu2e Delivery Ring*, and identify the repository
-revision used for software-derived results. Citation metadata can be updated
-when the final proceedings record is assigned.
+Please cite IBIC 2026 paper WEP014, *Turn-by-turn tune analysis using adaptive
+BPM ensembles in the Fermilab Mu2e Delivery Ring*, and identify the repository
+revision used for software-derived results. Use the DOI from the proceedings
+record when available.
 
 ## License
 

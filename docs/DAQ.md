@@ -1,8 +1,10 @@
 # DAQ Guide
 
-This guide covers the acquisition side of `tbt-monitor-tui`: config import,
-live stream monitoring, raw spill capture, preflight checks, and capture-quality
-diagnostics. Analysis workflows are covered in [Analysis Chains](ANALYSIS_CHAINS.md).
+This guide explains how `tbt-monitor` reads BPM data and saves one coherent
+accelerator spill for later analysis. It covers configuration import, live
+monitoring, raw capture, preflight checks, and capture-quality diagnostics. The
+executable used for these commands is `tbt-monitor-tui`. Analysis workflows are
+covered in [Analysis Chains](ANALYSIS_CHAINS.md).
 
 ## Responsibilities
 

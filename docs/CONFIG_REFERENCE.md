@@ -1,6 +1,8 @@
 # Config Reference
 
-This reference describes `config/monitor.cfg` keys used by runtime and analysis commands.
+This reference explains the settings used for live monitoring, spill capture,
+and tune analysis. Most new users should generate a starting configuration as
+shown in the [DAQ guide](DAQ.md), then return here for individual keys.
 
 ## Top-Level Runtime Keys
 

@@ -1,5 +1,8 @@
 # Current Status
 
+This page summarizes what is finished, what the current evidence supports, and
+which scientific limitations remain.
+
 Last updated: 2026-08-28.
 
 ## Publication status
