@@ -821,8 +821,8 @@
         2983.3,
         552
       ],
-      "text": "Turn-by-turn tune analysis using adaptive BPM ensembles in the Fermilab Mu2e Delivery Ring\nDerek Steinkamp | Fermi National Accelerator Laboratory\n",
-      "textPreview": "Turn-by-turn tune analysis using adaptive BPM ensembles in the Fermilab Mu2e Delivery Ring | Derek Steinkamp | Fermi National Accelerator...",
+      "text": "Which BPMs can we trust, spill by spill?\nAdaptive turn-by-turn tune analysis in the Mu2e Delivery Ring\nDerek Steinkamp | Fermi National Accelerator Laboratory",
+      "textPreview": "Which BPMs can we trust, spill by spill? | Adaptive turn-by-turn tune analysis in the Mu2e Delivery Ring | Derek Steinkamp | Fermi Nation...",
       "resolvedFontSize": 146.67,
       "resolvedTextStyle": {
         "vertical": 1,
@@ -839,39 +839,36 @@
         }
       },
       "textLayout": {
-        "lineCount": 4,
+        "lineCount": 3,
         "lines": [
           {
             "index": 1,
-            "text": "Turn-by-turn tune analysis using adaptive BPM"
+            "text": "Which BPMs can we trust, spill by spill?"
           },
           {
             "index": 2,
-            "text": "ensembles in the Fermilab Mu2e Delivery Ring"
+            "text": "Adaptive turn-by-turn tune analysis in the Mu2e Delivery Ring"
           },
           {
             "index": 3,
             "text": "Derek Steinkamp | Fermi National Accelerator Laboratory"
-          },
-          {
-            "index": 4,
-            "text": ""
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "Turn-by-turn tune analysis using adaptive BPM ensembles in the Fermilab Mu2e Delivery Ring",
+          "text": "Which BPMs can we trust, spill by spill?",
           "resolvedTextStyle": {
             "typeface": "Arial"
           },
           "runs": [
             {
               "index": 1,
-              "text": "Turn-by-turn tune analysis using adaptive BPM ensembles in the Fermilab Mu2e Delivery Ring",
-              "fontSize": 120,
-              "typeface": "Arial"
+              "text": "Which BPMs can we trust, spill by spill?",
+              "fontSize": 128,
+              "typeface": "Arial",
+              "bold": true
             }
           ],
           "bulletCharacter": "",
@@ -880,6 +877,24 @@
         },
         {
           "index": 2,
+          "text": "Adaptive turn-by-turn tune analysis in the Mu2e Delivery Ring",
+          "resolvedTextStyle": {
+            "typeface": "Arial"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Adaptive turn-by-turn tune analysis in the Mu2e Delivery Ring",
+              "fontSize": 62,
+              "typeface": "Arial"
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0
+        },
+        {
+          "index": 3,
           "text": "Derek Steinkamp | Fermi National Accelerator Laboratory",
           "resolvedTextStyle": {
             "typeface": "Arial"
@@ -888,7 +903,7 @@
             {
               "index": 1,
               "text": "Derek Steinkamp | Fermi National Accelerator Laboratory",
-              "fontSize": 69.33,
+              "fontSize": 45,
               "typeface": "Arial"
             }
           ],
@@ -906,18 +921,18 @@
       "id": "38",
       "name": "Text Placeholder 9",
       "bbox": [
-        91.33,
-        3490.11,
-        2020.8,
-        129.6
+        1646.8,
+        3425,
+        1435,
+        90
       ],
-      "text": "RESULT AND LIMIT",
-      "textPreview": "RESULT AND LIMIT",
-      "resolvedFontSize": 66.67,
+      "text": "WHAT DID WE LEARN?",
+      "textPreview": "WHAT DID WE LEARN?",
+      "resolvedFontSize": 54,
       "resolvedTextStyle": {
         "anchor": 2,
         "vertical": 1,
-        "fontSize": 66.67,
+        "fontSize": 54,
         "typeface": "Arial",
         "color": "#004C97",
         "bold": true,
@@ -935,22 +950,28 @@
         "lines": [
           {
             "index": 1,
-            "text": "RESULT AND LIMIT"
+            "text": "WHAT DID WE LEARN?"
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "RESULT AND LIMIT",
+          "text": "WHAT DID WE LEARN?",
           "resolvedTextStyle": {
-            "typeface": "Arial"
+            "fontSize": 54,
+            "typeface": "Arial",
+            "color": "#004C97",
+            "bold": true
           },
           "runs": [
             {
               "index": 1,
-              "text": "RESULT AND LIMIT",
-              "typeface": "Arial"
+              "text": "WHAT DID WE LEARN?",
+              "fontSize": 54,
+              "typeface": "Arial",
+              "color": "#004C97",
+              "bold": true
             }
           ],
           "bulletCharacter": "",
@@ -967,20 +988,19 @@
       "id": "12",
       "name": "Text Placeholder 11",
       "bbox": [
-        2203.4,
-        3465.75,
-        878.4,
-        152.23
+        91.33,
+        4205,
+        1800,
+        175
       ],
-      "text": "Best-5 H concentration is tracked over 50,000 turns. Sustained half-peak loss begins near turn 5632. The multimetric change candidate is turn 5760. No extraction timestamp or cause is inferred.",
-      "textPreview": "Best-5 H concentration is tracked over 50,000 turns. Sustained half-peak loss begins near turn 5632. The multimetric change candidate is ...",
-      "resolvedFontSize": 32,
+      "text": "This manuscript has been authored by FermiForward Discovery Group, LLC under Contract No. 89243024CSC000002 with the U.S. Department of Energy, Office of Science, Office of High Energy Physics.\nBeamline layout courtesy of George Deinlein, Fermilab staff; used with permission.",
+      "textPreview": "This manuscript has been authored by FermiForward Discovery Group, LLC under Contract No. 89243024CSC000002 with the U.S. Department of E...",
+      "resolvedFontSize": 23,
       "resolvedTextStyle": {
         "vertical": 1,
-        "fontSize": 32,
+        "fontSize": 23,
         "typeface": "Arial",
-        "color": "#004C97",
-        "bold": true,
+        "color": "#FFFFFF",
         "alignment": "left",
         "insets": {
           "top": 28.8,
@@ -990,38 +1010,59 @@
         }
       },
       "textLayout": {
-        "lineCount": 4,
+        "lineCount": 3,
         "lines": [
           {
             "index": 1,
-            "text": "Best-5 H concentration is tracked over 50,000 turns."
+            "text": "This manuscript has been authored by FermiForward Discovery Group, LLC under Contract No. 89243024CSC000002 with the U.S. Department of Energy, Office of Science,"
           },
           {
             "index": 2,
-            "text": "Sustained half-peak loss begins near turn 5632. The"
+            "text": "Office of High Energy Physics."
           },
           {
             "index": 3,
-            "text": "multimetric change candidate is turn 5760. No"
-          },
-          {
-            "index": 4,
-            "text": "extraction timestamp or cause is inferred."
+            "text": "Beamline layout courtesy of George Deinlein, Fermilab staff; used with permission."
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "Best-5 H concentration is tracked over 50,000 turns. Sustained half-peak loss begins near turn 5632. The multimetric change candidate is turn 5760. No extraction timestamp or cause is inferred.",
+          "text": "This manuscript has been authored by FermiForward Discovery Group, LLC under Contract No. 89243024CSC000002 with the U.S. Department of Energy, Office of Science, Office of High Energy Physics.",
           "resolvedTextStyle": {
-            "typeface": "Arial"
+            "fontSize": 23,
+            "typeface": "Arial",
+            "color": "#FFFFFF"
           },
           "runs": [
             {
               "index": 1,
-              "text": "Best-5 H concentration is tracked over 50,000 turns. Sustained half-peak loss begins near turn 5632. The multimetric change candidate is turn 5760. No extraction timestamp or cause is inferred.",
-              "typeface": "Arial"
+              "text": "This manuscript has been authored by FermiForward Discovery Group, LLC under Contract No. 89243024CSC000002 with the U.S. Department of Energy, Office of Science, Office of High Energy Physics.",
+              "fontSize": 23,
+              "typeface": "Arial",
+              "color": "#FFFFFF"
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0
+        },
+        {
+          "index": 2,
+          "text": "Beamline layout courtesy of George Deinlein, Fermilab staff; used with permission.",
+          "resolvedTextStyle": {
+            "fontSize": 23,
+            "typeface": "Arial",
+            "color": "#FFFFFF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Beamline layout courtesy of George Deinlein, Fermilab staff; used with permission.",
+              "fontSize": 23,
+              "typeface": "Arial",
+              "color": "#FFFFFF"
             }
           ],
           "bulletCharacter": "",
@@ -1039,17 +1080,17 @@
       "name": "Text Placeholder 17",
       "bbox": [
         91.33,
-        809,
-        2020.8,
-        129.09
+        2325,
+        2990.47,
+        100
       ],
-      "text": "ADAPTIVE, LEAKAGE-CONTROLLED BPM ENSEMBLES",
-      "textPreview": "ADAPTIVE, LEAKAGE-CONTROLLED BPM ENSEMBLES",
-      "resolvedFontSize": 66.67,
+      "text": "THERE IS NO SINGLE BEST BPM",
+      "textPreview": "THERE IS NO SINGLE BEST BPM",
+      "resolvedFontSize": 60,
       "resolvedTextStyle": {
         "anchor": 2,
         "vertical": 1,
-        "fontSize": 66.67,
+        "fontSize": 60,
         "typeface": "Arial",
         "color": "#004C97",
         "bold": true,
@@ -1067,22 +1108,28 @@
         "lines": [
           {
             "index": 1,
-            "text": "ADAPTIVE, LEAKAGE-CONTROLLED BPM ENSEMBLES"
+            "text": "THERE IS NO SINGLE BEST BPM"
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "ADAPTIVE, LEAKAGE-CONTROLLED BPM ENSEMBLES",
+          "text": "THERE IS NO SINGLE BEST BPM",
           "resolvedTextStyle": {
-            "typeface": "Arial"
+            "fontSize": 60,
+            "typeface": "Arial",
+            "color": "#004C97",
+            "bold": true
           },
           "runs": [
             {
               "index": 1,
-              "text": "ADAPTIVE, LEAKAGE-CONTROLLED BPM ENSEMBLES",
-              "typeface": "Arial"
+              "text": "THERE IS NO SINGLE BEST BPM",
+              "fontSize": 60,
+              "typeface": "Arial",
+              "color": "#004C97",
+              "bold": true
             }
           ],
           "bulletCharacter": "",
@@ -1100,18 +1147,18 @@
       "name": "Text Placeholder 18",
       "bbox": [
         91.33,
-        956.17,
-        2020.33,
-        368.59
+        2425,
+        2990.47,
+        110
       ],
-      "text": "Synchronized 2,000-spill raw snapshots use a nominal 60 H / 60 V topology; 16 source absences across 12 flagged partial captures are hash-bound.\nScaled threshold-substituted streams are excluded; members use eight fit windows with overlap purged.\nLater validation uses 1,000 stratified spill-plane cases across 5 held-out-digitizer folds.",
-      "textPreview": "Synchronized 2,000-spill raw snapshots use a nominal 60 H / 60 V topology; 16 source absences across 12 flagged partial captures are hash...",
-      "resolvedFontSize": 53.33,
+      "text": "All 60 H and 60 V sources win at least once. Choose early; test later with held-out digitizers.",
+      "textPreview": "All 60 H and 60 V sources win at least once. Choose early; test later with held-out digitizers.",
+      "resolvedFontSize": 44,
       "resolvedTextStyle": {
         "vertical": 1,
-        "fontSize": 53.33,
+        "fontSize": 44,
         "typeface": "Arial",
-        "color": "tx1",
+        "color": "#000000",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -1121,80 +1168,30 @@
         }
       },
       "textLayout": {
-        "lineCount": 6,
+        "lineCount": 1,
         "lines": [
           {
             "index": 1,
-            "text": "Synchronized 2,000-spill raw snapshots use a nominal 60 H / 60 V topology; 16"
-          },
-          {
-            "index": 2,
-            "text": "source absences across 12 flagged partial captures are hash-bound."
-          },
-          {
-            "index": 3,
-            "text": "Scaled threshold-substituted streams are excluded; members use eight fit windows"
-          },
-          {
-            "index": 4,
-            "text": "with overlap purged."
-          },
-          {
-            "index": 5,
-            "text": "Later validation uses 1,000 stratified spill-plane cases across 5 held-out-digitizer"
-          },
-          {
-            "index": 6,
-            "text": "folds."
+            "text": "All 60 H and 60 V sources win at least once. Choose early; test later with held-out digitizers."
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "Synchronized 2,000-spill raw snapshots use a nominal 60 H / 60 V topology; 16 source absences across 12 flagged partial captures are hash-bound.",
+          "text": "All 60 H and 60 V sources win at least once. Choose early; test later with held-out digitizers.",
           "resolvedTextStyle": {
-            "typeface": "Arial"
+            "fontSize": 44,
+            "typeface": "Arial",
+            "color": "#000000"
           },
           "runs": [
             {
               "index": 1,
-              "text": "Synchronized 2,000-spill raw snapshots use a nominal 60 H / 60 V topology; 16 source absences across 12 flagged partial captures are hash-bound.",
-              "typeface": "Arial"
-            }
-          ],
-          "bulletCharacter": "",
-          "marginLeft": 0,
-          "indent": 0
-        },
-        {
-          "index": 2,
-          "text": "Scaled threshold-substituted streams are excluded; members use eight fit windows with overlap purged.",
-          "resolvedTextStyle": {
-            "typeface": "Arial"
-          },
-          "runs": [
-            {
-              "index": 1,
-              "text": "Scaled threshold-substituted streams are excluded; members use eight fit windows with overlap purged.",
-              "typeface": "Arial"
-            }
-          ],
-          "bulletCharacter": "",
-          "marginLeft": 0,
-          "indent": 0
-        },
-        {
-          "index": 3,
-          "text": "Later validation uses 1,000 stratified spill-plane cases across 5 held-out-digitizer folds.",
-          "resolvedTextStyle": {
-            "typeface": "Arial"
-          },
-          "runs": [
-            {
-              "index": 1,
-              "text": "Later validation uses 1,000 stratified spill-plane cases across 5 held-out-digitizer folds.",
-              "typeface": "Arial"
+              "text": "All 60 H and 60 V sources win at least once. Choose early; test later with held-out digitizers.",
+              "fontSize": 44,
+              "typeface": "Arial",
+              "color": "#000000"
             }
           ],
           "bulletCharacter": "",
@@ -1211,19 +1208,19 @@
       "id": "39",
       "name": "Text Placeholder 19",
       "bbox": [
-        91.33,
-        3627.2,
-        2020.33,
-        315.22
+        1646.8,
+        3520,
+        1435,
+        535
       ],
-      "text": "Versus adaptive Best-1, H Best-5 and V Best-12 improve blind agreement and median selected/held-out tune delta, with power-support tradeoffs.\nFull-buffer ensemble-size contrast: H narrower than corrected Best-1; V broader than corrected Best-1.\nSame-protocol all-training control favors Best-N in H 2/8 and V 3/8 comparisons; it favors all-training in H 3/8 and V 3/8. No external tune calibration is claimed.",
-      "textPreview": "Versus adaptive Best-1, H Best-5 and V Best-12 improve blind agreement and median selected/held-out tune delta, with power-support tradeo...",
-      "resolvedFontSize": 53.33,
+      "text": "H Best-5 narrows the ridge. V Best-12 agrees more strongly. All-channel aggregation remains competitive.\n\nUseful operating points - not universal optima.\n\nIs this the machine tune? Not yet. Next: change the tune on purpose (a controlled quadrupole scan) and ask whether the candidate follows.",
+      "textPreview": "H Best-5 narrows the ridge. V Best-12 agrees more strongly. All-channel aggregation remains competitive. |  | Useful operating points - n...",
+      "resolvedFontSize": 42,
       "resolvedTextStyle": {
         "vertical": 1,
-        "fontSize": 53.33,
+        "fontSize": 42,
         "typeface": "Arial",
-        "color": "tx1",
+        "color": "#000000",
         "alignment": "left",
         "insets": {
           "top": 4.8,
@@ -1233,63 +1230,54 @@
         }
       },
       "textLayout": {
-        "lineCount": 6,
+        "lineCount": 7,
         "lines": [
           {
             "index": 1,
-            "text": "Versus adaptive Best-1, H Best-5 and V Best-12 improve blind agreement and"
+            "text": "H Best-5 narrows the ridge. V Best-12 agrees more strongly. All-channel"
           },
           {
             "index": 2,
-            "text": "median selected/held-out tune delta, with power-support tradeoffs."
+            "text": "aggregation remains competitive."
           },
           {
             "index": 3,
-            "text": "Full-buffer ensemble-size contrast: H narrower than corrected Best-1; V broader"
+            "text": ""
           },
           {
             "index": 4,
-            "text": "than corrected Best-1."
+            "text": "Useful operating points - not universal optima."
           },
           {
             "index": 5,
-            "text": "Same-protocol all-training control favors Best-N in H 2/8 and V 3/8 comparisons; it"
+            "text": ""
           },
           {
             "index": 6,
-            "text": "favors all-training in H 3/8 and V 3/8. No external tune calibration is claimed."
+            "text": "Is this the machine tune? Not yet. Next: change the tune on purpose (a"
+          },
+          {
+            "index": 7,
+            "text": "controlled quadrupole scan) and ask whether the candidate follows."
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "Versus adaptive Best-1, H Best-5 and V Best-12 improve blind agreement and median selected/held-out tune delta, with power-support tradeoffs.",
+          "text": "H Best-5 narrows the ridge. V Best-12 agrees more strongly. All-channel aggregation remains competitive.",
           "resolvedTextStyle": {
-            "typeface": "Arial"
+            "fontSize": 42,
+            "typeface": "Arial",
+            "color": "#000000"
           },
           "runs": [
             {
               "index": 1,
-              "text": "Versus adaptive Best-1, H Best-5 and V Best-12 improve blind agreement and median selected/held-out tune delta, with power-support tradeoffs.",
-              "typeface": "Arial"
-            }
-          ],
-          "bulletCharacter": "",
-          "marginLeft": 0,
-          "indent": 0
-        },
-        {
-          "index": 2,
-          "text": "Full-buffer ensemble-size contrast: H narrower than corrected Best-1; V broader than corrected Best-1.",
-          "resolvedTextStyle": {
-            "typeface": "Arial"
-          },
-          "runs": [
-            {
-              "index": 1,
-              "text": "Full-buffer ensemble-size contrast: H narrower than corrected Best-1; V broader than corrected Best-1.",
-              "typeface": "Arial"
+              "text": "H Best-5 narrows the ridge. V Best-12 agrees more strongly. All-channel aggregation remains competitive.",
+              "fontSize": 42,
+              "typeface": "Arial",
+              "color": "#000000"
             }
           ],
           "bulletCharacter": "",
@@ -1298,15 +1286,40 @@
         },
         {
           "index": 3,
-          "text": "Same-protocol all-training control favors Best-N in H 2/8 and V 3/8 comparisons; it favors all-training in H 3/8 and V 3/8. No external tune calibration is claimed.",
+          "text": "Useful operating points - not universal optima.",
           "resolvedTextStyle": {
-            "typeface": "Arial"
+            "fontSize": 42,
+            "typeface": "Arial",
+            "color": "#000000"
           },
           "runs": [
             {
               "index": 1,
-              "text": "Same-protocol all-training control favors Best-N in H 2/8 and V 3/8 comparisons; it favors all-training in H 3/8 and V 3/8. No external tune calibration is claimed.",
-              "typeface": "Arial"
+              "text": "Useful operating points - not universal optima.",
+              "fontSize": 42,
+              "typeface": "Arial",
+              "color": "#000000"
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0
+        },
+        {
+          "index": 5,
+          "text": "Is this the machine tune? Not yet. Next: change the tune on purpose (a controlled quadrupole scan) and ask whether the candidate follows.",
+          "resolvedTextStyle": {
+            "fontSize": 42,
+            "typeface": "Arial",
+            "color": "#000000"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Is this the machine tune? Not yet. Next: change the tune on purpose (a controlled quadrupole scan) and ask whether the candidate follows.",
+              "fontSize": 42,
+              "typeface": "Arial",
+              "color": "#000000"
             }
           ],
           "bulletCharacter": "",
@@ -1323,20 +1336,23 @@
       "id": "40",
       "name": "Text Placeholder 20",
       "bbox": [
-        2203.4,
-        2114.79,
-        878.4,
-        637.75
+        2180,
+        32,
+        900,
+        58
       ],
-      "text": "2,000 spills; 4,000 H/V curve cases; 1,000 stratified validation cases; 5 held-out-digitizer folds. H Best-5 blind agreement 9.1%; V Best-12 26.3%. Median IQR change vs corrected Best-1: H -0.0024, V 0.001. Finite full-buffer pick coverage: H 99.7%, V 80.3%. Intensity weighting retained 0/240 tested effects.",
-      "textPreview": "2,000 spills; 4,000 H/V curve cases; 1,000 stratified validation cases; 5 held-out-digitizer folds. H Best-5 blind agreement 9.1%; V Best...",
-      "resolvedFontSize": 53.33,
+      "text": "FERMILAB-POSTER-26-0268-AD",
+      "textPreview": "FERMILAB-POSTER-26-0268-AD",
+      "resolvedFontSize": 27,
       "resolvedTextStyle": {
+        "anchor": 2,
         "vertical": 1,
-        "fontSize": 53.33,
+        "fontSize": 27,
         "typeface": "Arial",
-        "color": "tx1",
-        "alignment": "left",
+        "color": "#FFFFFF",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "middle",
         "insets": {
           "top": 4.8,
           "right": 9.6,
@@ -1345,62 +1361,34 @@
         }
       },
       "textLayout": {
-        "lineCount": 10,
+        "lineCount": 1,
         "lines": [
           {
             "index": 1,
-            "text": "2,000 spills; 4,000 H/V curve cases;"
-          },
-          {
-            "index": 2,
-            "text": "1,000 stratified validation cases; 5"
-          },
-          {
-            "index": 3,
-            "text": "held-out-digitizer folds. H Best-5"
-          },
-          {
-            "index": 4,
-            "text": "blind agreement 9.1%; V Best-12"
-          },
-          {
-            "index": 5,
-            "text": "26.3%. Median IQR change vs"
-          },
-          {
-            "index": 6,
-            "text": "corrected Best-1: H -0.0024, V"
-          },
-          {
-            "index": 7,
-            "text": "0.001. Finite full-buffer pick"
-          },
-          {
-            "index": 8,
-            "text": "coverage: H 99.7%, V 80.3%."
-          },
-          {
-            "index": 9,
-            "text": "Intensity weighting retained 0/240"
-          },
-          {
-            "index": 10,
-            "text": "tested effects."
+            "text": "FERMILAB-POSTER-26-0268-AD"
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "2,000 spills; 4,000 H/V curve cases; 1,000 stratified validation cases; 5 held-out-digitizer folds. H Best-5 blind agreement 9.1%; V Best-12 26.3%. Median IQR change vs corrected Best-1: H -0.0024, V 0.001. Finite full-buffer pick coverage: H 99.7%, V 80.3%. Intensity weighting retained 0/240 tested effects.",
+          "text": "FERMILAB-POSTER-26-0268-AD",
           "resolvedTextStyle": {
-            "typeface": "Arial"
+            "fontSize": 27,
+            "typeface": "Arial",
+            "color": "#FFFFFF",
+            "bold": true,
+            "alignment": "right"
           },
           "runs": [
             {
               "index": 1,
-              "text": "2,000 spills; 4,000 H/V curve cases; 1,000 stratified validation cases; 5 held-out-digitizer folds. H Best-5 blind agreement 9.1%; V Best-12 26.3%. Median IQR change vs corrected Best-1: H -0.0024, V 0.001. Finite full-buffer pick coverage: H 99.7%, V 80.3%. Intensity weighting retained 0/240 tested effects.",
-              "typeface": "Arial"
+              "text": "FERMILAB-POSTER-26-0268-AD",
+              "fontSize": 27,
+              "typeface": "Arial",
+              "color": "#FFFFFF",
+              "bold": true,
+              "alignment": "right"
             }
           ],
           "bulletCharacter": "",
@@ -1417,21 +1405,23 @@
       "id": "11",
       "name": "Text Placeholder 10",
       "bbox": [
-        95.33,
-        3330.24,
-        2015.7,
-        152.23
+        91.33,
+        690,
+        2990.47,
+        110
       ],
-      "text": "Exact-paired 50,000-turn density versus the audited legacy selector: H Best-5 355,688 picks; V Best-12 286,646. Legacy-to-selected change includes selector repair; color is pick probability, not power.",
-      "textPreview": "Exact-paired 50,000-turn density versus the audited legacy selector: H Best-5 355,688 picks; V Best-12 286,646. Legacy-to-selected change...",
-      "resolvedFontSize": 32,
+      "text": "DOES THE CANDIDATE PERSIST FOR 50,000 TURNS?",
+      "textPreview": "DOES THE CANDIDATE PERSIST FOR 50,000 TURNS?",
+      "resolvedFontSize": 60,
       "resolvedTextStyle": {
+        "anchor": 2,
         "vertical": 1,
-        "fontSize": 32,
+        "fontSize": 60,
         "typeface": "Arial",
         "color": "#004C97",
         "bold": true,
         "alignment": "left",
+        "verticalAlignment": "middle",
         "insets": {
           "top": 28.8,
           "right": 28.8,
@@ -1440,30 +1430,32 @@
         }
       },
       "textLayout": {
-        "lineCount": 2,
+        "lineCount": 1,
         "lines": [
           {
             "index": 1,
-            "text": "Exact-paired 50,000-turn density versus the audited legacy selector: H Best-5 355,688 picks; V Best-12 286,646. Legacy-to-selected"
-          },
-          {
-            "index": 2,
-            "text": "change includes selector repair; color is pick probability, not power."
+            "text": "DOES THE CANDIDATE PERSIST FOR 50,000 TURNS?"
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "Exact-paired 50,000-turn density versus the audited legacy selector: H Best-5 355,688 picks; V Best-12 286,646. Legacy-to-selected change includes selector repair; color is pick probability, not power.",
+          "text": "DOES THE CANDIDATE PERSIST FOR 50,000 TURNS?",
           "resolvedTextStyle": {
-            "typeface": "Arial"
+            "fontSize": 60,
+            "typeface": "Arial",
+            "color": "#004C97",
+            "bold": true
           },
           "runs": [
             {
               "index": 1,
-              "text": "Exact-paired 50,000-turn density versus the audited legacy selector: H Best-5 355,688 picks; V Best-12 286,646. Legacy-to-selected change includes selector repair; color is pick probability, not power.",
-              "typeface": "Arial"
+              "text": "DOES THE CANDIDATE PERSIST FOR 50,000 TURNS?",
+              "fontSize": 60,
+              "typeface": "Arial",
+              "color": "#004C97",
+              "bold": true
             }
           ],
           "bulletCharacter": "",
@@ -1481,16 +1473,16 @@
       "name": "Text Placeholder 1",
       "bbox": [
         101.56,
-        2213.32,
-        927.03,
-        167.62
+        3300,
+        1425,
+        125
       ],
-      "text": "H Best-5: blind full-band selected/held-out agreement 9.1% [7.9%, 9.8%]; median |Delta q| 0.0161. Reduced-sample knees span 2-13 in 5/7 runs; 2 unresolved.",
-      "textPreview": "H Best-5: blind full-band selected/held-out agreement 9.1% [7.9%, 9.8%]; median |Delta q| 0.0161. Reduced-sample knees span 2-13 in 5/7 r...",
-      "resolvedFontSize": 32,
+      "text": "H: Best-5 reached 9.1%. The null band ends at 8.9% - promising, not decisive.",
+      "textPreview": "H: Best-5 reached 9.1%. The null band ends at 8.9% - promising, not decisive.",
+      "resolvedFontSize": 36,
       "resolvedTextStyle": {
         "vertical": 1,
-        "fontSize": 32,
+        "fontSize": 36,
         "typeface": "Arial",
         "color": "#004C97",
         "bold": true,
@@ -1503,34 +1495,32 @@
         }
       },
       "textLayout": {
-        "lineCount": 3,
+        "lineCount": 1,
         "lines": [
           {
             "index": 1,
-            "text": "H Best-5: blind full-band selected/held-out agreement 9.1%"
-          },
-          {
-            "index": 2,
-            "text": "[7.9%, 9.8%]; median |Delta q| 0.0161. Reduced-sample"
-          },
-          {
-            "index": 3,
-            "text": "knees span 2-13 in 5/7 runs; 2 unresolved."
+            "text": "H: Best-5 reached 9.1%. The null band ends at 8.9% - promising, not decisive."
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "H Best-5: blind full-band selected/held-out agreement 9.1% [7.9%, 9.8%]; median |Delta q| 0.0161. Reduced-sample knees span 2-13 in 5/7 runs; 2 unresolved.",
+          "text": "H: Best-5 reached 9.1%. The null band ends at 8.9% - promising, not decisive.",
           "resolvedTextStyle": {
-            "typeface": "Arial"
+            "fontSize": 36,
+            "typeface": "Arial",
+            "color": "#004C97",
+            "bold": true
           },
           "runs": [
             {
               "index": 1,
-              "text": "H Best-5: blind full-band selected/held-out agreement 9.1% [7.9%, 9.8%]; median |Delta q| 0.0161. Reduced-sample knees span 2-13 in 5/7 runs; 2 unresolved.",
-              "typeface": "Arial"
+              "text": "H: Best-5 reached 9.1%. The null band ends at 8.9% - promising, not decisive.",
+              "fontSize": 36,
+              "typeface": "Arial",
+              "color": "#004C97",
+              "bold": true
             }
           ],
           "bulletCharacter": "",
@@ -1547,17 +1537,17 @@
       "id": "4",
       "name": "Text Placeholder 3",
       "bbox": [
-        1150.22,
-        2213.32,
-        940.44,
-        167.62
+        1656.8,
+        3300,
+        1425,
+        125
       ],
-      "text": "V Best-12: blind full-band selected/held-out agreement 26.3% [19.1%, 33.0%]; median |Delta q| 0.0107. Reduced-sample knees span 10-28 in 6/7 runs; 1 unresolved.",
-      "textPreview": "V Best-12: blind full-band selected/held-out agreement 26.3% [19.1%, 33.0%]; median |Delta q| 0.0107. Reduced-sample knees span 10-28 in ...",
-      "resolvedFontSize": 32,
+      "text": "V: Best-12 reached 26.3%. The null band ends at 18.3% - a clear separation.",
+      "textPreview": "V: Best-12 reached 26.3%. The null band ends at 18.3% - a clear separation.",
+      "resolvedFontSize": 36,
       "resolvedTextStyle": {
         "vertical": 1,
-        "fontSize": 32,
+        "fontSize": 36,
         "typeface": "Arial",
         "color": "#004C97",
         "bold": true,
@@ -1570,38 +1560,32 @@
         }
       },
       "textLayout": {
-        "lineCount": 4,
+        "lineCount": 1,
         "lines": [
           {
             "index": 1,
-            "text": "V Best-12: blind full-band selected/held-out agreement"
-          },
-          {
-            "index": 2,
-            "text": "26.3% [19.1%, 33.0%]; median |Delta q| 0.0107."
-          },
-          {
-            "index": 3,
-            "text": "Reduced-sample knees span 10-28 in 6/7 runs; 1"
-          },
-          {
-            "index": 4,
-            "text": "unresolved."
+            "text": "V: Best-12 reached 26.3%. The null band ends at 18.3% - a clear separation."
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "V Best-12: blind full-band selected/held-out agreement 26.3% [19.1%, 33.0%]; median |Delta q| 0.0107. Reduced-sample knees span 10-28 in 6/7 runs; 1 unresolved.",
+          "text": "V: Best-12 reached 26.3%. The null band ends at 18.3% - a clear separation.",
           "resolvedTextStyle": {
-            "typeface": "Arial"
+            "fontSize": 36,
+            "typeface": "Arial",
+            "color": "#004C97",
+            "bold": true
           },
           "runs": [
             {
               "index": 1,
-              "text": "V Best-12: blind full-band selected/held-out agreement 26.3% [19.1%, 33.0%]; median |Delta q| 0.0107. Reduced-sample knees span 10-28 in 6/7 runs; 1 unresolved.",
-              "typeface": "Arial"
+              "text": "V: Best-12 reached 26.3%. The null band ends at 18.3% - a clear separation.",
+              "fontSize": 36,
+              "typeface": "Arial",
+              "color": "#004C97",
+              "bold": true
             }
           ],
           "bulletCharacter": "",
@@ -1618,17 +1602,17 @@
       "id": "5",
       "name": "Text Placeholder 4",
       "bbox": [
-        2203.4,
-        1825.24,
-        878.4,
-        221.17
+        91.33,
+        3425,
+        1450,
+        75
       ],
-      "text": "Selected H Best-5 and V Best-12 P10-P90 width minus corrected adaptive Best-1 on exact paired spill/windows. Negative is narrower; zero is no ensemble-size difference.",
-      "textPreview": "Selected H Best-5 and V Best-12 P10-P90 width minus corrected adaptive Best-1 on exact paired spill/windows. Negative is narrower; zero i...",
-      "resolvedFontSize": 32,
+      "text": "The loop at right is the Delivery Ring. Its position readouts do not behave equally.",
+      "textPreview": "The loop at right is the Delivery Ring. Its position readouts do not behave equally.",
+      "resolvedFontSize": 30,
       "resolvedTextStyle": {
         "vertical": 1,
-        "fontSize": 32,
+        "fontSize": 30,
         "typeface": "Arial",
         "color": "#004C97",
         "bold": true,
@@ -1641,38 +1625,32 @@
         }
       },
       "textLayout": {
-        "lineCount": 4,
+        "lineCount": 1,
         "lines": [
           {
             "index": 1,
-            "text": "Selected H Best-5 and V Best-12 P10-P90 width minus"
-          },
-          {
-            "index": 2,
-            "text": "corrected adaptive Best-1 on exact paired"
-          },
-          {
-            "index": 3,
-            "text": "spill/windows. Negative is narrower; zero is no"
-          },
-          {
-            "index": 4,
-            "text": "ensemble-size difference."
+            "text": "The loop at right is the Delivery Ring. Its position readouts do not behave equally."
           }
         ]
       },
       "paragraphs": [
         {
           "index": 1,
-          "text": "Selected H Best-5 and V Best-12 P10-P90 width minus corrected adaptive Best-1 on exact paired spill/windows. Negative is narrower; zero is no ensemble-size difference.",
+          "text": "The loop at right is the Delivery Ring. Its position readouts do not behave equally.",
           "resolvedTextStyle": {
-            "typeface": "Arial"
+            "fontSize": 30,
+            "typeface": "Arial",
+            "color": "#004C97",
+            "bold": true
           },
           "runs": [
             {
               "index": 1,
-              "text": "Selected H Best-5 and V Best-12 P10-P90 width minus corrected adaptive Best-1 on exact paired spill/windows. Negative is narrower; zero is no ensemble-size difference.",
-              "typeface": "Arial"
+              "text": "The loop at right is the Delivery Ring. Its position readouts do not behave equally.",
+              "fontSize": 30,
+              "typeface": "Arial",
+              "color": "#004C97",
+              "bold": true
             }
           ],
           "bulletCharacter": "",
@@ -1688,18 +1666,18 @@
       "aid": "im/pwvq5oz2",
       "id": "115",
       "bbox": [
-        97.37,
-        1395.26,
-        891.54,
-        818.06
+        91.33,
+        3500,
+        1450,
+        500
       ],
-      "alt": "horizontal leakage-controlled Best-N validation",
+      "alt": "Muon Campus beamline layout with the Mu2e Delivery Ring",
       "contentType": "image/png",
       "imageFit": "contain",
       "asset": {
-        "assetId": "66b001ce-0742-4370-9b19-84206620c2e9",
+        "assetId": "d3c151d4-8f9f-4464-a37c-978894fc42ee",
         "contentType": "image/png",
-        "byteLength": 18923
+        "byteLength": 163370
       }
     },
     {
@@ -1709,18 +1687,18 @@
       "aid": "im/294ru9gb",
       "id": "116",
       "bbox": [
-        1150.22,
-        1375.46,
-        854.93,
-        859.07
+        91.33,
+        2540,
+        1435,
+        760
       ],
-      "alt": "vertical leakage-controlled Best-N validation",
+      "alt": "horizontal leakage-controlled Best-N validation",
       "contentType": "image/png",
       "imageFit": "contain",
       "asset": {
-        "assetId": "2b3cd6aa-62cd-4ef5-96c2-a4abcc97311a",
+        "assetId": "f09c6c4c-af74-466c-a105-c905aca859ce",
         "contentType": "image/png",
-        "byteLength": 24657
+        "byteLength": 89805
       }
     },
     {
@@ -1730,18 +1708,18 @@
       "aid": "im/nad83ehw",
       "id": "117",
       "bbox": [
-        97.37,
-        2439.64,
-        1993.3,
-        890.6
+        1646.8,
+        2540,
+        1435,
+        760
       ],
-      "alt": "exact-paired full-spill H/V ridge comparison",
+      "alt": "vertical leakage-controlled Best-N validation",
       "contentType": "image/png",
       "imageFit": "contain",
       "asset": {
-        "assetId": "a3cbf45a-cfd3-4abe-8c6f-eabb8322edf8",
+        "assetId": "10a8d94d-6b3c-493c-b41b-bbd3beb62540",
         "contentType": "image/png",
-        "byteLength": 235971
+        "byteLength": 102389
       }
     },
     {
@@ -1751,39 +1729,18 @@
       "aid": "im/8rq98nyl",
       "id": "118",
       "bbox": [
-        2342.13,
-        809,
-        637.71,
-        999.73
+        386.5,
+        800,
+        2400,
+        1516
       ],
-      "alt": "selected-H/V exact-paired turn-width contrast",
+      "alt": "exact-paired full-spill H/V ridge comparison",
       "contentType": "image/png",
       "imageFit": "contain",
       "asset": {
-        "assetId": "e56ed30a-6988-495b-b14c-1d66317889eb",
+        "assetId": "7b80da0b-e3ea-415c-9300-c7f93f6add3c",
         "contentType": "image/png",
-        "byteLength": 22611
-      }
-    },
-    {
-      "order": 16,
-      "kind": "image",
-      "scope": "slide",
-      "aid": "im/9szah8f6",
-      "id": "119",
-      "bbox": [
-        2203.33,
-        2710.11,
-        878.5,
-        755.67
-      ],
-      "alt": "horizontal tracking-loss diagnostic",
-      "contentType": "image/png",
-      "imageFit": "contain",
-      "asset": {
-        "assetId": "34161ded-1340-470e-a8df-3e789ec24558",
-        "contentType": "image/png",
-        "byteLength": 14299
+        "byteLength": 1584571
       }
     }
   ],

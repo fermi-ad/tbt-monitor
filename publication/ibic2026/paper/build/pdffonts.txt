@@ -4,4 +4,18 @@ IHAIZV+TeXGyreTermes-Bold-Identity-H CID Type 0C       Identity-H       yes yes 
 BZIVMZ+TeXGyreTermesMath-Regular-Identity-H CID Type 0C       Identity-H       yes yes yes      6  0
 IXFAWU+TeXGyreTermes-Regular-Identity-H CID Type 0C       Identity-H       yes yes yes     10  0
 TQTHRL+TeXGyreTermes-Italic-Identity-H CID Type 0C       Identity-H       yes yes yes     13  0
-YEUUOC+newtxtt                       Type 1C           Custom           yes yes yes     35  0
+YQVCUO+Arial-BoldMT                  TrueType          WinAnsi          yes yes yes     28  0
+SVEMYN+ArialMT                       TrueType          WinAnsi          yes yes yes     34  0
+CXCDKC+ArialMT                       CID TrueType      Identity-H       yes yes yes     40  0
+SGTBBY+ArialMT                       TrueType          WinAnsi          yes yes yes     47  0
+RPLKBJ+ArialMT                       TrueType          WinAnsi          yes yes yes     53  0
+PIFUGE+Arial-BoldMT                  TrueType          WinAnsi          yes yes yes     68  0
+TCPKHF+ArialMT                       TrueType          WinAnsi          yes yes yes     74  0
+FRKWVX+ArialMT                       TrueType          WinAnsi          yes yes yes     80  0
+YEUUOC+newtxtt                       Type 1C           Custom           yes yes yes    129  0
+PMCVIX+Arial-BoldMT                  TrueType          WinAnsi          yes yes yes     90  0
+AOTNQO+ArialMT                       TrueType          WinAnsi          yes yes yes     96  0
+YAOUVK+ArialMT                       CID TrueType      Identity-H       yes yes yes    102  0
+CJJNEX+ArialMT                       TrueType          WinAnsi          yes yes yes    109  0
+WXDYEB+Helvetica                     CID TrueType      Identity-H       yes yes yes    115  0
+ADPSHS+ArialMT                       TrueType          WinAnsi          yes yes yes    122  0

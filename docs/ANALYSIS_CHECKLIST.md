@@ -1,9 +1,9 @@
-# ANALYSIS_CHECKLIST
-Remaining Implementation Checklist for Physics Validation
+# Analysis Checklist
 
-This checklist tracks remaining analysis-quality work. Implemented command
-usage lives in `docs/USAGE.md`; implementation status and data flow live in
-`docs/PLAN.md` and `docs/ARCHITECTURE.md`.
+This checklist records the completed publication gates and the remaining work
+needed to promote the BPM-only result to a calibrated production measurement.
+Implemented command usage lives in `docs/USAGE.md`; implementation status and
+data flow live in `docs/PLAN.md` and `docs/ARCHITECTURE.md`.
 
 ## 1. Already Implemented (Removed from TODO)
 
@@ -49,13 +49,14 @@ Treat these as baseline rather than open TODOs:
   verifier for contiguous coverage, identities, timing, metrics, summaries,
   recommendation boundaries, and plots
 - poster-facing Best-N blind-agreement H/V plots on one shared zero-based scale,
-  with the conditioned near-training diagnostic retained separately
+  with a deterministic cross-spill null band and the conditioned near-training
+  diagnostic retained separately
 - criterion-by-N Best-N gate matrices whose all-gates row matches the declared
   recommendation exactly
 - post-selection Best-N gate-margin matrices over the bounded agreement and
   selected/held-out power floors, with the declared cell identified and an
   explicit prohibition on replacing the published knee
-- a completed exact-pair intensity weighting/covariate study over 199 complete
+- a completed standalone exact-pair intensity weighting/covariate sidecar over 199 complete
   spills; the final block-aware result retains zero of 240 tested effects and
   keeps only integrity and exploratory timing diagnostics. Corrected all-zero
   gate fallback, no-usable-intensity fallback, and direct singleton spectrum
@@ -65,8 +66,10 @@ Treat these as baseline rather than open TODOs:
   pass-through, effect decisions, and gallery assets; 10/20/40 blocks must
   retain the same exact effect identities
 - verifier-bound publication materialization with independent H/V Best-N,
-  exact-paired mixed ridge comparison, selected-N H-loss panel, poster copy,
-  paper table, verifier-derived capture/finite-pick coverage, and source hashes
+  deterministic null and Best-1 membership summaries, exact-paired corrected-
+  Best-1 ridge comparison, selected-N H-loss panel, poster copy, paper table,
+  verifier-derived position/finite-pick coverage, v2 payload, and source hashes;
+  intensity is not a publication prerequisite or source role
 
 ## 2. Deferred Production Enhancements (Not Publication TODO)
 
@@ -209,6 +212,32 @@ Current autosweep note:
   `spill_health.csv` usable spills and preserves rejected/flagged configs in
   diagnostics before full-data reruns.
 
+### 2.9 Reviewer-driven tune calibration and robustness
+
+These are required before promoting the BPM candidate to a calibrated
+production tune measurement, but they are not blockers for the explicitly
+BPM-only IBIC result:
+
+- run a controlled tune-control quadrupole scan with frozen analysis settings,
+  optics-predicted H/V tune shifts, repeated spills, current readbacks, and
+  drift/hysteresis controls
+- compare measured and predicted shift sign, slope, residuals, and
+  no-reliable-tune rate; join a Schottky or tune-meter value when available
+- extend the complete leakage-controlled Best-N matrix to normalized score-
+  weight perturbations and component ablations
+- repeat the Best-N analysis at 2048/4096/8192-turn spectral windows with
+  explicit stride and fit/test-purge comparability
+- vary the `|Delta q|` agreement tolerance independently from the existing
+  blind-agreement non-inferiority margin
+- export a disagreement taxonomy separating missing/weak candidates,
+  alternative full-band peak selection, band-edge picks, and genuine
+  selected/held-out splits by plane and machine state
+- preserve H Best-5 and V Best-12 as declared operating points unless the full
+  protocol is rerun; do not infer unique optima from the current reduced-sample
+  ranges of H N=2-13 and V N=10-28
+- target a quality-qualified result after each completed spill first; treat
+  intra-spill updates as a separate incremental-transport and latency study
+
 ## 3. Plot Usability Gate (Current Publication)
 
 Every final publication plot must satisfy:
@@ -231,46 +260,48 @@ Every final publication plot must satisfy:
   table rather than a reused placeholder series; blank or constant scientific
   panels fail even when a PNG exists
 
-## 4. Current Publication Execution Order
+## 4. Publication Acceptance Record
 
-1. complete and verify the corrected exact-identity Best-1/3/5 run and every
+The approved paper and poster were accepted after the following gates passed:
+
+1. verified the corrected exact-identity Best-1/3/5 run and every
    fixed/held-out/handoff/artifact/report sidecar, including the exact-cache
    visibility-duration repair
-2. complete the contiguous Best-N curve, beam/fit/fold sensitivities, and
+2. verified the contiguous Best-N curve, beam/fit/fold sensitivities, and
    cross-collection transfer; require the full and seven-run sample outputs to
    pass `verify_best_n_outputs.py`, retain every unavailable sensitivity reason,
-   and require eligible knees from at least four of seven runs per plane
-3. pass the independent 2200-manifest raw-payload audit over all 263983 captured
-   position rows and 23999 exact intensity pairs through turn 50000; retain the
-   hashed 17-row absent-stream inventory for the 13 recorded partial captures
-4. run and verify the CPU/cache-only all-training mean/median control over the
+   require eligible knees from at least four of seven runs per plane, and verify
+   the 1000-draw cross-spill null plus exact Best-1 winner frequencies
+3. passed the independent two-collection raw-payload audit over 2000 manifests and
+   all 239984 captured position rows through turn 50000; retain the hashed
+   16-row absent-stream inventory for the 12 recorded partial captures
+4. ran and verified the CPU/cache-only all-training mean/median control over the
    exact accepted Best-N validation keys; retain all 10,000 fold rows, 8,000
    spill pairs, 16 comparison rows, and 18 native PNGs
-5. render the exact-point-paired 50000-turn legacy/Best-N ridge gallery and
+5. rendered the exact-point-paired 50000-turn legacy/Best-N ridge gallery and
    inspect H-loss diagnostics without forcing an extraction onset; require the
    strict spill/window/pair/figure verifier to pass
-6. freeze the executive interpretation and issue #39 deficiency disposition
-7. build and visually verify the Fermilab-template A0 poster and four-page JACoW
+6. froze the claim boundary and reviewer-driven scientific caveats
+7. built and visually verified the Fermilab-template A0 poster and four-page JACoW
    paper
-8. package the exhaustive review gallery and curated publication source bundle,
-   rerun its exact manifest/gallery verifier after local transfer, then merge
-   scoped PRs and leave a clean repository
+8. verified the exhaustive evidence gallery, curated publication bundle,
+   portable manifests, and final deliverables after transfer
 
 SVD/PCA remains deferred for production Rust tune extraction. The standalone
 poster analyzer can already produce opt-in representative-spill SVD/PCA
 comparison plots for physics review.
 
-## 5. Current Review Deliverables
+## 5. Retained Publication Evidence
 
-Required for the publication review:
+The accepted analysis retains:
 
 - corrected verifier and follow-up-verifier reports
 - Best-N summary, sensitivity, and cross-collection transfer tables/plots
 - all-training fold detail, exact spill pairs, comparison table/report, strict
   verification receipt, H/V scoreboards, paired scatters, and favorable-delta
   CDFs
-- exact-point-paired legacy-versus-adaptive H/V ridge panels, one shared-scale
-  four-panel H/V comparison for every requested N, and subtractive
+- exact-point-paired corrected-Best-1-versus-selected H/V publication panels,
+  one shared-scale audit comparison for every requested N, and subtractive
   redistribution maps
 - exact-point-paired corrected Best-1-versus-selected H/V and
   legacy/corrected-Best-1/selected-Best-N control composites, with only the
@@ -296,7 +327,8 @@ Required for the publication review:
   or zero-filled
 - H-plane concentration, width, entropy, confidence, fallback, and data-derived
   loss-candidate diagnostics
-- block-aware intensity result tables and indexed review gallery
+- deterministic cross-spill-null and diversity-independent Best-1 membership
+  tables, strict verification receipts, and source hashes
 - editable A0 poster, poster PDF/render, four-page paper source/PDF, source data,
   generated numerical macros, checksums, commands, captions, and compliance
   notes
@@ -305,13 +337,16 @@ Required for the publication review:
 - delivered poster layout inventory, PPTX overflow inspection, and zero-issue
   template-fidelity reports, with exact portable poster/paper checksum manifests
 - publication source manifest with exact numerical source hashes and a
-  finalizer-verified 14-file materialized-output inventory
+  finalizer-verified exact materialized-output inventory
 - final `compliance_report.md` and `publication_manifest.csv` produced only
   after explicit visual-QA pass flags, page/payload/hash verification, and a
   read-only final-PPTX scan reporting zero empty structural placeholders; the
   report must repeat the payload-bound primary and selected-ridge coverage
 
 Optional but useful:
+
+- the completed block-aware intensity result tables and indexed gallery,
+  packaged as a standalone sidecar rather than an IBIC dependency
 
 - `spectrum_compare_h.png`
 - `spectrum_compare_v.png`
@@ -332,10 +367,9 @@ Optional but useful:
 
 ## 6. Related Acquisition/Analysis Split
 
-Separating live data acquisition from offline tune analysis is tracked in
-`docs/ISSUE_MAP_DAQ_SPLIT.md`. That work should preserve the existing analysis
-artifact contract while adding captured-spill bundles that can be reanalyzed
-without Redis connectivity.
+Live data acquisition and offline tune analysis are separated by the captured-
+spill artifact contract. Captured bundles can be reanalyzed without Redis
+connectivity while preserving the existing analysis inputs and quality state.
 
 This split is intentionally ahead of deeper analysis refinement. Treat the
 current pipeline as a proof of concept to preserve through the split, then use
@@ -348,8 +382,7 @@ single/batch captured-bundle analysis, and a minimal online/offline parity
 guardrail. The checked-in capture config now preserves RAW position payloads
 and derived RAW intensity payloads. The completed sidecar rejects intensity as
 a tune weight but retains it as an auxiliary integrity/timing channel. See
-`docs/USAGE.md` for command usage and
-`docs/ISSUE_MAP_DAQ_SPLIT.md` for issue history.
+`docs/USAGE.md` for command usage.
 
 The split guardrail is not a physics-quality acceptance criterion. It only
 checks that the captured-bundle path preserves today's analysis behavior so

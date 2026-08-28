@@ -24,10 +24,9 @@ for command in "$TECTONIC" "$PDFINFO" "$PDFTOPPM" "$PDFFONTS" "$SHASUM"; do
 done
 
 for figure in \
-  "$HERE/figures/best_n_validation_h.png" \
-  "$HERE/figures/best_n_validation_v.png" \
-  "$HERE/figures/ridge_density_comparison.png" \
-  "$HERE/figures/ridge_width_contrast_hv.png"; do
+  "$HERE/figures/best_n_validation_hv.pdf" \
+  "$HERE/figures/ridge_density_comparison.pdf" \
+  "$HERE/figures/ridge_width_contrast_hv.pdf"; do
   test -s "$figure" || {
     echo "missing required publication figure: $figure" >&2
     exit 1
@@ -99,10 +98,9 @@ write_checksum() {
   write_checksum "$HERE/jacow.cls" "jacow.cls"
   write_checksum "$HERE/results_table.tex" "results_table.tex"
   write_checksum "$HERE/results_macros.tex" "results_macros.tex"
-  write_checksum "$HERE/figures/best_n_validation_h.png" "figures/best_n_validation_h.png"
-  write_checksum "$HERE/figures/best_n_validation_v.png" "figures/best_n_validation_v.png"
-  write_checksum "$HERE/figures/ridge_density_comparison.png" "figures/ridge_density_comparison.png"
-  write_checksum "$HERE/figures/ridge_width_contrast_hv.png" "figures/ridge_width_contrast_hv.png"
+  write_checksum "$HERE/figures/best_n_validation_hv.pdf" "figures/best_n_validation_hv.pdf"
+  write_checksum "$HERE/figures/ridge_density_comparison.pdf" "figures/ridge_density_comparison.pdf"
+  write_checksum "$HERE/figures/ridge_width_contrast_hv.pdf" "figures/ridge_width_contrast_hv.pdf"
   write_checksum "$PDF" "build/$(basename "$PDF")"
 } >"$OUT/source_manifest.sha256"
 rm -f "$OUT/$(basename "${SOURCE%.tex}").aux" "$OUT/$(basename "${SOURCE%.tex}").log"

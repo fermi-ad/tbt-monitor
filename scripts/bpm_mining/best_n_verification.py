@@ -8,8 +8,17 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Mapping, Sequence
 
-from .best_n import recommended_n
-from .contracts import CONTRACT_SCHEMA_VERSION
+from .best_n import (
+    BEST1_MEMBERSHIP_FREQUENCY_FIELDS,
+    BEST1_MEMBERSHIP_SUMMARY_FIELDS,
+    CROSS_SPILL_NULL_BLOCK_SPILLS,
+    CROSS_SPILL_NULL_DRAWS,
+    CROSS_SPILL_NULL_FIELDS,
+    best1_membership_rows,
+    cross_spill_null_rows,
+    recommended_n,
+)
+from .contracts import CONTRACT_SCHEMA_VERSION, file_sha256
 from .identity import indices_from_mask, parse_indices
 from .io import atomic_write_text, read_csv
 
@@ -54,6 +63,9 @@ REQUIRED_FILES = (
     "best_n_summary_by_collection.csv",
     "best_n_cross_collection_transfer.csv",
     "best_n_cross_collection_transfer.md",
+    "best_n_cross_spill_null.csv",
+    "best_n_best1_membership_frequency.csv",
+    "best_n_best1_membership_summary.csv",
 )
 
 REQUIRED_PLOTS = tuple(
@@ -155,6 +167,43 @@ def _check_numeric_fields(
             )
 
 
+def _normalized_rows(
+    rows: Sequence[Mapping[str, object]],
+    fields: Sequence[str],
+) -> list[dict[str, str]]:
+    return [
+        {field: "" if row.get(field) is None else str(row.get(field, "")) for field in fields}
+        for row in rows
+    ]
+
+
+def _check_derived_control(
+    actual: Sequence[Mapping[str, object]],
+    expected: Sequence[Mapping[str, object]],
+    fields: Sequence[str],
+    label: str,
+    issues: list[dict[str, object]],
+) -> None:
+    actual_normalized = _normalized_rows(actual, fields)
+    expected_normalized = _normalized_rows(expected, fields)
+    if actual_normalized == expected_normalized:
+        return
+    mismatches = []
+    for index in range(max(len(actual_normalized), len(expected_normalized))):
+        actual_row = actual_normalized[index] if index < len(actual_normalized) else None
+        expected_row = expected_normalized[index] if index < len(expected_normalized) else None
+        if actual_row != expected_row:
+            mismatches.append(index)
+    _issue(
+        issues,
+        "error",
+        f"{label}_mismatch",
+        f"{label.replace('_', ' ')} does not match a deterministic recomputation from accepted Best-N rows",
+        len(mismatches),
+        mismatches,
+    )
+
+
 def _check_contiguous_n(
     rows: Sequence[dict[str, str]],
     expected_max_n: int,
@@ -193,6 +242,8 @@ def verification_markdown(report: Mapping[str, object]) -> str:
         f"- validation rows: `{report.get('validation_row_count', 0)}`",
         f"- maximum N: `{report.get('expected_max_n', 0)}`",
         f"- folds: `{report.get('expected_folds', 0)}`",
+        f"- cross-spill null rows: `{report.get('cross_spill_null', {}).get('row_count', 0) if isinstance(report.get('cross_spill_null'), Mapping) else 0}`",
+        f"- Best-1 membership rows: `{report.get('best1_membership', {}).get('frequency_row_count', 0) if isinstance(report.get('best1_membership'), Mapping) else 0}`",
         "",
         "## Recommendations",
         "",
@@ -404,6 +455,81 @@ def verify_best_n_outputs(
             f"expected {expected_transfer} cross-collection rows, found {len(transfer_rows)}",
         )
 
+    null_path = root / "best_n_cross_spill_null.csv"
+    membership_frequency_path = root / "best_n_best1_membership_frequency.csv"
+    membership_summary_path = root / "best_n_best1_membership_summary.csv"
+    null_rows = read_csv(null_path) if null_path.is_file() else []
+    membership_frequency_rows = (
+        read_csv(membership_frequency_path) if membership_frequency_path.is_file() else []
+    )
+    membership_summary_rows = (
+        read_csv(membership_summary_path) if membership_summary_path.is_file() else []
+    )
+    expected_null_rows = cross_spill_null_rows(
+        validation,
+        tune_half_width,
+        CROSS_SPILL_NULL_DRAWS,
+        CROSS_SPILL_NULL_BLOCK_SPILLS,
+    )
+    try:
+        expected_membership_frequency, expected_membership_summary = best1_membership_rows(
+            curve,
+            validation,
+        )
+    except ValueError as exc:
+        expected_membership_frequency, expected_membership_summary = [], []
+        _issue(
+            issues,
+            "error",
+            "best1_membership_source_identity",
+            f"Best-1 membership cannot be recomputed from malformed source rows: {exc}",
+        )
+    _check_derived_control(
+        null_rows,
+        expected_null_rows,
+        CROSS_SPILL_NULL_FIELDS,
+        "cross_spill_null",
+        issues,
+    )
+    _check_derived_control(
+        membership_frequency_rows,
+        expected_membership_frequency,
+        BEST1_MEMBERSHIP_FREQUENCY_FIELDS,
+        "best1_membership_frequency",
+        issues,
+    )
+    _check_derived_control(
+        membership_summary_rows,
+        expected_membership_summary,
+        BEST1_MEMBERSHIP_SUMMARY_FIELDS,
+        "best1_membership_summary",
+        issues,
+    )
+    expected_null_keys = {
+        (plane, subset_size)
+        for plane in ("H", "V")
+        for subset_size in range(1, expected_max_n + 1)
+    }
+    null_keys = {
+        (str(row.get("plane", "")), int(row.get("subset_size") or 0))
+        for row in null_rows
+    }
+    if null_keys != expected_null_keys or len(null_rows) != len(expected_null_keys):
+        _issue(
+            issues,
+            "error",
+            "cross_spill_null_coverage",
+            "cross-spill null does not contain exactly one H and V row for every N",
+        )
+    membership_planes = [str(row.get("plane", "")) for row in membership_summary_rows]
+    if sorted(membership_planes) != ["H", "V"]:
+        _issue(
+            issues,
+            "error",
+            "best1_membership_summary_coverage",
+            "Best-1 membership summary must contain exactly one H and V row",
+        )
+
     recommendations: dict[str, dict[str, object]] = {}
     for plane in ("H", "V"):
         chosen, reason = recommended_n(summary, plane, tune_half_width)
@@ -429,7 +555,30 @@ def verify_best_n_outputs(
 
     error_count = sum(int(issue["count"]) for issue in issues if issue["severity"] == "error")
     warning_count = sum(int(issue["count"]) for issue in issues if issue["severity"] == "warning")
+    control_paths = {
+        "best_n_cross_spill_null.csv": null_path,
+        "best_n_best1_membership_frequency.csv": membership_frequency_path,
+        "best_n_best1_membership_summary.csv": membership_summary_path,
+    }
+    control_output_sha256 = {
+        filename: file_sha256(path)
+        for filename, path in control_paths.items()
+        if path.is_file()
+    }
+    membership_by_plane = {
+        str(row.get("plane", "")): {
+            "plane_spill_count": int(row.get("plane_spill_count") or 0),
+            "available_source_count": int(row.get("available_source_count") or 0),
+            "winning_source_count": int(row.get("winning_source_count") or 0),
+            "all_sources_win": str(row.get("all_sources_win", "")).lower() == "true",
+            "maximum_winner_count": int(row.get("maximum_winner_count") or 0),
+            "maximum_winner_fraction": _finite(row.get("maximum_winner_fraction")),
+            "maximum_source_keys": _parts(row.get("maximum_source_keys")),
+        }
+        for row in membership_summary_rows
+    }
     report: dict[str, object] = {
+        "schema": "tbt-monitor.best-n-verification/v2",
         "status": "pass" if error_count == 0 else "fail",
         "root": str(root),
         "expected_max_n": expected_max_n,
@@ -441,6 +590,21 @@ def verify_best_n_outputs(
         "collections": collections,
         "run_contract_analysis": contract.get("analysis", ""),
         "recommendations": recommendations,
+        "control_output_sha256": control_output_sha256,
+        "cross_spill_null": {
+            "row_count": len(null_rows),
+            "permutation_draws": CROSS_SPILL_NULL_DRAWS,
+            "block_spills": CROSS_SPILL_NULL_BLOCK_SPILLS,
+            "tune_half_width": tune_half_width,
+            "permutation_mode": "seeded_block_derangement_shared_across_folds",
+            "seed_namespace": "best-n-cross-spill-null",
+            "status_counts": dict(Counter(str(row.get("status", "")) for row in null_rows)),
+        },
+        "best1_membership": {
+            "frequency_row_count": len(membership_frequency_rows),
+            "summary_row_count": len(membership_summary_rows),
+            "by_plane": membership_by_plane,
+        },
         "error_count": error_count,
         "warning_count": warning_count,
         "issues": issues,

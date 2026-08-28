@@ -1,9 +1,9 @@
 # BPM-Only Poster Analysis
 
-This workflow implements the `BPM_DGX_POSTER_CODEX_PLAN.md` poster sprint as a
-standalone tool layer around collected `tbt-monitor` artifacts. It is
-complementary to the Rust acquisition and tune-analysis commands; it does not
-replace live capture, online monitoring, or captured-bundle reanalysis.
+This workflow is a standalone analysis layer around collected `tbt-monitor`
+artifacts. It complements the Rust acquisition and tune-analysis commands; it
+does not replace live capture, online monitoring, or captured-bundle
+reanalysis.
 
 For the current subsystem-level Spark entry point, including raw GPU analysis,
 autosweep, Best-BPM mining, and telemetry, see [Spark Workflows](SPARK.md).
@@ -13,34 +13,46 @@ Schottky validation products to these poster outputs.
 
 ## Inputs
 
-Use the complete collected artifact set on `drbpm1`, not only the local copied
-review subset. The manifest builder accepts any mix of:
+Set portable working paths before using the examples:
+
+```bash
+PYTHON=/path/to/cuda-capable/python
+PYTHON_ENV=/path/to/python-environment
+INPUT_ROOT=/path/to/captured-spills
+CAPTURE_ROOT=$INPUT_ROOT
+OUTPUT_ROOT=/path/to/analysis-output
+AUTOSWEEP_ROOT=$OUTPUT_ROOT/autosweep
+BEST_BPM_ROOT=$OUTPUT_ROOT/best-bpm
+```
+
+Use the complete collected artifact set, not a partial review subset. The
+manifest builder accepts any mix of:
 
 - `candidate_spills.csv` from curation/ranking runs
 - `spills_summary.csv` from `analyze-spills` or `analyze-captured-spills`
 - `capture_index.csv` from raw capture runs
 
-For the current collected-data layout, the intended source root is:
+The intended source root is:
 
 ```bash
-/home/derekste/out
+$CAPTURE_ROOT
 ```
 
 If the DGX Spark has the `drbpm1` output tree mounted or copied, point `--input`
 at that mounted/copied path and use `--device cuda` or `--device auto`.
 
-Spark currently has a user CuPy environment at:
+Set `$PYTHON_ENV` to a CuPy-enabled environment when running on a GPU host:
 
 ```bash
-/home/derekste/venvs/cupy-spark-cu13
+$PYTHON_ENV
 ```
 
 Use that Python when running GPU-backed poster benchmarks on Spark:
 
 ```bash
-/home/derekste/venvs/cupy-spark-cu13/bin/python scripts/bpm_dgx_poster.py run-all \
-  --input /home/derekste/bpm-dgx-poster-20260609-spark-input/tune-curation \
-  --out /home/derekste/bpm-dgx-poster-20260609-spark-cu13 \
+$PYTHON scripts/bpm_dgx_poster.py run-all \
+  --input $CAPTURE_ROOT \
+  --out $OUTPUT_ROOT/poster-analysis \
   --flashes 128 256 512 \
   --device auto
 ```
@@ -57,18 +69,18 @@ Copy the two 1000-spill position-only runs from `drbpm1` to Spark:
 ```bash
 ssh drbpm1
 rsync -a --partial -e 'ssh -K' \
-  /home/derekste/out/tbt-capture-positiononly-1000-20260608-183119 \
-  /home/derekste/out/tbt-capture-positiononly-1000-20260608-231330 \
-  spark.fnal.gov:/home/derekste/tbt-spills-2000/
+  $CAPTURE_ROOT/collection-1 \
+  $CAPTURE_ROOT/collection-2 \
+  spark.fnal.gov:$INPUT_ROOT/
 ```
 
 Run a small CUDA smoke test first:
 
 ```bash
-/home/derekste/venvs/cupy-spark-cu13/bin/python scripts/gpu_analyze_captured_spills.py \
-  --input /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-183119 \
-          /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-231330 \
-  --out /home/derekste/tbt-spills-2000-gpu-smoke \
+$PYTHON scripts/gpu_analyze_captured_spills.py \
+  --input $INPUT_ROOT/collection-1 \
+          $INPUT_ROOT/collection-2 \
+  --out $OUTPUT_ROOT/gpu-smoke \
   --device cuda \
   --limit 20 \
   --flashes 128
@@ -77,10 +89,10 @@ Run a small CUDA smoke test first:
 Then run the full 2000-spill pass:
 
 ```bash
-/home/derekste/venvs/cupy-spark-cu13/bin/python scripts/gpu_analyze_captured_spills.py \
-  --input /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-183119 \
-          /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-231330 \
-  --out /home/derekste/tbt-spills-2000-gpu-upgrade \
+$PYTHON scripts/gpu_analyze_captured_spills.py \
+  --input $INPUT_ROOT/collection-1 \
+          $INPUT_ROOT/collection-2 \
+  --out $OUTPUT_ROOT/gpu-upgrade \
   --device cuda \
   --flashes 128 \
   --spectrogram-method both \
@@ -127,18 +139,18 @@ Run from a checkout containing `scripts/bpm_dgx_poster.py`:
 
 ```bash
 python3 scripts/bpm_dgx_poster.py run-all \
-  --input /home/derekste/out \
+  --input $CAPTURE_ROOT \
   --out poster-artifacts/drbpm1-poster \
   --flashes 128 256 512 \
   --device auto
 ```
 
-The local copied review subset can be used only as a smoke target:
+A small captured-spill subset can be used as a smoke target:
 
 ```bash
 python3 scripts/bpm_dgx_poster.py run-all \
-  --input review-artifacts \
-  --out /private/tmp/tbt-monitor-poster-smoke \
+  --input "$INPUT_ROOT/smoke-subset" \
+  --out "$OUTPUT_ROOT/tbt-monitor-poster-smoke" \
   --flashes 128 256 512 \
   --device cpu
 ```
@@ -149,7 +161,7 @@ The single entrypoint has subcommands matching the poster plan, and thin wrapper
 scripts are available for the same phases:
 
 ```bash
-python3 scripts/build_manifest.py --input /home/derekste/out --out processed/
+python3 scripts/build_manifest.py --input $CAPTURE_ROOT --out processed/
 python3 scripts/run_baseline_batch.py --manifest processed/dataset_manifest.csv --out processed/
 python3 scripts/run_flash_batch.py --manifest processed/dataset_manifest.csv --flashes 128 256 512 --out processed/
 python3 scripts/build_spectrograms.py --manifest processed/dataset_manifest.csv --device auto --out plots/
@@ -206,11 +218,11 @@ The raw captured-spill GPU analyzer writes:
 
 Current Spark outputs for the 2000-spill position-only dataset:
 
-- `/home/derekste/tbt-spills-2000-gpu-20260609-flash128-w2048`
+- `$OUTPUT_ROOT/flash128-w2048`
   - 2048-turn window, requested `--flashes 128`, effective 24 windows per
     50,000-turn plane under the Rust-compatible flash cap.
   - 2000 spills processed, 1776 usable, 96000 sliding rows.
-- `/home/derekste/tbt-spills-2000-gpu-20260609-flash128-w256`
+- `$OUTPUT_ROOT/flash128-w256`
   - 256-turn window, true 128 flash windows per plane.
   - 2000 spills processed, 1775 usable, 512000 sliding rows.
 
@@ -229,8 +241,8 @@ Cartesian sweep.
 Tier A inputs are the two raw position-only collections:
 
 ```bash
-/home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-183119
-/home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-231330
+$INPUT_ROOT/collection-1
+$INPUT_ROOT/collection-2
 ```
 
 Stage 0 writes the dataset inventory, payload health table, and lightweight
@@ -238,17 +250,17 @@ metadata cache:
 
 ```bash
 python3 scripts/build_collection_manifest.py \
-  --roots /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-183119 \
-          /home/derekste/tbt-spills-2000/tbt-capture-positiononly-1000-20260608-231330 \
-  --out /home/derekste/tbt-spills-2000-autosweep/stage0
+  --roots $INPUT_ROOT/collection-1 \
+          $INPUT_ROOT/collection-2 \
+  --out $AUTOSWEEP_ROOT/stage0
 python3 scripts/validate_spill_integrity.py \
-  --manifest /home/derekste/tbt-spills-2000-autosweep/stage0/dataset_manifest.csv \
-  --out /home/derekste/tbt-spills-2000-autosweep/stage0 \
+  --manifest $AUTOSWEEP_ROOT/stage0/dataset_manifest.csv \
+  --out $AUTOSWEEP_ROOT/stage0 \
   --device cuda
 python3 scripts/build_spill_cache.py \
-  --manifest /home/derekste/tbt-spills-2000-autosweep/stage0/dataset_manifest.csv \
-  --health /home/derekste/tbt-spills-2000-autosweep/stage0/spill_health.csv \
-  --out /home/derekste/tbt-spills-2000-autosweep/stage0 \
+  --manifest $AUTOSWEEP_ROOT/stage0/dataset_manifest.csv \
+  --health $AUTOSWEEP_ROOT/stage0/spill_health.csv \
+  --out $AUTOSWEEP_ROOT/stage0 \
   --device cuda
 ```
 
@@ -257,23 +269,23 @@ interaction grid:
 
 ```bash
 python3 scripts/run_autosweep.py \
-  --dataset /home/derekste/tbt-spills-2000-autosweep/stage0/dataset_manifest.csv \
+  --dataset $AUTOSWEEP_ROOT/stage0/dataset_manifest.csv \
   --mode pilot \
   --spills 200 \
   --max-configs 300 \
   --device cuda \
   --parallel-jobs 2 \
   --gpu-telemetry-interval-seconds 30 \
-  --out /home/derekste/tbt-spills-2000-autosweep/pilot
+  --out $AUTOSWEEP_ROOT/pilot
 ```
 
 Then rank and summarize:
 
 ```bash
 python3 scripts/rank_autosweep_results.py \
-  --autosweep-dir /home/derekste/tbt-spills-2000-autosweep/pilot
+  --autosweep-dir $AUTOSWEEP_ROOT/pilot
 python3 scripts/make_initial_analysis_summary.py \
-  --ranking-dir /home/derekste/tbt-spills-2000-autosweep/pilot \
+  --ranking-dir $AUTOSWEEP_ROOT/pilot \
   --top 10
 ```
 
@@ -283,26 +295,26 @@ handoff lists and filters the Stage 0 manifest to usable Tier A spills from
 
 ```bash
 python3 scripts/build_elite_full_stage.py \
-  --pilot-dir /home/derekste/tbt-spills-2000-autosweep/pilot \
-  --dataset /home/derekste/tbt-spills-2000-autosweep/stage0/dataset_manifest.csv \
-  --health /home/derekste/tbt-spills-2000-autosweep/stage0/spill_health.csv \
-  --out /home/derekste/tbt-spills-2000-autosweep/elite-full \
+  --pilot-dir $AUTOSWEEP_ROOT/pilot \
+  --dataset $AUTOSWEEP_ROOT/stage0/dataset_manifest.csv \
+  --health $AUTOSWEEP_ROOT/stage0/spill_health.csv \
+  --out $AUTOSWEEP_ROOT/elite-full \
   --expected-usable-spills 1988
 python3 scripts/run_autosweep.py \
-  --dataset /home/derekste/tbt-spills-2000-autosweep/elite-full/elite_dataset_manifest.csv \
+  --dataset $AUTOSWEEP_ROOT/elite-full/elite_dataset_manifest.csv \
   --mode full \
-  --config-list /home/derekste/tbt-spills-2000-autosweep/elite-full/elite_configs_for_full.csv \
+  --config-list $AUTOSWEEP_ROOT/elite-full/elite_configs_for_full.csv \
   --device cuda \
   --heavy-plots \
   --job-timeout-seconds 900 \
   --parallel-jobs 2 \
   --gpu-telemetry-interval-seconds 30 \
-  --out /home/derekste/tbt-spills-2000-autosweep/elite-full
+  --out $AUTOSWEEP_ROOT/elite-full
 python3 scripts/rank_autosweep_results.py \
-  --autosweep-dir /home/derekste/tbt-spills-2000-autosweep/elite-full \
+  --autosweep-dir $AUTOSWEEP_ROOT/elite-full \
   --min-spills 500
 python3 scripts/make_elite_full_summary.py \
-  --elite-dir /home/derekste/tbt-spills-2000-autosweep/elite-full
+  --elite-dir $AUTOSWEEP_ROOT/elite-full
 ```
 
 The elite builder deduplicates effective configs, includes explicit H and V
@@ -364,9 +376,9 @@ external truth label.
 Run the full pipeline on Spark:
 
 ```bash
-/home/derekste/venvs/cupy-spark-cu13/bin/python scripts/run_best_bpm_pipeline.py \
+$PYTHON scripts/run_best_bpm_pipeline.py \
   --config config/best_bpm_mining.yaml \
-  --out /home/derekste/best_bpm_mining \
+  --out $BEST_BPM_ROOT \
   --device cuda \
   --workers 12 \
   --resume
@@ -428,7 +440,8 @@ shortlist. It includes Best-N blind agreement and selected/held-out contrast
 with block intervals, beam/fit/fold sensitivity, cross-collection transfer, the
 same-protocol all-training mean/median control,
 exact-point-paired full-buffer legacy comparisons, all meaningful requested-N
-difference maps, H-loss diagnostics, and the block-aware intensity gallery.
+difference maps, and H-loss diagnostics. The block-aware intensity gallery is a
+separately packaged technical sidecar, not an IBIC candidate panel.
 
 The favorite archived `18d321dbd4fe` H/V images are tracked-tune density
 plots, not spectral-power heatmaps. For each accepted spill and each 4096-turn
@@ -443,10 +456,11 @@ changing only the declared fit-prefix Best-N aggregation.
 Exact local hashes, Spark source paths, the legacy selector audit, and the
 three-stage comparison contract are preserved in
 `publication/ibic2026/LEGACY_RIDGE_PROVENANCE.md`.
-The primary persistence candidate is the per-N four-panel H/V comparison:
-legacy/adaptive columns, exact paired points, column-normalized pick
+The primary publication persistence candidate is the per-plane comparison of
+corrected adaptive Best-1 with H Best-5 or V Best-12: exact paired points, column-normalized pick
 probability, one shared P98-clipped color scale, and white P10/median/P90
-tracks. Keep its quantitative caption and the separate sample-fraction and
+tracks. Each method panel carries its own complete turn scale and an identical
+thin trace of the shared exact-paired valid population. Keep its quantitative caption and the separate sample-fraction and
 subtractive diagnostics in the review package; the composite alone cannot
 distinguish true persistence from missing observations or establish physical
 noise removal.
@@ -469,15 +483,12 @@ zero Best-1 self-control and provide the clean selected-Best-N-minus-corrected-
 Best-1 contrast. Five-window-smoothed PNGs can locate intervals of changed
 cross-spill pick concentration, but neither their sign nor a visual change
 point establishes beam noise, absolute tune accuracy, or extraction onset.
-Use the clean selected-H/V P10-P90 contrast, stacked with one shared y scale,
-for publication. Keep its landscape form in the paper and its portrait twin in
-the poster because two half-column native PNGs would make labels unreadable.
-Use that all-spill contrast in the poster's upper-right evidence frame instead
-of an anecdotal selected-spill panel. Keep every selected-spill example in the
-separate exhaustive review gallery.
-Use the generated 800x1250 portrait twin for that frame; contain-fitting the
-landscape paper image would waste most of the inherited portrait area and make
-its axes too small.
+Use the clean selected-H/V P10-P90 contrast, stacked with one shared y scale, in
+the paper and exhaustive review package. The final graphics-first poster omits
+this additional plot so its three scientific graphics remain readable at A0;
+its concise conclusion retains only the verifier-supported statement that H
+Best-5 narrows the ridge. Keep the portrait twin and all selected-spill examples
+in the separate review gallery rather than shrinking them into the poster.
 If leakage-controlled model selection chooses different H and V ensemble
 sizes, use `--selected-h-n` and `--selected-v-n` to add a plane-selected H/V
 composite and one clean concentration panel per selected plane. This is not a
@@ -494,7 +505,8 @@ plots, and the three-larger-N recommendation boundary. The beam/fit/fold matrix
 uses seven unique sample runs with one shared baseline; it does not replace the
 all-row primary curve.
 The two poster-facing Best-N panels show only blind full-band selected-versus-
-held-out agreement, with moving-block intervals and one shared zero-based H/V
+held-out agreement, with moving-block intervals, the deterministic cross-spill
+null band, and one shared zero-based H/V
 scale. This preserves direct plane comparison and keeps the conditioned
 near-training-tune curve in a separate review image rather than presenting it
 as equivalent validation.
@@ -511,8 +523,11 @@ published selector after seeing the result.
 Every matrix run must verify, but a reduced sample may legitimately have no
 automatic knee when selected-power and prominence margins do not intersect.
 Publication requires eligible knees from at least four of seven runs in each
-plane. It preserves every unavailable run and reason and prints the available
-count and N range; no unresolved case is silently assigned an N.
+plane. The payload, paper, and review copy preserve every unavailable run and
+reason and print the available count and N range; no unresolved case is
+silently assigned an N. The final poster compresses this detail to the guarded
+statement that the selected sizes are useful operating points, not universal
+optima.
 The same-metric direct-control gallery must also include all-BPM mean and median
 beside adaptive and frozen N=1/3/5. All-BPM median currently scores higher in
 both planes, and all-BPM mean does so vertically, under the reused-window
@@ -521,24 +536,26 @@ all-training control under the exact Best-N purge and held-out folds. Its two H/
 scoreboards, eight raw-unit paired scatters, and eight favorable-delta CDFs must
 remain in the exhaustive gallery whether selected Best-N wins, loses, or is
 unresolved. Only this second control can support a same-protocol comparison.
-`scripts/prepare_ibic2026_publication.py` is the final provenance gate. It
-requires accepted primary/follow-up, Best-N 10/20/40-block, all-training,
-intensity, and
-    ridge reports plus the exact 2200-manifest/263983-position-row raw-payload
-    audit and its hashed 17-row absent-stream inventory; checks
-cross-collection transfer and the seven-run matrix; and
-copies the exact figures while writing the poster JSON, paper table, generated
-all-training outcome macros, results
-payload, and source manifest. The paper copy additionally binds the selected-H
-and selected-V exact-paired P10-P90 width-contrast plots so the time-resolved
-method comparison cannot drift from the ridge contract.
-The source manifest includes the exact numerical source-table hashes and all 14
-materialized outputs. Finalization must parse that manifest and re-hash every
-declared output rather than treating the CSV's presence as provenance proof.
-Poster and manuscript copy must distinguish the 4000 H/V spill-plane cases in
-the full N curve from the evenly stratified 1000-case, five-fold held-out
-validation sample. Those counts come from the accepted verifier and generated
-macros, not manually maintained prose.
+`scripts/prepare_ibic2026_publication.py` is the pre-acceptance evidence
+materializer. It requires accepted primary/follow-up, Best-N 10/20/40-block,
+all-training, ridge reports plus the exact
+2000-manifest/239984-position-row position-only raw-payload audit and its hashed
+16-row absent-stream inventory; checks cross-collection transfer and the
+seven-run matrix; and writes the paper table/figures/macros, results payload,
+initial poster inputs, and source manifest. The paper copy additionally binds
+the selected-H and selected-V exact-paired P10-P90 width-contrast plots so the
+time-resolved method comparison cannot drift from the ridge contract.
+The source manifest includes exact numerical source-table hashes for the
+cross-spill null and Best-1 membership summaries along with the other accepted
+tables and every materialized output. Finalization must parse that manifest and
+re-hash every frozen evidence output rather than treating the CSV's presence as
+provenance proof.
+Pre-acceptance poster copy and manuscript/review copy distinguish the 4000 H/V
+spill-plane cases in the full N curve from the evenly stratified 1000-case,
+five-fold held-out validation sample. Those counts come from the accepted
+verifier and generated macros, not manually maintained prose. The final
+graphics-first poster retains the validation design visually without repeating
+all population counts in visible prose.
 The same gate derives primary capture completeness and selected full-buffer
 ridge coverage. The nominal 60 H plus 60 V topology must be accompanied by the
 16 source absences across 12 flagged partial primary captures. H Best-5 and V
@@ -546,9 +563,24 @@ Best-12 structural rows must be split into finite in-band picks,
 blank-confidence rows, and bounded edge exclusions; this is especially
 important when visually comparing planes because density columns normalize the
 available finite picks rather than proving equal observation coverage.
-Final closure compares those structured poster evidence fields with the results
-payload and the corresponding generated manuscript macros, then writes the
-exact counts into the compliance report.
+After paper acceptance, `poster/evidence_gate.json` freezes the manuscript
+source, four-page PDF, schema-v2 payload, H/V Best-N graphics, H/V ridge
+graphic, and contextual beamline map by exact hash. Schema v2 also requires the
+exact George Deinlein/Fermilab credit and full poster-publication reuse
+permission. Its presence makes the
+pre-acceptance materializer fail closed. Poster wording, layout, and contextual
+graphics therefore cannot rewrite the manuscript; only a serious paper or
+evidence discrepancy justifies explicitly retiring and replacing the gate.
+
+`scripts/prepare_ibic2026_poster.py` is the downstream poster-only
+materializer. It resolves every gate path relative to the repository, validates
+the accepted operating points and poster claims, writes only under
+`publication/ibic2026/poster/`, and records before/after hashes proving the
+paper source and PDF did not change. Its `input_manifest.json` binds the gate,
+frozen payload, four copied assets, PNG dimensions, generated copy, and map
+provenance. Final closure compares the structured poster evidence with the
+results payload and corresponding manuscript macros, validates the poster input
+and source manifests, and writes the exact counts into the compliance report.
 Every subtractive ridge caption must say that color represents probability-mass
 redistribution, not measured physical noise. The primary density figures do not
 show a fixed extraction onset; a broad 10000--20000-turn context band may appear
@@ -559,10 +591,11 @@ be disclosed in captions and must never alter the exported quantitative rows.
 The gallery must also pass strict spill/window coverage, selected-cardinality,
 tune-band, exact legacy-pair, contrast-metric, warning, PNG, and caption checks
 before a ridge panel enters the poster shortlist.
-The intensity gallery is held to the same closure standard: the audited capture
+The standalone intensity gallery retains the same closure standard: the audited capture
 counts, first-50000-turn integrity, complete method grids, exact Best-1
 zero-effect control, all statistical/practical/tune-shift gates, and every PNG
-with its claim guardrail must pass before an intensity panel is considered.
+with its claim guardrail must pass before the sidecar is accepted. No intensity
+panel or result enters the IBIC poster, paper, payload, macros, or source roles.
 Best-1 is computed by direct singleton spectrum pass-through; scale/divide
 roundoff is not accepted as a weighting effect or hidden by verifier tolerance.
 Its subtraction panels additionally require identical exact
@@ -587,10 +620,11 @@ or causal measurements.
 Lag correlations retain both the common -1 to 1 Spearman scale and a symmetric
 panel-detail scale. The detail variant exposes small lag-shape changes but does
 not change the overlapping-window, exploratory, noncausal interpretation.
-The independent raw-payload audit also covers both position-only collections;
-passing intensity-pair checks cannot waive a position source failure. The 13
-recorded partial captures remain explicit, and absent streams are not converted
-to zero-valued waveforms.
+The independent publication raw-payload audit covers only the two position
+collections and records their 12 partial captures and 16 absences. The retained
+three-collection intensity-sidecar audit remains separate; neither audit can
+waive a failure in the other, and absent streams are never converted to
+zero-valued waveforms.
 Held-out support captions and tables must state their evaluable numerator and
 denominator. A finalist row without finite `q_hat` is retained as an explicitly
 flagged unavailable observation; it contributes neither a zero candidate
@@ -608,6 +642,22 @@ separately; none is an extraction-time marker.
 
 The final A0 poster must be built from the supplied Fermilab vertical template,
 preserve its master/header/footer, remain editable, and pass rendered visual QA.
+Its hierarchy is graphics-first and word-light: the exact-paired 50,000-turn
+H/V ridge comparison spans the top as the result hero; separate H and V
+held-out Best-N panels form the supporting evidence row; and the credited Muon
+Campus beamline map remains visible as secondary machine context beside the
+conclusion. The map is not tune evidence or external calibration.
+Visible prose is limited to compelling questions, short claims, and
+payload-derived captions that distinguish marginal H null separation from
+clearer V separation and call Best-5/Best-12 operating points rather than
+universal optima.
+The upper-right blue header must contain the assigned report number
+`FERMILAB-POSTER-26-0268-AD`. The lower-left footer must contain the current
+FermiForward Discovery Group, LLC acknowledgment under contract
+`89243024CSC000002`. The official Fermilab A0 vertical template listing was
+rechecked on 2026-08-19 and still points to the May25 POTX; these visible
+publication requirements are bound by the schema-v3 poster gate without
+reopening the frozen paper.
 The named full-size PNG is the 150 dpi PDF raster and must remain byte-identical
 to it; the direct artifact-tool PNG is retained only as a geometry diagnostic
 because it does not render master-level footer media.
@@ -619,8 +669,12 @@ The final build tree must retain the artifact-tool layout inventory,
 text reports. Their package-relative checksum inventory is recomputed during
 finalization together with every content, asset, output, and PNG-dimension entry
 in the poster source manifest.
-The poster should use four to six final evidence panels even though the complete
-indexed review gallery is intentionally much larger.
+The poster uses exactly four graphics: one contextual beamline map and three
+scientific panels (H validation, V validation, and the H/V ridge comparison).
+The complete indexed review gallery remains intentionally much larger.
+
+The final rendered artifact is approved for technical publication and has been
+printed for IBIC 2026.
 
 ## Validation
 
@@ -631,6 +685,7 @@ python3 scripts/bpm_dgx_poster.py --self-test
 python3 scripts/gpu_analyze_captured_spills.py --self-test
 python3 scripts/test_autosweep.py
 python3 scripts/test_best_bpm_mining.py
+PYTHONPYCACHEPREFIX=/tmp/tbt-monitor-pycache python3 scripts/test_prepare_ibic2026_poster.py
 python3 scripts/verify_best_bpm_outputs.py --root /path/to/best_bpm_mining
 python3 scripts/gpu_run_telemetry.py summarize --input /path/to/gpu_telemetry.csv --summary-json /tmp/gpu_telemetry_summary.json
 ```

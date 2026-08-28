@@ -2,16 +2,30 @@ Template deviation log
 
 Output slide 1
 - Duplicate source slide 1 exactly once and omit source slide 2.
-- Replace five inherited scientific image frames with verified project plots.
+- Replace four inherited image frames with one contextual map and three
+  verified paper-derived project plots; delete the unused fifth frame.
 - Delete four unrelated sample-logo images while preserving master branding.
 - Delete mapped authoring arrows, instructions, and clearance callouts.
-- Rewrite inherited text and captions while retaining source type styles.
-- Use the upper-right scientific frame for the all-spill selected-H/V width
-  contrast instead of an anecdotal selected-spill panel; selected-spill plots
-  remain in the review gallery.
-- Reposition only the two mapped caption objects that share an inspector name.
-- Fit the accepted two-line title and author within the inherited header; no
-  header or footer geometry changes are authorized.
+- Rewrite inherited text and captions with a question-led title, a paper-linked
+  subtitle, short evidence statements, and a direct calibration limit.
+- Expand the former upper-right frame into the dominant full-width hero below
+  the header for the exact-paired 50,000-turn H/V ridge comparison.
+- Reposition the beamline map to the lower-left context region. The map remains
+  uncropped and receives a visible George Deinlein/Fermilab permission credit.
+- Reposition the H/V Best-N frames into a supporting evidence row below the
+  ridge hero; keep their zero-based scales, observed curves, intervals, and
+  null bands unchanged, with plain-language takeaways immediately underneath.
+- Delete the ridge-width and H-loss panels from the audience-facing poster.
+  Their accepted results remain in the paper, evidence payload, and technical
+  review artifacts; no claim is erased or reversed.
+- Repurpose the dense quantitative paragraph frame as the assigned report
+  number in the upper-right blue header; retain the scientific values in short
+  visible copy generated from the accepted payload.
+- Move the inherited map-credit frame into the lower-left blue footer and use
+  it for the current FermiForward/DOE acknowledgment plus the confirmed George
+  Deinlein map credit.
+- Fit the question, scientific subtitle, and author within the inherited
+  header; no header or footer geometry changes are authorized.
 - Use the template's documented Arial fallback for rewritten narrative text.
   The headless PDF renderer substitutes Helvetica with an unrelated serif face;
   Arial preserves the intended sans-serif hierarchy in both PPTX and PDF.

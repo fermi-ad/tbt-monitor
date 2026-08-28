@@ -12,13 +12,18 @@ import re
 import subprocess
 import zipfile
 import xml.etree.ElementTree as ET
+from collections import Counter
 from pathlib import Path, PurePosixPath
 from typing import Mapping, Sequence
 
 from bpm_mining.ridge_verification import png_dimensions
 from prepare_ibic2026_publication import (
+    EXPECTED_SOURCE_ROLE_COUNTS,
     PAYLOAD_AUDIT_MANIFEST_SHA256,
+    PAYLOAD_MISSING_INVENTORY_SHA256,
     PAYLOAD_AUDIT_TOPOLOGY_EXPECTED,
+    RESULTS_PAYLOAD_FIELDS,
+    RESULTS_PAYLOAD_SCHEMA,
 )
 
 
@@ -30,18 +35,55 @@ MANIFEST_FIELDS = ("path", "size_bytes", "sha256")
 SHA256_LINE = re.compile(r"^([0-9a-f]{64})  (.+)$")
 POSTER_BASE = "ibic2026-abstract54-poster"
 POSTER_ASSET_FILES = {
+    "beamlineMap": "muon-campus-beamlines.png",
     "bestNH": "best_n_validation_h.png",
     "bestNV": "best_n_validation_v.png",
     "ridgeHV": "ridge_density_comparison.png",
-    "ridgeContrast": "ridge_width_contrast_hv.png",
-    "hLoss": "horizontal_loss_diagnostic.png",
+}
+POSTER_EVIDENCE_GATE_SCHEMA = "tbt-monitor.ibic2026-poster-evidence-gate/v3"
+POSTER_INPUT_MANIFEST_SCHEMA = "tbt-monitor.ibic2026-poster-inputs/v2"
+POSTER_GATE_INPUT_ROLES = frozenset({"resultsPayload", *POSTER_ASSET_FILES})
+POSTER_MAP_CREDIT = (
+    "Beamline layout courtesy of George Deinlein, Fermilab staff; used with permission."
+)
+POSTER_MAP_ATTRIBUTION = {
+    "creator": "George Deinlein",
+    "affiliation": "Fermilab",
+    "role": "staff",
+    "creditLine": POSTER_MAP_CREDIT,
+    "permissionStatus": "full",
+    "permissionScope": "this poster's publication reuse",
+    "confirmedOn": "2026-08-19",
+}
+POSTER_REPORT_NUMBER = "FERMILAB-POSTER-26-0268-AD"
+POSTER_ACKNOWLEDGMENT = (
+    "This manuscript has been authored by FermiForward Discovery Group, LLC under "
+    "Contract No. 89243024CSC000002 with the U.S. Department of Energy, Office of "
+    "Science, Office of High Energy Physics."
+)
+POSTER_PUBLICATION_REQUIREMENTS = {
+    "reportNumber": POSTER_REPORT_NUMBER,
+    "acknowledgment": POSTER_ACKNOWLEDGMENT,
+    "template": {
+        "name": "FNAL Scientific Poster A0 Vertical May25",
+        "url": "https://www.fnal.gov/faw/designstandards/templates/index.html",
+        "placement": {
+            "reportNumber": "upper-right blue area",
+            "acknowledgment": "bottom-left corner",
+        },
+    },
+    "confirmedOn": "2026-08-19",
 }
 PAPER_FIGURE_FILES = (
-    "best_n_validation_h.png",
-    "best_n_validation_v.png",
-    "ridge_density_comparison.png",
-    "ridge_width_contrast_hv.png",
+    "best_n_validation_hv.pdf",
+    "ridge_density_comparison.pdf",
+    "ridge_width_contrast_hv.pdf",
 )
+PAPER_FIGURE_GEOMETRY = {
+    "best_n_validation_hv.pdf": (516.0, 228.0),
+    "ridge_density_comparison.pdf": (516.0, 326.0),
+    "ridge_width_contrast_hv.pdf": (440.0, 214.0),
+}
 MATERIALIZATION_MANIFEST_FIELDS = (
     "role",
     "source_path",
@@ -49,7 +91,7 @@ MATERIALIZATION_MANIFEST_FIELDS = (
     "output_path",
     "output_sha256",
 )
-MATERIALIZED_OUTPUTS = frozenset(
+PRE_ACCEPTANCE_MATERIALIZED_OUTPUTS = frozenset(
     {
         "PREPARATION_REPORT.md",
         "results_payload.json",
@@ -59,6 +101,11 @@ MATERIALIZED_OUTPUTS = frozenset(
         *(f"poster/assets/{filename}" for filename in POSTER_ASSET_FILES.values()),
         *(f"paper/figures/{filename}" for filename in PAPER_FIGURE_FILES),
     }
+)
+FROZEN_EVIDENCE_OUTPUTS = frozenset(
+    output
+    for output in PRE_ACCEPTANCE_MATERIALIZED_OUTPUTS
+    if output != "poster/content.json" and not output.startswith("poster/assets/")
 )
 UNRESOLVED = re.compile(
     r"\b(?:pending|provisional|tbd|todo)\b|\[\s+\]|final manuscript will report",
@@ -149,6 +196,49 @@ def read_json(path: Path) -> dict[str, object]:
     return value
 
 
+def forbidden_payload_key_paths(
+    value: object,
+    forbidden_terms: Sequence[str] = ("intensity", "legacy"),
+    prefix: str = "$",
+) -> list[str]:
+    findings: list[str] = []
+    if isinstance(value, Mapping):
+        for raw_key, child in value.items():
+            key = str(raw_key)
+            path = f"{prefix}.{key}"
+            if any(term in key.lower() for term in forbidden_terms):
+                findings.append(path)
+            findings.extend(forbidden_payload_key_paths(child, forbidden_terms, path))
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            findings.extend(forbidden_payload_key_paths(child, forbidden_terms, f"{prefix}[{index}]"))
+    return findings
+
+
+def validate_results_payload_contract(payload: Mapping[str, object]) -> Mapping[str, object]:
+    """Enforce the exact v2 publication envelope before semantic checks."""
+    if payload.get("schema") != RESULTS_PAYLOAD_SCHEMA:
+        raise ValueError(
+            f"results payload schema must be {RESULTS_PAYLOAD_SCHEMA}, got {payload.get('schema')!r}"
+        )
+    if set(payload) != RESULTS_PAYLOAD_FIELDS:
+        raise ValueError(
+            "results payload field inventory mismatch: "
+            f"missing={sorted(RESULTS_PAYLOAD_FIELDS - set(payload))}, "
+            f"extra={sorted(set(payload) - RESULTS_PAYLOAD_FIELDS)}"
+        )
+    forbidden_keys = forbidden_payload_key_paths(payload)
+    if forbidden_keys:
+        raise ValueError(f"results payload contains stale sidecar fields: {forbidden_keys[:10]}")
+    return payload
+
+
+def reject_stale_results_macros(macros_text: str) -> None:
+    """Reject generated commands retained from the standalone intensity sidecar."""
+    if re.search(r"\\(?:re)?newcommand\s*\{\\Intensity", macros_text, re.IGNORECASE):
+        raise ValueError("paper results macros contain a stale intensity command")
+
+
 def verify_sha256_manifest(path: Path, expected: Mapping[str, Path]) -> None:
     require_file(path)
     rows: dict[str, str] = {}
@@ -196,6 +286,7 @@ def verify_publication_source_manifest(root: Path) -> None:
 
     outputs: set[str] = set()
     row_keys: set[tuple[str, str, str]] = set()
+    role_counts: Counter[str] = Counter()
     root_resolved = root.resolve()
     for line_number, row in enumerate(rows, start=2):
         role = row.get("role", "")
@@ -204,11 +295,18 @@ def verify_publication_source_manifest(root: Path) -> None:
         output_path = row.get("output_path", "")
         output_digest = row.get("output_sha256", "")
         key = (role, source_path, output_path)
-        if not role or not Path(source_path).is_absolute() or key in row_keys:
+        if not role or safe_materialized_path(source_path) is None or key in row_keys:
             raise ValueError(f"invalid publication source manifest identity at line {line_number}")
         row_keys.add(key)
         if re.fullmatch(r"[0-9a-f]{64}", source_digest) is None:
             raise ValueError(f"invalid publication source hash at line {line_number}")
+        # Poster revisions are accepted through the independent, paper-gated
+        # poster manifests.  The pre-acceptance publication manifest remains a
+        # frozen record of how the evidence packet and paper were produced, so
+        # its historical poster rows are intentionally not revalidated here.
+        if role.startswith("poster:"):
+            continue
+        role_counts[role] += 1
         if not output_path:
             if output_digest:
                 raise ValueError(f"source-only manifest row has an output hash at line {line_number}")
@@ -234,11 +332,25 @@ def verify_publication_source_manifest(root: Path) -> None:
         if actual_digest != output_digest or source_digest != output_digest:
             raise ValueError(f"publication source manifest hash mismatch: {output_path}")
 
-    if outputs != MATERIALIZED_OUTPUTS:
-        missing = sorted(MATERIALIZED_OUTPUTS - outputs)
-        extra = sorted(outputs - MATERIALIZED_OUTPUTS)
+    if outputs != FROZEN_EVIDENCE_OUTPUTS:
+        missing = sorted(FROZEN_EVIDENCE_OUTPUTS - outputs)
+        extra = sorted(outputs - FROZEN_EVIDENCE_OUTPUTS)
         raise ValueError(
             f"publication source manifest output inventory mismatch: missing={missing}, extra={extra}"
+        )
+    expected_frozen_role_counts = Counter(
+        {
+            role: count
+            for role, count in EXPECTED_SOURCE_ROLE_COUNTS.items()
+            if not role.startswith("poster:")
+        }
+    )
+    if role_counts != expected_frozen_role_counts:
+        missing = expected_frozen_role_counts - role_counts
+        extra = role_counts - expected_frozen_role_counts
+        raise ValueError(
+            "publication source-role inventory mismatch: "
+            f"missing={dict(sorted(missing.items()))}, extra={dict(sorted(extra.items()))}"
         )
 
 
@@ -252,16 +364,166 @@ def require_recorded_sha256(label: str, value: object, source: Path) -> dict[str
     return value
 
 
+def _gate_record(
+    repo_root: Path,
+    value: object,
+    label: str,
+    expected_path: str | None = None,
+) -> tuple[dict[str, object], Path]:
+    if not isinstance(value, dict) or set(value) != {"path", "sha256"}:
+        raise ValueError(f"poster evidence gate has an invalid {label} record")
+    raw_path = str(value.get("path") or "")
+    relative = safe_materialized_path(raw_path)
+    if relative is None or (expected_path is not None and raw_path != expected_path):
+        raise ValueError(f"poster evidence gate has an invalid {label} path: {raw_path}")
+    source = repo_root.joinpath(*relative.parts)
+    recorded = str(value.get("sha256") or "")
+    actual = sha256(require_file(source))
+    if recorded != actual:
+        raise ValueError(f"poster evidence gate mismatch: {label}: {recorded} != {actual}")
+    return value, source
+
+
+def verify_poster_input_manifest(root: Path) -> None:
+    repo_root = root.resolve().parents[1]
+    poster = root / "poster"
+    gate_path = poster / "evidence_gate.json"
+    gate = read_json(gate_path)
+    if gate.get("schema") != POSTER_EVIDENCE_GATE_SCHEMA:
+        raise ValueError("poster evidence gate has the wrong schema")
+
+    attribution = gate.get("mapAttribution")
+    if attribution != POSTER_MAP_ATTRIBUTION:
+        raise ValueError(
+            "poster evidence gate does not record the required map attribution and permission"
+        )
+    publication_requirements = gate.get("publicationRequirements")
+    if publication_requirements != POSTER_PUBLICATION_REQUIREMENTS:
+        raise ValueError(
+            "poster evidence gate does not record the required publication metadata"
+        )
+    context = gate.get("context")
+    if not isinstance(context, dict):
+        raise ValueError("poster evidence gate has invalid map source context")
+
+    paper = gate.get("paper")
+    inputs = gate.get("inputs")
+    if not isinstance(paper, dict) or set(paper) != {"source", "pdf"}:
+        raise ValueError("poster evidence gate has the wrong paper inventory")
+    if not isinstance(inputs, dict) or set(inputs) != POSTER_GATE_INPUT_ROLES:
+        raise ValueError("poster evidence gate has the wrong input inventory")
+
+    verified_paper: dict[str, dict[str, object]] = {}
+    for role, expected in {
+        "source": "publication/ibic2026/paper/ABSTRACT54.tex",
+        "pdf": "publication/ibic2026/paper/build/ABSTRACT54.pdf",
+    }.items():
+        record, _ = _gate_record(repo_root, paper.get(role), f"paper {role}", expected)
+        verified_paper[role] = record
+    verified_inputs: dict[str, dict[str, object]] = {}
+    for role in POSTER_GATE_INPUT_ROLES:
+        expected = "publication/ibic2026/results_payload.json" if role == "resultsPayload" else None
+        record, _ = _gate_record(repo_root, inputs.get(role), f"input {role}", expected)
+        verified_inputs[role] = record
+
+    manifest = read_json(poster / "input_manifest.json")
+    if manifest.get("schema") != POSTER_INPUT_MANIFEST_SCHEMA:
+        raise ValueError("poster input manifest has the wrong schema")
+    if manifest.get("mapAttribution") != attribution:
+        raise ValueError("poster input manifest does not preserve map attribution and permission")
+    if manifest.get("publicationRequirements") != publication_requirements:
+        raise ValueError(
+            "poster input manifest does not preserve publication and print requirements"
+        )
+    if manifest.get("context") != context:
+        raise ValueError("poster input manifest does not preserve map source context")
+    gate_record = manifest.get("evidenceGate")
+    if (
+        not isinstance(gate_record, dict)
+        or gate_record.get("path") != "publication/ibic2026/poster/evidence_gate.json"
+        or gate_record.get("sha256") != sha256(gate_path)
+    ):
+        raise ValueError("poster input manifest does not bind the evidence gate")
+
+    immutability = manifest.get("paperImmutability")
+    if not isinstance(immutability, dict) or set(immutability) != set(verified_paper):
+        raise ValueError("poster input manifest has the wrong paper-immutability inventory")
+    for role, gate_value in verified_paper.items():
+        record = immutability.get(role)
+        expected_hash = gate_value["sha256"]
+        if (
+            not isinstance(record, dict)
+            or record.get("path") != gate_value["path"]
+            or record.get("sha256Before") != expected_hash
+            or record.get("sha256After") != expected_hash
+            or record.get("unchanged") is not True
+        ):
+            raise ValueError(f"poster input manifest does not preserve paper {role}")
+
+    manifest_inputs = manifest.get("inputs")
+    if not isinstance(manifest_inputs, dict) or set(manifest_inputs) != POSTER_GATE_INPUT_ROLES:
+        raise ValueError("poster input manifest has the wrong verified-input inventory")
+    for role, gate_value in verified_inputs.items():
+        record = manifest_inputs.get(role)
+        if (
+            not isinstance(record, dict)
+            or record.get("path") != gate_value["path"]
+            or record.get("sha256") != gate_value["sha256"]
+        ):
+            raise ValueError(f"poster input manifest mismatch: input {role}")
+
+    outputs = manifest.get("outputs")
+    if not isinstance(outputs, dict) or set(outputs) != {"content", "assets"}:
+        raise ValueError("poster input manifest has the wrong output inventory")
+    content = outputs.get("content")
+    if (
+        not isinstance(content, dict)
+        or content.get("path") != "publication/ibic2026/poster/content.json"
+        or content.get("sha256") != sha256(require_file(poster / "content.json"))
+    ):
+        raise ValueError("poster input manifest mismatch: content")
+    poster_content = read_json(poster / "content.json")
+    if poster_content.get("mapCredit") != POSTER_MAP_CREDIT:
+        raise ValueError("poster content does not contain the required map credit")
+    if poster_content.get("reportNumber") != POSTER_REPORT_NUMBER:
+        raise ValueError("poster content does not contain the assigned report number")
+    if poster_content.get("acknowledgment") != POSTER_ACKNOWLEDGMENT:
+        raise ValueError("poster content does not contain the required acknowledgment")
+    output_assets = outputs.get("assets")
+    if not isinstance(output_assets, dict) or set(output_assets) != set(POSTER_ASSET_FILES):
+        raise ValueError("poster input manifest has the wrong asset-output inventory")
+    for role, filename in POSTER_ASSET_FILES.items():
+        source = poster / "assets" / filename
+        dimensions = png_dimensions(source)
+        record = output_assets.get(role)
+        if (
+            dimensions is None
+            or not isinstance(record, dict)
+            or record.get("path") != f"publication/ibic2026/poster/assets/{filename}"
+            or record.get("sha256") != sha256(require_file(source))
+            or record.get("dimensions")
+            != {"width": dimensions[0], "height": dimensions[1]}
+        ):
+            raise ValueError(f"poster input manifest mismatch: asset {role}")
+
+
 def verify_poster_source_manifest(root: Path) -> None:
     poster = root / "poster"
     build = poster / "build"
+    verify_poster_input_manifest(root)
     manifest = read_json(build / "source_manifest.json")
-    if manifest.get("schema") != "tbt-monitor.ibic2026-poster-source/v1":
+    if manifest.get("schema") != "tbt-monitor.ibic2026-poster-source/v2":
         raise ValueError("poster source manifest has the wrong schema")
     starter = manifest.get("starter")
     if not isinstance(starter, dict) or starter.get("sha256") != POSTER_STARTER_SHA256:
         raise ValueError("poster source manifest has the wrong prepared-starter hash")
     require_recorded_sha256("content", manifest.get("content"), poster / "content.json")
+    require_recorded_sha256(
+        "evidence gate", manifest.get("evidenceGate"), poster / "evidence_gate.json"
+    )
+    require_recorded_sha256(
+        "input manifest", manifest.get("inputManifest"), poster / "input_manifest.json"
+    )
 
     assets = manifest.get("assets")
     if not isinstance(assets, dict) or set(assets) != set(POSTER_ASSET_FILES):
@@ -491,8 +753,6 @@ def validate_publication_coverage_payload(
                 "ridge_points",
                 "missing_tune_rows",
                 "edge_excluded_rows",
-                "legacy_spill_count",
-                "legacy_point_count",
             )
         }
         if (
@@ -505,8 +765,6 @@ def validate_publication_coverage_payload(
             != values["ridge_points"]
             + values["missing_tune_rows"]
             + values["edge_excluded_rows"]
-            or values["legacy_spill_count"] != 1_988
-            or values["legacy_point_count"] <= 0
         ):
             raise ValueError(f"publication {plane} ridge coverage does not close: {values}")
         coverage[plane] = values
@@ -616,8 +874,15 @@ def finalize(
         )
     for figure in POSTER_ASSET_FILES.values():
         require_png(root / "poster" / "assets" / figure, (500, 300))
-    for figure in PAPER_FIGURE_FILES:
-        require_png(root / "paper" / "figures" / figure, (500, 300))
+    for figure, (width, height) in PAPER_FIGURE_GEOMETRY.items():
+        require_geometry(
+            f"paper figure {figure}",
+            pdf_info(pdfinfo, root / "paper" / "figures" / figure),
+            1,
+            width,
+            height,
+            0.5,
+        )
 
     poster_pdf = root / "poster" / "build" / f"{POSTER_BASE}.pdf"
     paper_pdf = root / "paper" / "build" / "ABSTRACT54.pdf"
@@ -644,6 +909,7 @@ def finalize(
     ]
 
     payload = read_json(root / "results_payload.json")
+    validate_results_payload_contract(payload)
     selected_sizes = payload.get("selected_sizes")
     if not isinstance(selected_sizes, dict) or set(selected_sizes) != {"H", "V"}:
         raise ValueError("results payload is missing exact H/V selected sizes")
@@ -692,8 +958,122 @@ def finalize(
             or contrast_values[1] > contrast_values[2]
         ):
             raise ValueError(f"results payload has an invalid {plane} corrected-Best-1 ridge contrast")
-    if int(payload.get("retained_intensity_effects") or 0) != 0:
-        raise ValueError("publication payload retains an intensity weighting effect")
+    cross_spill_null = payload.get("cross_spill_null")
+    if (
+        not isinstance(cross_spill_null, dict)
+        or cross_spill_null.get("schema") != "tbt-monitor.ibic2026-cross-spill-null/v1"
+        or int(cross_spill_null.get("permutation_draws") or 0) != 1_000
+        or int(cross_spill_null.get("block_spills") or 0) != 20
+        or cross_spill_null.get("permutation_mode")
+        != "seeded_block_derangement_shared_across_folds"
+        or cross_spill_null.get("seed_namespace") != "best-n-cross-spill-null"
+        or not math.isclose(
+            finite_number(cross_spill_null.get("tune_half_width")) or math.nan,
+            0.0025,
+            abs_tol=1e-12,
+        )
+    ):
+        raise ValueError("results payload is missing the accepted cross-spill null control")
+    null_rows = cross_spill_null.get("rows")
+    null_selected = cross_spill_null.get("selected")
+    if (
+        not isinstance(null_rows, list)
+        or len(null_rows) != 80
+        or not isinstance(null_selected, dict)
+        or set(null_selected) != {"H", "V"}
+    ):
+        raise ValueError("results payload has an incomplete cross-spill null inventory")
+    null_keys: set[tuple[str, int]] = set()
+    for row in null_rows:
+        if not isinstance(row, dict):
+            raise ValueError("results payload contains a malformed cross-spill null row")
+        plane = str(row.get("plane") or "")
+        subset_size = int(row.get("subset_size") or 0)
+        null_keys.add((plane, subset_size))
+        values = [
+            finite_number(row.get(field))
+            for field in (
+                "observed_agreement_rate",
+                "null_mean_agreement_rate",
+                "null_ci_low",
+                "null_ci_high",
+            )
+        ]
+        if (
+            any(value is None for value in values)
+            or not 0 <= values[0] <= 1
+            or not 0 <= values[1] <= 1
+            or not 0 <= values[2] <= values[3] <= 1
+            or int(row.get("validation_spill_count") or 0) != 500
+            or int(row.get("permutation_draws") or 0) != 1_000
+            or int(row.get("valid_permutation_draws") or 0) != 1_000
+            or int(row.get("block_spills") or 0) != 20
+            or row.get("status") != "ok"
+        ):
+            raise ValueError(f"results payload has an invalid cross-spill null row: {plane} N={subset_size}")
+    if null_keys != {(plane, size) for plane in ("H", "V") for size in range(1, 41)}:
+        raise ValueError("results payload cross-spill null does not cover H/V N=1..40 exactly")
+    best_n_rows = payload.get("best_n_rows")
+    if not isinstance(best_n_rows, dict) or set(best_n_rows) != {"H", "V"}:
+        raise ValueError("results payload is missing exact H/V Best-N result rows")
+    for plane in ("H", "V"):
+        row = null_selected[plane]
+        accepted_best_n = best_n_rows[plane]
+        matching_rows = [
+            item
+            for item in null_rows
+            if isinstance(item, dict)
+            and item.get("plane") == plane
+            and int(item.get("subset_size") or 0) == int(selected_sizes[plane])
+        ]
+        if (
+            not isinstance(row, dict)
+            or not isinstance(accepted_best_n, dict)
+            or row.get("plane") != plane
+            or int(row.get("subset_size") or 0) != int(selected_sizes[plane])
+            or len(matching_rows) != 1
+            or row != matching_rows[0]
+            or any(
+                finite_number(row.get(field)) is None
+                for field in (
+                    "observed_agreement_rate",
+                    "null_mean_agreement_rate",
+                    "null_ci_low",
+                    "null_ci_high",
+                )
+            )
+            or not math.isclose(
+                finite_number(row.get("observed_agreement_rate")) or math.nan,
+                finite_number(accepted_best_n.get("blind_q_agreement_rate")) or math.nan,
+                abs_tol=1e-9,
+            )
+        ):
+            raise ValueError(f"results payload has the wrong selected {plane} null row")
+
+    best1_membership = payload.get("best1_membership")
+    membership_by_plane = (
+        best1_membership.get("by_plane") if isinstance(best1_membership, dict) else None
+    )
+    if (
+        not isinstance(best1_membership, dict)
+        or best1_membership.get("schema") != "tbt-monitor.ibic2026-best1-membership/v1"
+        or not isinstance(membership_by_plane, dict)
+        or set(membership_by_plane) != {"H", "V"}
+    ):
+        raise ValueError("results payload is missing exact H/V Best-1 membership summaries")
+    for plane, expected_maximum_percent in (("H", 3.7), ("V", 5.7)):
+        row = membership_by_plane[plane]
+        maximum = finite_number(row.get("maximum_winner_fraction")) if isinstance(row, dict) else None
+        if (
+            not isinstance(row, dict)
+            or int(row.get("plane_spill_count") or 0) != 2_000
+            or int(row.get("available_source_count") or 0) != 60
+            or int(row.get("winning_source_count") or 0) != 60
+            or maximum is None
+            or round(100.0 * maximum, 1) != expected_maximum_percent
+            or not str(row.get("maximum_source_keys") or "")
+        ):
+            raise ValueError(f"results payload has an invalid {plane} Best-1 membership summary")
     best_n_design = payload.get("best_n_design")
     if not isinstance(best_n_design, dict):
         raise ValueError("publication payload is missing the Best-N study design")
@@ -713,12 +1093,12 @@ def finalize(
     for field, expected in (
         ("analysis_turns", 50_000),
         ("plateau_turns", 128),
-        ("manifest_count", 2_200),
-        ("stream_rows", 263_983),
-        ("paired_stream_rows", 23_999),
-        ("incomplete_manifests", 13),
-        ("missing_position_stream_rows", 17),
-        ("warning_count", 13),
+        ("manifest_count", 2_000),
+        ("stream_rows", 239_984),
+        ("paired_stream_rows", 0),
+        ("incomplete_manifests", 12),
+        ("missing_position_stream_rows", 16),
+        ("warning_count", 12),
         ("flagged_rows", 0),
         ("position_plateau_rows", 0),
         ("paired_plateau_rows", 0),
@@ -728,7 +1108,7 @@ def finalize(
             raise ValueError(f"publication raw-payload audit mismatch: {field}")
     topology = payload_integrity.get("topology")
     if not isinstance(topology, dict) or set(topology) != set(PAYLOAD_AUDIT_TOPOLOGY_EXPECTED):
-        raise ValueError("publication raw-payload audit is missing three collection topologies")
+        raise ValueError("publication raw-payload audit is missing the two primary topologies")
     for collection, raw in topology.items():
         if not isinstance(raw, dict):
             raise ValueError(f"publication raw-payload topology is invalid: {collection}")
@@ -745,8 +1125,11 @@ def finalize(
             raise ValueError(f"publication raw-payload topology mismatch: {collection}")
     if payload_integrity.get("manifest_inventory_sha256") != PAYLOAD_AUDIT_MANIFEST_SHA256:
         raise ValueError("publication raw-payload audit has the wrong manifest hash")
-    if len(str(payload_integrity.get("missing_position_stream_inventory_sha256") or "")) != 64:
-        raise ValueError("publication raw-payload audit is missing its absent-stream inventory hash")
+    if (
+        payload_integrity.get("missing_position_stream_inventory_sha256")
+        != PAYLOAD_MISSING_INVENTORY_SHA256
+    ):
+        raise ValueError("publication raw-payload audit has the wrong absent-stream inventory hash")
     sensitivity = validate_sensitivity_payload(payload.get("sensitivity"))
     sensitivity_recommendations = sensitivity.get("recommendations")
     assert isinstance(sensitivity_recommendations, dict)
@@ -762,8 +1145,10 @@ def finalize(
         not isinstance(poster_evidence, dict)
         or poster_evidence.get("primaryCapture") != primary_capture
         or poster_evidence.get("ridgeCoverage") != ridge_coverage
+        or poster_evidence.get("crossSpillNull") != null_selected
+        or poster_evidence.get("best1Membership") != membership_by_plane
     ):
-        raise ValueError("poster evidence does not match publication capture/ridge coverage")
+        raise ValueError("poster evidence does not match publication capture and validation controls")
     macros_text = (root / "paper" / "results_macros.tex").read_text(encoding="utf-8")
     expected_macros = {
         "PrimarySpillCount": primary_capture["spill_count"],
@@ -779,20 +1164,58 @@ def finalize(
         "RidgeVFinitePicks": ridge_coverage["V"]["ridge_points"],
         "RidgeVBlankPicks": ridge_coverage["V"]["missing_tune_rows"],
         "RidgeVEdgeExcludedPicks": ridge_coverage["V"]["edge_excluded_rows"],
+        "BestOneUniqueH": 60,
+        "BestOneUniqueV": 60,
     }
     for command, value in expected_macros.items():
         definition = rf"\newcommand{{\{command}}}{{{value}}}"
         if definition not in macros_text:
             raise ValueError(f"paper results macros do not bind {command}")
+    for command, value in (
+        ("BestOneMaxFrequencyH", 3.7),
+        ("BestOneMaxFrequencyV", 5.7),
+    ):
+        definition = rf"\newcommand{{\{command}}}{{{value:.1f}}}"
+        if definition not in macros_text:
+            raise ValueError(f"paper results macros do not bind {command}")
+    for plane in ("H", "V"):
+        row = null_selected[plane]
+        for suffix, field in (
+            ("Mean", "null_mean_agreement_rate"),
+            ("Low", "null_ci_low"),
+            ("High", "null_ci_high"),
+        ):
+            value = finite_number(row.get(field))
+            definition = rf"\newcommand{{\BestN{plane}Null{suffix}}}{{{value:.4f}}}"
+            if definition not in macros_text:
+                raise ValueError(f"paper results macros do not bind BestN{plane}Null{suffix}")
+    for plane in ("H", "V"):
+        row = adaptive_ridge_rows[plane]
+        for suffix, field in (
+            ("Delta", "median_iqr_delta_ensemble_minus_baseline"),
+            ("Low", "median_iqr_delta_ci_low"),
+            ("High", "median_iqr_delta_ci_high"),
+        ):
+            value = finite_number(row.get(field))
+            definition = rf"\newcommand{{\Ridge{plane}Iqr{suffix}Milli}}{{{1000.0 * value:.2f}}}"
+            if definition not in macros_text:
+                raise ValueError(f"paper results macros do not bind Ridge{plane}Iqr{suffix}Milli")
+    reject_stale_results_macros(macros_text)
 
     for path in (
+        root / "PREPARATION_REPORT.md",
+        root / "results_payload.json",
+        root / "source_manifest.csv",
         root / "poster" / "content.json",
         root / "paper" / "ABSTRACT54.tex",
         root / "paper" / "results_table.tex",
         root / "paper" / "results_macros.tex",
     ):
-        if UNRESOLVED.search(path.read_text(encoding="utf-8")):
+        text = path.read_text(encoding="utf-8")
+        if UNRESOLVED.search(text):
             raise ValueError(f"publication source contains unresolved copy: {path}")
+        if re.search(r"intensity", text, re.IGNORECASE):
+            raise ValueError(f"publication-facing source retains an intensity reference: {path}")
 
     report = root / "compliance_report.md"
     lines = [
@@ -810,9 +1233,20 @@ def finalize(
             f"{all_training_by_plane['V']['baseline_favored']}/"
             f"{all_training_by_plane['V']['unresolved']}"
         ),
-        "- retained intensity weighting effects: 0",
-        "- Best-N design: 4000 full-curve spill-plane cases; 1000 validation cases x 5 folds",
-        "- raw payload audit: 263983 captured streams through turn 50000; 17 manifest-level absences across 13 recorded partial captures; no blocking payload findings",
+        (
+            "- selected cross-spill null mean (95% interval): "
+            f"H {float(null_selected['H']['null_mean_agreement_rate']):.4f} "
+            f"[{float(null_selected['H']['null_ci_low']):.4f}, {float(null_selected['H']['null_ci_high']):.4f}]; "
+            f"V {float(null_selected['V']['null_mean_agreement_rate']):.4f} "
+            f"[{float(null_selected['V']['null_ci_low']):.4f}, {float(null_selected['V']['null_ci_high']):.4f}]"
+        ),
+        (
+            "- Best-1 membership: all 60 H and 60 V sources win at least once; "
+            f"maximum winner shares H {100 * float(membership_by_plane['H']['maximum_winner_fraction']):.1f}%, "
+            f"V {100 * float(membership_by_plane['V']['maximum_winner_fraction']):.1f}%"
+        ),
+        "- Best-N design: 4000 full-curve spill-plane cases; 1000 stratified validation cases across 5 digitizer folds",
+        "- raw payload audit: 239984 captured position streams through turn 50000; 16 manifest-level absences across 12 recorded partial captures; no blocking payload findings",
         (
             "- primary capture: "
             f"{primary_capture['spill_count']} spills, nominal "
@@ -842,6 +1276,9 @@ def finalize(
         f"- poster PDF render pixels: {poster_render[0]} x {poster_render[1]}",
         "- poster preview source: byte-identical 150 dpi PDF raster with inherited master artwork",
         "- poster source/deliverable manifests: verified",
+        "- beamline-map attribution: George Deinlein, Fermilab staff; full publication reuse permission confirmed",
+        f"- poster report number: {POSTER_REPORT_NUMBER}",
+        "- current FermiForward/DOE acknowledgment: present in the lower-left footer",
         "- publication materialization manifest: verified",
         f"- prepared poster starter: `{POSTER_STARTER_SHA256}`",
         "- poster template fidelity: pass, 0 issues",
@@ -853,8 +1290,8 @@ def finalize(
         "",
         "## Authoritative References",
         "",
-        f"- accepted abstract: `{abstract}` (`{reference_hashes['accepted abstract'][0]}`)",
-        f"- Fermilab poster template: `{poster_template}` (`{reference_hashes['poster template'][0]}`)",
+        f"- accepted abstract: `external/{abstract.name}` (`{reference_hashes['accepted abstract'][0]}`)",
+        f"- Fermilab poster template: `external/{poster_template.name}` (`{reference_hashes['poster template'][0]}`)",
         f"- tracked JACoW class: `{reference_hashes['JACoW class'][0]}`",
         "",
         "The result remains BPM-only internal reproducibility evidence. It does not establish absolute tune accuracy, physical noise removal, or extraction onset.",

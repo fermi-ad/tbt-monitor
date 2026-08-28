@@ -1,166 +1,157 @@
 # tbt-monitor
 
-`tbt-monitor-tui` monitors MUON BPM turn-by-turn Redis streams, captures raw
-spill artifacts, and analyzes captured or live spills into tune-review products.
+`tbt-monitor-tui` collects synchronized turn-by-turn (TbT) beam-position
+monitor data, captures complete spill records, and produces transverse tune
+diagnostics for the Fermilab Mu2e Delivery Ring.
 
-The project is organized around one operational goal: collect complete,
-same-spill BPM data first, then evaluate which analysis chain and BPM subsets
-produce physically credible `Qx/Qy` evidence for Delivery Ring studies.
+The project follows a simple rule: preserve the same-spill raw data and its
+quality information first, then analyze it. Incomplete captures remain visible
+as warnings or quality flags instead of being silently discarded.
 
-## Main Workflows
+<p align="center">
+  <a href="publication/ibic2026/poster/build/ibic2026-abstract54-poster.pdf">
+    <img src="publication/ibic2026/poster/build/ibic2026-abstract54-poster.png" width="760" alt="IBIC 2026 poster summarizing the tbt-monitor study">
+  </a>
+</p>
 
-| Need | Start here |
-| --- | --- |
-| Configure or operate live DAQ/capture | [DAQ Guide](docs/DAQ.md) |
-| Analyze live or captured spills with the Rust tool | [Analysis Chains](docs/ANALYSIS_CHAINS.md) |
-| Run Spark/GPU offline analysis, autosweep, or Best-BPM mining | [Spark Workflows](docs/SPARK.md) |
-| Build, run in Docker, validate outputs, or work with GitHub issues/PRs | [Operations](docs/OPERATIONS.md) |
-| Look up exact CLI flags and command examples | [Command Reference](docs/USAGE.md) |
-| Tune config keys | [Config Reference](docs/CONFIG_REFERENCE.md) |
-| Understand module boundaries and data contracts | [Architecture](docs/ARCHITECTURE.md) |
-| Review physics status and open analysis questions | [Physics](docs/PHYSICS.md), [Analysis Checklist](docs/ANALYSIS_CHECKLIST.md) |
-| Review the Delivery Ring raw-stream provenance audit | [Producer And Payload Audit](docs/DELIVERY_RING_SOURCE_AUDIT.md) |
+<p align="center"><em>IBIC 2026 study overview - click the poster to open the full PDF.</em></p>
 
-Current capture defaults preserve `TBT_POSITION_RAW` and can derive matching
-`TBT_INTENSITY_RAW` payloads for offline study. Spark/GPU workflows include raw
-captured-spill analysis, staged autosweep ranking, exact-identity Best-BPM
-subset mining, leakage-controlled contiguous Best-N validation, an optional
-same-protocol all-training-channel control, a position/intensity sidecar,
-full-buffer ridge-density review galleries, and fail-closed publication
-verifiers for the primary, Best-N, all-training, intensity, and ridge outputs. A
-separate raw-payload gate scans every publication stream through turn
-50000 for nonfinite data, sample-count drift, long exact plateaus, and
-device-coded threshold fallback pairs. It also binds the exact manifest hash
-and enumerates manifest-level channel absences from recorded partial captures;
-absent channels are never fabricated or zero-filled.
-The ridge gate distinguishes the complete spill/window row grid from finite
-in-band tune picks: blank confidence-threshold misses and bounded parabolic
-edge refinements remain explicit coverage states, while exact adaptive
-comparisons are reconstructed from common finite-point masks.
-Publication artifacts use exact channel identities, semantic verifiers, and a
-deterministic native PNG renderer for the key deconstruction, handoff,
-intensity, Best-N, and ridge figures. `prepare_ibic2026_publication.py` binds
-the final plane-specific N, numerical copy, tables, and figure files to the
-same accepted analysis roots before the poster or paper can be built. It also
-binds the full-curve and stratified-validation sample counts so the two Best-N
-populations cannot be conflated in publication copy. All seven reduced-sample
-sensitivity runs must verify; at least four per plane must yield an eligible
-knee, while every unavailable run and reason remains visible in the payload and
-publication copy.
-The materializer also derives the primary-set capture topology and the selected
-H/V full-buffer finite-pick closure from the accepted payload and ridge
-verifiers. Publication copy therefore reports the 16 source absences in 12
-partial primary captures and keeps finite, blank-confidence, and bounded
-edge-excluded ridge rows separate instead of implying 60+60 recorded channels
-or one finite tune pick in every structural window.
-Poster-facing Best-N panels isolate blind full-band selected-versus-held-out
-agreement on one shared H/V scale. Near-training-tune agreement remains a
-separate conditioned diagnostic and is never overlaid as equivalent evidence.
-The reused-window direct-control gallery keeps all-BPM mean/median beside
-adaptive and frozen small sets. A separate leakage-controlled control aggregates
-every training-side channel by mean and median under the exact Best-N purge and
-held-out-digitizer folds. Its outcome may favor either method or remain
-unresolved, but it must be reported before materialization.
-Subtractive intensity and ridge panels require exact common spill/window
-points and describe only ridge-pick probability redistribution; display color
-clipping is disclosed and does not alter exported metrics. Native heatmap cells
-cover their complete declared axes without floor-division gaps. For Best-1,
-every weighting method passes the sole spectrum through without scale/divide
-arithmetic so the required zero-effect control is bit-exact.
-`finalize_ibic2026_publication.py` then requires explicit visual-QA passes and
-rechecks immutable references, page geometry, payload closure, checksums,
-primary capture completeness, selected H/V ridge-row closure, and matching
-poster evidence/manuscript macros, and
-the final PPTX slide XML for empty structural placeholders before writing the
-final compliance report and publication inventory. Build provenance remains in
-the delivered tree: portable source/deliverable checksum manifests, poster
-layout and overflow inspection, and the zero-issue template-fidelity reports.
-The final review packager verifies every copied path, size, hash, and gallery
-image both when it is created and again after transfer with `--verify-only`.
+## Study result
 
-## Quick Start
+The repository includes the finalized IBIC 2026 proceedings paper and the
+approved, printed poster.
 
-Build or inspect the CLI:
+- [Proceedings paper WEP014 (PDF)](publication/ibic2026/paper/build/WEP014.pdf)
+- [Poster (PDF)](publication/ibic2026/poster/build/ibic2026-abstract54-poster.pdf)
+- [Editable poster (PPTX)](publication/ibic2026/poster/build/ibic2026-abstract54-poster.pptx)
+- [Publication package and reproducibility notes](publication/ibic2026/README.md)
+
+The study found that tune observability is distributed across the ring rather
+than concentrated in one permanently best BPM. Leakage-controlled tests support
+H Best-5 and V Best-12 as useful operating points: vertical agreement is
+stronger across held-out digitizers, while the horizontal ensemble produces a
+narrower ridge distribution than corrected adaptive Best-1. Aggregating all
+available training channels remains a competitive control.
+
+These are internally repeatable **tune candidates**, not an absolute tune
+calibration. A matched external reference or controlled quadrupole scan is
+still required to establish absolute accuracy. See [Physics and claim
+boundaries](docs/PHYSICS.md) for the full interpretation.
+
+## What the software does
+
+- **Monitor:** display live Redis stream arrivals and synchronization state in a
+  terminal UI.
+- **Capture:** write raw, inspectable spill bundles for offline analysis.
+- **Analyze:** estimate horizontal and vertical tune candidates, follow their
+  evolution through a spill, and compare adaptive BPM ensembles.
+
+The Rust application covers live operation, capture, and routine offline
+analysis. The Python tools provide the larger CPU/GPU studies, validation
+controls, publication figures, and reproducibility checks.
+
+## Quick start
+
+The Rust application requires a toolchain with Rust 2024 edition support.
 
 ```bash
-cargo check --offline
-cargo run --offline -- --help
+cargo build --locked
+cargo run --locked -- --help
 ```
 
-Generate config from ACNET XML:
+Create a runtime configuration from an ACNET XML export:
 
 ```bash
-cargo run --offline -- import \
+cargo run --locked -- import \
   --source /path/to/Config.xml \
-  --output config/monitor.cfg
+  --output /path/to/monitor.cfg
 ```
 
-Capture raw spill bundles for offline analysis:
+Capture a small set of raw spills:
 
 ```bash
-cargo run --offline -- capture-spills \
-  --config config/monitor.cfg \
+cargo run --locked -- capture-spills \
+  --config /path/to/monitor.cfg \
   --out-dir out \
   --free-run \
   --count 25
 ```
 
-Analyze captured bundles offline:
+Analyze those bundles without a live Redis connection:
 
 ```bash
-cargo run --offline -- analyze-captured-spills \
-  --config config/monitor.cfg \
+cargo run --locked -- analyze-captured-spills \
+  --config /path/to/monitor.cfg \
   --bundles-dir out \
   --out-dir out/offline_batch \
   --count 25
 ```
 
-Run the current Spark Best-BPM pipeline:
+The checked-in `config/monitor.cfg` documents the Fermilab deployment and is
+site-specific. Generate or copy a local configuration before operating against
+another installation.
 
-```bash
-/home/derekste/venvs/cupy-spark-cu13/bin/python scripts/run_best_bpm_pipeline.py \
-  --config config/best_bpm_mining.yaml \
-  --out /home/derekste/best_bpm_mining \
-  --device cuda \
-  --workers 12 \
-  --gpu-telemetry-interval-seconds 30
-```
-
-`--resume` reuses completed spectral-cache arrays; it is not a whole-pipeline
-stage checkpoint and does not skip subset search. Use the stage-specific
-commands in `docs/USAGE.md` when continuing after a completed search.
-
-## Repository Layout
-
-- `src/main.rs`: CLI entry point and command dispatch.
-- `src/config.rs`: config schema, parser, validation, and serialization.
-- `src/importer.rs`: ACNET XML import.
-- `src/monitor.rs`: live Redis stream monitor.
-- `src/capture.rs`: raw synchronized spill capture and capture diagnostics.
-- `src/analyze.rs`: live/offline tune analysis, studies, and batch outputs.
-- `scripts/`: poster/DGX tooling, Spark autosweep, Best-BPM mining,
-  verification helpers, verifier-bound IBIC materialization, and browsable,
-  checksummed publication-review packaging.
-- `config/`: example/generated runtime config.
-- `docs/`: subsystem guides, command reference, architecture, physics notes,
-  backlog, and workflow docs.
-
-## Development Checks
-
-Run the normal Rust checks from the repository root:
-
-```bash
-cargo fmt --all
-cargo test -- --nocapture
-```
-
-Python analysis helpers also have focused smoke tests:
+For the Python analysis stack, start with the CPU self-tests:
 
 ```bash
 python3 scripts/gpu_analyze_captured_spills.py --self-test
 python3 scripts/test_autosweep.py
 python3 scripts/test_best_bpm_mining.py
-python3 scripts/verify_best_bpm_outputs.py --root /path/to/best_bpm_mining
 ```
 
-For coding-agent invariants and doc-sync rules, see [AGENTS.md](AGENTS.md).
+NumPy and Matplotlib are required by the larger studies. SciPy can improve the
+multitaper implementation, and CuPy enables the optional CUDA backend.
+
+## Documentation
+
+| Topic | Guide |
+| --- | --- |
+| Documentation index | [docs/README.md](docs/README.md) |
+| Live monitoring and capture | [DAQ guide](docs/DAQ.md) |
+| Rust analysis modes | [Analysis chains](docs/ANALYSIS_CHAINS.md) |
+| Commands and configuration | [Usage](docs/USAGE.md), [config reference](docs/CONFIG_REFERENCE.md) |
+| CPU/GPU research workflows | [Spark workflows](docs/SPARK.md) |
+| Design and data contracts | [Architecture](docs/ARCHITECTURE.md), [design decisions](docs/DESIGN_DECISIONS.md) |
+| Scientific interpretation | [Physics](docs/PHYSICS.md), [current status](docs/CURRENT_STATUS.md) |
+
+## Repository layout
+
+- `src/`: Rust CLI, TUI, capture, synchronization, and analysis paths.
+- `scripts/`: CPU/GPU analysis, validation, figure, and publication tools.
+- `config/`: runtime and Best-BPM analysis configuration examples.
+- `docs/`: user, architecture, and scientific documentation.
+- `publication/ibic2026/`: approved paper and poster sources, deliverables, and
+  verifier-bound supporting material.
+
+## Development
+
+Run the standard Rust checks from the repository root:
+
+```bash
+cargo fmt --all -- --check
+cargo test --locked -- --nocapture
+```
+
+Python validation entry points are listed in [docs/README.md](docs/README.md).
+Changes should preserve the documented timing semantics, explicit incomplete
+states, and output contracts. See [CONTRIBUTING.md](CONTRIBUTING.md) before
+opening a pull request.
+
+## Data availability
+
+Raw accelerator captures are not distributed in this repository. They contain
+site-specific operational data and require authorized Fermilab access. The
+repository includes the software, derived publication results, canonical
+figures, manifests, and final paper/poster artifacts needed to inspect the
+published analysis boundary.
+
+## Citation
+
+Please cite the included paper, *Turn-by-turn tune analysis using adaptive BPM
+ensembles in the Fermilab Mu2e Delivery Ring*, and identify the repository
+revision used for software-derived results. Citation metadata can be updated
+when the final proceedings record is assigned.
+
+## License
+
+This project is distributed under the [BSD 3-Clause License](LICENSE).

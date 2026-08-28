@@ -1,20 +1,22 @@
 # Legacy Ridge-Density Provenance
 
-This note binds the two archived `18d321dbd4fe` plots chosen as the visual
-reference for the final adaptive-ensemble comparison.
+This note binds the two archived `18d321dbd4fe` plots retained in the audit and
+review gallery. They are not publication comparators in the focused paper or
+poster.
 
-## Immutable Local References
+## Immutable References
 
-| Plane | Local file | SHA-256 |
+| Plane | Archived file | SHA-256 |
 | --- | --- | --- |
-| H | `review-artifacts/poster_candidate_gallery/05_best_poster_18d321db_ridge_density_h.png` | `07413bd1995276de362b923e70cda6cb91e4bfd01c18049371b6a94d87a467bd` |
-| V | `review-artifacts/poster_candidate_gallery/05_best_poster_18d321db_ridge_density_v.png` | `c48f26d3a30476ff8ed7b888db41ef9a56e9951a085dd7ec6b8ea960480f12fc` |
+| H | `external/legacy-selector/18d321dbd4fe/ridge_density_h.png` | `07413bd1995276de362b923e70cda6cb91e4bfd01c18049371b6a94d87a467bd` |
+| V | `external/legacy-selector/18d321dbd4fe/ridge_density_v.png` | `c48f26d3a30476ff8ed7b888db41ef9a56e9951a085dd7ec6b8ea960480f12fc` |
 
-They were copied without modification from:
+They were copied without modification from the accepted autosweep job
+`18d321dbd4fe` outputs:
 
 ```text
-/home/derekste/tbt-spills-2000-autosweep/elite-full/jobs/18d321dbd4fe/combined/ridge_density_h.png
-/home/derekste/tbt-spills-2000-autosweep/elite-full/jobs/18d321dbd4fe/combined/ridge_density_v.png
+combined/ridge_density_h.png
+combined/ridge_density_v.png
 ```
 
 The archived PNGs remain immutable historical outputs. Their old integer-cell
@@ -61,7 +63,7 @@ was 29/60 in H and 31/60 in V. These panels must therefore be called the
 **legacy normalized-single** reference, not the highest-RMS or optimized
 single-BPM result.
 
-## Fair Adaptive Comparison
+## Audit Comparisons
 
 The final full-buffer sidecar holds the archived windowing, tune bands,
 tracking geometry, density bins, and exact common spill/window population
@@ -78,3 +80,5 @@ use a symmetric absolute-P99 display clip and exact common finite points. Red
 and blue mean higher or lower column-normalized ridge-pick probability only.
 Neither a narrower ridge nor a subtractive feature establishes physical noise
 removal, absolute tune accuracy, or extraction onset.
+The IBIC-facing density figure uses comparison 2 only, with a valid-population
+trace; comparisons 1 and 3 remain historical audit material.

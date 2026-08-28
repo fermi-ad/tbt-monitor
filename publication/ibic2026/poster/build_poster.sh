@@ -32,7 +32,6 @@ QA_DIR="$OUT_DIR/qa"
 INSPECT="$PPTX.inspect.ndjson"
 
 for file in \
-  "$SKILL_DIR/container_tools/setup_artifact_tool_workspace.mjs" \
   "$SKILL_DIR/container_tools/slides_test.py" \
   "$SKILL_DIR/template_following_scripts/check_template_fidelity.mjs" \
   "$HERE/build_poster.mjs" \
@@ -43,6 +42,11 @@ for file in \
     exit 1
   }
 done
+RUNTIME_NODE_MODULES=${RUNTIME_NODE_MODULES:?set RUNTIME_NODE_MODULES to the bundled Node.js packages directory}
+test -d "$RUNTIME_NODE_MODULES" || {
+  echo "missing bundled Node.js packages directory: $RUNTIME_NODE_MODULES" >&2
+  exit 1
+}
 test -d "$STARTER_LAYOUT_DIR" || {
   echo "missing starter layout directory: $STARTER_LAYOUT_DIR" >&2
   exit 1
@@ -51,6 +55,12 @@ test -s "$CONTENT" || {
   echo "missing final poster content: $CONTENT" >&2
   exit 1
 }
+for poster_input in "$HERE/evidence_gate.json" "$HERE/input_manifest.json"; do
+  test -s "$poster_input" || {
+    echo "missing paper-gated poster input: $poster_input" >&2
+    exit 1
+  }
+done
 
 for command in "$NODE" "$PYTHON" "$SOFFICE" "$PDFINFO" "$PDFTOPPM" "$PDFFONTS" "$SHASUM"; do
   command -v "$command" >/dev/null 2>&1 || test -x "$command" || {
@@ -61,8 +71,17 @@ done
 
 mkdir -p "$OUT_DIR" "$WORK" "$FINAL_LAYOUT_DIR" "$RENDER_DIR" "$QA_DIR" \
   "$WORK/home" "$WORK/cache" "$WORK/lo-profile"
-"$NODE" "$SKILL_DIR/container_tools/setup_artifact_tool_workspace.mjs" \
-  --workspace "$WORK"
+if [[ -L "$WORK/node_modules" ]]; then
+  [[ "$(readlink "$WORK/node_modules")" == "$RUNTIME_NODE_MODULES" ]] || {
+    echo "scratch node_modules points at the wrong runtime" >&2
+    exit 1
+  }
+elif [[ -e "$WORK/node_modules" ]]; then
+  echo "scratch node_modules exists and is not a symlink: $WORK/node_modules" >&2
+  exit 1
+else
+  ln -s "$RUNTIME_NODE_MODULES" "$WORK/node_modules"
+fi
 cp "$HERE/build_poster.mjs" "$WORK/build_poster.mjs"
 
 "$NODE" "$WORK/build_poster.mjs" \
@@ -89,6 +108,24 @@ for report in template-fidelity-check.json template-fidelity-check.txt; do
   }
   cp "$WORK/qa/$report" "$QA_DIR/$report"
 done
+"$PYTHON" -c '
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+report = json.loads(path.read_text(encoding="utf-8"))
+report.update({
+    "workspace": "ephemeral/poster-build",
+    "finalPptx": "publication/ibic2026/poster/build/ibic2026-abstract54-poster.pptx",
+    "starterPptx": "external/template-starter.pptx",
+    "mapPath": "publication/ibic2026/poster/template-frame-map.json",
+    "starterLayoutDir": "external/template-starter-layout",
+    "finalLayoutDir": "publication/ibic2026/poster/build/layout",
+    "editDir": "ephemeral/poster-build",
+})
+path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+' "$QA_DIR/template-fidelity-check.json"
 test -s "$FINAL_LAYOUT" || {
   echo "poster build did not preserve the final layout inventory: $FINAL_LAYOUT" >&2
   exit 1

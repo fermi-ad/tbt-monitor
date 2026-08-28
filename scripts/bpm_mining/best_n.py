@@ -177,6 +177,46 @@ GATE_MARGIN_SENSITIVITY_FIELDS = [
     "maximum_n",
 ]
 
+CROSS_SPILL_NULL_FIELDS = [
+    "plane",
+    "subset_size",
+    "status",
+    "observed_agreement_rate",
+    "null_mean_agreement_rate",
+    "null_ci_low",
+    "null_ci_high",
+    "validation_spill_count",
+    "permutation_draws",
+    "valid_permutation_draws",
+    "block_spills",
+    "tune_half_width",
+]
+
+BEST1_MEMBERSHIP_FREQUENCY_FIELDS = [
+    "plane",
+    "bpm_index",
+    "bpm_member",
+    "bpm_source_key",
+    "bpm_digitizer",
+    "winner_count",
+    "plane_spill_count",
+    "winner_fraction",
+]
+
+BEST1_MEMBERSHIP_SUMMARY_FIELDS = [
+    "plane",
+    "plane_spill_count",
+    "available_source_count",
+    "winning_source_count",
+    "all_sources_win",
+    "maximum_winner_count",
+    "maximum_winner_fraction",
+    "maximum_source_keys",
+]
+
+CROSS_SPILL_NULL_DRAWS = 1000
+CROSS_SPILL_NULL_BLOCK_SPILLS = 20
+
 
 def _f(value: object) -> float:
     try:
@@ -751,6 +791,267 @@ def collapsed_validation_series(
     return {
         collection: [value for _spill, value in sorted(values, key=lambda item: spill_key(item[0]))]
         for collection, values in by_collection.items()
+    }
+
+
+def _spill_sort_key(spill_id: str) -> tuple[int, object]:
+    tail = str(spill_id).rsplit("_", 1)[-1]
+    try:
+        return 0, int(tail)
+    except ValueError:
+        return 1, str(spill_id)
+
+
+def _nonidentity_block_order(
+    block_count: int,
+    *seed_parts: object,
+) -> list[int]:
+    """Return a stable random block derangement.
+
+    No block remains at its observed position, so a nominal cross-spill null
+    draw cannot retain an unshifted 20-spill block.  Rejection sampling gives
+    general seeded permutations; the rotation fallback is deterministic and
+    also has no fixed points.
+    """
+    if block_count < 2:
+        raise ValueError("a cross-spill permutation requires at least two blocks")
+    identity = list(range(block_count))
+    rng = random.Random(stable_seed("best-n-cross-spill-null", *seed_parts))
+    for _attempt in range(128):
+        order = list(identity)
+        rng.shuffle(order)
+        if all(observed != permuted for observed, permuted in zip(identity, order)):
+            return order
+    shift = rng.randrange(1, block_count)
+    return identity[shift:] + identity[:shift]
+
+
+def _collapsed_agreement_rate(
+    agreements: Mapping[tuple[str, str], Sequence[float]],
+) -> float:
+    spill_values = [mean(values) for values in agreements.values() if values]
+    return mean(spill_values)
+
+
+def cross_spill_null_rows(
+    validation_rows: Sequence[dict[str, object]],
+    tune_half_width: float,
+    permutation_draws: int = CROSS_SPILL_NULL_DRAWS,
+    block_spills: int = CROSS_SPILL_NULL_BLOCK_SPILLS,
+) -> list[dict[str, object]]:
+    """Break same-spill pairing by permuting ordered held-out tune blocks.
+
+    Each plane/N/collection series receives a stable block derangement, applied
+    separately within every fold. Sharing the block order across folds
+    preserves their same-spill dependence. Rows stay ordered inside each
+    non-overlapping block, no block remains in its observed position, and fold
+    indicators are collapsed to a per-spill mean before the final agreement
+    rate is computed, matching ``summarize``.
+    """
+    draws = max(1, int(permutation_draws))
+    block = max(1, int(block_spills))
+    grouped: dict[
+        tuple[str, int, str, int],
+        list[tuple[str, float, float]],
+    ] = defaultdict(list)
+    for row in validation_rows:
+        selected_q = _f(row.get("selected_test_blind_q_hat"))
+        heldout_q = _f(row.get("heldout_blind_q_hat"))
+        if not (math.isfinite(selected_q) and math.isfinite(heldout_q)):
+            continue
+        key = (
+            str(row.get("plane", "")),
+            int(row.get("subset_size") or 0),
+            str(row.get("collection", "")),
+            int(row.get("fold") or 0),
+        )
+        grouped[key].append((str(row.get("spill_id", "")), selected_q, heldout_q))
+
+    plane_sizes = sorted({(plane, subset_size) for plane, subset_size, _collection, _fold in grouped})
+    output: list[dict[str, object]] = []
+    for plane, subset_size in plane_sizes:
+        source_groups = [
+            (key, sorted(values, key=lambda item: _spill_sort_key(item[0])))
+            for key, values in sorted(grouped.items())
+            if key[0] == plane and key[1] == subset_size
+        ]
+        observed_by_spill: dict[tuple[str, str], list[float]] = defaultdict(list)
+        for (_group_plane, _group_n, collection, _fold), values in source_groups:
+            for spill_id, selected_q, heldout_q in values:
+                observed_by_spill[(collection, spill_id)].append(
+                    float(abs(selected_q - heldout_q) <= tune_half_width)
+                )
+        observed_rate = _collapsed_agreement_rate(observed_by_spill)
+        spill_keys = sorted(
+            observed_by_spill,
+            key=lambda item: (item[0], _spill_sort_key(item[1])),
+        )
+        spill_position = {key: index for index, key in enumerate(spill_keys)}
+        null_sums = np.zeros((draws, len(spill_keys)), dtype=np.float64)
+        fold_counts = np.zeros(len(spill_keys), dtype=np.int32)
+        status = "ok"
+        for (_group_plane, _group_n, collection, _fold), values in source_groups:
+            blocks = [
+                list(range(start, min(start + block, len(values))))
+                for start in range(0, len(values), block)
+            ]
+            if len(blocks) < 2:
+                status = "insufficient_blocks"
+                break
+            selected = np.asarray([value[1] for value in values], dtype=np.float64)
+            heldout = np.asarray([value[2] for value in values], dtype=np.float64)
+            target_positions = np.asarray(
+                [spill_position[(collection, value[0])] for value in values],
+                dtype=np.int64,
+            )
+            group_agreement = np.empty((draws, len(values)), dtype=np.float64)
+            for draw in range(draws):
+                order = _nonidentity_block_order(
+                    len(blocks),
+                    plane,
+                    subset_size,
+                    collection,
+                    draw,
+                )
+                permuted_indices = [index for block_index in order for index in blocks[block_index]]
+                group_agreement[draw, :] = (
+                    np.abs(selected - heldout[np.asarray(permuted_indices, dtype=np.int64)])
+                    <= tune_half_width
+                )
+            null_sums[:, target_positions] += group_agreement
+            fold_counts[target_positions] += 1
+
+        null_rates: list[float] = []
+        if status == "ok" and spill_keys and np.all(fold_counts > 0):
+            collapsed = null_sums / fold_counts[None, :]
+            null_rates = [float(value) for value in np.mean(collapsed, axis=1)]
+        elif status == "ok":
+            status = "incomplete_fold_collapse"
+        output.append(
+            {
+                "plane": plane,
+                "subset_size": subset_size,
+                "status": status,
+                "observed_agreement_rate": _fmt(observed_rate),
+                "null_mean_agreement_rate": _fmt(mean(null_rates)),
+                "null_ci_low": _fmt(percentile(null_rates, 0.025)),
+                "null_ci_high": _fmt(percentile(null_rates, 0.975)),
+                "validation_spill_count": len(spill_keys),
+                "permutation_draws": draws,
+                "valid_permutation_draws": len(null_rates),
+                "block_spills": block,
+                "tune_half_width": _fmt(tune_half_width),
+            }
+        )
+    return output
+
+
+def best1_membership_rows(
+    curve_rows: Sequence[dict[str, object]],
+    validation_rows: Sequence[dict[str, object]],
+) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+    """Count diversity-independent Best-1 winners by exact source identity."""
+    winners: dict[str, Counter[str]] = defaultdict(Counter)
+    identities: dict[tuple[str, str], tuple[str, str, str]] = {}
+    plane_totals: Counter[str] = Counter()
+    for row in curve_rows:
+        if int(row.get("subset_size") or 0) != 1:
+            continue
+        plane = str(row.get("plane", ""))
+        indices = [part.strip() for part in str(row.get("bpm_indices", "")).split(",") if part.strip()]
+        members = [part.strip() for part in str(row.get("bpm_members", "")).split(",") if part.strip()]
+        source_keys = [part.strip() for part in str(row.get("bpm_source_keys", "")).split(",") if part.strip()]
+        digitizers = [part.strip() for part in str(row.get("bpm_digitizers", "")).split(",") if part.strip()]
+        if not (len(indices) == len(members) == len(source_keys) == len(digitizers) == 1):
+            raise ValueError(f"Best-1 row has malformed exact identity: {plane}/{row.get('spill_id', '')}")
+        identity = (indices[0], members[0], digitizers[0])
+        key = (plane, source_keys[0])
+        if key in identities and identities[key] != identity:
+            raise ValueError(f"Best-1 source identity changed across rows: {key}")
+        identities[key] = identity
+        winners[plane][source_keys[0]] += 1
+        plane_totals[plane] += 1
+
+    available_counts: dict[str, set[int]] = defaultdict(set)
+    for row in validation_rows:
+        if int(row.get("subset_size") or 0) != 1:
+            continue
+        train = int(row.get("train_channel_count") or 0)
+        heldout = int(row.get("heldout_channel_count") or 0)
+        if train > 0 and heldout > 0:
+            available_counts[str(row.get("plane", ""))].add(train + heldout)
+
+    frequency_rows: list[dict[str, object]] = []
+    summary_rows: list[dict[str, object]] = []
+    for plane in sorted(winners):
+        total = plane_totals[plane]
+        counts = winners[plane]
+        for source_key in sorted(counts):
+            bpm_index, member, digitizer = identities[(plane, source_key)]
+            count = counts[source_key]
+            frequency_rows.append(
+                {
+                    "plane": plane,
+                    "bpm_index": bpm_index,
+                    "bpm_member": member,
+                    "bpm_source_key": source_key,
+                    "bpm_digitizer": digitizer,
+                    "winner_count": count,
+                    "plane_spill_count": total,
+                    "winner_fraction": _fmt(count / total if total else math.nan),
+                }
+            )
+        # A partial capture can reduce the per-spill candidate pool by one or
+        # more sources.  The largest validated pool is the declared topology;
+        # winner identity is accumulated across the complete corpus.
+        available = max(available_counts.get(plane, set()), default=len(counts))
+        maximum = max(counts.values(), default=0)
+        maximum_sources = sorted(source for source, count in counts.items() if count == maximum)
+        summary_rows.append(
+            {
+                "plane": plane,
+                "plane_spill_count": total,
+                "available_source_count": available,
+                "winning_source_count": len(counts),
+                "all_sources_win": str(len(counts) == available).lower(),
+                "maximum_winner_count": maximum,
+                "maximum_winner_fraction": _fmt(maximum / total if total else math.nan),
+                "maximum_source_keys": ",".join(maximum_sources),
+            }
+        )
+    return frequency_rows, summary_rows
+
+
+def write_best_n_controls(
+    curve_rows: Sequence[dict[str, object]],
+    validation_rows: Sequence[dict[str, object]],
+    out: Path,
+    tune_half_width: float,
+    permutation_draws: int = CROSS_SPILL_NULL_DRAWS,
+    block_spills: int = CROSS_SPILL_NULL_BLOCK_SPILLS,
+) -> dict[str, list[dict[str, object]]]:
+    null_rows = cross_spill_null_rows(
+        validation_rows,
+        tune_half_width,
+        permutation_draws,
+        block_spills,
+    )
+    frequency_rows, membership_summary_rows = best1_membership_rows(curve_rows, validation_rows)
+    write_csv(out / "best_n_cross_spill_null.csv", null_rows, CROSS_SPILL_NULL_FIELDS)
+    write_csv(
+        out / "best_n_best1_membership_frequency.csv",
+        frequency_rows,
+        BEST1_MEMBERSHIP_FREQUENCY_FIELDS,
+    )
+    write_csv(
+        out / "best_n_best1_membership_summary.csv",
+        membership_summary_rows,
+        BEST1_MEMBERSHIP_SUMMARY_FIELDS,
+    )
+    return {
+        "cross_spill_null": null_rows,
+        "best1_membership_frequency": frequency_rows,
+        "best1_membership_summary": membership_summary_rows,
     }
 
 
@@ -1735,6 +2036,14 @@ def write_summary_outputs(
     transfer_rows = cross_collection_transfer(collection_rows, tune_half_width)
     write_csv(out / "best_n_cross_collection_transfer.csv", transfer_rows, CROSS_COLLECTION_FIELDS)
     atomic_write_text(out / "best_n_cross_collection_transfer.md", cross_collection_text(transfer_rows))
+    write_best_n_controls(
+        curve_rows,
+        validation_rows,
+        out,
+        tune_half_width,
+        CROSS_SPILL_NULL_DRAWS,
+        CROSS_SPILL_NULL_BLOCK_SPILLS,
+    )
     write_plots(summary_rows, out, tune_half_width)
     return summary_rows
 
@@ -1855,7 +2164,10 @@ def merge_best_n_shards(
         f"- unique disjoint validation rows: `{len(validation_rows)}`\n"
         f"- bootstrap samples: `{bootstrap_samples}`\n"
         f"- moving-bootstrap block length: `{bootstrap_block_spills}` spills within collection\n"
-        f"- tune agreement tolerance: `{tune_half_width}`\n",
+        f"- tune agreement tolerance: `{tune_half_width}`\n"
+        f"- cross-spill null: `{CROSS_SPILL_NULL_DRAWS}` stable block derangements at "
+        f"`{CROSS_SPILL_NULL_BLOCK_SPILLS}` spills per block\n"
+        "- Best-1 membership: exact source-frequency and plane-summary tables\n",
     )
 
 
@@ -1995,6 +2307,9 @@ def evaluate_best_n(
         f"- validation windows: all later windows after purging every window that overlaps the fit prefix\n"
         f"- tune agreement tolerance: `{tune_half_width}`\n"
         f"- confidence intervals: moving-block bootstrap, `{bootstrap_block_spills}` spills per block within collection\n"
+        f"- cross-spill null: `{CROSS_SPILL_NULL_DRAWS}` stable block derangements at "
+        f"`{CROSS_SPILL_NULL_BLOCK_SPILLS}` spills per block\n"
+        "- Best-1 membership: exact source-frequency and plane-summary tables\n"
         f"- shard: `{shard_index + 1}/{shard_count}`\n"
         f"- resumed: `{str(resume).lower()}`\n"
         f"- device: `{device}`\n"

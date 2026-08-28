@@ -554,6 +554,14 @@ Decision:
   held-out-power margins as the publication selector. A bounded post-selection
   matrix may vary those margins to characterize criterion sensitivity, but it
   must identify the declared cell and may not replace or tune the published N.
+- Compare observed blind agreement with a deterministic 1000-draw null that
+  permutes 20-spill blocks only within plane, N, collection, and fold, preserves
+  within-block order, excludes the unshifted pairing, and collapses folds by the
+  same rule as the observed statistic.
+- Treat that null as a pointwise diagnostic, not a multiplicity-adjusted
+  post-selection p-value, because the operating N is chosen from the same
+  validation curve. Distinguish the marginal H separation from the clearer V
+  separation in publication copy.
 - Collapse repeated folds within each spill before a moving-block bootstrap
   within acquisition collection. Require beam-width, fit-window, fold-seed,
   bootstrap-block-length, and cross-collection global-N sensitivity checks.
@@ -565,6 +573,17 @@ Decision:
   eligible recommendations per plane before materializing the full-data N.
   Preserve each unavailable reason and print the available count and N range in
   publication artifacts; fewer than four remains a blocking sensitivity result.
+- Call the materialized H Best-5 and V Best-12 values operating points rather
+  than unique optima. The current matrix does not vary score weights,
+  spectral-window length, or tune-agreement tolerance; those dimensions require
+  a complete leakage-controlled rerun before production defaults are frozen.
+- Keep absolute calibration outside the BPM-only selection protocol. Require a
+  controlled tune-control quadrupole scan comparing measured with optics-
+  predicted tune shifts, or a matched independent tune monitor, before calling
+  the candidate the measured machine tune.
+- Treat post-spill reporting as the first operational target. Intra-spill
+  updates require incremental transport plus separate latency and causal
+  validation and are not implied by the fixed full-spill records used here.
 - Fail closed on the declared full/sample cache-row counts, contiguous N and
   fold coverage, exact member cardinality and masks, purged timing, finite
   metrics, detail/summary agreement, cross-collection products, native plots,
@@ -637,9 +656,14 @@ Decision:
   indexed gallery asset before closing the intensity question.
 - Compare exact retained-effect identities across 10/20/40-spill summaries;
   equal counts with different retained methods are a failed sensitivity gate.
-- Materialize poster copy, paper tables, and final figure filenames from the
-  accepted roots in one command. Placeholder rejection alone does not prove
-  that a manually copied image and a reported number share provenance.
+- Keep this completed intensity contract as a standalone sidecar. It must not
+  add an IBIC source role, payload field, macro, figure, report line, or
+  materialization prerequisite.
+- Before paper acceptance, materialize initial poster copy, paper tables, and
+  figure filenames from the accepted roots in one command. Placeholder
+  rejection alone does not prove that a manually copied image and a reported
+  number share provenance. After acceptance, DD-026 supersedes only the poster
+  half of this workflow with a paper-frozen downstream gate.
 
 Why:
 - Adaptive training score alone is vulnerable to look-elsewhere bias and can
@@ -662,6 +686,9 @@ Why:
 Tradeoffs:
 - The held-out median-power pool is a conservative internal reference, not an
   external tune label.
+- The conditioned-versus-blind agreement gap can identify competing-peak
+  switching, but it cannot determine the physical cause of weak later-window
+  observability.
 - Beam search is approximate above N=1; convergence checks are part of the
   result and no automatic knee is reported when the curves remain unresolved.
 - The 50000-turn plot holds early-selected members fixed. It tests persistence,
@@ -706,6 +733,9 @@ Decision:
   case counts separately. Generate those values from the accepted verifier and
   reject a final payload whose case, fold, N, or evaluation-row counts differ
   from the definitive design.
+- Bind the diversity-independent Best-1 membership table and verified source
+  frequencies into publication provenance. Use it, rather than diversity-
+  rewarded Best-N memberships, to support the distributed-observability claim.
 - Keep the artifact-tool direct PNG as a geometry diagnostic. The named poster
   PNG must instead be the byte-identical 150 dpi PDF raster so inherited
   master-level Fermilab/DOE artwork is present in both rendered deliverables.
@@ -721,10 +751,13 @@ Decision:
   exact numerical source-table hashes, require one fixed safe output inventory,
   and re-hash every materialized content, table, payload, report, and figure at
   finalization. Manifest-file presence alone is not provenance verification.
-- Derive capture-completeness prose from the accepted audit's collection split.
+- Require the v2 results-payload schema and an exact publication source-role
+  allowlist. Stale intensity or legacy-ridge keys and roles are failures, not
+  optional backward-compatible inputs.
+- Derive capture-completeness prose from a fresh two-collection position audit.
   The 2000-spill primary analysis has a nominal 60 H plus 60 V topology but 16
-  explicit source absences across 12 partial captures; the additional intensity
-  collection brings the corpus-wide totals to 17 absences across 13 captures.
+  explicit source absences across 12 partial captures. Keep the earlier
+  three-collection 13/17 totals only with the standalone intensity sidecar.
 - Derive selected full-buffer coverage from the strict ridge verifier. Require
   exact structural-row closure and publish finite, blank-confidence, and
   bounded edge-exclusion counts for each plane. A column-normalized ridge map
@@ -765,17 +798,19 @@ Tradeoffs:
 ## DD-024: Raw publication payloads require an independent producer-integrity gate
 
 Decision:
-- Treat `TBT_POSITION_RAW` and `TBT_INTENSITY_RAW` as the publication source
-  boundary, not the scaled orbit products. The checked-out producer inserts
+- Treat `TBT_POSITION_RAW` as the publication source boundary, not the scaled
+  orbit products. The checked-out producer inserts
   device-coded below-threshold values only in scaled arrays; a same-ID live
   raw/scaled comparison confirmed that separation despite source/runtime drift.
-- Scan every publication raw stream through turn 50000 independently of the
+- Scan every publication raw position stream through turn 50000 independently of the
   spectral analysis. Reject nonfinite samples, byte/sample-count drift, exact
   plateaus of at least 128 turns, and repeated device-coded fallback pairs.
-- Require the exact 2200-manifest, 263983-captured-position-row,
-  23999-paired-row report in publication materialization and finalization. Bind
-  the manifest hash, per-collection partial-capture topology, and all 17 absent
-  stream identities rather than silently normalizing or zero-filling them.
+- Require a fresh exact 2000-manifest, 239984-captured-position-row report in
+  publication materialization and finalization. Bind the two complete
+  60-H/60-V and 30-digitizer topologies, manifest hash, per-collection
+  partial-capture topology, and all 16 absent stream identities rather than
+  silently normalizing or zero-filling them. Preserve the 2200-manifest,
+  23999-pair audit unchanged with the standalone intensity sidecar.
 
 Why:
 - Finite sentinels can evade ordinary numerical plausibility checks and create
@@ -785,7 +820,7 @@ Why:
   so current files alone cannot establish historical runtime behavior.
 
 Tradeoffs:
-- The audit rereads roughly 264000 first-50000-turn payload slices and adds a
+- The publication audit rereads roughly 240000 first-50000-turn payload slices and adds a
   serial I/O pass. It does not alter source data and is cheaper than accepting
   an untraceable publication artifact.
 
@@ -821,6 +856,85 @@ Tradeoffs:
 - This adds a serial CPU/cache pass and roughly 18 review images, but no new
   waveform FFT or GPU search. It still establishes only internal reproducibility,
   not tune accuracy against Schottky or another external instrument.
+
+## DD-026: Freeze the paper before independent graphics-first poster iteration
+
+Decision:
+- Treat the accepted paper source, four-page PDF, and schema-v2 result payload
+  as upstream frozen evidence for the poster. Record their exact hashes, plus
+  the three scientific poster figure hashes and contextual beamline-map hash,
+  in the schema-v2 `poster/evidence_gate.json`. Require structured attribution
+  to George Deinlein, Fermilab staff, and full permission for this poster's
+  publication reuse.
+- Make the accepted gate a fail-closed boundary. The pre-acceptance publication
+  materializer must refuse to co-generate the paper and poster while the gate is
+  present. Retire and replace the gate only for a serious discrepancy in the
+  paper or accepted evidence, never for ordinary poster copy, layout, or
+  contextual-graphic changes.
+- Materialize post-acceptance poster inputs only with
+  `scripts/prepare_ibic2026_poster.py`. Resolve gate paths relative to the
+  repository, validate the pinned hashes and poster-facing claims, write only
+  under `publication/ibic2026/poster/**`, and record before/after paper hashes in
+  `input_manifest.json`.
+- Use four graphics in the final A0 layout: make the exact-paired 50,000-turn
+  H/V ridge comparison the dominant hero, retain separate H and V
+  leakage-controlled Best-N panels as supporting evidence, and keep a credited
+  Muon Campus beamline map as secondary machine context rather than independent
+  tune evidence or calibration.
+- Keep visible copy short and payload-derived. Lead with questions and
+  compelling statements; distinguish marginal H null separation from clearer V
+  separation; call Best-5/Best-12 useful operating points rather than universal
+  optima; retain the mixed all-training result; and point to a controlled
+  quadrupole scan as the next calibration step.
+- Bind the gate and poster input manifest into the schema-v2 poster source
+  manifest. Finalization must verify the exact visible map credit, structured
+  permission metadata, both manifests, the frozen paper/payload, all four
+  assets, generated content, rendered outputs, and the existing
+  template/layout/font QA evidence.
+
+Why:
+- Poster communication benefits from a different visual hierarchy and much less
+  prose than a four-page paper, but ordinary design iteration must not reopen
+  accepted scientific text or silently change its evidence base.
+- The beamline map makes the machine and Delivery Ring immediately legible to a
+  broad audience; its explicit credit and contextual classification prevent it
+  from being mistaken for an analysis result.
+- Independent manifests make the one-way dependency machine-checkable instead
+  of relying on manual coordination.
+
+Tradeoffs:
+- A serious upstream correction requires an explicit gate replacement and a
+  fresh poster materialization/build/finalization cycle.
+- The four-graphic limit moves secondary width, H-loss, conditioned-agreement,
+  sensitivity, and selected-spill plots to the review package so the primary
+  graphics remain readable at poster distance.
+
+## DD-027: Bind required poster publication metadata
+
+Decision:
+- Extend the poster-only evidence gate to schema v3 and bind the assigned report
+  number, current acknowledgment, and official template identity/placements.
+  Propagate that contract through the schema-v2 poster input manifest and
+  finalizer.
+- Place `FERMILAB-POSTER-26-0268-AD` in the upper-right blue header and the
+  FermiForward Discovery Group, LLC acknowledgment under contract
+  `89243024CSC000002` in the lower-left footer. Treat either missing or altered
+  value as a poster build/finalization failure.
+- Recheck the official Fermilab poster-template listing at requirement closure.
+  On 2026-08-19 its A0 vertical link still resolved to
+  `FNAL_Scientific_Poster_A0_VRT_May25.potx`, matching the already hash-bound
+  starter.
+- Preserve the frozen-paper boundary. Poster metadata does not authorize
+  manuscript or accepted-evidence changes.
+
+Why:
+- Required placement and acknowledgment text are part of the deliverable and
+  therefore belong in automated artifact validation.
+- Binding the visible values keeps poster rebuilds reproducible.
+
+Tradeoffs:
+- Publication-status statements remain human-maintained; artifact validation
+  verifies files and visible metadata.
 
 ## Decision Update Rule
 

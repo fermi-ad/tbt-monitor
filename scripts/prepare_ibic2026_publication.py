@@ -8,6 +8,7 @@ import csv
 import hashlib
 import json
 import math
+import re
 import shutil
 from collections import Counter
 from pathlib import Path
@@ -16,6 +17,7 @@ from typing import Mapping, Sequence
 
 from bpm_mining.best_n import recommended_n, write_plots as write_best_n_plots
 from bpm_mining.ridge_verification import png_dimensions
+from render_ibic2026_figures import render_publication_figures
 
 
 MANIFEST_FIELDS = (
@@ -29,18 +31,22 @@ MANIFEST_FIELDS = (
 PAYLOAD_AUDIT_EXPECTED = {
     "analysis_turns": 50_000,
     "plateau_turns": 128,
-    "manifest_count": 2_200,
-    "stream_rows": 263_983,
-    "paired_stream_rows": 23_999,
-    "incomplete_manifests": 13,
-    "missing_position_stream_rows": 17,
-    "warning_count": 13,
+    "manifest_count": 2_000,
+    "stream_rows": 239_984,
+    "paired_stream_rows": 0,
+    "incomplete_manifests": 12,
+    "missing_position_stream_rows": 16,
+    "warning_count": 12,
     "flagged_rows": 0,
     "position_plateau_rows": 0,
     "paired_plateau_rows": 0,
     "raw_device_fallback_pair_rows": 0,
 }
-PAYLOAD_AUDIT_MANIFEST_SHA256 = "32fd1d82992db9a024a9c00adb385787fc56d92b8150ea8b618dee7a57fff644"
+# Pinned after the publication-specific, read-only audit of the two primary
+# position collections.  The intensity sidecar retains the older three-root
+# receipt independently of this publication contract.
+PAYLOAD_AUDIT_MANIFEST_SHA256 = "15ea5d56a986a5ddac482194f14758dfc268aeaa662309900aed72563aba3db9"
+PAYLOAD_MISSING_INVENTORY_SHA256 = "9737965e69b95e5df9410c015d73caf89edf3efb9af45922f4423e0dba446887"
 PAYLOAD_AUDIT_TOPOLOGY_EXPECTED = {
     "tbt-capture-positiononly-1000-20260608-183119": {
         "manifests": 1_000,
@@ -56,19 +62,83 @@ PAYLOAD_AUDIT_TOPOLOGY_EXPECTED = {
         "position_streams_per_manifest_median": 120,
         "position_streams_per_manifest_max": 120,
     },
-    "tbt-capture-intensityraw-200-20260611-214939": {
-        "manifests": 200,
-        "incomplete_manifests": 1,
-        "position_streams_per_manifest_min": 119,
-        "position_streams_per_manifest_median": 120,
-        "position_streams_per_manifest_max": 120,
-    },
 }
 PAYLOAD_MISSING_ROWS_BY_COLLECTION = {
     "tbt-capture-positiononly-1000-20260608-183119": 6,
     "tbt-capture-positiononly-1000-20260608-231330": 10,
-    "tbt-capture-intensityraw-200-20260611-214939": 1,
 }
+
+RESULTS_PAYLOAD_SCHEMA = "tbt-monitor.ibic2026-results/v2"
+RESULTS_PAYLOAD_FIELDS = frozenset(
+    {
+        "schema",
+        "selected_sizes",
+        "best_n_rows",
+        "best_n_rationales",
+        "cross_spill_null",
+        "best1_membership",
+        "cross_collection_transfer",
+        "sensitivity",
+        "block_recommendations",
+        "all_training_control",
+        "adaptive_ridge_rows",
+        "ridge_coverage",
+        "h_loss",
+        "numeric_summary",
+        "best_n_design",
+        "payload_integrity",
+        "primary_capture",
+        "verification_reports",
+    }
+)
+
+# Source roles are an exact publication contract, including multiplicity.  In
+# particular, analysis products retained only by the standalone intensity or
+# selector-audit sidecars cannot enter the IBIC provenance graph accidentally.
+EXPECTED_SOURCE_ROLE_COUNTS = Counter(
+    {
+        "analysis:primary_subset_comparison": 1,
+        "analysis:primary_paired_tests": 1,
+        "analysis:best_n_contract": 1,
+        "analysis:best_n_summary": 1,
+        "analysis:best_n_transfer": 1,
+        "analysis:best_n_block_sensitivity": 1,
+        "analysis:best_n_sensitivity_manifest": 1,
+        "analysis:best_n_cross_spill_null": 1,
+        "analysis:best_n_best1_membership_frequency": 1,
+        "analysis:best_n_best1_membership_summary": 1,
+        "analysis:all_training_contract": 1,
+        "analysis:all_training_comparison": 1,
+        "analysis:all_training_pairs": 1,
+        "analysis:all_training_plot_manifest": 1,
+        "analysis:ridge_contract": 1,
+        "analysis:ridge_best1_sliding_tune": 1,
+        "analysis:ridge_selected_h_sliding_tune": 1,
+        "analysis:ridge_selected_v_sliding_tune": 1,
+        "analysis:ridge_adaptive_pair_by_turn": 1,
+        "analysis:ridge_adaptive_metrics": 1,
+        "analysis:ridge_loss": 1,
+        "verification:best_bpm_verification": 1,
+        "verification:best_bpm_followup_verification": 1,
+        "verification:best_n_verification": 3,
+        "verification:best_n_all_training_verification": 1,
+        "verification:ridge_density_verification": 1,
+        "verification:delivery_ring_payload_audit": 1,
+        "poster:best_n_h": 1,
+        "poster:best_n_v": 1,
+        "poster:ridge_hv": 1,
+        "poster:h_loss": 1,
+        "poster:ridge_width_hv_poster": 1,
+        "paper:best_n_hv": 1,
+        "paper:ridge_hv": 1,
+        "paper:ridge_width_hv": 1,
+        "poster:content": 1,
+        "paper:results_table": 1,
+        "paper:results_macros": 1,
+        "publication:results_payload": 1,
+        "publication:preparation_report": 1,
+    }
+)
 
 SENSITIVITY_RUN_COUNT = 7
 ALL_TRAINING_METHODS = ("all_training_mean", "all_training_median")
@@ -77,6 +147,13 @@ ALL_TRAINING_METRICS = (
     "blind_abs_q_delta",
     "later_prominence",
     "later_power",
+)
+
+STALE_PAPER_FIGURES = (
+    "best_n_validation_h.png",
+    "best_n_validation_v.png",
+    "ridge_density_comparison.png",
+    "ridge_width_contrast_hv.png",
 )
 
 
@@ -107,6 +184,27 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def portable_source_path(source: Path, publication_root: Path, role: str) -> str:
+    """Return a stable public label without recording a workstation path."""
+    resolved = source.resolve()
+    try:
+        relative = resolved.relative_to(publication_root.resolve())
+    except ValueError:
+        role_parts = [
+            re.sub(r"[^A-Za-z0-9._-]+", "-", part).strip("-") or "source"
+            for part in role.split(":")
+        ]
+        parent_label = (
+            re.sub(r"[^A-Za-z0-9._-]+", "-", source.parent.name).strip("-")
+            or "source"
+        )
+        return (
+            f"external/{'/'.join(role_parts)}/{parent_label}/"
+            f"{sha256(source)[:12]}-{source.name}"
+        )
+    return f"publication/ibic2026/{relative.as_posix()}"
+
+
 def require_report(path: Path) -> dict[str, object]:
     report = read_json(path)
     status = str(report.get("status", "")).lower()
@@ -133,7 +231,7 @@ def require_payload_audit(path: Path) -> dict[str, object]:
         raise ValueError("Delivery Ring payload audit does not match the exact manifest inventory")
     topology = report.get("topology")
     if not isinstance(topology, Mapping) or set(topology) != set(PAYLOAD_AUDIT_TOPOLOGY_EXPECTED):
-        raise ValueError("Delivery Ring payload audit must cover all three publication collections")
+        raise ValueError("Delivery Ring payload audit must cover exactly the two primary position collections")
     for collection, raw in topology.items():
         if not isinstance(raw, Mapping):
             raise ValueError(f"Delivery Ring payload topology is invalid: {collection}")
@@ -154,7 +252,10 @@ def require_payload_audit(path: Path) -> dict[str, object]:
     missing_path = path.parent / "missing_position_streams.csv"
     missing_rows = read_csv(missing_path)
     missing_sha = str(report.get("missing_position_stream_inventory_sha256") or "")
-    if len(missing_sha) != 64 or sha256(missing_path) != missing_sha:
+    if (
+        missing_sha != PAYLOAD_MISSING_INVENTORY_SHA256
+        or sha256(missing_path) != missing_sha
+    ):
         raise ValueError("Delivery Ring missing-position inventory hash mismatch")
     identities = {
         (row.get("collection", ""), row.get("spill_id", ""), row.get("missing_position_source_key", ""))
@@ -162,8 +263,8 @@ def require_payload_audit(path: Path) -> dict[str, object]:
     }
     rows_by_collection = Counter(row.get("collection", "") for row in missing_rows)
     if (
-        len(missing_rows) != 17
-        or len(identities) != 17
+        len(missing_rows) != 16
+        or len(identities) != 16
         or dict(rows_by_collection) != PAYLOAD_MISSING_ROWS_BY_COLLECTION
         or any(row.get("capture_status") != "Partial" for row in missing_rows)
         or any(int(row.get("expected_position_streams") or 0) != 120 for row in missing_rows)
@@ -179,11 +280,7 @@ def primary_capture_summary(report: Mapping[str, object]) -> dict[str, int]:
     missing_by_collection = report.get("missing_position_rows_by_collection")
     if not isinstance(topology, Mapping) or not isinstance(missing_by_collection, Mapping):
         raise ValueError("payload audit is missing validated collection-level completeness")
-    primary = {
-        name: raw
-        for name, raw in topology.items()
-        if isinstance(raw, Mapping) and int(raw.get("manifests") or 0) == 1_000
-    }
+    primary = {name: raw for name, raw in topology.items() if isinstance(raw, Mapping)}
     if len(primary) != 2:
         raise ValueError("payload audit must contain exactly two 1000-spill primary collections")
     h_counts = {int(raw.get("unique_h_streams") or 0) for raw in primary.values()}
@@ -270,8 +367,6 @@ def selected_ridge_coverage(
                     "ridge_points",
                     "missing_tune_rows",
                     "edge_excluded_rows",
-                    "legacy_spill_count",
-                    "legacy_point_count",
                 )
             },
         }
@@ -284,8 +379,6 @@ def selected_ridge_coverage(
             != values["ridge_points"]
             + values["missing_tune_rows"]
             + values["edge_excluded_rows"]
-            or values["legacy_spill_count"] <= 0
-            or values["legacy_point_count"] <= 0
         ):
             raise ValueError(
                 f"ridge verification coverage does not close for selected {plane} Best-{key[1]}: {values}"
@@ -447,6 +540,192 @@ def keyed_rows(
     return output
 
 
+def best_n_control_summary(
+    root: Path,
+    report: Mapping[str, object],
+    selected_sizes: Mapping[str, int],
+    best_n_rows: Mapping[str, Mapping[str, object]],
+) -> tuple[dict[str, object], dict[str, object]]:
+    """Validate and summarize the publication's null and Best-1 membership controls."""
+    if report.get("schema") != "tbt-monitor.best-n-verification/v2":
+        raise ValueError("publication Best-N controls require a v2 verification receipt")
+    filenames = (
+        "best_n_cross_spill_null.csv",
+        "best_n_best1_membership_frequency.csv",
+        "best_n_best1_membership_summary.csv",
+    )
+    hashes = report.get("control_output_sha256")
+    if not isinstance(hashes, Mapping) or set(hashes) != set(filenames):
+        raise ValueError("Best-N verification receipt has an incomplete control-output inventory")
+    for filename in filenames:
+        path = root / filename
+        expected_hash = str(hashes.get(filename) or "")
+        if len(expected_hash) != 64 or not path.is_file() or sha256(path) != expected_hash:
+            raise ValueError(f"Best-N publication control changed after verification: {filename}")
+
+    null_rows = read_csv(root / filenames[0])
+    null_keys = {(row.get("plane", ""), int(row.get("subset_size") or 0)) for row in null_rows}
+    expected_null_keys = {(plane, size) for plane in ("H", "V") for size in range(1, 41)}
+    if len(null_rows) != 80 or null_keys != expected_null_keys:
+        raise ValueError("Best-N cross-spill null must contain one H/V row for every N=1..40")
+    normalized_null_rows: list[dict[str, object]] = []
+    for row in sorted(null_rows, key=lambda item: (item.get("plane", ""), int(item.get("subset_size") or 0))):
+        plane = row.get("plane", "")
+        subset_size = int(row.get("subset_size") or 0)
+        values = {
+            field: finite(row.get(field))
+            for field in (
+                "observed_agreement_rate",
+                "null_mean_agreement_rate",
+                "null_ci_low",
+                "null_ci_high",
+                "tune_half_width",
+            )
+        }
+        if (
+            any(not math.isfinite(value) for value in values.values())
+            or not 0 <= values["observed_agreement_rate"] <= 1
+            or not 0 <= values["null_mean_agreement_rate"] <= 1
+            or not 0 <= values["null_ci_low"] <= values["null_ci_high"] <= 1
+            or int(row.get("validation_spill_count") or 0) != 500
+            or int(row.get("permutation_draws") or 0) != 1_000
+            or int(row.get("valid_permutation_draws") or 0) != 1_000
+            or int(row.get("block_spills") or 0) != 20
+            or row.get("status") != "ok"
+            or not math.isclose(values["tune_half_width"], 0.0025, abs_tol=1e-12)
+        ):
+            raise ValueError(f"Best-N cross-spill null row is invalid: {plane} N={subset_size}")
+        normalized_null_rows.append(
+            {
+                "plane": plane,
+                "subset_size": subset_size,
+                **values,
+                "validation_spill_count": 500,
+                "permutation_draws": 1_000,
+                "valid_permutation_draws": 1_000,
+                "block_spills": 20,
+                "status": "ok",
+            }
+        )
+    selected_null: dict[str, dict[str, object]] = {}
+    for plane in ("H", "V"):
+        selected = next(
+            row
+            for row in normalized_null_rows
+            if row["plane"] == plane and row["subset_size"] == int(selected_sizes[plane])
+        )
+        observed = finite(best_n_rows[plane].get("blind_q_agreement_rate"))
+        if not math.isclose(float(selected["observed_agreement_rate"]), observed, abs_tol=1e-9):
+            raise ValueError(f"Best-N {plane} selected null row disagrees with the accepted summary")
+        selected_null[plane] = selected
+
+    frequency_rows = read_csv(root / filenames[1])
+    summary_rows = read_csv(root / filenames[2])
+    if len(frequency_rows) != 120 or len(summary_rows) != 2:
+        raise ValueError("Best-1 membership outputs must contain 120 frequency rows and two summaries")
+    membership_by_plane: dict[str, dict[str, object]] = {}
+    summaries = keyed_rows(summary_rows, ("plane",), "Best-1 membership summary")
+    for plane, expected_maximum_percent in (("H", 3.7), ("V", 5.7)):
+        rows = [row for row in frequency_rows if row.get("plane") == plane]
+        identities = {row.get("bpm_source_key", "") for row in rows}
+        counts = [int(row.get("winner_count") or 0) for row in rows]
+        if (
+            len(rows) != 60
+            or len(identities) != 60
+            or "" in identities
+            or any(count <= 0 for count in counts)
+            or sum(counts) != 2_000
+            or any(int(row.get("plane_spill_count") or 0) != 2_000 for row in rows)
+            or any(
+                not math.isclose(finite(row.get("winner_fraction")), count / 2_000, abs_tol=1e-12)
+                for row, count in zip(rows, counts)
+            )
+        ):
+            raise ValueError(f"Best-1 {plane} membership frequencies do not cover all 60 sources")
+        raw = summaries.get((plane,))
+        if raw is None:
+            raise ValueError(f"Best-1 membership summary is missing {plane}")
+        maximum_fraction = finite(raw.get("maximum_winner_fraction"))
+        summary = {
+            "plane": plane,
+            "plane_spill_count": int(raw.get("plane_spill_count") or 0),
+            "available_source_count": int(raw.get("available_source_count") or 0),
+            "winning_source_count": int(raw.get("winning_source_count") or 0),
+            "maximum_winner_count": int(raw.get("maximum_winner_count") or 0),
+            "maximum_winner_fraction": maximum_fraction,
+            "maximum_source_keys": str(raw.get("maximum_source_keys") or ""),
+        }
+        if (
+            summary["plane_spill_count"] != 2_000
+            or summary["available_source_count"] != 60
+            or summary["winning_source_count"] != 60
+            or summary["maximum_winner_count"] != max(counts)
+            or not math.isclose(maximum_fraction, max(counts) / 2_000, abs_tol=1e-12)
+            or round(100.0 * maximum_fraction, 1) != expected_maximum_percent
+            or not summary["maximum_source_keys"]
+        ):
+            raise ValueError(f"Best-1 {plane} membership summary is inconsistent")
+        membership_by_plane[plane] = summary
+
+    null_receipt = report.get("cross_spill_null")
+    membership_receipt = report.get("best1_membership")
+    if (
+        not isinstance(null_receipt, Mapping)
+        or int(null_receipt.get("row_count") or 0) != 80
+        or int(null_receipt.get("permutation_draws") or 0) != 1_000
+        or int(null_receipt.get("block_spills") or 0) != 20
+        or not math.isclose(finite(null_receipt.get("tune_half_width")), 0.0025, abs_tol=1e-12)
+        or null_receipt.get("permutation_mode")
+        != "seeded_block_derangement_shared_across_folds"
+        or null_receipt.get("seed_namespace") != "best-n-cross-spill-null"
+        or null_receipt.get("status_counts") != {"ok": 80}
+        or not isinstance(membership_receipt, Mapping)
+        or int(membership_receipt.get("frequency_row_count") or 0) != 120
+        or int(membership_receipt.get("summary_row_count") or 0) != 2
+    ):
+        raise ValueError("Best-N verification receipt does not bind the accepted publication controls")
+    receipt_by_plane = membership_receipt.get("by_plane")
+    if not isinstance(receipt_by_plane, Mapping) or set(receipt_by_plane) != {"H", "V"}:
+        raise ValueError("Best-N verification receipt has incomplete membership summaries")
+    for plane in ("H", "V"):
+        receipt_row = receipt_by_plane[plane]
+        accepted_row = membership_by_plane[plane]
+        if (
+            not isinstance(receipt_row, Mapping)
+            or int(receipt_row.get("plane_spill_count") or 0) != accepted_row["plane_spill_count"]
+            or int(receipt_row.get("available_source_count") or 0)
+            != accepted_row["available_source_count"]
+            or int(receipt_row.get("winning_source_count") or 0)
+            != accepted_row["winning_source_count"]
+            or receipt_row.get("all_sources_win") is not True
+            or int(receipt_row.get("maximum_winner_count") or 0)
+            != accepted_row["maximum_winner_count"]
+            or not math.isclose(
+                finite(receipt_row.get("maximum_winner_fraction")),
+                float(accepted_row["maximum_winner_fraction"]),
+                abs_tol=1e-12,
+            )
+        ):
+            raise ValueError(f"Best-N verification receipt disagrees with {plane} membership output")
+
+    return (
+        {
+            "schema": "tbt-monitor.ibic2026-cross-spill-null/v1",
+            "permutation_draws": 1_000,
+            "block_spills": 20,
+            "tune_half_width": 0.0025,
+            "permutation_mode": "seeded_block_derangement_shared_across_folds",
+            "seed_namespace": "best-n-cross-spill-null",
+            "rows": normalized_null_rows,
+            "selected": selected_null,
+        },
+        {
+            "schema": "tbt-monitor.ibic2026-best1-membership/v1",
+            "by_plane": membership_by_plane,
+        },
+    )
+
+
 def sensitivity_summary(root: Path, tune_half_width: float) -> dict[str, object]:
     manifest = read_csv(root / "sensitivity_run_manifest.csv")
     identities = {
@@ -541,7 +820,7 @@ def copy_png(
     manifest.append(
         {
             "role": role,
-            "source_path": str(source.resolve()),
+            "source_path": portable_source_path(source, publication_root, role),
             "source_sha256": sha256(source),
             "output_path": destination.relative_to(publication_root).as_posix(),
             "output_sha256": sha256(destination),
@@ -549,13 +828,44 @@ def copy_png(
     )
 
 
-def interval(row: Mapping[str, object], value: str, low: str, high: str, digits: int = 3) -> str:
-    return f"{fmt(row.get(value), digits)} [{fmt(row.get(low), digits)}, {fmt(row.get(high), digits)}]"
+def copy_pdf(
+    role: str,
+    source: Path,
+    destination: Path,
+    publication_root: Path,
+    manifest: list[dict[str, str]],
+) -> None:
+    if not source.is_file() or source.stat().st_size < 1_000 or source.read_bytes()[:5] != b"%PDF-":
+        raise ValueError(f"publication source PDF is missing or invalid: {source}")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, destination)
+    manifest.append(
+        {
+            "role": role,
+            "source_path": portable_source_path(source, publication_root, role),
+            "source_sha256": sha256(source),
+            "output_path": destination.relative_to(publication_root).as_posix(),
+            "output_sha256": sha256(destination),
+        }
+    )
+
+
+def scaled_interval(
+    row: Mapping[str, object],
+    value: str,
+    low: str,
+    high: str,
+    scale: float,
+    digits: int,
+) -> str:
+    values = [finite(row.get(field)) * scale for field in (value, low, high)]
+    if any(not math.isfinite(item) for item in values):
+        return "NA"
+    return f"{values[0]:.{digits}f} [{values[1]:.{digits}f}, {values[2]:.{digits}f}]"
 
 
 def render_results_table(
     best_n_rows: Mapping[str, Mapping[str, object]],
-    ridge_rows: Mapping[str, Mapping[str, object]],
     adaptive_rows: Mapping[str, Mapping[str, object]],
     selected_sizes: Mapping[str, int],
 ) -> str:
@@ -565,44 +875,40 @@ def render_results_table(
         r"  \caption{Leakage-controlled Best-$N$ intervals use collection-preserving spill blocks. Ridge intervals use overlapping-turn blocks on exact-paired picks and describe concentration, not absolute tune accuracy or measured physical noise.}",
         r"  \label{tab:results}",
         r"  \small",
-        r"  \begin{tabular}{@{}lccccc@{}}",
+        r"  \begin{tabular}{@{}lcccc@{}}",
         r"    \toprule",
-        r"    Plane & Best-$N$ & Blind agreement & Blind $|\Delta q|$ & $\Delta$IQR vs B1 & $\Delta$IQR vs legacy \\",
+        r"    Plane & Best-$N$ & Blind agreement (\%) & Blind $|\Delta q|$ ($10^{-3}$) & $\Delta$IQR vs B1 ($10^{-3}$) \\",
         r"    \midrule",
     ]
     for plane in ("H", "V"):
         best = best_n_rows[plane]
-        ridge = ridge_rows[plane]
         adaptive = adaptive_rows[plane]
-        agreement = interval(
+        agreement = scaled_interval(
             best,
             "blind_q_agreement_rate",
             "blind_q_agreement_ci_low",
             "blind_q_agreement_ci_high",
+            100.0,
+            1,
         )
-        q_delta = interval(
+        q_delta = scaled_interval(
             best,
             "median_blind_selected_heldout_abs_q_delta",
             "blind_selected_heldout_abs_q_delta_ci_low",
             "blind_selected_heldout_abs_q_delta_ci_high",
-            4,
+            1_000.0,
+            1,
         )
-        iqr_delta = interval(
-            ridge,
-            "median_iqr_delta_ensemble_minus_legacy",
-            "median_iqr_delta_ci_low",
-            "median_iqr_delta_ci_high",
-            4,
-        )
-        adaptive_iqr_delta = interval(
+        adaptive_iqr_delta = scaled_interval(
             adaptive,
             "median_iqr_delta_ensemble_minus_baseline",
             "median_iqr_delta_ci_low",
             "median_iqr_delta_ci_high",
-            4,
+            1_000.0,
+            1,
         )
         lines.append(
-            f"    {plane} & {selected_sizes[plane]} & {agreement} & {q_delta} & {adaptive_iqr_delta} & {iqr_delta} \\\\"
+            f"    {plane} & {selected_sizes[plane]} & {agreement} & {q_delta} & {adaptive_iqr_delta} \\\\"
         )
     lines.extend(
         [
@@ -618,12 +924,14 @@ def render_results_table(
 def publication_numeric_summary(
     primary_rows: Sequence[dict[str, str]],
     paired_rows: Sequence[dict[str, str]],
-    intensity_effects: Sequence[dict[str, str]],
     best_n_design: Mapping[str, int],
     sensitivity: Mapping[str, object],
     all_training: Mapping[str, object],
+    adaptive_rows: Mapping[str, Mapping[str, object]],
     ridge_coverage: Mapping[str, Mapping[str, int]],
     primary_capture: Mapping[str, int],
+    cross_spill_null: Mapping[str, object],
+    best1_membership: Mapping[str, object],
 ) -> dict[str, object]:
     output: dict[str, object] = {}
     for plane in ("H", "V"):
@@ -646,19 +954,35 @@ def publication_numeric_summary(
             if not math.isfinite(value):
                 raise ValueError(f"primary paired result is missing for {plane} Best-{left} vs Best-{right}")
             output[f"primary_{plane.lower()}_best{left}_to_best{right}_gain"] = value
-    output["intensity_effect_count"] = len(intensity_effects)
-    output["intensity_fdr_significant_count"] = sum(
-        row.get("statistical_benefit_pass", "").lower() == "true"
-        and finite(row.get("fdr_q_value")) <= 0.05
-        for row in intensity_effects
-    )
-    output["intensity_practical_count"] = sum(
-        row.get("practical_effect_pass", "").lower() == "true" for row in intensity_effects
-    )
-    output["intensity_retained_count"] = sum(
-        row.get("retain_method_for_tune_analysis", "").lower() == "true"
-        for row in intensity_effects
-    )
+    selected_null = cross_spill_null.get("selected")
+    membership_by_plane = best1_membership.get("by_plane")
+    if not isinstance(selected_null, Mapping) or not isinstance(membership_by_plane, Mapping):
+        raise ValueError("publication controls are missing selected null or membership summaries")
+    for plane in ("H", "V"):
+        null_row = selected_null.get(plane)
+        membership_row = membership_by_plane.get(plane)
+        if not isinstance(null_row, Mapping) or not isinstance(membership_row, Mapping):
+            raise ValueError(f"publication controls are missing {plane}")
+        prefix = plane.lower()
+        output[f"best_n_{prefix}_null_mean"] = float(null_row["null_mean_agreement_rate"])
+        output[f"best_n_{prefix}_null_ci_low"] = float(null_row["null_ci_low"])
+        output[f"best_n_{prefix}_null_ci_high"] = float(null_row["null_ci_high"])
+        output[f"best1_{prefix}_winning_sources"] = int(membership_row["winning_source_count"])
+        output[f"best1_{prefix}_maximum_winner_percent"] = 100.0 * float(
+            membership_row["maximum_winner_fraction"]
+        )
+        adaptive_row = adaptive_rows.get(plane)
+        if not isinstance(adaptive_row, Mapping):
+            raise ValueError(f"publication adaptive ridge summary is missing {plane}")
+        for suffix, field in (
+            ("delta", "median_iqr_delta_ensemble_minus_baseline"),
+            ("low", "median_iqr_delta_ci_low"),
+            ("high", "median_iqr_delta_ci_high"),
+        ):
+            value = finite(adaptive_row.get(field))
+            if not math.isfinite(value):
+                raise ValueError(f"publication adaptive ridge summary is missing {plane} {field}")
+            output[f"ridge_{prefix}_iqr_{suffix}_milli"] = 1_000.0 * value
     output.update(best_n_design)
     raw_ranges = sensitivity.get("ranges")
     if not isinstance(raw_ranges, Mapping):
@@ -712,10 +1036,22 @@ def render_results_macros(values: Mapping[str, object]) -> str:
         ("PrimaryHThreeToFiveGain", "primary_h_best3_to_best5_gain", 4),
         ("PrimaryVOneToThreeGain", "primary_v_best1_to_best3_gain", 4),
         ("PrimaryVThreeToFiveGain", "primary_v_best3_to_best5_gain", 4),
-        ("IntensityEffectCount", "intensity_effect_count", 0),
-        ("IntensityFdrCount", "intensity_fdr_significant_count", 0),
-        ("IntensityPracticalCount", "intensity_practical_count", 0),
-        ("IntensityRetainedCount", "intensity_retained_count", 0),
+        ("BestNHNullMean", "best_n_h_null_mean", 4),
+        ("BestNHNullLow", "best_n_h_null_ci_low", 4),
+        ("BestNHNullHigh", "best_n_h_null_ci_high", 4),
+        ("BestNVNullMean", "best_n_v_null_mean", 4),
+        ("BestNVNullLow", "best_n_v_null_ci_low", 4),
+        ("BestNVNullHigh", "best_n_v_null_ci_high", 4),
+        ("BestOneUniqueH", "best1_h_winning_sources", 0),
+        ("BestOneUniqueV", "best1_v_winning_sources", 0),
+        ("BestOneMaxFrequencyH", "best1_h_maximum_winner_percent", 1),
+        ("BestOneMaxFrequencyV", "best1_v_maximum_winner_percent", 1),
+        ("RidgeHIqrDeltaMilli", "ridge_h_iqr_delta_milli", 2),
+        ("RidgeHIqrLowMilli", "ridge_h_iqr_low_milli", 2),
+        ("RidgeHIqrHighMilli", "ridge_h_iqr_high_milli", 2),
+        ("RidgeVIqrDeltaMilli", "ridge_v_iqr_delta_milli", 2),
+        ("RidgeVIqrLowMilli", "ridge_v_iqr_low_milli", 2),
+        ("RidgeVIqrHighMilli", "ridge_v_iqr_high_milli", 2),
         ("BestNCurveSpillPlaneCount", "curve_spill_plane_count", 0),
         ("BestNValidationSpillPlaneCount", "validation_spill_plane_count", 0),
         ("BestNDigitizerFoldCount", "digitizer_fold_count", 0),
@@ -762,7 +1098,6 @@ def render_results_macros(values: Mapping[str, object]) -> str:
 def publication_content(
     selected_sizes: Mapping[str, int],
     best_n_rows: Mapping[str, Mapping[str, object]],
-    ridge_rows: Mapping[str, Mapping[str, object]],
     adaptive_rows: Mapping[str, Mapping[str, object]],
     loss_row: Mapping[str, object],
     best_n_design: Mapping[str, int],
@@ -770,15 +1105,15 @@ def publication_content(
     all_training: Mapping[str, object],
     ridge_coverage: Mapping[str, Mapping[str, int]],
     primary_capture: Mapping[str, int],
-    intensity_effect_count: int,
-    retained_intensity_effects: int,
+    cross_spill_null: Mapping[str, object],
+    best1_membership: Mapping[str, object],
 ) -> dict[str, object]:
     h_best = best_n_rows["H"]
     v_best = best_n_rows["V"]
-    h_ridge = ridge_rows["H"]
-    v_ridge = ridge_rows["V"]
     h_adaptive = adaptive_rows["H"]
     v_adaptive = adaptive_rows["V"]
+    selected_null = cross_spill_null["selected"]
+    membership_by_plane = best1_membership["by_plane"]
     sensitivity_ranges = sensitivity["ranges"]
     h_sensitivity = sensitivity_ranges["H"]
     v_sensitivity = sensitivity_ranges["V"]
@@ -825,6 +1160,8 @@ def publication_content(
             f"{pct(h_best.get('blind_q_agreement_rate'))} "
             f"[{pct(h_best.get('blind_q_agreement_ci_low'))}, {pct(h_best.get('blind_q_agreement_ci_high'))}]; "
             f"median |Delta q| {fmt(h_best.get('median_blind_selected_heldout_abs_q_delta'), 4)}. "
+            f"Cross-spill null {pct(selected_null['H']['null_mean_agreement_rate'])} "
+            f"[{pct(selected_null['H']['null_ci_low'])}, {pct(selected_null['H']['null_ci_high'])}]. "
             f"Reduced-sample knees span {h_sensitivity['minimum']}-{h_sensitivity['maximum']} in "
             f"{h_sensitivity['available']}/7 runs; {h_sensitivity['unavailable']} unresolved."
         ),
@@ -833,20 +1170,23 @@ def publication_content(
             f"{pct(v_best.get('blind_q_agreement_rate'))} "
             f"[{pct(v_best.get('blind_q_agreement_ci_low'))}, {pct(v_best.get('blind_q_agreement_ci_high'))}]; "
             f"median |Delta q| {fmt(v_best.get('median_blind_selected_heldout_abs_q_delta'), 4)}. "
+            f"Cross-spill null {pct(selected_null['V']['null_mean_agreement_rate'])} "
+            f"[{pct(selected_null['V']['null_ci_low'])}, {pct(selected_null['V']['null_ci_high'])}]. "
             f"Reduced-sample knees span {v_sensitivity['minimum']}-{v_sensitivity['maximum']} in "
             f"{v_sensitivity['available']}/7 runs; {v_sensitivity['unavailable']} unresolved."
         ),
         "ridgeCaption": (
-            f"Exact-paired 50,000-turn density versus the audited legacy selector: "
-            f"H Best-{selected_sizes['H']} {int(h_ridge.get('common_ridge_point_count') or 0):,} picks; "
-            f"V Best-{selected_sizes['V']} {int(v_ridge.get('common_ridge_point_count') or 0):,}. "
-            "Legacy-to-selected change includes selector repair; color is pick probability, not power."
+            "Exact-paired 50,000-turn corrected adaptive Best-1 versus the declared operating points: "
+            f"H Best-{selected_sizes['H']} {int(h_adaptive.get('common_ridge_point_count') or 0):,} picks; "
+            f"V Best-{selected_sizes['V']} {int(v_adaptive.get('common_ridge_point_count') or 0):,}. "
+            "Color is ridge-pick probability, not spectral power."
         ),
         "conclusionHeading": "RESULT AND LIMIT",
         "conclusionBody": (
-            f"Versus adaptive Best-1, H Best-{selected_sizes['H']} and V Best-{selected_sizes['V']} improve blind agreement and median selected/held-out tune delta, with power-support tradeoffs.\n"
+            f"V Best-{selected_sizes['V']} gives the stronger digitizer-disjoint agreement; "
+            f"H Best-{selected_sizes['H']} gives the ridge-concentration improvement relative to adaptive Best-1.\n"
             f"Full-buffer ensemble-size contrast: H {adaptive_status['H']}; V {adaptive_status['V']}.\n"
-            f"Same-protocol all-training control favors Best-N in H {h_all_training['selected_favored']}/8 and "
+            f"Same-protocol all-training remains competitive: it favors Best-N in H {h_all_training['selected_favored']}/8 and "
             f"V {v_all_training['selected_favored']}/8 comparisons; it favors all-training in H "
             f"{h_all_training['baseline_favored']}/8 and V {v_all_training['baseline_favored']}/8. "
             "No external tune calibration is claimed."
@@ -861,13 +1201,16 @@ def publication_content(
             f"{best_n_design['curve_spill_plane_count']:,} H/V curve cases; "
             f"{best_n_design['validation_spill_plane_count']:,} stratified validation cases; "
             f"{best_n_design['digitizer_fold_count']} held-out-digitizer folds. "
-            f"H Best-{selected_sizes['H']} blind agreement {pct(h_best.get('blind_q_agreement_rate'))}; "
+            f"Blind agreement: H Best-{selected_sizes['H']} {pct(h_best.get('blind_q_agreement_rate'))}, "
             f"V Best-{selected_sizes['V']} {pct(v_best.get('blind_q_agreement_rate'))}. "
             f"Median IQR change vs corrected Best-1: H {fmt(h_adaptive.get('median_iqr_delta_ensemble_minus_baseline'), 4)}, "
             f"V {fmt(v_adaptive.get('median_iqr_delta_ensemble_minus_baseline'), 4)}. "
-            f"Finite full-buffer pick coverage: H {pct(h_coverage['ridge_points'] / h_coverage['sliding_rows'])}, "
+            f"Full-buffer coverage: H {pct(h_coverage['ridge_points'] / h_coverage['sliding_rows'])}, "
             f"V {pct(v_coverage['ridge_points'] / v_coverage['sliding_rows'])}. "
-            f"Intensity weighting retained {retained_intensity_effects}/{intensity_effect_count} tested effects."
+            f"Best-1: all {membership_by_plane['H']['winning_source_count']} H and "
+            f"{membership_by_plane['V']['winning_source_count']} V sources win at least once; maxima "
+            f"{pct(membership_by_plane['H']['maximum_winner_fraction'])} H, "
+            f"{pct(membership_by_plane['V']['maximum_winner_fraction'])} V."
         ),
         "hLossCaption": " ".join(loss_parts),
         "assets": {
@@ -880,6 +1223,12 @@ def publication_content(
         "evidence": {
             "primaryCapture": dict(primary_capture),
             "ridgeCoverage": {plane: dict(ridge_coverage[plane]) for plane in ("H", "V")},
+            "crossSpillNull": {
+                plane: dict(cross_spill_null["selected"][plane]) for plane in ("H", "V")
+            },
+            "best1Membership": {
+                plane: dict(best1_membership["by_plane"][plane]) for plane in ("H", "V")
+            },
         },
     }
 
@@ -897,23 +1246,34 @@ def prepare_publication(
     best_n_root: Path,
     all_training_root: Path,
     ridge_root: Path,
-    intensity_root: Path,
     payload_audit_root: Path,
     publication_root: Path,
 ) -> dict[str, object]:
+    accepted_gate = publication_root / "poster" / "evidence_gate.json"
+    if accepted_gate.is_file():
+        raise ValueError(
+            "the accepted paper/evidence gate is present; do not co-generate the paper and "
+            "poster after acceptance. Use scripts/prepare_ibic2026_poster.py for poster-only "
+            "revisions, or explicitly retire and replace the gate after a serious paper/evidence "
+            "discrepancy."
+        )
     best_n_block20 = best_n_root / "merged_block20"
-    intensity_block20 = intensity_root / "merged_block20"
     verification_paths = [
         primary_root / "logs" / "best_bpm_verification.json",
         followup_root / "logs" / "best_bpm_followup_verification.json",
         *(best_n_root / f"merged_block{block}" / "best_n_verification.json" for block in (10, 20, 40)),
         all_training_root / "best_n_all_training_verification.json",
         ridge_root / "ridge_density_verification.json",
-        intensity_block20 / "intensity_verification.json",
         payload_audit_root / "delivery_ring_payload_audit.json",
     ]
     accepted_reports = {path: require_report(path) for path in verification_paths[:-1]}
     payload_audit = require_payload_audit(verification_paths[-1])
+    raw_capture_roots = payload_audit.get("capture_roots")
+    if isinstance(raw_capture_roots, list):
+        payload_audit["capture_roots"] = [
+            f"external/captured-spills/{Path(str(capture_root)).name}"
+            for capture_root in raw_capture_roots
+        ]
     primary_capture = primary_capture_summary(payload_audit)
     best_n_design = best_n_design_summary(
         accepted_reports[best_n_block20 / "best_n_verification.json"]
@@ -923,6 +1283,12 @@ def prepare_publication(
     tune_half_width = float(best_n_contract.get("tune_half_width") or 0.0025)
     best_n_summary = read_csv(best_n_block20 / "best_n_summary.csv")
     selected_sizes, best_n_rows, rationales = selected_best_n_rows(best_n_summary, tune_half_width)
+    cross_spill_null, best1_membership = best_n_control_summary(
+        best_n_block20,
+        accepted_reports[best_n_block20 / "best_n_verification.json"],
+        selected_sizes,
+        best_n_rows,
+    )
     ridge_coverage = selected_ridge_coverage(
         accepted_reports[ridge_root / "ridge_density_verification.json"],
         selected_sizes,
@@ -952,14 +1318,6 @@ def prepare_publication(
         raise ValueError(
             f"ridge plane-selected sizes do not match Best-N recommendations: {contract_sizes} != {selected_sizes}"
         )
-    ridge_metrics = keyed_rows(
-        read_csv(ridge_root / "ridge_density_legacy_comparison_metrics.csv"),
-        ("plane", "subset_size"),
-        "ridge metric",
-    )
-    selected_ridge_rows = {
-        plane: ridge_metrics[(plane, str(selected_sizes[plane]))] for plane in ("H", "V")
-    }
     adaptive_metrics = keyed_rows(
         read_csv(ridge_root / "ridge_density_adaptive_pair_comparison_metrics.csv"),
         ("plane", "baseline_subset_size", "ensemble_subset_size"),
@@ -976,30 +1334,40 @@ def prepare_publication(
     )
     h_loss = loss_rows[("H", str(selected_sizes["H"]))]
 
-    intensity_effects = read_csv(intensity_block20 / "intensity_method_effects.csv")
     numeric_summary = publication_numeric_summary(
         read_csv(primary_root / "evolution" / "subset_size_comparison.csv"),
         read_csv(primary_root / "statistics" / "paired_method_tests.csv"),
-        intensity_effects,
         best_n_design,
         sensitivity,
         all_training,
+        selected_adaptive_rows,
         ridge_coverage,
         primary_capture,
+        cross_spill_null,
+        best1_membership,
     )
-    retained_effects = [
-        row for row in intensity_effects if row.get("retain_method_for_tune_analysis", "").lower() == "true"
-    ]
-    block_intensity = read_csv(intensity_root / "block_sensitivity" / "intensity_block_sensitivity.csv")
-    if retained_effects or any(int(row.get("retained_effects") or 0) != 0 for row in block_intensity):
-        raise ValueError("intensity weighting was retained; publication copy must be reconsidered")
 
     poster_root = publication_root / "poster"
     paper_root = publication_root / "paper"
     poster_assets = poster_root / "assets"
     paper_figures = paper_root / "figures"
+    # These were materialized by the v1 contract. Remove them through the
+    # normal generator so an old PNG cannot survive beside the v2 PDF set and
+    # appear to remain publication-facing.
+    for filename in STALE_PAPER_FIGURES:
+        (paper_figures / filename).unlink(missing_ok=True)
     publication_best_n_plots = publication_root / "reports" / "best_n_plots"
     write_best_n_plots(best_n_summary, publication_best_n_plots, tune_half_width)
+    publication_figure_root = publication_root / "reports" / "publication_figures"
+    publication_paper_figures = publication_figure_root / "paper"
+    publication_poster_figures = publication_figure_root / "poster"
+    render_publication_figures(
+        best_n_block20,
+        ridge_root,
+        publication_paper_figures,
+        publication_poster_figures,
+        selected_sizes,
+    )
     manifest: list[dict[str, str]] = []
     provenance_sources = {
         "analysis:primary_subset_comparison": primary_root
@@ -1018,6 +1386,12 @@ def prepare_publication(
         "analysis:best_n_sensitivity_manifest": best_n_root
         / "sensitivity"
         / "sensitivity_run_manifest.csv",
+        "analysis:best_n_cross_spill_null": best_n_block20
+        / "best_n_cross_spill_null.csv",
+        "analysis:best_n_best1_membership_frequency": best_n_block20
+        / "best_n_best1_membership_frequency.csv",
+        "analysis:best_n_best1_membership_summary": best_n_block20
+        / "best_n_best1_membership_summary.csv",
         "analysis:all_training_contract": all_training_root / "run_contract.json",
         "analysis:all_training_comparison": all_training_root
         / "best_n_vs_all_training_comparison.csv",
@@ -1027,21 +1401,23 @@ def prepare_publication(
         / "plots"
         / "all_training_plot_manifest.csv",
         "analysis:ridge_contract": ridge_root / "run_contract.json",
-        "analysis:ridge_legacy_metrics": ridge_root
-        / "ridge_density_legacy_comparison_metrics.csv",
+        "analysis:ridge_best1_sliding_tune": ridge_root
+        / "ridge_density_best1_sliding_tune.csv",
+        "analysis:ridge_selected_h_sliding_tune": ridge_root
+        / f"ridge_density_best{selected_sizes['H']}_sliding_tune.csv",
+        "analysis:ridge_selected_v_sliding_tune": ridge_root
+        / f"ridge_density_best{selected_sizes['V']}_sliding_tune.csv",
+        "analysis:ridge_adaptive_pair_by_turn": ridge_root
+        / "ridge_density_adaptive_pair_comparison_by_turn.csv",
         "analysis:ridge_adaptive_metrics": ridge_root
         / "ridge_density_adaptive_pair_comparison_metrics.csv",
         "analysis:ridge_loss": ridge_root / "ridge_density_loss_candidates.csv",
-        "analysis:intensity_effects": intensity_block20 / "intensity_method_effects.csv",
-        "analysis:intensity_block_sensitivity": intensity_root
-        / "block_sensitivity"
-        / "intensity_block_sensitivity.csv",
     }
     for role, source in provenance_sources.items():
         manifest.append(
             {
                 "role": role,
-                "source_path": str(source.resolve()),
+                "source_path": portable_source_path(source, publication_root, role),
                 "source_sha256": sha256(source),
                 "output_path": "",
                 "output_sha256": "",
@@ -1049,16 +1425,16 @@ def prepare_publication(
         )
 
     sources = {
-        "best_n_h": publication_best_n_plots / "best_n_validation_h.png",
-        "best_n_v": publication_best_n_plots / "best_n_validation_v.png",
-        "ridge_hv": ridge_root
-        / f"ridge_density_legacy_single_vs_best_h{selected_sizes['H']}_v{selected_sizes['V']}_hv.png",
+        "best_n_h": publication_poster_figures / "best_n_validation_h.png",
+        "best_n_v": publication_poster_figures / "best_n_validation_v.png",
+        "ridge_hv": publication_poster_figures / "ridge_density_comparison.png",
         "h_loss": ridge_root
         / f"ridge_concentration_selected_best{selected_sizes['H']}_h.png",
-        "ridge_width_hv": ridge_root
-        / f"ridge_p10_p90_delta_vs_turn_best1_to_selected_h{selected_sizes['H']}_v{selected_sizes['V']}_hv.png",
-        "ridge_width_hv_poster": ridge_root
-        / f"ridge_p10_p90_delta_vs_turn_best1_to_selected_h{selected_sizes['H']}_v{selected_sizes['V']}_hv_poster.png",
+        "ridge_width_hv_poster": publication_poster_figures
+        / "ridge_width_contrast_hv.png",
+        "best_n_hv_pdf": publication_paper_figures / "best_n_validation_hv.pdf",
+        "ridge_hv_pdf": publication_paper_figures / "ridge_density_comparison.pdf",
+        "ridge_width_hv_pdf": publication_paper_figures / "ridge_width_contrast_hv.pdf",
     }
     poster_destinations = {
         "best_n_h": poster_assets / "best_n_validation_h.png",
@@ -1068,20 +1444,27 @@ def prepare_publication(
         "ridge_width_hv_poster": poster_assets / "ridge_width_contrast_hv.png",
     }
     paper_destinations = {
-        "best_n_h": paper_figures / "best_n_validation_h.png",
-        "best_n_v": paper_figures / "best_n_validation_v.png",
-        "ridge_hv": paper_figures / "ridge_density_comparison.png",
-        "ridge_width_hv": paper_figures / "ridge_width_contrast_hv.png",
+        "best_n_hv": (
+            sources["best_n_hv_pdf"],
+            paper_figures / "best_n_validation_hv.pdf",
+        ),
+        "ridge_hv": (
+            sources["ridge_hv_pdf"],
+            paper_figures / "ridge_density_comparison.pdf",
+        ),
+        "ridge_width_hv": (
+            sources["ridge_width_hv_pdf"],
+            paper_figures / "ridge_width_contrast_hv.pdf",
+        ),
     }
     for role, destination in poster_destinations.items():
         copy_png(f"poster:{role}", sources[role], destination, publication_root, manifest)
-    for role, destination in paper_destinations.items():
-        copy_png(f"paper:{role}", sources[role], destination, publication_root, manifest)
+    for role, (source, destination) in paper_destinations.items():
+        copy_pdf(f"paper:{role}", source, destination, publication_root, manifest)
 
     content = publication_content(
         selected_sizes,
         best_n_rows,
-        selected_ridge_rows,
         selected_adaptive_rows,
         h_loss,
         best_n_design,
@@ -1089,8 +1472,8 @@ def prepare_publication(
         all_training,
         ridge_coverage,
         primary_capture,
-        len(intensity_effects),
-        len(retained_effects),
+        cross_spill_null,
+        best1_membership,
     )
     poster_root.mkdir(parents=True, exist_ok=True)
     content_path = poster_root / "content.json"
@@ -1099,7 +1482,6 @@ def prepare_publication(
     results_table_path.write_text(
         render_results_table(
             best_n_rows,
-            selected_ridge_rows,
             selected_adaptive_rows,
             selected_sizes,
         ),
@@ -1109,26 +1491,34 @@ def prepare_publication(
     results_macros_path.write_text(render_results_macros(numeric_summary), encoding="utf-8")
 
     payload = {
-        "schema": "tbt-monitor.ibic2026-results/v1",
+        "schema": RESULTS_PAYLOAD_SCHEMA,
         "selected_sizes": selected_sizes,
         "best_n_rows": best_n_rows,
         "best_n_rationales": rationales,
+        "cross_spill_null": cross_spill_null,
+        "best1_membership": best1_membership,
         "cross_collection_transfer": transfers,
         "sensitivity": sensitivity,
         "block_recommendations": block_recommendations,
         "all_training_control": all_training,
-        "ridge_rows": selected_ridge_rows,
         "adaptive_ridge_rows": selected_adaptive_rows,
         "ridge_coverage": ridge_coverage,
         "h_loss": h_loss,
         "numeric_summary": numeric_summary,
-        "intensity_effect_count": len(intensity_effects),
-        "retained_intensity_effects": len(retained_effects),
         "best_n_design": best_n_design,
         "payload_integrity": payload_audit,
         "primary_capture": primary_capture,
-        "verification_reports": [str(path.resolve()) for path in verification_paths],
+        "verification_reports": [
+            portable_source_path(path, publication_root, f"verification:{path.stem}")
+            for path in verification_paths
+        ],
     }
+    if set(payload) != RESULTS_PAYLOAD_FIELDS:
+        raise ValueError(
+            "publication results payload field inventory mismatch: "
+            f"missing={sorted(RESULTS_PAYLOAD_FIELDS - set(payload))}, "
+            f"extra={sorted(set(payload) - RESULTS_PAYLOAD_FIELDS)}"
+        )
     payload_path = publication_root / "results_payload.json"
     payload_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
@@ -1142,7 +1532,7 @@ def prepare_publication(
         manifest.append(
             {
                 "role": role,
-                "source_path": str(source.resolve()),
+                "source_path": portable_source_path(source, publication_root, role),
                 "source_sha256": sha256(source),
                 "output_path": source.relative_to(publication_root).as_posix()
                 if publication_root in source.parents
@@ -1166,7 +1556,18 @@ def prepare_publication(
         f"- selected H ensemble: `Best-{selected_sizes['H']}`",
         f"- selected V ensemble: `Best-{selected_sizes['V']}`",
         *sensitivity_text,
-        f"- retained intensity effects: `{len(retained_effects)}/{len(intensity_effects)}`",
+        (
+            "- selected cross-spill null mean (95% interval): "
+            f"H `{cross_spill_null['selected']['H']['null_mean_agreement_rate']:.4f}` "
+            f"[`{cross_spill_null['selected']['H']['null_ci_low']:.4f}`, `{cross_spill_null['selected']['H']['null_ci_high']:.4f}`]; "
+            f"V `{cross_spill_null['selected']['V']['null_mean_agreement_rate']:.4f}` "
+            f"[`{cross_spill_null['selected']['V']['null_ci_low']:.4f}`, `{cross_spill_null['selected']['V']['null_ci_high']:.4f}`]"
+        ),
+        (
+            "- Best-1 membership: all `60 H` and `60 V` sources win at least once; "
+            f"maximum winner shares H `{100 * best1_membership['by_plane']['H']['maximum_winner_fraction']:.1f}%`, "
+            f"V `{100 * best1_membership['by_plane']['V']['maximum_winner_fraction']:.1f}%`"
+        ),
         (
             "- same-protocol all-training control: "
             f"H selected/all-training/unresolved `{all_training['by_plane']['H']['selected_favored']}/"
@@ -1197,7 +1598,7 @@ def prepare_publication(
             f"(blank `{ridge_coverage['V']['missing_tune_rows']}`, edge-excluded `{ridge_coverage['V']['edge_excluded_rows']}`)"
         ),
         "",
-        "The wide ridge figure preserves the exact-paired legacy visual reference; the width-contrast panel and clean metrics compare selected Best-N directly with corrected adaptive Best-1. Neither measures physical noise or absolute tune accuracy.",
+        "The wide ridge figure and width-contrast panel compare each declared operating point directly with corrected adaptive Best-1. They describe ridge-pick concentration, not physical noise or absolute tune accuracy.",
         "",
     ]
     preparation_report = publication_root / "PREPARATION_REPORT.md"
@@ -1205,12 +1606,24 @@ def prepare_publication(
     manifest.append(
         {
             "role": "publication:preparation_report",
-            "source_path": str(preparation_report.resolve()),
+            "source_path": portable_source_path(
+                preparation_report,
+                publication_root,
+                "publication:preparation_report",
+            ),
             "source_sha256": sha256(preparation_report),
             "output_path": preparation_report.relative_to(publication_root).as_posix(),
             "output_sha256": sha256(preparation_report),
         }
     )
+    role_counts = Counter(row["role"] for row in manifest)
+    if role_counts != EXPECTED_SOURCE_ROLE_COUNTS:
+        missing = EXPECTED_SOURCE_ROLE_COUNTS - role_counts
+        extra = role_counts - EXPECTED_SOURCE_ROLE_COUNTS
+        raise ValueError(
+            "publication source-role inventory mismatch: "
+            f"missing={dict(sorted(missing.items()))}, extra={dict(sorted(extra.items()))}"
+        )
     manifest.sort(key=lambda row: (row["role"], row["output_path"], row["source_path"]))
     write_manifest(publication_root / "source_manifest.csv", manifest)
     return payload
@@ -1223,7 +1636,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--best-n-root", type=Path, required=True)
     parser.add_argument("--all-training-root", type=Path, required=True)
     parser.add_argument("--ridge-root", type=Path, required=True)
-    parser.add_argument("--intensity-root", type=Path, required=True)
     parser.add_argument("--payload-audit-root", type=Path, required=True)
     parser.add_argument(
         "--publication-root",
@@ -1238,7 +1650,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.best_n_root.resolve(),
             args.all_training_root.resolve(),
             args.ridge_root.resolve(),
-            args.intensity_root.resolve(),
             args.payload_audit_root.resolve(),
             args.publication_root.resolve(),
         )

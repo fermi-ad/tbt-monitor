@@ -214,6 +214,60 @@ Deliverables:
 - residual statistics and trend plots for matched samples
 - tolerance definition for acceptable BPM-vs-reference disagreement
 
+### 3.6 Controlled Tune-Control Quadrupole Scan
+
+Use a controlled quadrupole scan as the primary response test when a matched
+reference monitor is unavailable. This test asks whether the BPM-derived
+candidate moves with a known machine perturbation; it does not assume that the
+unperturbed candidate is already calibrated.
+
+Protocol:
+
+- freeze the tune estimator, discovery bands, score definition, ensemble-size
+  rule, and quality thresholds before inspecting scan results
+- obtain safe current steps and optics-predicted `Delta Qx`/`Delta Qy` from
+  Accelerator Physics, and preserve commanded plus read-back currents
+- acquire repeated spills at multiple settings on both sides of nominal;
+  interleave nominal returns or repeat the scan direction when practical to
+  expose drift and hysteresis
+- preserve orbit, intensity, extraction, RFKO, and other machine-state
+  readbacks needed to identify confounding changes
+- predeclare correct shift sign, monotonic response, measured-versus-predicted
+  slope and uncertainty, residual scale, and no-reliable-tune rate as the main
+  endpoints
+- compare with matched Schottky or tune-meter values when available
+
+This scan requires machine-coordinator approval and safe operating limits. It
+is future calibration evidence, not part of the current BPM-only publication.
+
+### 3.7 Analysis-Choice Robustness and Disagreement Taxonomy
+
+Current Best-N sensitivity coverage is partial:
+
+- 10/20/40-spill bootstrap blocks retain H Best-5 and V Best-12 on the full
+  accepted rows
+- seven reduced-sample beam-width, fit-window-count, and digitizer-fold checks
+  resolve H in five runs over N=2-13 and V in six runs over N=10-28
+- the post-selection blind-agreement margin moves the earliest eligible N;
+  nearby selected/held-out-power floors do not move it at a fixed agreement
+  margin
+- score weights, the 4096-turn spectral-window length, and the
+  `|Delta q| <= 0.0025` agreement tolerance have not been varied in the complete
+  leakage-controlled protocol
+
+Before using Best-5/Best-12 as production defaults, rerun the same time- and
+digitizer-disjoint protocol over normalized score-weight perturbations and
+component ablations, 2048/4096/8192-turn windows with comparable purge
+geometry, and several tune-agreement tolerances. Report the eligible-N plateau
+and held-out performance surface rather than only the earliest selected N.
+
+The accepted rows also require a first-class disagreement taxonomy. Classify
+missing candidates, low-prominence fitted lines, alternative full-band peaks,
+band-edge selections, and selected/held-out splits by plane, collection, and
+machine state. The current conditioned-versus-blind gap is consistent with
+weak competing peaks and full-band peak switching, but it is not a complete
+physical explanation.
+
 ## 4. Current Dataset Tune Priors
 
 For the current 2000-spill Spark Tier A Best-BPM study, the most recent
@@ -252,6 +306,14 @@ measured absence of support.
 ## 6. Known Limitations
 
 - no direct Schottky ingestion/auto-sync path in this repository
+- no controlled tune-control quadrupole scan or other known-response data in
+  the accepted captures
+- no full Best-N sensitivity pass over score weights, spectral-window length,
+  or tune-agreement tolerance; the declared H Best-5 and V Best-12 values are
+  operating points rather than unique optima
+- no machine-state-linked disagreement taxonomy explaining the low absolute
+  blind-agreement rates; H is only marginally separated from its pointwise
+  cross-spill null, while V is more clearly separated
 - the definitive same-protocol all-training control is complete, but its mixed
   H/V metric outcomes do not establish a universal Best-N advantage;
   descriptive all-BPM rankings still cannot substitute for this held-out test
@@ -303,3 +365,8 @@ The BPM tune monitor is successful when:
    interval, and native-PNG verification and its H/V outcomes are reported
 8. final poster evidence, manuscript macros, and compliance copy all match the
    accepted primary capture and selected-ridge coverage payload
+9. a controlled quadrupole scan or matched independent reference establishes
+   the expected tune-response sign, slope, and acceptable residuals
+10. score-weight, spectral-window, and agreement-tolerance sensitivity keeps
+    the declared operating point on an acceptable held-out performance plateau,
+    even when the earliest eligible N changes
