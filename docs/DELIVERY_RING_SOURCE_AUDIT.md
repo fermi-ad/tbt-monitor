@@ -2,9 +2,10 @@
 
 Last updated: 2026-07-16.
 
-This note records the upstream facts relevant to the BPM tune publication. It
-does not replace the captured-payload verifier and does not authorize changes to
-the Delivery Ring deployment.
+This provenance note records where the publication data came from and what the
+upstream acquisition system produced. It is a read-only description: it does
+not replace the captured-data checks or authorize changes to the Delivery Ring
+deployment.
 
 ## Live Topology
 

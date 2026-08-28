@@ -1,6 +1,9 @@
 # Documentation
 
-The guides are grouped by the task or question they answer.
+New to the project? Start with the [current result](CURRENT_STATUS.md), the
+[poster and paper](../publication/ibic2026/README.md), and the
+[plain-language claim boundaries](PHYSICS.md). The remaining guides are grouped
+by the task or question they answer.
 
 ## Operate and analyze
 
@@ -34,5 +37,5 @@ The guides are grouped by the task or question they answer.
 
 ## Publication
 
-The finalized paper, poster, sources, and verifier-bound supporting material are
+The finalized paper, poster, sources, and checksummed supporting material are
 documented in the [IBIC 2026 publication package](../publication/ibic2026/README.md).

@@ -1,9 +1,10 @@
 # Spark Workflows
 
-This guide covers offline Spark/GPU work: direct raw captured-spill analysis,
-poster/DGX artifact generation, staged autosweep/ranking, Best-BPM mining, and
-GPU telemetry. These workflows are BPM-only unless a future plan explicitly
-adds reference-monitor comparison.
+These are advanced offline research workflows for studies larger than the main
+Rust application handles directly. They cover raw captured-spill analysis,
+GPU processing, parameter sweeps, Best-BPM mining, publication figures, and
+performance telemetry. They use BPM data only unless a future study explicitly
+adds an external reference monitor.
 
 ## Runtime Assumptions
 

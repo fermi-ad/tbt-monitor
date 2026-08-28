@@ -1,13 +1,14 @@
 # Analysis Chains
 
-This guide covers the Rust analysis paths that operate on live Redis data or
-captured raw spill bundles. DAQ and capture-quality workflows are covered in
-[DAQ Guide](DAQ.md). Spark/GPU downstream studies are covered in
+This guide explains the different ways `tbt-monitor` turns raw BPM readings
+into horizontal and vertical tune candidates. Analysis can run directly on
+live data or later on saved spill bundles. Acquisition and capture quality are
+covered in the [DAQ Guide](DAQ.md); advanced CPU/GPU studies are covered in
 [Spark Workflows](SPARK.md).
 
 ## Analysis Boundaries
 
-The Rust analyzer is the operational proof-of-concept path:
+The Rust analyzer follows this pipeline:
 
 - build a synchronized spill snapshot
 - split BPM traces by plane

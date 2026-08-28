@@ -1,7 +1,7 @@
 # Operations
 
-This guide collects build, Docker, validation, host, and GitHub workflow notes.
-Subsystem-specific commands live in [DAQ Guide](DAQ.md),
+This maintainer guide collects build, Docker, validation, host, and GitHub
+workflow notes. User-facing commands live in the [DAQ Guide](DAQ.md),
 [Analysis Chains](ANALYSIS_CHAINS.md), and [Spark Workflows](SPARK.md).
 
 ## Local Build And Help

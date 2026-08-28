@@ -1,7 +1,8 @@
 # Usage Guide
 
-This is the command reference for `tbt-monitor-tui`. For task-oriented guides,
-start with [DAQ Guide](DAQ.md), [Analysis Chains](ANALYSIS_CHAINS.md),
+This page lists the exact commands and options for the `tbt-monitor-tui`
+executable. If you first need to decide which command fits your task, start
+with the [DAQ Guide](DAQ.md), [Analysis Chains](ANALYSIS_CHAINS.md),
 [Spark Workflows](SPARK.md), or [Operations](OPERATIONS.md). Use
 [Config Reference](CONFIG_REFERENCE.md) for config keys and
 [Architecture](ARCHITECTURE.md) for data flow, synchronization policy, and

@@ -1,10 +1,10 @@
 # JACoW Paper Source
 
-`WEP014.tex` is the final programme-coded proceedings source, and
-`build/WEP014.pdf` is the finalized four-page paper. Its three `WEP014_f*.pdf`
-figures and numerical macros are byte-identical copies of the canonical
-verifier-bound inputs; `WEP014_results_table.tex` adds proceedings-format table
-headings without changing the reported values.
+`WEP014` is the IBIC 2026 programme code for the paper. `WEP014.tex` is the
+final proceedings source, and `build/WEP014.pdf` is the finalized four-page
+paper. Its three `WEP014_f*.pdf` figures and numerical macros exactly match the
+canonical checked inputs; `WEP014_results_table.tex` changes table-heading
+formatting without changing the reported values.
 
 `ABSTRACT54.tex` and `build/ABSTRACT54.pdf` are retained as the approved paper
 revision frozen by `poster/evidence_gate.json` before poster production. The

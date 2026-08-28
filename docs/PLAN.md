@@ -5,13 +5,15 @@ and records the remaining production gaps.
 
 ## Purpose
 
-Use synchronized Delivery Ring BPM TbT position streams to estimate `Qx` and `Qy`:
+Use synchronized Delivery Ring BPM position readings to estimate horizontal
+and vertical tune (`Qx` and `Qy`):
+
 - first in a robust injection window
 - then across sliding windows versus time
 - with quality/timeliness diagnostics
 - and eventual comparison against Schottky measurements
 
-## Plan Summary (from PDF)
+## Method Summary
 
 1. Treat each spill as a synchronized multi-BPM snapshot.
 2. Start with a configurable early-time window near injection.
