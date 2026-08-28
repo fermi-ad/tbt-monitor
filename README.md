@@ -58,10 +58,11 @@ controls, publication figures, and reproducibility checks.
 
 ## Quick start
 
-The Rust application requires a toolchain with Rust 2024 edition support.
+The Rust application requires Rust 1.88 or newer.
 
 ```bash
 cargo build --locked
+cargo run --locked -- --version
 cargo run --locked -- --help
 ```
 
@@ -157,6 +158,10 @@ Please cite IBIC 2026 paper WEP014, *Turn-by-turn tune analysis using adaptive
 BPM ensembles in the Fermilab Mu2e Delivery Ring*, and identify the repository
 revision used for software-derived results. Use the DOI from the proceedings
 record when available.
+
+## Release history
+
+See [CHANGELOG.md](CHANGELOG.md) for stable-release notes.
 
 ## License
 
