@@ -76,7 +76,7 @@ The conditioned measure asks whether later spectra support the fitted candidate;
 
 \subsection{Corrected Adaptive Search}
 
-Across 4,000 corrected spill-plane rows per subset size, median in-sample scores rise from \PrimaryHBestOneScore{} at H Best-1 to \PrimaryHBestFiveScore{} at H Best-5, and from \PrimaryVBestOneScore{} to \PrimaryVBestFiveScore{} vertically. These ranking gains are descriptive; the leakage-controlled later-window results in Table~\ref{tab:results} carry the claim.
+Across 4,000 corrected spill-plane rows per subset size, median in-sample scores rise from \PrimaryHBestOneScore{} at H Best-1 to \PrimaryHBestFiveScore{} at H Best-5, and from \PrimaryVBestOneScore{} to \PrimaryVBestFiveScore{} vertically. These ranking gains are descriptive; the leakage-controlled later-window results in Fig.~\ref{fig:bestn} and Table~\ref{tab:results} carry the claim.
 
 Seven reduced-sample checks varying beam width, fit-window count, and fold assignment place eligible H choices at Best-\BestNHSensitivityMinimum{}--Best-\BestNHSensitivityMaximum{} in \BestNHSensitivityAvailable{}/7 runs and V choices at Best-\BestNVSensitivityMinimum{}--Best-\BestNVSensitivityMaximum{} in \BestNVSensitivityAvailable{}/7. Gate-margin checks also move the earliest eligible $N$. H Best-5 and V Best-12 are therefore operating points, not unique optima. Score weights, the 4,096-turn spectral-window length, and the $|\Delta q|$ agreement tolerance remain untested sensitivities.
 
@@ -93,7 +93,7 @@ Seven reduced-sample checks varying beam width, fit-window count, and fold assig
 
 To visualize persistence through the approximately 50,000-turn record, the selected early-window membership is fixed and applied to the raw spill. Each trace is RMS-normalized, 4,096-turn Hann spectra are computed every 256 turns, and subset powers are averaged. One locally tracked ridge pick per spill and window is binned across spills; this is a ridge-location density, not a spectral-power heat map. Blank and bounded edge picks remain missing; duplicate traces beneath the methods show the shared exact-paired count by turn.
 
-The primary comparison is corrected adaptive Best-1 against H Best-5 or V Best-12 on exact common spill/window points. One shared scale is used within each plane. This isolates ensemble size from the historical selector repair; the legacy comparison is retained only in the audit gallery. Moving-block intervals across turn centers describe whether concentration differences persist despite overlapping windows, not uncertainty over the spill population.
+The primary comparison (Fig.~\ref{fig:ridge}) is corrected adaptive Best-1 against H Best-5 or V Best-12 on exact common spill/window points. One shared scale is used within each plane. This isolates ensemble size from the historical selector repair; the legacy comparison is retained only in the audit gallery. The associated ridge-width contrast (Fig.~\ref{fig:ridgewidth}) uses moving-block intervals across turn centers to describe whether concentration differences persist despite overlapping windows, not uncertainty over the spill population.
 
 \begin{figure*}[!htb]
   \centering
