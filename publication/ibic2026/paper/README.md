@@ -1,16 +1,23 @@
 # JACoW Paper Source
 
-`WEP014` is the IBIC 2026 programme code for the paper. `WEP014.tex` is the
-final proceedings source, and `build/WEP014.pdf` is the finalized four-page
-paper. Its three `WEP014_f*.pdf` figures and numerical macros exactly match the
+`WEP014` is the IBIC 2026 programme code for the paper. `WEP014.tex` and
+`build/WEP014.pdf`, together with the five `WEP014_` supporting files, are
+byte-for-byte copies of the editor-accepted JACoW revision 4 (50437).
+Jan Chrin accepted this revision on August 29, 2026; Joele Mira recorded QA
+on August 30. This accepted package is the source of truth, including its
+literal figure numbers and editorial wording. Do not silently correct or
+regenerate the archived accepted files.
+
+Acceptance record: https://indico.jacow.org/event/113/contributions/15750/editing/paper
+
+Its three `WEP014_f*.pdf` figures and numerical macros exactly match the
 canonical checked inputs; `WEP014_results_table.tex` changes table-heading
 formatting without changing the reported values.
 
-`ABSTRACT54.tex` and `build/ABSTRACT54.pdf` are retained as the approved paper
-revision frozen by `poster/evidence_gate.json` before poster production. The
-WEP014 source preserves its scientific prose and replaces only programme
-naming, JACoW presentation details, and local filenames. Poster copy, layout,
-or contextual graphics must not rebuild or edit the frozen record.
+`ABSTRACT54.tex` and `build/ABSTRACT54.pdf` are retained as the historical paper
+revision frozen by `poster/evidence_gate.json` before poster production. They
+are not copies of the editor-accepted WEP014 revision. Poster copy, layout,
+or contextual graphics must not rebuild or edit that frozen record.
 
 The source uses the official JACoW class v3.01 dated 2026-03-11. The publication
 package includes that class, every figure, a SHA-256 source manifest,
