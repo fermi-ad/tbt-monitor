@@ -1,0 +1,4886 @@
+{
+  "schema_version": 1,
+  "fixture_type": "accepted-publication",
+  "collection": "tbt-capture-positiononly-1000-20260608-183119",
+  "spill_id": "spill_1780957889653",
+  "provenance_note": "Nonraw excerpts from the accepted publication artifacts. Raw bundle files are external and must match every recorded SHA-256. Contract objects below contain parameters with site-local path fields omitted; hashes identify the complete original files.",
+  "transfer_archive_sha256": "2de2ec13af489e27a0747f77341e227b88444b159bde5c68e39578f290f69da7",
+  "source_artifacts": {
+    "best_n_contract": "best-n-block20/run_contract.json",
+    "bpm_index": "manifest/bpm_index.csv",
+    "spectral_cache_index": "cache/index/spectral_cache.csv",
+    "curve_csv": "best-n-block20/best_n_curve_rows.csv",
+    "ridge_contract": "ridge-gallery/run_contract.json",
+    "ridge_best5_csv": "ridge-gallery/ridge_density_best5_sliding_tune.csv",
+    "ridge_best12_csv": "ridge-gallery/ridge_density_best12_sliding_tune.csv"
+  },
+  "hashes": {
+    "best_n_contract": "2d564f5a3f1be6f02ec001ff855c5af055830e28266c1786bc190998c73e3c99",
+    "bpm_index": "f2aabbc2a803297d5e1476ce719d6ecbfc9cd98491c202a63586c9a7ad4fe97a",
+    "spectral_cache_index": "7a783e5272bf078168c80b157bd8d45907cea48c65d592163fa72f718960754d",
+    "curve_csv": "3a88b319f76c298988a94398402551b533c61e516eaba85e4e8913a4d160aed1",
+    "ridge_contract": "eb6af8b020f90fb404d86f0d28054ddae945f465889d8640592b0f46b6206cf8",
+    "ridge_best5_csv": "e858329b9d28e816871393540a7fde9d6aff7e9a040f558f8bbe561ccd57de24",
+    "ridge_best12_csv": "51561d88f819b47e14001bbb9bba3681824e90b3f92772e1de1f46ee90d6d886"
+  },
+  "contract_parameters": {
+    "analysis": "best_n_merged",
+    "beam_width": 64,
+    "bootstrap_block_spills": 20,
+    "bootstrap_samples": 1000,
+    "bpm_index_sha256": "f2aabbc2a803297d5e1476ce719d6ecbfc9cd98491c202a63586c9a7ad4fe97a",
+    "config_sha256": "6a4f75e893ea952e6f30eaf2a769874eafa4aac70752f6662ae49573d376db07",
+    "contract_schema_version": 1,
+    "curve_limit": 0,
+    "device": "cuda",
+    "fit_windows": 8,
+    "fold_seed": 20260709,
+    "folds": 5,
+    "max_n": 40,
+    "shard_count": 4,
+    "shard_index": "merged",
+    "source_shard_indices": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "spectral_cache_index_sha256": "7a783e5272bf078168c80b157bd8d45907cea48c65d592163fa72f718960754d",
+    "spectral_config": "early_4096_256",
+    "tune_half_width": 0.0025,
+    "validation_beam_width": 64,
+    "validation_limit": 1000
+  },
+  "ridge_parameters": {
+    "analysis": "full_buffer_ridge_density",
+    "best_bpm_index_sha256": "f2aabbc2a803297d5e1476ce719d6ecbfc9cd98491c202a63586c9a7ad4fe97a",
+    "bpm_normalization": "rms_per_bpm",
+    "comparison_bootstrap_samples": 1000,
+    "contract_schema_version": 1,
+    "dc_handling": "zero_dc_bin",
+    "detrend": "mean_subtract",
+    "device_request": "cuda",
+    "extraction_context_range": [
+      10000,
+      20000
+    ],
+    "extraction_context_variants": true,
+    "fft_backend": "cupy",
+    "injection_window_turns": 4096,
+    "legacy_reference_point_counts": {
+      "H": 357840,
+      "V": 357840
+    },
+    "legacy_reference_spill_counts": {
+      "H": 1988,
+      "V": 1988
+    },
+    "legacy_sliding_sha256": "c7682d1567633cc8c95a15c48a03d2cdfe8751df75db7890dc16ffd3b92c2d03",
+    "limit": 0,
+    "manifest_count": 2000,
+    "manifest_inventory_sha256": "15ea5d56a986a5ddac482194f14758dfc268aeaa662309900aed72563aba3db9",
+    "max_tune_step_per_window": 0.005,
+    "membership_sha256": "3a88b319f76c298988a94398402551b533c61e516eaba85e4e8913a4d160aed1",
+    "min_peak_confidence": 2.0,
+    "planes": [
+      "H",
+      "V"
+    ],
+    "qx_band": [
+      0.62,
+      0.68
+    ],
+    "qy_band": [
+      0.69,
+      0.74
+    ],
+    "ridge_density_normalize": false,
+    "ridge_density_tune_bins": 160,
+    "selected_plane_sizes": {
+      "H": 5,
+      "V": 12
+    },
+    "stride_turns": 256,
+    "subset_sizes": [
+      1,
+      3,
+      5,
+      10,
+      12,
+      15,
+      20,
+      30,
+      40
+    ],
+    "track_half_width": 0.005,
+    "turn_end": 50000,
+    "turn_start": 0,
+    "window_turns": 4096
+  },
+  "best_n_rows": {
+    "H": {
+      "collection": "tbt-capture-positiononly-1000-20260608-183119",
+      "spill_id": "spill_1780957889653",
+      "plane": "H",
+      "subset_size": "5",
+      "subset_mask": "74309399220338688",
+      "bpm_indices": "14,30,32,51,56",
+      "bpm_members": "HP209,HP417,HP413,HP619,HP605",
+      "bpm_source_keys": "{MUON:BPM:10.200.22.22}:HP209:TBT_POSITION_RAW,{MUON:BPM:10.200.22.40}:HP417:TBT_POSITION_RAW,{MUON:BPM:10.200.22.41}:HP413:TBT_POSITION_RAW,{MUON:BPM:10.200.22.60}:HP619:TBT_POSITION_RAW,{MUON:BPM:10.200.22.63}:HP605:TBT_POSITION_RAW",
+      "bpm_digitizers": "10.200.22.22,10.200.22.40,10.200.22.41,10.200.22.60,10.200.22.63",
+      "q_hat": "0.655517578",
+      "subset_score": "0.417732858",
+      "holdout_support": "0.2",
+      "peak_quality": "0.251145313",
+      "consensus_agreement": "0.5",
+      "window_stability": "1",
+      "diversity_score": "0.7935",
+      "ambiguity_penalty": "0.149256356",
+      "visible_fraction": "0.875",
+      "visibility_duration_turns": "1536",
+      "fit_window_count": "8",
+      "test_window_count": "20",
+      "fit_end_turn": "5888",
+      "test_start_turn": "5888",
+      "test_q_hat_near_train": "0.655639648",
+      "test_abs_q_delta": "0.000122070312",
+      "test_blind_q_hat": "0.650634766",
+      "test_blind_abs_q_delta": "0.0048828125",
+      "test_peak_prominence_at_qhat": "2.20061874",
+      "test_p10_peak_prominence_at_qhat": "1.76372062",
+      "test_power_support_at_qhat": "2.85228038",
+      "test_visible_fraction_at_qhat": "0",
+      "test_spectral_entropy": "0.983666884",
+      "beam_width": "64",
+      "candidates_scored": "3463"
+    },
+    "V": {
+      "collection": "tbt-capture-positiononly-1000-20260608-183119",
+      "spill_id": "spill_1780957889653",
+      "plane": "V",
+      "subset_size": "12",
+      "subset_mask": "513411734615228928",
+      "bpm_indices": "9,17,22,24,29,31,38,40,53,56,57,58",
+      "bpm_members": "VP119,VP208,VP306,VP310,VP319,VP419,VP402,VP502,VP616,VP606,VP608,VP602",
+      "bpm_source_keys": "{MUON:BPM:10.200.22.14}:VP119:TBT_POSITION_RAW,{MUON:BPM:10.200.22.23}:VP208:TBT_POSITION_RAW,{MUON:BPM:10.200.22.31}:VP306:TBT_POSITION_RAW,{MUON:BPM:10.200.22.32}:VP310:TBT_POSITION_RAW,{MUON:BPM:10.200.22.34}:VP319:TBT_POSITION_RAW,{MUON:BPM:10.200.22.40}:VP419:TBT_POSITION_RAW,{MUON:BPM:10.200.22.44}:VP402:TBT_POSITION_RAW,{MUON:BPM:10.200.22.50}:VP502:TBT_POSITION_RAW,{MUON:BPM:10.200.22.61}:VP616:TBT_POSITION_RAW,{MUON:BPM:10.200.22.63}:VP606:TBT_POSITION_RAW,{MUON:BPM:10.200.22.63}:VP608:TBT_POSITION_RAW,{MUON:BPM:10.200.22.64}:VP602:TBT_POSITION_RAW",
+      "bpm_digitizers": "10.200.22.14,10.200.22.23,10.200.22.31,10.200.22.32,10.200.22.34,10.200.22.40,10.200.22.44,10.200.22.50,10.200.22.61,10.200.22.63,10.200.22.63,10.200.22.64",
+      "q_hat": "0.721740723",
+      "subset_score": "0.669363456",
+      "holdout_support": "0.854166667",
+      "peak_quality": "0.434002665",
+      "consensus_agreement": "0.5",
+      "window_stability": "1",
+      "diversity_score": "0.769783333",
+      "ambiguity_penalty": "0.12830557",
+      "visible_fraction": "1",
+      "visibility_duration_turns": "1792",
+      "fit_window_count": "8",
+      "test_window_count": "20",
+      "fit_end_turn": "5888",
+      "test_start_turn": "5888",
+      "test_q_hat_near_train": "0.725402832",
+      "test_abs_q_delta": "0.00366210938",
+      "test_blind_q_hat": "0.725402832",
+      "test_blind_abs_q_delta": "0.00366210938",
+      "test_peak_prominence_at_qhat": "1.38071889",
+      "test_p10_peak_prominence_at_qhat": "0.861273187",
+      "test_power_support_at_qhat": "1.53782845",
+      "test_visible_fraction_at_qhat": "0",
+      "test_spectral_entropy": "0.992506913",
+      "beam_width": "64",
+      "candidates_scored": "2962"
+    }
+  },
+  "ridge_rows": {
+    "H": [
+      {
+        "window_index": "0",
+        "center_turn": "2048",
+        "selected_tune": "0.6563900569898892",
+        "raw_global_tune": "0.6563900569898892",
+        "tracked_local_tune": "0.6563900569898892",
+        "selected_confidence": "8.472108549733118",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "1",
+        "center_turn": "2304",
+        "selected_tune": "0.6563628802155871",
+        "raw_global_tune": "0.6563628802155871",
+        "tracked_local_tune": "0.6563628802155871",
+        "selected_confidence": "7.886477238938637",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "2",
+        "center_turn": "2560",
+        "selected_tune": "0.6563398661166819",
+        "raw_global_tune": "0.6563398661166819",
+        "tracked_local_tune": "0.6563398661166819",
+        "selected_confidence": "6.2137128420439804",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "3",
+        "center_turn": "2816",
+        "selected_tune": "0.6546755710187396",
+        "raw_global_tune": "0.6546755710187396",
+        "tracked_local_tune": "0.6546755710187396",
+        "selected_confidence": "4.417058014483735",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "4",
+        "center_turn": "3072",
+        "selected_tune": "0.6546984018886426",
+        "raw_global_tune": "0.6546984018886426",
+        "tracked_local_tune": "0.6546984018886426",
+        "selected_confidence": "5.073785677819054",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "5",
+        "center_turn": "3328",
+        "selected_tune": "0.6546950215422688",
+        "raw_global_tune": "0.6546950215422688",
+        "tracked_local_tune": "0.6546950215422688",
+        "selected_confidence": "5.028676170211254",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "6",
+        "center_turn": "3584",
+        "selected_tune": "0.6546773117995797",
+        "raw_global_tune": "0.6546773117995797",
+        "tracked_local_tune": "0.6546773117995797",
+        "selected_confidence": "4.596441670093381",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "7",
+        "center_turn": "3840",
+        "selected_tune": "0.6546345748254788",
+        "raw_global_tune": "0.6546345748254788",
+        "tracked_local_tune": "0.6546345748254788",
+        "selected_confidence": "3.990495071408144",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "8",
+        "center_turn": "4096",
+        "selected_tune": "0.6545934452738057",
+        "raw_global_tune": "0.6545934452738057",
+        "tracked_local_tune": "0.6545934452738057",
+        "selected_confidence": "3.5307298748331633",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "9",
+        "center_turn": "4352",
+        "selected_tune": "0.6528197685954127",
+        "raw_global_tune": "0.6528197685954127",
+        "tracked_local_tune": "0.6528197685954127",
+        "selected_confidence": "2.8349744069709906",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "10",
+        "center_turn": "4608",
+        "selected_tune": "0.6528133842138897",
+        "raw_global_tune": "0.6528133842138897",
+        "tracked_local_tune": "0.6528133842138897",
+        "selected_confidence": "3.044814033998544",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "11",
+        "center_turn": "4864",
+        "selected_tune": "0.652809281447561",
+        "raw_global_tune": "0.652809281447561",
+        "tracked_local_tune": "0.652809281447561",
+        "selected_confidence": "3.2506611345969185",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "12",
+        "center_turn": "5120",
+        "selected_tune": "0.6528068768673626",
+        "raw_global_tune": "0.6528068768673626",
+        "tracked_local_tune": "0.6528068768673626",
+        "selected_confidence": "2.8957547073774674",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "13",
+        "center_turn": "5376",
+        "selected_tune": "0.6528048057757102",
+        "raw_global_tune": "0.6380724539144077",
+        "tracked_local_tune": "0.6528048057757102",
+        "selected_confidence": "2.5779787281047293",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "14",
+        "center_turn": "5632",
+        "selected_tune": "0.6520214884413826",
+        "raw_global_tune": "0.6380274977104108",
+        "tracked_local_tune": "0.6520214884413826",
+        "selected_confidence": "2.3324734757694303",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "15",
+        "center_turn": "5888",
+        "selected_tune": "0.652007342599144",
+        "raw_global_tune": "0.6732901557352197",
+        "tracked_local_tune": "0.652007342599144",
+        "selected_confidence": "2.5547304843396703",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "16",
+        "center_turn": "6144",
+        "selected_tune": "0.6517296366584001",
+        "raw_global_tune": "0.6732330961495602",
+        "tracked_local_tune": "0.6517296366584001",
+        "selected_confidence": "2.325780341734594",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "17",
+        "center_turn": "6400",
+        "selected_tune": "0.6516845655184091",
+        "raw_global_tune": "0.6516845655184091",
+        "tracked_local_tune": "0.6516845655184091",
+        "selected_confidence": "2.7841666437035877",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "18",
+        "center_turn": "6656",
+        "selected_tune": "0.6516415870272911",
+        "raw_global_tune": "0.6516415870272911",
+        "tracked_local_tune": "0.6516415870272911",
+        "selected_confidence": "3.2819509353421217",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "19",
+        "center_turn": "6912",
+        "selected_tune": "0.6516156806821002",
+        "raw_global_tune": "0.6516156806821002",
+        "tracked_local_tune": "0.6516156806821002",
+        "selected_confidence": "3.794517408883029",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "20",
+        "center_turn": "7168",
+        "selected_tune": "0.6516000371538275",
+        "raw_global_tune": "0.6516000371538275",
+        "tracked_local_tune": "0.6516000371538275",
+        "selected_confidence": "4.221459098751849",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "21",
+        "center_turn": "7424",
+        "selected_tune": "0.6515874372872652",
+        "raw_global_tune": "0.6515874372872652",
+        "tracked_local_tune": "0.6515874372872652",
+        "selected_confidence": "3.6894232684020474",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "22",
+        "center_turn": "7680",
+        "selected_tune": "0.6508052367457565",
+        "raw_global_tune": "0.6508052367457565",
+        "tracked_local_tune": "0.6508052367457565",
+        "selected_confidence": "3.1849591419940424",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "23",
+        "center_turn": "7936",
+        "selected_tune": "0.6507102664162475",
+        "raw_global_tune": "0.6507102664162475",
+        "tracked_local_tune": "0.6507102664162475",
+        "selected_confidence": "4.1424389775816985",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "24",
+        "center_turn": "8192",
+        "selected_tune": "0.6506562231091187",
+        "raw_global_tune": "0.6506562231091187",
+        "tracked_local_tune": "0.6506562231091187",
+        "selected_confidence": "4.544378698224852",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "25",
+        "center_turn": "8448",
+        "selected_tune": "0.6506355046901118",
+        "raw_global_tune": "0.6506355046901118",
+        "tracked_local_tune": "0.6506355046901118",
+        "selected_confidence": "4.7157013949351185",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "26",
+        "center_turn": "8704",
+        "selected_tune": "0.6506295116611482",
+        "raw_global_tune": "0.6506295116611482",
+        "tracked_local_tune": "0.6506295116611482",
+        "selected_confidence": "4.084315067857228",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "27",
+        "center_turn": "8960",
+        "selected_tune": "0.6506344762682476",
+        "raw_global_tune": "0.6506344762682476",
+        "tracked_local_tune": "0.6506344762682476",
+        "selected_confidence": "3.529383433682598",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "28",
+        "center_turn": "9216",
+        "selected_tune": "0.6506490672482445",
+        "raw_global_tune": "0.6506490672482445",
+        "tracked_local_tune": "0.6506490672482445",
+        "selected_confidence": "3.1440399850255005",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "29",
+        "center_turn": "9472",
+        "selected_tune": "0.6506731715462226",
+        "raw_global_tune": "0.6413623879111315",
+        "tracked_local_tune": "0.6506731715462226",
+        "selected_confidence": "3.0554557048443063",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "30",
+        "center_turn": "9728",
+        "selected_tune": "0.645494861077623",
+        "raw_global_tune": "0.6244871727516871",
+        "tracked_local_tune": "0.645494861077623",
+        "selected_confidence": "2.6523751974982006",
+        "used_global_fallback": "False",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "31",
+        "center_turn": "9984",
+        "selected_tune": "0.6553181257169048",
+        "raw_global_tune": "0.6447925952531881",
+        "tracked_local_tune": "0.6553181257169048",
+        "selected_confidence": "2.565968627888277",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "32",
+        "center_turn": "10240",
+        "selected_tune": "0.6576858281640802",
+        "raw_global_tune": "0.6448389476629243",
+        "tracked_local_tune": "0.6576858281640802",
+        "selected_confidence": "3.0024584297079016",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "33",
+        "center_turn": "10496",
+        "selected_tune": "0.6575903905482622",
+        "raw_global_tune": "0.6449400204301002",
+        "tracked_local_tune": "0.6575903905482622",
+        "selected_confidence": "2.0963627189760023",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "34",
+        "center_turn": "10752",
+        "selected_tune": "0.6574826185052314",
+        "raw_global_tune": "0.6449890375814733",
+        "tracked_local_tune": "0.6574826185052314",
+        "selected_confidence": "2.1647613722288366",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "35",
+        "center_turn": "11008",
+        "selected_tune": "0.6567097936376886",
+        "raw_global_tune": "0.6450147394956129",
+        "tracked_local_tune": "0.6567097936376886",
+        "selected_confidence": "2.3398039664045176",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "36",
+        "center_turn": "11264",
+        "selected_tune": "0.6567053872010015",
+        "raw_global_tune": "0.6567053872010015",
+        "tracked_local_tune": "0.6567053872010015",
+        "selected_confidence": "2.4849449746454297",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "37",
+        "center_turn": "11520",
+        "selected_tune": "0.6566987224646982",
+        "raw_global_tune": "0.6566987224646982",
+        "tracked_local_tune": "0.6566987224646982",
+        "selected_confidence": "2.2265967036929726",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "38",
+        "center_turn": "11776",
+        "selected_tune": "0.6566830116672645",
+        "raw_global_tune": "0.6566830116672645",
+        "tracked_local_tune": "0.6566830116672645",
+        "selected_confidence": "2.2082546169276576",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "39",
+        "center_turn": "12032",
+        "selected_tune": "0.6507153263753285",
+        "raw_global_tune": "0.6507153263753285",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.2355014690777786",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "40",
+        "center_turn": "12288",
+        "selected_tune": "0.6756383485569344",
+        "raw_global_tune": "0.6756383485569344",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.189687062769436",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "41",
+        "center_turn": "12544",
+        "selected_tune": "0.6756876931250663",
+        "raw_global_tune": "0.6756876931250663",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.55085861359323",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "42",
+        "center_turn": "12800",
+        "selected_tune": "0.675701487516549",
+        "raw_global_tune": "0.675701487516549",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.761703975455275",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "43",
+        "center_turn": "13056",
+        "selected_tune": "0.6756979052154353",
+        "raw_global_tune": "0.6756979052154353",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.6388242545992076",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "44",
+        "center_turn": "13312",
+        "selected_tune": "0.632312369004299",
+        "raw_global_tune": "0.632312369004299",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.539551535154748",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "45",
+        "center_turn": "13568",
+        "selected_tune": "0.6535635860093846",
+        "raw_global_tune": "0.6313509739305863",
+        "tracked_local_tune": "0.6535635860093846",
+        "selected_confidence": "2.0276951956519786",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "46",
+        "center_turn": "13824",
+        "selected_tune": "0.653599617133867",
+        "raw_global_tune": "0.6313687799602876",
+        "tracked_local_tune": "0.653599617133867",
+        "selected_confidence": "2.039643433983483",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "47",
+        "center_turn": "14080",
+        "selected_tune": "0.6219272558812868",
+        "raw_global_tune": "0.6219272558812868",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.3732856188325475",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "48",
+        "center_turn": "14336",
+        "selected_tune": "0.6218777297688725",
+        "raw_global_tune": "0.6218777297688725",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.6105972062724656",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "49",
+        "center_turn": "14592",
+        "selected_tune": "0.6218419212005993",
+        "raw_global_tune": "0.6218419212005993",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.724581293752692",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "50",
+        "center_turn": "14848",
+        "selected_tune": "0.6486512880149904",
+        "raw_global_tune": "0.621816944039236",
+        "tracked_local_tune": "0.6486512880149904",
+        "selected_confidence": "2.234840013348107",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "51",
+        "center_turn": "15104",
+        "selected_tune": "0.6486507674014895",
+        "raw_global_tune": "0.6608433094977304",
+        "tracked_local_tune": "0.6486507674014895",
+        "selected_confidence": "2.7240682642916796",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "52",
+        "center_turn": "15360",
+        "selected_tune": "0.6486569462287595",
+        "raw_global_tune": "0.6608551375281072",
+        "tracked_local_tune": "0.6486569462287595",
+        "selected_confidence": "2.9012832440281886",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "53",
+        "center_turn": "15616",
+        "selected_tune": "0.648662425367541",
+        "raw_global_tune": "0.6608600981032431",
+        "tracked_local_tune": "0.648662425367541",
+        "selected_confidence": "2.47453651771707",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "54",
+        "center_turn": "15872",
+        "selected_tune": "0.6486599471493562",
+        "raw_global_tune": "0.6291821373362028",
+        "tracked_local_tune": "0.6486599471493562",
+        "selected_confidence": "2.121555973951719",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "55",
+        "center_turn": "16128",
+        "selected_tune": "0.6291552854081687",
+        "raw_global_tune": "0.6291552854081687",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.6340766992055986",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "56",
+        "center_turn": "16384",
+        "selected_tune": "0.6371312113317578",
+        "raw_global_tune": "0.6371312113317578",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.4691908526346613",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "57",
+        "center_turn": "16640",
+        "selected_tune": "0.6501267716465494",
+        "raw_global_tune": "0.6501267716465494",
+        "tracked_local_tune": "0.6501267716465494",
+        "selected_confidence": "2.2460821394954262",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "58",
+        "center_turn": "16896",
+        "selected_tune": "0.6501767384049302",
+        "raw_global_tune": "0.6501767384049302",
+        "tracked_local_tune": "0.6501767384049302",
+        "selected_confidence": "2.4956343656405107",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "59",
+        "center_turn": "17152",
+        "selected_tune": "0.6502075930193623",
+        "raw_global_tune": "0.6502075930193623",
+        "tracked_local_tune": "0.6502075930193623",
+        "selected_confidence": "2.5469215037541932",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "60",
+        "center_turn": "17408",
+        "selected_tune": "0.6502653783763364",
+        "raw_global_tune": "0.6502653783763364",
+        "tracked_local_tune": "0.6502653783763364",
+        "selected_confidence": "2.3854618823706306",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "61",
+        "center_turn": "17664",
+        "selected_tune": "0.6503622050948892",
+        "raw_global_tune": "0.6503622050948892",
+        "tracked_local_tune": "0.6503622050948892",
+        "selected_confidence": "2.4320113351534514",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "62",
+        "center_turn": "17920",
+        "selected_tune": "0.6504311981947308",
+        "raw_global_tune": "0.6640570949421682",
+        "tracked_local_tune": "0.6504311981947308",
+        "selected_confidence": "2.1798490710105636",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "63",
+        "center_turn": "18176",
+        "selected_tune": "0.6640405175895826",
+        "raw_global_tune": "0.6640405175895826",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.8230044139759736",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "64",
+        "center_turn": "18432",
+        "selected_tune": "0.6415828915418135",
+        "raw_global_tune": "0.6415828915418135",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.5699879432949264",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "65",
+        "center_turn": "18688",
+        "selected_tune": "0.6552527662552501",
+        "raw_global_tune": "0.6552527662552501",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.331587971910035",
+        "used_global_fallback": "True",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "66",
+        "center_turn": "18944",
+        "selected_tune": "0.6552553180407251",
+        "raw_global_tune": "0.6552553180407251",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.3925229761406133",
+        "used_global_fallback": "True",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "67",
+        "center_turn": "19200",
+        "selected_tune": "0.6238098876821794",
+        "raw_global_tune": "0.6238098876821794",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.500579373760747",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "68",
+        "center_turn": "19456",
+        "selected_tune": "0.623803180968452",
+        "raw_global_tune": "0.623803180968452",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.4238493419970575",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "69",
+        "center_turn": "19712",
+        "selected_tune": "0.6467419903116651",
+        "raw_global_tune": "0.626856846645053",
+        "tracked_local_tune": "0.6467419903116651",
+        "selected_confidence": "2.157196832285178",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "70",
+        "center_turn": "19968",
+        "selected_tune": "0.646733801928856",
+        "raw_global_tune": "0.6269184015827329",
+        "tracked_local_tune": "0.646733801928856",
+        "selected_confidence": "2.40382800038509",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "71",
+        "center_turn": "20224",
+        "selected_tune": "0.6435345613336281",
+        "raw_global_tune": "0.6269447590628305",
+        "tracked_local_tune": "0.6435345613336281",
+        "selected_confidence": "2.359556146690656",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "72",
+        "center_turn": "20480",
+        "selected_tune": "0.6435416624865642",
+        "raw_global_tune": "0.6269666718895366",
+        "tracked_local_tune": "0.6435416624865642",
+        "selected_confidence": "2.3961983353757788",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "73",
+        "center_turn": "20736",
+        "selected_tune": "0.6425383239563677",
+        "raw_global_tune": "0.6269975583114302",
+        "tracked_local_tune": "0.6425383239563677",
+        "selected_confidence": "2.196591958543502",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "74",
+        "center_turn": "20992",
+        "selected_tune": "0.6424638503837219",
+        "raw_global_tune": "0.6783630649804038",
+        "tracked_local_tune": "0.6424638503837219",
+        "selected_confidence": "2.1984652923280517",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "75",
+        "center_turn": "21248",
+        "selected_tune": "0.6423734043204592",
+        "raw_global_tune": "0.6783195087246587",
+        "tracked_local_tune": "0.6423734043204592",
+        "selected_confidence": "2.2289923794605655",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "76",
+        "center_turn": "21504",
+        "selected_tune": "0.6423303373558601",
+        "raw_global_tune": "0.6782757828509471",
+        "tracked_local_tune": "0.6423303373558601",
+        "selected_confidence": "2.2104980306690294",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "77",
+        "center_turn": "21760",
+        "selected_tune": "0.6423082752636163",
+        "raw_global_tune": "0.6782142992473791",
+        "tracked_local_tune": "0.6423082752636163",
+        "selected_confidence": "2.1008320636482334",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "78",
+        "center_turn": "22016",
+        "selected_tune": "0.6452888315667915",
+        "raw_global_tune": "0.6452888315667915",
+        "tracked_local_tune": "0.6452888315667915",
+        "selected_confidence": "2.3543020012003217",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "79",
+        "center_turn": "22272",
+        "selected_tune": "0.6453334066256049",
+        "raw_global_tune": "0.6453334066256049",
+        "tracked_local_tune": "0.6453334066256049",
+        "selected_confidence": "2.8259053971734462",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "80",
+        "center_turn": "22528",
+        "selected_tune": "0.645384915360361",
+        "raw_global_tune": "0.645384915360361",
+        "tracked_local_tune": "0.645384915360361",
+        "selected_confidence": "2.9244050302902167",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "81",
+        "center_turn": "22784",
+        "selected_tune": "0.6454213304731461",
+        "raw_global_tune": "0.6454213304731461",
+        "tracked_local_tune": "0.6454213304731461",
+        "selected_confidence": "2.956085285081609",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "82",
+        "center_turn": "23040",
+        "selected_tune": "0.6454429075593271",
+        "raw_global_tune": "0.6454429075593271",
+        "tracked_local_tune": "0.6454429075593271",
+        "selected_confidence": "2.807067745396299",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "83",
+        "center_turn": "23296",
+        "selected_tune": "0.6454761261689592",
+        "raw_global_tune": "0.6329943599648324",
+        "tracked_local_tune": "0.6454761261689592",
+        "selected_confidence": "2.360719821907514",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "84",
+        "center_turn": "23552",
+        "selected_tune": "0.6426825900395948",
+        "raw_global_tune": "0.6329980958913601",
+        "tracked_local_tune": "0.6426825900395948",
+        "selected_confidence": "2.1403948723079123",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "85",
+        "center_turn": "23808",
+        "selected_tune": "0.6330056678767753",
+        "raw_global_tune": "0.6330056678767753",
+        "tracked_local_tune": "",
+        "selected_confidence": "3.2531682749067126",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "86",
+        "center_turn": "24064",
+        "selected_tune": "0.6426084365968373",
+        "raw_global_tune": "0.6330196536118688",
+        "tracked_local_tune": "0.6426084365968373",
+        "selected_confidence": "2.05273701111621",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "87",
+        "center_turn": "24320",
+        "selected_tune": "0.6330400407566974",
+        "raw_global_tune": "0.6330400407566974",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.7623842780889145",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "88",
+        "center_turn": "24576",
+        "selected_tune": "0.6393783333029518",
+        "raw_global_tune": "0.6313484547880338",
+        "tracked_local_tune": "0.6393783333029518",
+        "selected_confidence": "2.6854376364192207",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "89",
+        "center_turn": "24832",
+        "selected_tune": "0.6356076373169364",
+        "raw_global_tune": "0.6313619681636311",
+        "tracked_local_tune": "0.6356076373169364",
+        "selected_confidence": "2.433820469044138",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "90",
+        "center_turn": "25088",
+        "selected_tune": "0.6356579793740994",
+        "raw_global_tune": "0.6356579793740994",
+        "tracked_local_tune": "0.6356579793740994",
+        "selected_confidence": "2.7223981550531624",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "91",
+        "center_turn": "25344",
+        "selected_tune": "0.6356908732968612",
+        "raw_global_tune": "0.6356908732968612",
+        "tracked_local_tune": "0.6356908732968612",
+        "selected_confidence": "3.2675095130636165",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "92",
+        "center_turn": "25600",
+        "selected_tune": "0.6356992254684809",
+        "raw_global_tune": "0.6356992254684809",
+        "tracked_local_tune": "0.6356992254684809",
+        "selected_confidence": "2.9433899343480507",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "93",
+        "center_turn": "25856",
+        "selected_tune": "0.635678068535825",
+        "raw_global_tune": "0.6640990739861841",
+        "tracked_local_tune": "0.635678068535825",
+        "selected_confidence": "2.501426556547261",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "94",
+        "center_turn": "26112",
+        "selected_tune": "0.6356057573689492",
+        "raw_global_tune": "0.6640594576180038",
+        "tracked_local_tune": "0.6356057573689492",
+        "selected_confidence": "2.1214994356018773",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "95",
+        "center_turn": "26368",
+        "selected_tune": "0.63678035633526",
+        "raw_global_tune": "0.6640283532671981",
+        "tracked_local_tune": "0.63678035633526",
+        "selected_confidence": "2.0271695171757393",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "96",
+        "center_turn": "26624",
+        "selected_tune": "0.636786333926982",
+        "raw_global_tune": "0.636786333926982",
+        "tracked_local_tune": "0.636786333926982",
+        "selected_confidence": "2.5443380780898277",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "97",
+        "center_turn": "26880",
+        "selected_tune": "0.6368004686523587",
+        "raw_global_tune": "0.6368004686523587",
+        "tracked_local_tune": "0.6368004686523587",
+        "selected_confidence": "2.8359893840981236",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "98",
+        "center_turn": "27136",
+        "selected_tune": "0.6375255359613325",
+        "raw_global_tune": "0.6375255359613325",
+        "tracked_local_tune": "0.6375255359613325",
+        "selected_confidence": "2.9391323250800063",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "99",
+        "center_turn": "27392",
+        "selected_tune": "0.6375423334363122",
+        "raw_global_tune": "0.6375423334363122",
+        "tracked_local_tune": "0.6375423334363122",
+        "selected_confidence": "3.251468471610758",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "100",
+        "center_turn": "27648",
+        "selected_tune": "0.6375862777539437",
+        "raw_global_tune": "0.6738462116669853",
+        "tracked_local_tune": "0.6375862777539437",
+        "selected_confidence": "2.9249735387194353",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "101",
+        "center_turn": "27904",
+        "selected_tune": "0.636759835036094",
+        "raw_global_tune": "0.6738913442448232",
+        "tracked_local_tune": "0.636759835036094",
+        "selected_confidence": "2.686426925615525",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "102",
+        "center_turn": "28160",
+        "selected_tune": "0.6367248298077014",
+        "raw_global_tune": "0.6739151129144202",
+        "tracked_local_tune": "0.6367248298077014",
+        "selected_confidence": "2.1791548437028516",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "103",
+        "center_turn": "28416",
+        "selected_tune": "0.6366917773675763",
+        "raw_global_tune": "0.6739267230568841",
+        "tracked_local_tune": "0.6366917773675763",
+        "selected_confidence": "2.064078506800817",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "104",
+        "center_turn": "28672",
+        "selected_tune": "0.6739361355964906",
+        "raw_global_tune": "0.6739361355964906",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.693676872664477",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "105",
+        "center_turn": "28928",
+        "selected_tune": "0.6775276839241229",
+        "raw_global_tune": "0.6775276839241229",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.3668495087856445",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "106",
+        "center_turn": "29184",
+        "selected_tune": "0.677479620417016",
+        "raw_global_tune": "0.677479620417016",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.19211198651294",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "107",
+        "center_turn": "29440",
+        "selected_tune": "0.6748213100543462",
+        "raw_global_tune": "0.6748213100543462",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.3215053186665084",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "108",
+        "center_turn": "29696",
+        "selected_tune": "0.6748459226868669",
+        "raw_global_tune": "0.6748459226868669",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.4435283173033175",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "109",
+        "center_turn": "29952",
+        "selected_tune": "0.6754786088001685",
+        "raw_global_tune": "0.6754786088001685",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.693848696115437",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "110",
+        "center_turn": "30208",
+        "selected_tune": "0.6754626540741043",
+        "raw_global_tune": "0.6754626540741043",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.8893331861622977",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "111",
+        "center_turn": "30464",
+        "selected_tune": "0.6754597818026186",
+        "raw_global_tune": "0.6754597818026186",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.955427159977654",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "112",
+        "center_turn": "30720",
+        "selected_tune": "0.6329197067420367",
+        "raw_global_tune": "0.6754809686700003",
+        "tracked_local_tune": "0.6329197067420367",
+        "selected_confidence": "2.108778375772502",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "113",
+        "center_turn": "30976",
+        "selected_tune": "0.6335353091744209",
+        "raw_global_tune": "0.6755302706243536",
+        "tracked_local_tune": "0.6335353091744209",
+        "selected_confidence": "2.183951212836927",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "114",
+        "center_turn": "31232",
+        "selected_tune": "0.6335054741119688",
+        "raw_global_tune": "0.6431074699343406",
+        "tracked_local_tune": "0.6335054741119688",
+        "selected_confidence": "2.528798456091922",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "115",
+        "center_turn": "31488",
+        "selected_tune": "0.6334988215139966",
+        "raw_global_tune": "0.6430895915190629",
+        "tracked_local_tune": "0.6334988215139966",
+        "selected_confidence": "2.718179959833531",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "116",
+        "center_turn": "31744",
+        "selected_tune": "0.6334985111881899",
+        "raw_global_tune": "0.6504384227879149",
+        "tracked_local_tune": "0.6334985111881899",
+        "selected_confidence": "2.775492170304071",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "117",
+        "center_turn": "32000",
+        "selected_tune": "0.6334883887564418",
+        "raw_global_tune": "0.6504145636445268",
+        "tracked_local_tune": "0.6334883887564418",
+        "selected_confidence": "2.4209357431335454",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "118",
+        "center_turn": "32256",
+        "selected_tune": "0.6334020658586561",
+        "raw_global_tune": "0.6503816145185093",
+        "tracked_local_tune": "0.6334020658586561",
+        "selected_confidence": "2.041658190094955",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "119",
+        "center_turn": "32512",
+        "selected_tune": "0.6324596260030217",
+        "raw_global_tune": "0.6777072359694116",
+        "tracked_local_tune": "0.6324596260030217",
+        "selected_confidence": "2.1396619068734264",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "120",
+        "center_turn": "32768",
+        "selected_tune": "0.6323921564270661",
+        "raw_global_tune": "0.6777047950928072",
+        "tracked_local_tune": "0.6323921564270661",
+        "selected_confidence": "2.404013928449191",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "121",
+        "center_turn": "33024",
+        "selected_tune": "0.632357325640952",
+        "raw_global_tune": "0.6626956271000405",
+        "tracked_local_tune": "0.632357325640952",
+        "selected_confidence": "2.434717790940642",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "122",
+        "center_turn": "33280",
+        "selected_tune": "0.6323219860127999",
+        "raw_global_tune": "0.662697174745931",
+        "tracked_local_tune": "0.6323219860127999",
+        "selected_confidence": "2.2687277105018233",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "123",
+        "center_turn": "33536",
+        "selected_tune": "0.6767228550252434",
+        "raw_global_tune": "0.6767228550252434",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.506567528243553",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "124",
+        "center_turn": "33792",
+        "selected_tune": "0.6332781866857217",
+        "raw_global_tune": "0.6767245928889057",
+        "tracked_local_tune": "0.6332781866857217",
+        "selected_confidence": "2.0081595186084256",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "125",
+        "center_turn": "34048",
+        "selected_tune": "0.6332833043356866",
+        "raw_global_tune": "0.6767311907739525",
+        "tracked_local_tune": "0.6332833043356866",
+        "selected_confidence": "2.140574057932334",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "126",
+        "center_turn": "34304",
+        "selected_tune": "0.6767363849142526",
+        "raw_global_tune": "0.6767363849142526",
+        "tracked_local_tune": "",
+        "selected_confidence": "3.0019374112395147",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "127",
+        "center_turn": "34560",
+        "selected_tune": "0.6767369196592657",
+        "raw_global_tune": "0.6767369196592657",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.744842586190297",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "128",
+        "center_turn": "34816",
+        "selected_tune": "0.6306745866335601",
+        "raw_global_tune": "0.6701479146206937",
+        "tracked_local_tune": "0.6306745866335601",
+        "selected_confidence": "2.08696352056039",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "129",
+        "center_turn": "35072",
+        "selected_tune": "0.6701422500567965",
+        "raw_global_tune": "0.6701422500567965",
+        "tracked_local_tune": "",
+        "selected_confidence": "3.00894876991037",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "130",
+        "center_turn": "35328",
+        "selected_tune": "0.6257357240189677",
+        "raw_global_tune": "0.6701316225563602",
+        "tracked_local_tune": "0.6257357240189677",
+        "selected_confidence": "2.179032846235044",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "131",
+        "center_turn": "35584",
+        "selected_tune": "0.6257538848582135",
+        "raw_global_tune": "0.663611783568923",
+        "tracked_local_tune": "0.6257538848582135",
+        "selected_confidence": "2.0930208899943112",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "132",
+        "center_turn": "35840",
+        "selected_tune": "0.624177269976322",
+        "raw_global_tune": "0.6635980636691268",
+        "tracked_local_tune": "0.624177269976322",
+        "selected_confidence": "2.4042619022427605",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "133",
+        "center_turn": "36096",
+        "selected_tune": "0.6242110622437054",
+        "raw_global_tune": "0.6636013287799759",
+        "tracked_local_tune": "0.6242110622437054",
+        "selected_confidence": "2.4229537676391084",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "134",
+        "center_turn": "36352",
+        "selected_tune": "0.6242706575230009",
+        "raw_global_tune": "0.6636258967291255",
+        "tracked_local_tune": "0.6242706575230009",
+        "selected_confidence": "2.380871515699197",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "135",
+        "center_turn": "36608",
+        "selected_tune": "0.6243443832286557",
+        "raw_global_tune": "0.630683090673373",
+        "tracked_local_tune": "0.6243443832286557",
+        "selected_confidence": "2.306388801352026",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "136",
+        "center_turn": "36864",
+        "selected_tune": "0.624439075482749",
+        "raw_global_tune": "0.6306872281345064",
+        "tracked_local_tune": "0.624439075482749",
+        "selected_confidence": "2.157130456314618",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "137",
+        "center_turn": "37120",
+        "selected_tune": "0.6244837831233755",
+        "raw_global_tune": "0.6535637448359453",
+        "tracked_local_tune": "0.6244837831233755",
+        "selected_confidence": "2.332492563064759",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "138",
+        "center_turn": "37376",
+        "selected_tune": "0.6233497825783534",
+        "raw_global_tune": "0.6535966269844794",
+        "tracked_local_tune": "0.6233497825783534",
+        "selected_confidence": "2.2659451052495925",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "139",
+        "center_turn": "37632",
+        "selected_tune": "0.6233521358256413",
+        "raw_global_tune": "0.6536313071856382",
+        "tracked_local_tune": "0.6233521358256413",
+        "selected_confidence": "2.6538613099614032",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "140",
+        "center_turn": "37888",
+        "selected_tune": "0.6233635558876885",
+        "raw_global_tune": "0.6501125327280165",
+        "tracked_local_tune": "0.6233635558876885",
+        "selected_confidence": "2.733335620227115",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "141",
+        "center_turn": "38144",
+        "selected_tune": "0.6233907661505496",
+        "raw_global_tune": "0.6501292627169564",
+        "tracked_local_tune": "0.6233907661505496",
+        "selected_confidence": "2.4843316683403494",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "142",
+        "center_turn": "38400",
+        "selected_tune": "0.6234352432880441",
+        "raw_global_tune": "0.672366967933974",
+        "tracked_local_tune": "0.6234352432880441",
+        "selected_confidence": "2.2567714653935567",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "143",
+        "center_turn": "38656",
+        "selected_tune": "0.6234622925746424",
+        "raw_global_tune": "0.6723777782030009",
+        "tracked_local_tune": "0.6234622925746424",
+        "selected_confidence": "2.050378099002557",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "144",
+        "center_turn": "38912",
+        "selected_tune": "0.6269414690479173",
+        "raw_global_tune": "0.6680037014703892",
+        "tracked_local_tune": "0.6269414690479173",
+        "selected_confidence": "2.03247035116676",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "145",
+        "center_turn": "39168",
+        "selected_tune": "0.626918763625384",
+        "raw_global_tune": "0.6680007718845755",
+        "tracked_local_tune": "0.626918763625384",
+        "selected_confidence": "2.20724688687888",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "146",
+        "center_turn": "39424",
+        "selected_tune": "0.626887151650834",
+        "raw_global_tune": "0.6698903539139464",
+        "tracked_local_tune": "0.626887151650834",
+        "selected_confidence": "2.177246452203306",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "147",
+        "center_turn": "39680",
+        "selected_tune": "0.6542962147396488",
+        "raw_global_tune": "0.6542962147396488",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.6691227921592557",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "148",
+        "center_turn": "39936",
+        "selected_tune": "0.623294431217437",
+        "raw_global_tune": "0.6542768118621276",
+        "tracked_local_tune": "0.623294431217437",
+        "selected_confidence": "2.218045468638771",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "149",
+        "center_turn": "40192",
+        "selected_tune": "0.6233100177086042",
+        "raw_global_tune": "0.6233100177086042",
+        "tracked_local_tune": "0.6233100177086042",
+        "selected_confidence": "2.45880144680374",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "150",
+        "center_turn": "40448",
+        "selected_tune": "0.6233295986032753",
+        "raw_global_tune": "0.6233295986032753",
+        "tracked_local_tune": "0.6233295986032753",
+        "selected_confidence": "2.6471160329790946",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "151",
+        "center_turn": "40704",
+        "selected_tune": "0.6233496380120848",
+        "raw_global_tune": "0.6233496380120848",
+        "tracked_local_tune": "0.6233496380120848",
+        "selected_confidence": "2.4028237460935453",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "152",
+        "center_turn": "40960",
+        "selected_tune": "0.6233652315287392",
+        "raw_global_tune": "0.6525202163730549",
+        "tracked_local_tune": "0.6233652315287392",
+        "selected_confidence": "2.0875057470770755",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "153",
+        "center_turn": "41216",
+        "selected_tune": "0.6519915371729406",
+        "raw_global_tune": "0.6519915371729406",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.441401237795943",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "154",
+        "center_turn": "41472",
+        "selected_tune": "0.6582474706704138",
+        "raw_global_tune": "0.6582474706704138",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.5878639431695873",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "155",
+        "center_turn": "41728",
+        "selected_tune": "0.624842152741806",
+        "raw_global_tune": "0.6582322811610747",
+        "tracked_local_tune": "0.624842152741806",
+        "selected_confidence": "2.094829805332428",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "156",
+        "center_turn": "41984",
+        "selected_tune": "0.6249097552561654",
+        "raw_global_tune": "0.6582398545248307",
+        "tracked_local_tune": "0.6249097552561654",
+        "selected_confidence": "2.237554051806923",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "157",
+        "center_turn": "42240",
+        "selected_tune": "0.6249459113017016",
+        "raw_global_tune": "0.6651127353407229",
+        "tracked_local_tune": "0.6249459113017016",
+        "selected_confidence": "2.200006327461401",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "158",
+        "center_turn": "42496",
+        "selected_tune": "0.6249693147710905",
+        "raw_global_tune": "0.665091836773933",
+        "tracked_local_tune": "0.6249693147710905",
+        "selected_confidence": "2.0762590064966813",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "159",
+        "center_turn": "42752",
+        "selected_tune": "0.6295943196633899",
+        "raw_global_tune": "0.6650595161800238",
+        "tracked_local_tune": "0.6295943196633899",
+        "selected_confidence": "2.0743344273286697",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "160",
+        "center_turn": "43008",
+        "selected_tune": "0.629594969836073",
+        "raw_global_tune": "0.6650195148443512",
+        "tracked_local_tune": "0.629594969836073",
+        "selected_confidence": "2.1982345355322606",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "161",
+        "center_turn": "43264",
+        "selected_tune": "0.6295953669246587",
+        "raw_global_tune": "0.6462387097041873",
+        "tracked_local_tune": "0.6295953669246587",
+        "selected_confidence": "2.022415775951521",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "162",
+        "center_turn": "43520",
+        "selected_tune": "0.6462396750917806",
+        "raw_global_tune": "0.6462396750917806",
+        "tracked_local_tune": "",
+        "selected_confidence": "3.6763731875881667",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "163",
+        "center_turn": "43776",
+        "selected_tune": "0.6462278449660445",
+        "raw_global_tune": "0.6462278449660445",
+        "tracked_local_tune": "",
+        "selected_confidence": "3.557429353164035",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "164",
+        "center_turn": "44032",
+        "selected_tune": "0.6462057331394642",
+        "raw_global_tune": "0.6462057331394642",
+        "tracked_local_tune": "",
+        "selected_confidence": "3.1548268531640167",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "165",
+        "center_turn": "44288",
+        "selected_tune": "0.6489255704115588",
+        "raw_global_tune": "0.6489255704115588",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.8121943044122717",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "166",
+        "center_turn": "44544",
+        "selected_tune": "0.6489244396917324",
+        "raw_global_tune": "0.6489244396917324",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.919814724895985",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "167",
+        "center_turn": "44800",
+        "selected_tune": "0.630920436190835",
+        "raw_global_tune": "0.6489298142836751",
+        "tracked_local_tune": "0.630920436190835",
+        "selected_confidence": "2.0765503174138913",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "168",
+        "center_turn": "45056",
+        "selected_tune": "0.6338634088534254",
+        "raw_global_tune": "0.6489433384777842",
+        "tracked_local_tune": "0.6338634088534254",
+        "selected_confidence": "2.181395634159906",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "169",
+        "center_turn": "45312",
+        "selected_tune": "0.6338121456798628",
+        "raw_global_tune": "0.6338121456798628",
+        "tracked_local_tune": "0.6338121456798628",
+        "selected_confidence": "2.3202191781710346",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "170",
+        "center_turn": "45568",
+        "selected_tune": "0.6337785763257654",
+        "raw_global_tune": "0.6337785763257654",
+        "tracked_local_tune": "0.6337785763257654",
+        "selected_confidence": "2.61267181299676",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "171",
+        "center_turn": "45824",
+        "selected_tune": "0.6337532530223852",
+        "raw_global_tune": "0.6337532530223852",
+        "tracked_local_tune": "0.6337532530223852",
+        "selected_confidence": "2.827890669684087",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "172",
+        "center_turn": "46080",
+        "selected_tune": "0.6337363985610561",
+        "raw_global_tune": "0.6337363985610561",
+        "tracked_local_tune": "0.6337363985610561",
+        "selected_confidence": "2.6797043438414185",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "173",
+        "center_turn": "46336",
+        "selected_tune": "0.6337228174608479",
+        "raw_global_tune": "0.6603456920656637",
+        "tracked_local_tune": "0.6337228174608479",
+        "selected_confidence": "2.6538325093742685",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "174",
+        "center_turn": "46592",
+        "selected_tune": "0.6337118676913022",
+        "raw_global_tune": "0.6603284213639353",
+        "tracked_local_tune": "0.6337118676913022",
+        "selected_confidence": "2.563994568680165",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "175",
+        "center_turn": "46848",
+        "selected_tune": "0.6337063102969154",
+        "raw_global_tune": "0.6709550152069349",
+        "tracked_local_tune": "0.6337063102969154",
+        "selected_confidence": "2.4394412752030865",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "176",
+        "center_turn": "47104",
+        "selected_tune": "0.6337194734820442",
+        "raw_global_tune": "0.6709301691850517",
+        "tracked_local_tune": "0.6337194734820442",
+        "selected_confidence": "2.5398715020360743",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "177",
+        "center_turn": "47360",
+        "selected_tune": "0.6372980457862172",
+        "raw_global_tune": "0.6372980457862172",
+        "tracked_local_tune": "0.6372980457862172",
+        "selected_confidence": "2.599982130398014",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "178",
+        "center_turn": "47616",
+        "selected_tune": "0.6372858556688477",
+        "raw_global_tune": "0.6372858556688477",
+        "tracked_local_tune": "0.6372858556688477",
+        "selected_confidence": "2.869296892061759",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "179",
+        "center_turn": "47872",
+        "selected_tune": "0.6372613831147187",
+        "raw_global_tune": "0.6372613831147187",
+        "tracked_local_tune": "0.6372613831147187",
+        "selected_confidence": "3.0951253216829437",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      }
+    ],
+    "V": [
+      {
+        "window_index": "0",
+        "center_turn": "2048",
+        "selected_tune": "0.7195600714285397",
+        "raw_global_tune": "0.7195600714285397",
+        "tracked_local_tune": "0.7195600714285397",
+        "selected_confidence": "19.864202804585435",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "1",
+        "center_turn": "2304",
+        "selected_tune": "0.720104346618398",
+        "raw_global_tune": "0.720104346618398",
+        "tracked_local_tune": "0.720104346618398",
+        "selected_confidence": "14.130180433290866",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "2",
+        "center_turn": "2560",
+        "selected_tune": "0.7201687902189491",
+        "raw_global_tune": "0.7201687902189491",
+        "tracked_local_tune": "0.7201687902189491",
+        "selected_confidence": "8.523718544756528",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "3",
+        "center_turn": "2816",
+        "selected_tune": "0.7202151865134231",
+        "raw_global_tune": "0.7202151865134231",
+        "tracked_local_tune": "0.7202151865134231",
+        "selected_confidence": "4.872571640619888",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "4",
+        "center_turn": "3072",
+        "selected_tune": "0.7232800131642807",
+        "raw_global_tune": "0.7232800131642807",
+        "tracked_local_tune": "0.7232800131642807",
+        "selected_confidence": "3.6331890378659124",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "5",
+        "center_turn": "3328",
+        "selected_tune": "0.7232905481078035",
+        "raw_global_tune": "0.7232905481078035",
+        "tracked_local_tune": "0.7232905481078035",
+        "selected_confidence": "4.2733681636815986",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "6",
+        "center_turn": "3584",
+        "selected_tune": "0.723280948282425",
+        "raw_global_tune": "0.723280948282425",
+        "tracked_local_tune": "0.723280948282425",
+        "selected_confidence": "4.932098889023677",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "7",
+        "center_turn": "3840",
+        "selected_tune": "0.7232527859083375",
+        "raw_global_tune": "0.7232527859083375",
+        "tracked_local_tune": "0.7232527859083375",
+        "selected_confidence": "5.840430867029376",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "8",
+        "center_turn": "4096",
+        "selected_tune": "0.7232193339001346",
+        "raw_global_tune": "0.7232193339001346",
+        "tracked_local_tune": "0.7232193339001346",
+        "selected_confidence": "6.796842854693476",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "9",
+        "center_turn": "4352",
+        "selected_tune": "0.7231893083638218",
+        "raw_global_tune": "0.7231893083638218",
+        "tracked_local_tune": "0.7231893083638218",
+        "selected_confidence": "7.114877155199529",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "10",
+        "center_turn": "4608",
+        "selected_tune": "0.7231661661803598",
+        "raw_global_tune": "0.7231661661803598",
+        "tracked_local_tune": "0.7231661661803598",
+        "selected_confidence": "7.002569769686076",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "11",
+        "center_turn": "4864",
+        "selected_tune": "0.7231514498710123",
+        "raw_global_tune": "0.7231514498710123",
+        "tracked_local_tune": "0.7231514498710123",
+        "selected_confidence": "6.877380219971253",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "12",
+        "center_turn": "5120",
+        "selected_tune": "0.7231452792251996",
+        "raw_global_tune": "0.7231452792251996",
+        "tracked_local_tune": "0.7231452792251996",
+        "selected_confidence": "6.654905229587214",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "13",
+        "center_turn": "5376",
+        "selected_tune": "0.7231524149509675",
+        "raw_global_tune": "0.7231524149509675",
+        "tracked_local_tune": "0.7231524149509675",
+        "selected_confidence": "6.061892357548295",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "14",
+        "center_turn": "5632",
+        "selected_tune": "0.7231802393433049",
+        "raw_global_tune": "0.7231802393433049",
+        "tracked_local_tune": "0.7231802393433049",
+        "selected_confidence": "5.496150203529681",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "15",
+        "center_turn": "5888",
+        "selected_tune": "0.7232394124000753",
+        "raw_global_tune": "0.7232394124000753",
+        "tracked_local_tune": "0.7232394124000753",
+        "selected_confidence": "4.521454361480458",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "16",
+        "center_turn": "6144",
+        "selected_tune": "0.7233288743726628",
+        "raw_global_tune": "0.7233288743726628",
+        "tracked_local_tune": "0.7233288743726628",
+        "selected_confidence": "4.415677204664037",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "17",
+        "center_turn": "6400",
+        "selected_tune": "0.7233847373387875",
+        "raw_global_tune": "0.7233847373387875",
+        "tracked_local_tune": "0.7233847373387875",
+        "selected_confidence": "4.10687078657335",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "18",
+        "center_turn": "6656",
+        "selected_tune": "0.7234245528577643",
+        "raw_global_tune": "0.7234245528577643",
+        "tracked_local_tune": "0.7234245528577643",
+        "selected_confidence": "3.397020123853186",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "19",
+        "center_turn": "6912",
+        "selected_tune": "0.7234304994957093",
+        "raw_global_tune": "0.7234304994957093",
+        "tracked_local_tune": "0.7234304994957093",
+        "selected_confidence": "2.4327450670885806",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "20",
+        "center_turn": "7168",
+        "selected_tune": "0.7255388821674269",
+        "raw_global_tune": "0.7255388821674269",
+        "tracked_local_tune": "0.7255388821674269",
+        "selected_confidence": "2.13807660516918",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "21",
+        "center_turn": "7424",
+        "selected_tune": "0.7254159477378297",
+        "raw_global_tune": "0.7254159477378297",
+        "tracked_local_tune": "0.7254159477378297",
+        "selected_confidence": "2.0706868914708627",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "22",
+        "center_turn": "7680",
+        "selected_tune": "0.7253789915306407",
+        "raw_global_tune": "0.7091765348659926",
+        "tracked_local_tune": "0.7253789915306407",
+        "selected_confidence": "2.2067235677078334",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "23",
+        "center_turn": "7936",
+        "selected_tune": "0.6948335116985757",
+        "raw_global_tune": "0.6948335116985757",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.5144966984157935",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "24",
+        "center_turn": "8192",
+        "selected_tune": "0.694827398408708",
+        "raw_global_tune": "0.694827398408708",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.7634688029712953",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "25",
+        "center_turn": "8448",
+        "selected_tune": "0.6948194553669542",
+        "raw_global_tune": "0.6948194553669542",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.778044809542144",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "26",
+        "center_turn": "8704",
+        "selected_tune": "0.6948138683641929",
+        "raw_global_tune": "0.6948138683641929",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.6208855759474536",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "27",
+        "center_turn": "8960",
+        "selected_tune": "0.7251089874243708",
+        "raw_global_tune": "0.7251089874243708",
+        "tracked_local_tune": "0.7251089874243708",
+        "selected_confidence": "2.2587647649991385",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "28",
+        "center_turn": "9216",
+        "selected_tune": "0.7258215639263099",
+        "raw_global_tune": "0.7258215639263099",
+        "tracked_local_tune": "0.7258215639263099",
+        "selected_confidence": "2.4146088494360067",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "29",
+        "center_turn": "9472",
+        "selected_tune": "0.7257769782486442",
+        "raw_global_tune": "0.7257769782486442",
+        "tracked_local_tune": "0.7257769782486442",
+        "selected_confidence": "2.8968627670607976",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "30",
+        "center_turn": "9728",
+        "selected_tune": "0.7256754638279879",
+        "raw_global_tune": "0.7256754638279879",
+        "tracked_local_tune": "0.7256754638279879",
+        "selected_confidence": "3.0748966079252678",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "31",
+        "center_turn": "9984",
+        "selected_tune": "0.7255327262156542",
+        "raw_global_tune": "0.7255327262156542",
+        "tracked_local_tune": "0.7255327262156542",
+        "selected_confidence": "3.8716136996585417",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "32",
+        "center_turn": "10240",
+        "selected_tune": "0.7255012572259512",
+        "raw_global_tune": "0.7255012572259512",
+        "tracked_local_tune": "0.7255012572259512",
+        "selected_confidence": "4.218054381187031",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "33",
+        "center_turn": "10496",
+        "selected_tune": "0.7254542287282136",
+        "raw_global_tune": "0.7254542287282136",
+        "tracked_local_tune": "0.7254542287282136",
+        "selected_confidence": "4.159327259379529",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "34",
+        "center_turn": "10752",
+        "selected_tune": "0.7254210883227034",
+        "raw_global_tune": "0.7254210883227034",
+        "tracked_local_tune": "0.7254210883227034",
+        "selected_confidence": "4.154707611716963",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "35",
+        "center_turn": "11008",
+        "selected_tune": "0.7253929269139585",
+        "raw_global_tune": "0.7253929269139585",
+        "tracked_local_tune": "0.7253929269139585",
+        "selected_confidence": "4.114996389285445",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "36",
+        "center_turn": "11264",
+        "selected_tune": "0.7253735616106118",
+        "raw_global_tune": "0.7253735616106118",
+        "tracked_local_tune": "0.7253735616106118",
+        "selected_confidence": "3.417722237835025",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "37",
+        "center_turn": "11520",
+        "selected_tune": "0.7253616880278437",
+        "raw_global_tune": "0.7253616880278437",
+        "tracked_local_tune": "0.7253616880278437",
+        "selected_confidence": "2.997042376822243",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "38",
+        "center_turn": "11776",
+        "selected_tune": "0.7253561559644255",
+        "raw_global_tune": "0.7253561559644255",
+        "tracked_local_tune": "0.7253561559644255",
+        "selected_confidence": "2.4217710795360854",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "39",
+        "center_turn": "12032",
+        "selected_tune": "0.7260810206792799",
+        "raw_global_tune": "0.7260810206792799",
+        "tracked_local_tune": "0.7260810206792799",
+        "selected_confidence": "2.0319500551683767",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "40",
+        "center_turn": "12288",
+        "selected_tune": "0.7261045655996337",
+        "raw_global_tune": "0.7261045655996337",
+        "tracked_local_tune": "0.7261045655996337",
+        "selected_confidence": "2.1746366550835714",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "41",
+        "center_turn": "12544",
+        "selected_tune": "0.7261295843439864",
+        "raw_global_tune": "0.7261295843439864",
+        "tracked_local_tune": "0.7261295843439864",
+        "selected_confidence": "2.1037076828099175",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "42",
+        "center_turn": "12800",
+        "selected_tune": "0.7261459050372494",
+        "raw_global_tune": "0.7261459050372494",
+        "tracked_local_tune": "0.7261459050372494",
+        "selected_confidence": "2.1860350276707736",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "43",
+        "center_turn": "13056",
+        "selected_tune": "0.7261474782271738",
+        "raw_global_tune": "0.7261474782271738",
+        "tracked_local_tune": "0.7261474782271738",
+        "selected_confidence": "2.2212320227517384",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "44",
+        "center_turn": "13312",
+        "selected_tune": "0.7261413809217111",
+        "raw_global_tune": "0.7261413809217111",
+        "tracked_local_tune": "0.7261413809217111",
+        "selected_confidence": "2.258243362754128",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "45",
+        "center_turn": "13568",
+        "selected_tune": "0.7261348510925095",
+        "raw_global_tune": "0.7261348510925095",
+        "tracked_local_tune": "0.7261348510925095",
+        "selected_confidence": "2.3732410117914813",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "46",
+        "center_turn": "13824",
+        "selected_tune": "0.7261333592326641",
+        "raw_global_tune": "0.7261333592326641",
+        "tracked_local_tune": "0.7261333592326641",
+        "selected_confidence": "2.477575530831072",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "47",
+        "center_turn": "14080",
+        "selected_tune": "0.726140824079981",
+        "raw_global_tune": "0.726140824079981",
+        "tracked_local_tune": "0.726140824079981",
+        "selected_confidence": "2.6505784463828204",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "48",
+        "center_turn": "14336",
+        "selected_tune": "0.7261570596138484",
+        "raw_global_tune": "0.7261570596138484",
+        "tracked_local_tune": "0.7261570596138484",
+        "selected_confidence": "2.78149087206083",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "49",
+        "center_turn": "14592",
+        "selected_tune": "0.7261794451139812",
+        "raw_global_tune": "0.7261794451139812",
+        "tracked_local_tune": "0.7261794451139812",
+        "selected_confidence": "2.8332706329108746",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "50",
+        "center_turn": "14848",
+        "selected_tune": "0.726191754244103",
+        "raw_global_tune": "0.726191754244103",
+        "tracked_local_tune": "0.726191754244103",
+        "selected_confidence": "2.801643094763215",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "51",
+        "center_turn": "15104",
+        "selected_tune": "0.726178173717142",
+        "raw_global_tune": "0.726178173717142",
+        "tracked_local_tune": "0.726178173717142",
+        "selected_confidence": "2.5525516930970307",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "52",
+        "center_turn": "15360",
+        "selected_tune": "0.7261502972335949",
+        "raw_global_tune": "0.7261502972335949",
+        "tracked_local_tune": "0.7261502972335949",
+        "selected_confidence": "2.366362531673627",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "53",
+        "center_turn": "15616",
+        "selected_tune": "0.7261269441080546",
+        "raw_global_tune": "0.7202378409740668",
+        "tracked_local_tune": "0.7261269441080546",
+        "selected_confidence": "2.247749738837391",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "54",
+        "center_turn": "15872",
+        "selected_tune": "0.7261186148464724",
+        "raw_global_tune": "0.7261186148464724",
+        "tracked_local_tune": "0.7261186148464724",
+        "selected_confidence": "2.1529077017095815",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "55",
+        "center_turn": "16128",
+        "selected_tune": "0.7261232020910406",
+        "raw_global_tune": "",
+        "tracked_local_tune": "0.7261232020910406",
+        "selected_confidence": "2.019800447722475",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "56",
+        "center_turn": "16384",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "57",
+        "center_turn": "16640",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "58",
+        "center_turn": "16896",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "59",
+        "center_turn": "17152",
+        "selected_tune": "0.7252889100791512",
+        "raw_global_tune": "0.7252889100791512",
+        "tracked_local_tune": "0.7252889100791512",
+        "selected_confidence": "2.1157298105888844",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "60",
+        "center_turn": "17408",
+        "selected_tune": "0.7253085189200092",
+        "raw_global_tune": "0.7253085189200092",
+        "tracked_local_tune": "0.7253085189200092",
+        "selected_confidence": "2.080187660359396",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "61",
+        "center_turn": "17664",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "62",
+        "center_turn": "17920",
+        "selected_tune": "0.7267404639120084",
+        "raw_global_tune": "0.7267404639120084",
+        "tracked_local_tune": "0.7267404639120084",
+        "selected_confidence": "2.106331701316426",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "63",
+        "center_turn": "18176",
+        "selected_tune": "0.7267447332253898",
+        "raw_global_tune": "0.7267447332253898",
+        "tracked_local_tune": "0.7267447332253898",
+        "selected_confidence": "2.314799348430595",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "64",
+        "center_turn": "18432",
+        "selected_tune": "0.7267643726856734",
+        "raw_global_tune": "0.7267643726856734",
+        "tracked_local_tune": "0.7267643726856734",
+        "selected_confidence": "2.335902826892783",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "65",
+        "center_turn": "18688",
+        "selected_tune": "0.726804440275274",
+        "raw_global_tune": "0.726804440275274",
+        "tracked_local_tune": "0.726804440275274",
+        "selected_confidence": "2.1478252980232986",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "66",
+        "center_turn": "18944",
+        "selected_tune": "0.7051603547913738",
+        "raw_global_tune": "0.7051603547913738",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.3151528123045324",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "67",
+        "center_turn": "19200",
+        "selected_tune": "0.72399679519214",
+        "raw_global_tune": "0.7051525462967454",
+        "tracked_local_tune": "0.72399679519214",
+        "selected_confidence": "2.036368477914961",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "68",
+        "center_turn": "19456",
+        "selected_tune": "0.7240025199775932",
+        "raw_global_tune": "0.7051441618839555",
+        "tracked_local_tune": "0.7240025199775932",
+        "selected_confidence": "2.1743458010654595",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "69",
+        "center_turn": "19712",
+        "selected_tune": "0.7051415528543233",
+        "raw_global_tune": "0.7051415528543233",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.718566887396008",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "70",
+        "center_turn": "19968",
+        "selected_tune": "0.7309207599655564",
+        "raw_global_tune": "0.7309207599655564",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.5083888194960267",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "71",
+        "center_turn": "20224",
+        "selected_tune": "0.7309185939966111",
+        "raw_global_tune": "0.7309185939966111",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.69680179604928",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "72",
+        "center_turn": "20480",
+        "selected_tune": "0.7309245341106758",
+        "raw_global_tune": "0.7309245341106758",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.7636651459660957",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "73",
+        "center_turn": "20736",
+        "selected_tune": "0.7226252416206549",
+        "raw_global_tune": "0.7309371831798304",
+        "tracked_local_tune": "0.7226252416206549",
+        "selected_confidence": "2.0356695913096368",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "74",
+        "center_turn": "20992",
+        "selected_tune": "0.7226276814285874",
+        "raw_global_tune": "0.7309560865131878",
+        "tracked_local_tune": "0.7226276814285874",
+        "selected_confidence": "2.104938980170018",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "75",
+        "center_turn": "21248",
+        "selected_tune": "0.7226300494198553",
+        "raw_global_tune": "0.7309813463777752",
+        "tracked_local_tune": "0.7226300494198553",
+        "selected_confidence": "2.0982925277074003",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "76",
+        "center_turn": "21504",
+        "selected_tune": "0.7310121921316349",
+        "raw_global_tune": "0.7310121921316349",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.0515624735005886",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "77",
+        "center_turn": "21760",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "78",
+        "center_turn": "22016",
+        "selected_tune": "0.708415060112678",
+        "raw_global_tune": "0.708415060112678",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.123012575956527",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "79",
+        "center_turn": "22272",
+        "selected_tune": "0.7084289867397456",
+        "raw_global_tune": "0.7084289867397456",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.359158194172554",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "80",
+        "center_turn": "22528",
+        "selected_tune": "0.7084359201735617",
+        "raw_global_tune": "0.7084359201735617",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.4551237400907673",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "81",
+        "center_turn": "22784",
+        "selected_tune": "0.7084367038126269",
+        "raw_global_tune": "0.7084367038126269",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.345940427159686",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "82",
+        "center_turn": "23040",
+        "selected_tune": "0.7084286666860921",
+        "raw_global_tune": "0.7084286666860921",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.047771122357915",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "83",
+        "center_turn": "23296",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "84",
+        "center_turn": "23552",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "85",
+        "center_turn": "23808",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "86",
+        "center_turn": "24064",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "87",
+        "center_turn": "24320",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "88",
+        "center_turn": "24576",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "89",
+        "center_turn": "24832",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "90",
+        "center_turn": "25088",
+        "selected_tune": "0.7400286871215959",
+        "raw_global_tune": "0.7400286871215959",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.0676740198323564",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "91",
+        "center_turn": "25344",
+        "selected_tune": "0.7400336025980039",
+        "raw_global_tune": "0.7400336025980039",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.1254004173902152",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "92",
+        "center_turn": "25600",
+        "selected_tune": "0.7400403291364359",
+        "raw_global_tune": "0.7400403291364359",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.0224406830546906",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "93",
+        "center_turn": "25856",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "94",
+        "center_turn": "26112",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "95",
+        "center_turn": "26368",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "96",
+        "center_turn": "26624",
+        "selected_tune": "0.7028520727088493",
+        "raw_global_tune": "0.7028520727088493",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.1206714485684492",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "97",
+        "center_turn": "26880",
+        "selected_tune": "0.702807178963692",
+        "raw_global_tune": "0.702807178963692",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.114408162281841",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "98",
+        "center_turn": "27136",
+        "selected_tune": "0.7230088174974739",
+        "raw_global_tune": "",
+        "tracked_local_tune": "0.7230088174974739",
+        "selected_confidence": "2.044448439005753",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "99",
+        "center_turn": "27392",
+        "selected_tune": "0.7229996632122193",
+        "raw_global_tune": "",
+        "tracked_local_tune": "0.7229996632122193",
+        "selected_confidence": "2.0397436241537727",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "100",
+        "center_turn": "27648",
+        "selected_tune": "0.7194260826399606",
+        "raw_global_tune": "0.7322641274080598",
+        "tracked_local_tune": "0.7194260826399606",
+        "selected_confidence": "2.0768440729093127",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "101",
+        "center_turn": "27904",
+        "selected_tune": "0.7323082883583986",
+        "raw_global_tune": "0.7323082883583986",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.016416618810618",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "102",
+        "center_turn": "28160",
+        "selected_tune": "0.7192968947240329",
+        "raw_global_tune": "0.7323620874651067",
+        "tracked_local_tune": "0.7192968947240329",
+        "selected_confidence": "2.0385548643348237",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "103",
+        "center_turn": "28416",
+        "selected_tune": "0.7323935042378422",
+        "raw_global_tune": "0.7323935042378422",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.148270509704774",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "104",
+        "center_turn": "28672",
+        "selected_tune": "0.7324185877347232",
+        "raw_global_tune": "0.7324185877347232",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.1370496807116948",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "105",
+        "center_turn": "28928",
+        "selected_tune": "0.7324348841620517",
+        "raw_global_tune": "0.7324348841620517",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.0693177177887754",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "106",
+        "center_turn": "29184",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "107",
+        "center_turn": "29440",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "108",
+        "center_turn": "29696",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "109",
+        "center_turn": "29952",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "110",
+        "center_turn": "30208",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "111",
+        "center_turn": "30464",
+        "selected_tune": "0.707222698519351",
+        "raw_global_tune": "0.707222698519351",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.0287979433479455",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "112",
+        "center_turn": "30720",
+        "selected_tune": "0.7072259238954647",
+        "raw_global_tune": "0.7072259238954647",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.034296196865733",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "113",
+        "center_turn": "30976",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "114",
+        "center_turn": "31232",
+        "selected_tune": "0.7053047762550817",
+        "raw_global_tune": "0.7053047762550817",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.1799397932671702",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "115",
+        "center_turn": "31488",
+        "selected_tune": "0.7053224437420145",
+        "raw_global_tune": "0.7053224437420145",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.193945854251995",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "116",
+        "center_turn": "31744",
+        "selected_tune": "0.7191975819257336",
+        "raw_global_tune": "0.6929284841478527",
+        "tracked_local_tune": "0.7191975819257336",
+        "selected_confidence": "2.0404198873129844",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "117",
+        "center_turn": "32000",
+        "selected_tune": "0.7192225143041429",
+        "raw_global_tune": "0.6929449732017074",
+        "tracked_local_tune": "0.7192225143041429",
+        "selected_confidence": "2.056438526704297",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "118",
+        "center_turn": "32256",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "119",
+        "center_turn": "32512",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "120",
+        "center_turn": "32768",
+        "selected_tune": "0.7377429328572143",
+        "raw_global_tune": "0.7377429328572143",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.0065133266306914",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "121",
+        "center_turn": "33024",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "122",
+        "center_turn": "33280",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "123",
+        "center_turn": "33536",
+        "selected_tune": "0.7153955782520264",
+        "raw_global_tune": "0.7153955782520264",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.0345603925718296",
+        "used_global_fallback": "True",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "124",
+        "center_turn": "33792",
+        "selected_tune": "0.7206554807678348",
+        "raw_global_tune": "0.7206554807678348",
+        "tracked_local_tune": "0.7206554807678348",
+        "selected_confidence": "2.0723730301880816",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "125",
+        "center_turn": "34048",
+        "selected_tune": "0.7206601500667588",
+        "raw_global_tune": "0.7206601500667588",
+        "tracked_local_tune": "0.7206601500667588",
+        "selected_confidence": "2.1012678656998736",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "126",
+        "center_turn": "34304",
+        "selected_tune": "0.7206660890842819",
+        "raw_global_tune": "0.7263685687134732",
+        "tracked_local_tune": "0.7206660890842819",
+        "selected_confidence": "2.0778080505956225",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "127",
+        "center_turn": "34560",
+        "selected_tune": "0.726374568793902",
+        "raw_global_tune": "0.726374568793902",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.1064701895737414",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "128",
+        "center_turn": "34816",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "129",
+        "center_turn": "35072",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "130",
+        "center_turn": "35328",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "131",
+        "center_turn": "35584",
+        "selected_tune": "0.7290459599934437",
+        "raw_global_tune": "0.7290459599934437",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.0358706144843217",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "132",
+        "center_turn": "35840",
+        "selected_tune": "0.7290299432377569",
+        "raw_global_tune": "0.7290299432377569",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.1136561876767535",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "133",
+        "center_turn": "36096",
+        "selected_tune": "0.729013733968484",
+        "raw_global_tune": "0.729013733968484",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.01525400468589",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "134",
+        "center_turn": "36352",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "135",
+        "center_turn": "36608",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "136",
+        "center_turn": "36864",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "137",
+        "center_turn": "37120",
+        "selected_tune": "0.71094756698688",
+        "raw_global_tune": "0.71094756698688",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.0350676929096787",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "138",
+        "center_turn": "37376",
+        "selected_tune": "0.710949751691888",
+        "raw_global_tune": "0.710949751691888",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.019699763201373",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "139",
+        "center_turn": "37632",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "140",
+        "center_turn": "37888",
+        "selected_tune": "0.7360129786911794",
+        "raw_global_tune": "0.7360129786911794",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.054551533784514",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "141",
+        "center_turn": "38144",
+        "selected_tune": "0.7360048283015725",
+        "raw_global_tune": "0.7360048283015725",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.0106434583548864",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "142",
+        "center_turn": "38400",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "143",
+        "center_turn": "38656",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "144",
+        "center_turn": "38912",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "145",
+        "center_turn": "39168",
+        "selected_tune": "0.6945817845950902",
+        "raw_global_tune": "0.6945817845950902",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.1575916127238726",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "146",
+        "center_turn": "39424",
+        "selected_tune": "0.7226676899876879",
+        "raw_global_tune": "0.6945708535049626",
+        "tracked_local_tune": "0.7226676899876879",
+        "selected_confidence": "2.0092370746178134",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "147",
+        "center_turn": "39680",
+        "selected_tune": "0.7063568988318836",
+        "raw_global_tune": "0.7063568988318836",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.313074830269171",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "148",
+        "center_turn": "39936",
+        "selected_tune": "0.7064033700367462",
+        "raw_global_tune": "0.7064033700367462",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.444885213529792",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "149",
+        "center_turn": "40192",
+        "selected_tune": "0.7064697939090282",
+        "raw_global_tune": "0.7064697939090282",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.609895121094349",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "150",
+        "center_turn": "40448",
+        "selected_tune": "0.7065090463799739",
+        "raw_global_tune": "0.7065090463799739",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.7843925596170735",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "151",
+        "center_turn": "40704",
+        "selected_tune": "0.7065428030870979",
+        "raw_global_tune": "0.7065428030870979",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.6502317498075745",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "152",
+        "center_turn": "40960",
+        "selected_tune": "0.7065940367904503",
+        "raw_global_tune": "0.7065940367904503",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.268364743064497",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "153",
+        "center_turn": "41216",
+        "selected_tune": "0.706705521016784",
+        "raw_global_tune": "0.706705521016784",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.090531931330151",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "154",
+        "center_turn": "41472",
+        "selected_tune": "0.7067594268367846",
+        "raw_global_tune": "0.7067594268367846",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.024777167289312",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "155",
+        "center_turn": "41728",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "156",
+        "center_turn": "41984",
+        "selected_tune": "0.6904464255103424",
+        "raw_global_tune": "0.6904464255103424",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.094198747976763",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "157",
+        "center_turn": "42240",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "158",
+        "center_turn": "42496",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "159",
+        "center_turn": "42752",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "160",
+        "center_turn": "43008",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "161",
+        "center_turn": "43264",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "162",
+        "center_turn": "43520",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "163",
+        "center_turn": "43776",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "164",
+        "center_turn": "44032",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "165",
+        "center_turn": "44288",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "166",
+        "center_turn": "44544",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "167",
+        "center_turn": "44800",
+        "selected_tune": "0.7304354647220431",
+        "raw_global_tune": "0.7304354647220431",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.0049947042924323",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "168",
+        "center_turn": "45056",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "169",
+        "center_turn": "45312",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "170",
+        "center_turn": "45568",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "171",
+        "center_turn": "45824",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "172",
+        "center_turn": "46080",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "173",
+        "center_turn": "46336",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "174",
+        "center_turn": "46592",
+        "selected_tune": "",
+        "raw_global_tune": "",
+        "tracked_local_tune": "",
+        "selected_confidence": "",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "175",
+        "center_turn": "46848",
+        "selected_tune": "0.7106619638355779",
+        "raw_global_tune": "0.7106619638355779",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.1095090701249757",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "176",
+        "center_turn": "47104",
+        "selected_tune": "0.7106557544282353",
+        "raw_global_tune": "0.7106557544282353",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.204670137053336",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "177",
+        "center_turn": "47360",
+        "selected_tune": "0.7106439592310055",
+        "raw_global_tune": "0.7106439592310055",
+        "tracked_local_tune": "",
+        "selected_confidence": "2.2232220061713495",
+        "used_global_fallback": "True",
+        "suspicious_step": "True"
+      },
+      {
+        "window_index": "178",
+        "center_turn": "47616",
+        "selected_tune": "0.7262698317334297",
+        "raw_global_tune": "0.710635609924583",
+        "tracked_local_tune": "0.7262698317334297",
+        "selected_confidence": "2.0077849430859707",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      },
+      {
+        "window_index": "179",
+        "center_turn": "47872",
+        "selected_tune": "0.7263018702132918",
+        "raw_global_tune": "0.7263018702132918",
+        "tracked_local_tune": "0.7263018702132918",
+        "selected_confidence": "2.0537959491058797",
+        "used_global_fallback": "False",
+        "suspicious_step": "False"
+      }
+    ]
+  },
+  "bpm_index": [
+    {
+      "bpm_index": "0",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.10",
+      "plane": "H",
+      "digitizer": "10.200.22.10",
+      "ring_order": "101",
+      "source_key": "{MUON:BPM:10.200.22.10}:HP101:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "1",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.10",
+      "plane": "H",
+      "digitizer": "10.200.22.10",
+      "ring_order": "103",
+      "source_key": "{MUON:BPM:10.200.22.10}:HP103:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "2",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.11",
+      "plane": "H",
+      "digitizer": "10.200.22.11",
+      "ring_order": "105",
+      "source_key": "{MUON:BPM:10.200.22.11}:HP105:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "3",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.11",
+      "plane": "H",
+      "digitizer": "10.200.22.11",
+      "ring_order": "107",
+      "source_key": "{MUON:BPM:10.200.22.11}:HP107:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "4",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.12",
+      "plane": "H",
+      "digitizer": "10.200.22.12",
+      "ring_order": "109",
+      "source_key": "{MUON:BPM:10.200.22.12}:HP109:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "5",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.12",
+      "plane": "H",
+      "digitizer": "10.200.22.12",
+      "ring_order": "111",
+      "source_key": "{MUON:BPM:10.200.22.12}:HP111:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "6",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.13",
+      "plane": "H",
+      "digitizer": "10.200.22.13",
+      "ring_order": "113",
+      "source_key": "{MUON:BPM:10.200.22.13}:HP113:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "7",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.13",
+      "plane": "H",
+      "digitizer": "10.200.22.13",
+      "ring_order": "115",
+      "source_key": "{MUON:BPM:10.200.22.13}:HP115:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "8",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.14",
+      "plane": "H",
+      "digitizer": "10.200.22.14",
+      "ring_order": "117",
+      "source_key": "{MUON:BPM:10.200.22.14}:HP117:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "9",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.14",
+      "plane": "H",
+      "digitizer": "10.200.22.14",
+      "ring_order": "119",
+      "source_key": "{MUON:BPM:10.200.22.14}:HP119:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "10",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.20",
+      "plane": "H",
+      "digitizer": "10.200.22.20",
+      "ring_order": "217",
+      "source_key": "{MUON:BPM:10.200.22.20}:HP217:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "11",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.20",
+      "plane": "H",
+      "digitizer": "10.200.22.20",
+      "ring_order": "219",
+      "source_key": "{MUON:BPM:10.200.22.20}:HP219:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "12",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.21",
+      "plane": "H",
+      "digitizer": "10.200.22.21",
+      "ring_order": "213",
+      "source_key": "{MUON:BPM:10.200.22.21}:HP213:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "13",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.21",
+      "plane": "H",
+      "digitizer": "10.200.22.21",
+      "ring_order": "215",
+      "source_key": "{MUON:BPM:10.200.22.21}:HP215:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "14",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.22",
+      "plane": "H",
+      "digitizer": "10.200.22.22",
+      "ring_order": "209",
+      "source_key": "{MUON:BPM:10.200.22.22}:HP209:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "15",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.22",
+      "plane": "H",
+      "digitizer": "10.200.22.22",
+      "ring_order": "211",
+      "source_key": "{MUON:BPM:10.200.22.22}:HP211:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "16",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.23",
+      "plane": "H",
+      "digitizer": "10.200.22.23",
+      "ring_order": "205",
+      "source_key": "{MUON:BPM:10.200.22.23}:HP205:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "17",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.23",
+      "plane": "H",
+      "digitizer": "10.200.22.23",
+      "ring_order": "207",
+      "source_key": "{MUON:BPM:10.200.22.23}:HP207:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "18",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.24",
+      "plane": "H",
+      "digitizer": "10.200.22.24",
+      "ring_order": "201",
+      "source_key": "{MUON:BPM:10.200.22.24}:HP201:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "19",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.24",
+      "plane": "H",
+      "digitizer": "10.200.22.24",
+      "ring_order": "203",
+      "source_key": "{MUON:BPM:10.200.22.24}:HP203:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "20",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.30",
+      "plane": "H",
+      "digitizer": "10.200.22.30",
+      "ring_order": "301",
+      "source_key": "{MUON:BPM:10.200.22.30}:HP301:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "21",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.30",
+      "plane": "H",
+      "digitizer": "10.200.22.30",
+      "ring_order": "303",
+      "source_key": "{MUON:BPM:10.200.22.30}:HP303:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "22",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.31",
+      "plane": "H",
+      "digitizer": "10.200.22.31",
+      "ring_order": "305",
+      "source_key": "{MUON:BPM:10.200.22.31}:HP305:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "23",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.31",
+      "plane": "H",
+      "digitizer": "10.200.22.31",
+      "ring_order": "307",
+      "source_key": "{MUON:BPM:10.200.22.31}:HP307:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "24",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.32",
+      "plane": "H",
+      "digitizer": "10.200.22.32",
+      "ring_order": "309",
+      "source_key": "{MUON:BPM:10.200.22.32}:HP309:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "25",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.32",
+      "plane": "H",
+      "digitizer": "10.200.22.32",
+      "ring_order": "311",
+      "source_key": "{MUON:BPM:10.200.22.32}:HP311:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "26",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.33",
+      "plane": "H",
+      "digitizer": "10.200.22.33",
+      "ring_order": "313",
+      "source_key": "{MUON:BPM:10.200.22.33}:HP313:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "27",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.33",
+      "plane": "H",
+      "digitizer": "10.200.22.33",
+      "ring_order": "315",
+      "source_key": "{MUON:BPM:10.200.22.33}:HP315:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "28",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.34",
+      "plane": "H",
+      "digitizer": "10.200.22.34",
+      "ring_order": "317",
+      "source_key": "{MUON:BPM:10.200.22.34}:HP317:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "29",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.34",
+      "plane": "H",
+      "digitizer": "10.200.22.34",
+      "ring_order": "319",
+      "source_key": "{MUON:BPM:10.200.22.34}:HP319:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "30",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.40",
+      "plane": "H",
+      "digitizer": "10.200.22.40",
+      "ring_order": "417",
+      "source_key": "{MUON:BPM:10.200.22.40}:HP417:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "31",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.40",
+      "plane": "H",
+      "digitizer": "10.200.22.40",
+      "ring_order": "419",
+      "source_key": "{MUON:BPM:10.200.22.40}:HP419:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "32",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.41",
+      "plane": "H",
+      "digitizer": "10.200.22.41",
+      "ring_order": "413",
+      "source_key": "{MUON:BPM:10.200.22.41}:HP413:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "33",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.41",
+      "plane": "H",
+      "digitizer": "10.200.22.41",
+      "ring_order": "415",
+      "source_key": "{MUON:BPM:10.200.22.41}:HP415:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "34",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.42",
+      "plane": "H",
+      "digitizer": "10.200.22.42",
+      "ring_order": "409",
+      "source_key": "{MUON:BPM:10.200.22.42}:HP409:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "35",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.42",
+      "plane": "H",
+      "digitizer": "10.200.22.42",
+      "ring_order": "411",
+      "source_key": "{MUON:BPM:10.200.22.42}:HP411:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "36",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.43",
+      "plane": "H",
+      "digitizer": "10.200.22.43",
+      "ring_order": "405",
+      "source_key": "{MUON:BPM:10.200.22.43}:HP405:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "37",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.43",
+      "plane": "H",
+      "digitizer": "10.200.22.43",
+      "ring_order": "407",
+      "source_key": "{MUON:BPM:10.200.22.43}:HP407:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "38",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.44",
+      "plane": "H",
+      "digitizer": "10.200.22.44",
+      "ring_order": "401",
+      "source_key": "{MUON:BPM:10.200.22.44}:HP401:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "39",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.44",
+      "plane": "H",
+      "digitizer": "10.200.22.44",
+      "ring_order": "403",
+      "source_key": "{MUON:BPM:10.200.22.44}:HP403:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "40",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.50",
+      "plane": "H",
+      "digitizer": "10.200.22.50",
+      "ring_order": "501",
+      "source_key": "{MUON:BPM:10.200.22.50}:HP501:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "41",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.50",
+      "plane": "H",
+      "digitizer": "10.200.22.50",
+      "ring_order": "503",
+      "source_key": "{MUON:BPM:10.200.22.50}:HP503:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "42",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.51",
+      "plane": "H",
+      "digitizer": "10.200.22.51",
+      "ring_order": "505",
+      "source_key": "{MUON:BPM:10.200.22.51}:HP505:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "43",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.51",
+      "plane": "H",
+      "digitizer": "10.200.22.51",
+      "ring_order": "507",
+      "source_key": "{MUON:BPM:10.200.22.51}:HP507:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "44",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.52",
+      "plane": "H",
+      "digitizer": "10.200.22.52",
+      "ring_order": "509",
+      "source_key": "{MUON:BPM:10.200.22.52}:HP509:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "45",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.52",
+      "plane": "H",
+      "digitizer": "10.200.22.52",
+      "ring_order": "511",
+      "source_key": "{MUON:BPM:10.200.22.52}:HP511:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "46",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.53",
+      "plane": "H",
+      "digitizer": "10.200.22.53",
+      "ring_order": "513",
+      "source_key": "{MUON:BPM:10.200.22.53}:HP513:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "47",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.53",
+      "plane": "H",
+      "digitizer": "10.200.22.53",
+      "ring_order": "515",
+      "source_key": "{MUON:BPM:10.200.22.53}:HP515:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "48",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.54",
+      "plane": "H",
+      "digitizer": "10.200.22.54",
+      "ring_order": "517",
+      "source_key": "{MUON:BPM:10.200.22.54}:HP517:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "49",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.54",
+      "plane": "H",
+      "digitizer": "10.200.22.54",
+      "ring_order": "519",
+      "source_key": "{MUON:BPM:10.200.22.54}:HP519:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "50",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.60",
+      "plane": "H",
+      "digitizer": "10.200.22.60",
+      "ring_order": "617",
+      "source_key": "{MUON:BPM:10.200.22.60}:HP617:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "51",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.60",
+      "plane": "H",
+      "digitizer": "10.200.22.60",
+      "ring_order": "619",
+      "source_key": "{MUON:BPM:10.200.22.60}:HP619:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "52",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.61",
+      "plane": "H",
+      "digitizer": "10.200.22.61",
+      "ring_order": "613",
+      "source_key": "{MUON:BPM:10.200.22.61}:HP613:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "53",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.61",
+      "plane": "H",
+      "digitizer": "10.200.22.61",
+      "ring_order": "615",
+      "source_key": "{MUON:BPM:10.200.22.61}:HP615:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "54",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.62",
+      "plane": "H",
+      "digitizer": "10.200.22.62",
+      "ring_order": "609",
+      "source_key": "{MUON:BPM:10.200.22.62}:HP609:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "55",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.62",
+      "plane": "H",
+      "digitizer": "10.200.22.62",
+      "ring_order": "611",
+      "source_key": "{MUON:BPM:10.200.22.62}:HP611:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "56",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.63",
+      "plane": "H",
+      "digitizer": "10.200.22.63",
+      "ring_order": "605",
+      "source_key": "{MUON:BPM:10.200.22.63}:HP605:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "57",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.63",
+      "plane": "H",
+      "digitizer": "10.200.22.63",
+      "ring_order": "607",
+      "source_key": "{MUON:BPM:10.200.22.63}:HP607:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "58",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.64",
+      "plane": "H",
+      "digitizer": "10.200.22.64",
+      "ring_order": "601",
+      "source_key": "{MUON:BPM:10.200.22.64}:HP601:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "59",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.64",
+      "plane": "H",
+      "digitizer": "10.200.22.64",
+      "ring_order": "603",
+      "source_key": "{MUON:BPM:10.200.22.64}:HP603:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "0",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.10",
+      "plane": "V",
+      "digitizer": "10.200.22.10",
+      "ring_order": "102",
+      "source_key": "{MUON:BPM:10.200.22.10}:VP102:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "1",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.10",
+      "plane": "V",
+      "digitizer": "10.200.22.10",
+      "ring_order": "104",
+      "source_key": "{MUON:BPM:10.200.22.10}:VP104:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "2",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.11",
+      "plane": "V",
+      "digitizer": "10.200.22.11",
+      "ring_order": "106",
+      "source_key": "{MUON:BPM:10.200.22.11}:VP106:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "3",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.11",
+      "plane": "V",
+      "digitizer": "10.200.22.11",
+      "ring_order": "108",
+      "source_key": "{MUON:BPM:10.200.22.11}:VP108:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "4",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.12",
+      "plane": "V",
+      "digitizer": "10.200.22.12",
+      "ring_order": "110",
+      "source_key": "{MUON:BPM:10.200.22.12}:VP110:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "5",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.12",
+      "plane": "V",
+      "digitizer": "10.200.22.12",
+      "ring_order": "112",
+      "source_key": "{MUON:BPM:10.200.22.12}:VP112:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "6",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.13",
+      "plane": "V",
+      "digitizer": "10.200.22.13",
+      "ring_order": "114",
+      "source_key": "{MUON:BPM:10.200.22.13}:VP114:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "7",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.13",
+      "plane": "V",
+      "digitizer": "10.200.22.13",
+      "ring_order": "116",
+      "source_key": "{MUON:BPM:10.200.22.13}:VP116:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "8",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.14",
+      "plane": "V",
+      "digitizer": "10.200.22.14",
+      "ring_order": "118",
+      "source_key": "{MUON:BPM:10.200.22.14}:VP118:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "9",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.14",
+      "plane": "V",
+      "digitizer": "10.200.22.14",
+      "ring_order": "119",
+      "source_key": "{MUON:BPM:10.200.22.14}:VP119:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "10",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.20",
+      "plane": "V",
+      "digitizer": "10.200.22.20",
+      "ring_order": "218",
+      "source_key": "{MUON:BPM:10.200.22.20}:VP218:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "11",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.20",
+      "plane": "V",
+      "digitizer": "10.200.22.20",
+      "ring_order": "219",
+      "source_key": "{MUON:BPM:10.200.22.20}:VP219:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "12",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.21",
+      "plane": "V",
+      "digitizer": "10.200.22.21",
+      "ring_order": "214",
+      "source_key": "{MUON:BPM:10.200.22.21}:VP214:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "13",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.21",
+      "plane": "V",
+      "digitizer": "10.200.22.21",
+      "ring_order": "216",
+      "source_key": "{MUON:BPM:10.200.22.21}:VP216:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "14",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.22",
+      "plane": "V",
+      "digitizer": "10.200.22.22",
+      "ring_order": "210",
+      "source_key": "{MUON:BPM:10.200.22.22}:VP210:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "15",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.22",
+      "plane": "V",
+      "digitizer": "10.200.22.22",
+      "ring_order": "212",
+      "source_key": "{MUON:BPM:10.200.22.22}:VP212:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "16",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.23",
+      "plane": "V",
+      "digitizer": "10.200.22.23",
+      "ring_order": "206",
+      "source_key": "{MUON:BPM:10.200.22.23}:VP206:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "17",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.23",
+      "plane": "V",
+      "digitizer": "10.200.22.23",
+      "ring_order": "208",
+      "source_key": "{MUON:BPM:10.200.22.23}:VP208:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "18",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.24",
+      "plane": "V",
+      "digitizer": "10.200.22.24",
+      "ring_order": "202",
+      "source_key": "{MUON:BPM:10.200.22.24}:VP202:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "19",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.24",
+      "plane": "V",
+      "digitizer": "10.200.22.24",
+      "ring_order": "204",
+      "source_key": "{MUON:BPM:10.200.22.24}:VP204:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "20",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.30",
+      "plane": "V",
+      "digitizer": "10.200.22.30",
+      "ring_order": "302",
+      "source_key": "{MUON:BPM:10.200.22.30}:VP302:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "21",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.30",
+      "plane": "V",
+      "digitizer": "10.200.22.30",
+      "ring_order": "304",
+      "source_key": "{MUON:BPM:10.200.22.30}:VP304:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "22",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.31",
+      "plane": "V",
+      "digitizer": "10.200.22.31",
+      "ring_order": "306",
+      "source_key": "{MUON:BPM:10.200.22.31}:VP306:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "23",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.31",
+      "plane": "V",
+      "digitizer": "10.200.22.31",
+      "ring_order": "308",
+      "source_key": "{MUON:BPM:10.200.22.31}:VP308:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "24",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.32",
+      "plane": "V",
+      "digitizer": "10.200.22.32",
+      "ring_order": "310",
+      "source_key": "{MUON:BPM:10.200.22.32}:VP310:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "25",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.32",
+      "plane": "V",
+      "digitizer": "10.200.22.32",
+      "ring_order": "312",
+      "source_key": "{MUON:BPM:10.200.22.32}:VP312:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "26",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.33",
+      "plane": "V",
+      "digitizer": "10.200.22.33",
+      "ring_order": "314",
+      "source_key": "{MUON:BPM:10.200.22.33}:VP314:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "27",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.33",
+      "plane": "V",
+      "digitizer": "10.200.22.33",
+      "ring_order": "316",
+      "source_key": "{MUON:BPM:10.200.22.33}:VP316:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "28",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.34",
+      "plane": "V",
+      "digitizer": "10.200.22.34",
+      "ring_order": "318",
+      "source_key": "{MUON:BPM:10.200.22.34}:VP318:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "29",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.34",
+      "plane": "V",
+      "digitizer": "10.200.22.34",
+      "ring_order": "319",
+      "source_key": "{MUON:BPM:10.200.22.34}:VP319:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "30",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.40",
+      "plane": "V",
+      "digitizer": "10.200.22.40",
+      "ring_order": "418",
+      "source_key": "{MUON:BPM:10.200.22.40}:VP418:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "31",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.40",
+      "plane": "V",
+      "digitizer": "10.200.22.40",
+      "ring_order": "419",
+      "source_key": "{MUON:BPM:10.200.22.40}:VP419:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "32",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.41",
+      "plane": "V",
+      "digitizer": "10.200.22.41",
+      "ring_order": "414",
+      "source_key": "{MUON:BPM:10.200.22.41}:VP414:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "33",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.41",
+      "plane": "V",
+      "digitizer": "10.200.22.41",
+      "ring_order": "416",
+      "source_key": "{MUON:BPM:10.200.22.41}:VP416:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "34",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.42",
+      "plane": "V",
+      "digitizer": "10.200.22.42",
+      "ring_order": "410",
+      "source_key": "{MUON:BPM:10.200.22.42}:VP410:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "35",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.42",
+      "plane": "V",
+      "digitizer": "10.200.22.42",
+      "ring_order": "412",
+      "source_key": "{MUON:BPM:10.200.22.42}:VP412:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "36",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.43",
+      "plane": "V",
+      "digitizer": "10.200.22.43",
+      "ring_order": "406",
+      "source_key": "{MUON:BPM:10.200.22.43}:VP406:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "37",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.43",
+      "plane": "V",
+      "digitizer": "10.200.22.43",
+      "ring_order": "408",
+      "source_key": "{MUON:BPM:10.200.22.43}:VP408:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "38",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.44",
+      "plane": "V",
+      "digitizer": "10.200.22.44",
+      "ring_order": "402",
+      "source_key": "{MUON:BPM:10.200.22.44}:VP402:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "39",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.44",
+      "plane": "V",
+      "digitizer": "10.200.22.44",
+      "ring_order": "404",
+      "source_key": "{MUON:BPM:10.200.22.44}:VP404:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "40",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.50",
+      "plane": "V",
+      "digitizer": "10.200.22.50",
+      "ring_order": "502",
+      "source_key": "{MUON:BPM:10.200.22.50}:VP502:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "41",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.50",
+      "plane": "V",
+      "digitizer": "10.200.22.50",
+      "ring_order": "504",
+      "source_key": "{MUON:BPM:10.200.22.50}:VP504:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "42",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.51",
+      "plane": "V",
+      "digitizer": "10.200.22.51",
+      "ring_order": "506",
+      "source_key": "{MUON:BPM:10.200.22.51}:VP506:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "43",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.51",
+      "plane": "V",
+      "digitizer": "10.200.22.51",
+      "ring_order": "508",
+      "source_key": "{MUON:BPM:10.200.22.51}:VP508:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "44",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.52",
+      "plane": "V",
+      "digitizer": "10.200.22.52",
+      "ring_order": "510",
+      "source_key": "{MUON:BPM:10.200.22.52}:VP510:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "45",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.52",
+      "plane": "V",
+      "digitizer": "10.200.22.52",
+      "ring_order": "512",
+      "source_key": "{MUON:BPM:10.200.22.52}:VP512:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "46",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.53",
+      "plane": "V",
+      "digitizer": "10.200.22.53",
+      "ring_order": "514",
+      "source_key": "{MUON:BPM:10.200.22.53}:VP514:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "47",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.53",
+      "plane": "V",
+      "digitizer": "10.200.22.53",
+      "ring_order": "516",
+      "source_key": "{MUON:BPM:10.200.22.53}:VP516:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "48",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.54",
+      "plane": "V",
+      "digitizer": "10.200.22.54",
+      "ring_order": "518",
+      "source_key": "{MUON:BPM:10.200.22.54}:VP518:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "49",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.54",
+      "plane": "V",
+      "digitizer": "10.200.22.54",
+      "ring_order": "519",
+      "source_key": "{MUON:BPM:10.200.22.54}:VP519:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "50",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.60",
+      "plane": "V",
+      "digitizer": "10.200.22.60",
+      "ring_order": "618",
+      "source_key": "{MUON:BPM:10.200.22.60}:VP618:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "51",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.60",
+      "plane": "V",
+      "digitizer": "10.200.22.60",
+      "ring_order": "619",
+      "source_key": "{MUON:BPM:10.200.22.60}:VP619:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "52",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.61",
+      "plane": "V",
+      "digitizer": "10.200.22.61",
+      "ring_order": "614",
+      "source_key": "{MUON:BPM:10.200.22.61}:VP614:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "53",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.61",
+      "plane": "V",
+      "digitizer": "10.200.22.61",
+      "ring_order": "616",
+      "source_key": "{MUON:BPM:10.200.22.61}:VP616:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "54",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.62",
+      "plane": "V",
+      "digitizer": "10.200.22.62",
+      "ring_order": "610",
+      "source_key": "{MUON:BPM:10.200.22.62}:VP610:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "55",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.62",
+      "plane": "V",
+      "digitizer": "10.200.22.62",
+      "ring_order": "612",
+      "source_key": "{MUON:BPM:10.200.22.62}:VP612:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "56",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.63",
+      "plane": "V",
+      "digitizer": "10.200.22.63",
+      "ring_order": "606",
+      "source_key": "{MUON:BPM:10.200.22.63}:VP606:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "57",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.63",
+      "plane": "V",
+      "digitizer": "10.200.22.63",
+      "ring_order": "608",
+      "source_key": "{MUON:BPM:10.200.22.63}:VP608:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "58",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.64",
+      "plane": "V",
+      "digitizer": "10.200.22.64",
+      "ring_order": "602",
+      "source_key": "{MUON:BPM:10.200.22.64}:VP602:TBT_POSITION_RAW"
+    },
+    {
+      "bpm_index": "59",
+      "bpm_name": "acsys_DeliveryRingBPM 10.200.22.64",
+      "plane": "V",
+      "digitizer": "10.200.22.64",
+      "ring_order": "604",
+      "source_key": "{MUON:BPM:10.200.22.64}:VP604:TBT_POSITION_RAW"
+    }
+  ],
+  "bundle_files": {
+    "capture_summary.txt": "933a3725851c34dbeb10d836a84e5e2eb04837b003a35206c1a7a100fabc1c3d",
+    "manifest.json": "d4585203174949470aff246cb4e9c6e4fc855a8fc25e2c5d743befd3291ce03d",
+    "payloads/stream_000_H_1780957889654_MUON_BPM_10.200.22.10_HP101_TBT_POSITION_RAW.bin": "98ad79bf76e68e7c4fdd2b30d175a5ad37e38deb4fe0e0a8361318ec5d608adb",
+    "payloads/stream_001_H_1780957889654_MUON_BPM_10.200.22.10_HP103_TBT_POSITION_RAW.bin": "00b9b2fe4ea51b62b7d6c87e55d6bac9deed9a3e263931af1284d602fc30f75d",
+    "payloads/stream_002_V_1780957889654_MUON_BPM_10.200.22.10_VP102_TBT_POSITION_RAW.bin": "e499779637a18e2d35355f8672fb952e75976d3c7f967723cdf54bebd72a3151",
+    "payloads/stream_003_V_1780957889654_MUON_BPM_10.200.22.10_VP104_TBT_POSITION_RAW.bin": "f7d548d942be56ce9a7fd373f4bff03472134d7bfded17935cb05baaf25835bf",
+    "payloads/stream_004_H_1780957889654_MUON_BPM_10.200.22.11_HP105_TBT_POSITION_RAW.bin": "48174ca4452ab34e8cab8cac580464de2d4c57e8bb0b7d2f6392bfbba151315a",
+    "payloads/stream_005_H_1780957889654_MUON_BPM_10.200.22.11_HP107_TBT_POSITION_RAW.bin": "457b326bcc897e6974c959d65d003316e35353c48db4cbdcc7c69d68fc8f997e",
+    "payloads/stream_006_V_1780957889654_MUON_BPM_10.200.22.11_VP106_TBT_POSITION_RAW.bin": "28a8db9e489baede73f059674cbdee3f9f344d5ab9f5b23c3f5d3c0b4aea50cc",
+    "payloads/stream_007_V_1780957889654_MUON_BPM_10.200.22.11_VP108_TBT_POSITION_RAW.bin": "a45a54542c385d68ea341eccc19bfbec686b8decfb99ce4fd28dd602ce1bff88",
+    "payloads/stream_008_H_1780957889653_MUON_BPM_10.200.22.12_HP109_TBT_POSITION_RAW.bin": "df463d9752278b948bcffd2f5c0808e1e45e37171a02519946fc5c1a392346b7",
+    "payloads/stream_009_H_1780957889653_MUON_BPM_10.200.22.12_HP111_TBT_POSITION_RAW.bin": "952d364359ceb0e7d689fdbc60fbc5c611e86916f7ef6de397bbd0ec3ada78fc",
+    "payloads/stream_010_V_1780957889653_MUON_BPM_10.200.22.12_VP110_TBT_POSITION_RAW.bin": "3f25fc0c17f7e85ac49085d4678ee8fade9726edec50ae52922852e58ff84ae5",
+    "payloads/stream_011_V_1780957889653_MUON_BPM_10.200.22.12_VP112_TBT_POSITION_RAW.bin": "3662a8786227d071afed3f348da76511462d9c8324585f481674b790de262658",
+    "payloads/stream_012_H_1780957889653_MUON_BPM_10.200.22.13_HP113_TBT_POSITION_RAW.bin": "d0dd136974ef3c918729c39c10ab802ef3b717fe2ada85b158e68d4543622539",
+    "payloads/stream_013_H_1780957889653_MUON_BPM_10.200.22.13_HP115_TBT_POSITION_RAW.bin": "6a0db8920de1f475df741fb052a97e67c711614c9597a4433c3538a5065c0854",
+    "payloads/stream_014_V_1780957889653_MUON_BPM_10.200.22.13_VP114_TBT_POSITION_RAW.bin": "48cd9aa4358679811d9ec3164ee60aa5bcda02c5c0963cd9e8ac14548ccb9ab4",
+    "payloads/stream_015_V_1780957889653_MUON_BPM_10.200.22.13_VP116_TBT_POSITION_RAW.bin": "36ab6231737486d47169a45410e3498de34cd84291a9a6dce61ec2edc8abcec4",
+    "payloads/stream_016_H_1780957889654_MUON_BPM_10.200.22.14_HP117_TBT_POSITION_RAW.bin": "7411a3e1ed2dbf29f1d0bad0b04d8f4104a97f2bcaac5e2f99266efb6c41e0ee",
+    "payloads/stream_017_H_1780957889654_MUON_BPM_10.200.22.14_HP119_TBT_POSITION_RAW.bin": "e6d87e529fe64022db78ce34de7d48a4c426e652bc4c2506ca470b8d36d6a117",
+    "payloads/stream_018_V_1780957889654_MUON_BPM_10.200.22.14_VP118_TBT_POSITION_RAW.bin": "f64355b847d7a9a10dfdd5ee141db5e53e221d5cf78dce3d2302e0dc2ea3afa4",
+    "payloads/stream_019_V_1780957889654_MUON_BPM_10.200.22.14_VP119_TBT_POSITION_RAW.bin": "6eec12ed5328745f17af1ec4bc42ab363935986d26827996b58fc14939a846d4",
+    "payloads/stream_020_H_1780957889653_MUON_BPM_10.200.22.20_HP217_TBT_POSITION_RAW.bin": "51cb2396371c8665d8bcd191a8e0cbd29a6aaa1596b2c4fef5354db43aeba234",
+    "payloads/stream_021_H_1780957889653_MUON_BPM_10.200.22.20_HP219_TBT_POSITION_RAW.bin": "581a94bca03644cbb2e3df3dc5fd06912f61eeceb0271896b3a3f2cb372c9127",
+    "payloads/stream_022_V_1780957889653_MUON_BPM_10.200.22.20_VP218_TBT_POSITION_RAW.bin": "2d0a876a93a3a0ad3c13b57c9006133d974aed8d0a5a6e23ac003b6b600df73c",
+    "payloads/stream_023_V_1780957889653_MUON_BPM_10.200.22.20_VP219_TBT_POSITION_RAW.bin": "97dbc4dabfb468c4efca33a5d4ab6dd6fab82810838f08eb7fce239c41d4ff3d",
+    "payloads/stream_024_H_1780957889653_MUON_BPM_10.200.22.21_HP213_TBT_POSITION_RAW.bin": "c9d679808a06ba0ebee0932adaee3b77c4eed5c7de003dfc95af783e801d3944",
+    "payloads/stream_025_H_1780957889653_MUON_BPM_10.200.22.21_HP215_TBT_POSITION_RAW.bin": "c91f062fd7b5aeb45bdb8dfd49c239b542fac350fa0f07900e6002c84f67265e",
+    "payloads/stream_026_V_1780957889653_MUON_BPM_10.200.22.21_VP214_TBT_POSITION_RAW.bin": "a710f34fda550a6a8df7e99cf943895cccd26e764495d6e3849752f42e63a29d",
+    "payloads/stream_027_V_1780957889653_MUON_BPM_10.200.22.21_VP216_TBT_POSITION_RAW.bin": "0bcaac2e1ef7cacfe92e25b5cc14024f313d145ad12d15f0d50771e2e7c88435",
+    "payloads/stream_028_H_1780957889653_MUON_BPM_10.200.22.22_HP209_TBT_POSITION_RAW.bin": "86e6f99d9197eb4d2a6d809e33b49d1b3236264ae249d33d4a70d7538be72895",
+    "payloads/stream_029_H_1780957889653_MUON_BPM_10.200.22.22_HP211_TBT_POSITION_RAW.bin": "ca72b9a344dfc077812c36c0364ff519496969348c9104656e320b959ba0d462",
+    "payloads/stream_030_V_1780957889653_MUON_BPM_10.200.22.22_VP210_TBT_POSITION_RAW.bin": "493f6d28fb4dd929b098d4b075617f4688ee53e1ab401cd49513637b05f37066",
+    "payloads/stream_031_V_1780957889653_MUON_BPM_10.200.22.22_VP212_TBT_POSITION_RAW.bin": "936bd49c7b561227eac92457c0f55f78f5f36b767494c79e18a283db73790523",
+    "payloads/stream_032_H_1780957889654_MUON_BPM_10.200.22.23_HP205_TBT_POSITION_RAW.bin": "458b946c4321b6595e63c8082eb43aa81176243ea485f4075e7356bf93c3a83b",
+    "payloads/stream_033_H_1780957889654_MUON_BPM_10.200.22.23_HP207_TBT_POSITION_RAW.bin": "54ee4e1c3d8facd69cfeeeb2ad8f7eda5471e1082de812480e93289ebafab6f1",
+    "payloads/stream_034_V_1780957889654_MUON_BPM_10.200.22.23_VP206_TBT_POSITION_RAW.bin": "27d032a39e6d27a4c08f28890d6de31f34ed923ef901aaf1428afa8e5b8ae3c2",
+    "payloads/stream_035_V_1780957889654_MUON_BPM_10.200.22.23_VP208_TBT_POSITION_RAW.bin": "6d3cf814d1b51c363e0df8a51cf21473344ec6634f6e1343fd3140541c6ad03a",
+    "payloads/stream_036_H_1780957889653_MUON_BPM_10.200.22.24_HP201_TBT_POSITION_RAW.bin": "3a5f098c098041e6e7fd6b02022982a3ecb84da1a55b44de537c59a296161505",
+    "payloads/stream_037_H_1780957889653_MUON_BPM_10.200.22.24_HP203_TBT_POSITION_RAW.bin": "cb6832f045580a5586622937ad0a682b99e7ec1b888af49fd1a57b2c5a0bdeda",
+    "payloads/stream_038_V_1780957889653_MUON_BPM_10.200.22.24_VP202_TBT_POSITION_RAW.bin": "7d09f5835431fc7175303c272d44391afde2ec8a65876e75ccadf66d6f574132",
+    "payloads/stream_039_V_1780957889653_MUON_BPM_10.200.22.24_VP204_TBT_POSITION_RAW.bin": "5ea6fb02bbc0d8dc2adfc78d17ed24822a7aacc0ac99b214d3ac7964173971d2",
+    "payloads/stream_040_H_1780957889653_MUON_BPM_10.200.22.30_HP301_TBT_POSITION_RAW.bin": "4661b5efaea48562fc32a4957a90d430a4bcdceadbde26374e448a722141dfc2",
+    "payloads/stream_041_H_1780957889653_MUON_BPM_10.200.22.30_HP303_TBT_POSITION_RAW.bin": "f6971b3887e1f0f60eec9518cdc76b0b37e6d7527c05aa942a283c72d71d36f1",
+    "payloads/stream_042_V_1780957889653_MUON_BPM_10.200.22.30_VP302_TBT_POSITION_RAW.bin": "c2acf493f4e6768d578c5245a7946cdf3d212442b41fc55b1a96043ed12ec850",
+    "payloads/stream_043_V_1780957889653_MUON_BPM_10.200.22.30_VP304_TBT_POSITION_RAW.bin": "6db9f97a3791b765ece0d344358b5f0dd7b18d735be92f802d6fb78c1ed15dd2",
+    "payloads/stream_044_H_1780957889653_MUON_BPM_10.200.22.31_HP305_TBT_POSITION_RAW.bin": "f76f94e0a3b31a4fb2ee4cd69fe6ca25268df0a6aa46caf9548ca694da0acb08",
+    "payloads/stream_045_H_1780957889653_MUON_BPM_10.200.22.31_HP307_TBT_POSITION_RAW.bin": "2b0eb28f0d8cc69a845cadf1b574e8ae877f73ef23528edac6f3da85c55a8e5d",
+    "payloads/stream_046_V_1780957889653_MUON_BPM_10.200.22.31_VP306_TBT_POSITION_RAW.bin": "d565df9ecdfe0e91aa9c143f2af3e25dbb6d9f2fa6aa46bbd3dcef043d42339a",
+    "payloads/stream_047_V_1780957889653_MUON_BPM_10.200.22.31_VP308_TBT_POSITION_RAW.bin": "d279d58b72f08a21327a664a69ce35d93e96c4f62b185d7d7f2b0be6b1146415",
+    "payloads/stream_048_H_1780957889653_MUON_BPM_10.200.22.32_HP309_TBT_POSITION_RAW.bin": "9a4c08353cfc2465a7465c28ab81b2f3b625744c840f0689bc093f6f1384b247",
+    "payloads/stream_049_H_1780957889653_MUON_BPM_10.200.22.32_HP311_TBT_POSITION_RAW.bin": "785d2ee354b06ba52b29dcd88b032d61d5063a90c4d4e2e8f03c1850eb5b3d0a",
+    "payloads/stream_050_V_1780957889653_MUON_BPM_10.200.22.32_VP310_TBT_POSITION_RAW.bin": "ed96b0a4fdfc1d1782ed91f2ba5a90c4c88baff80b5a363bd9e4dd8b22277933",
+    "payloads/stream_051_V_1780957889653_MUON_BPM_10.200.22.32_VP312_TBT_POSITION_RAW.bin": "a5b83b1672ac6f9ac0ef610050b3d43b541dfcdbe81b56ad22151fad025ecb94",
+    "payloads/stream_052_H_1780957889654_MUON_BPM_10.200.22.33_HP313_TBT_POSITION_RAW.bin": "01fc3b15c4c4c4f74b9f12734cf6277317d46e26fc19759b82d3da5fbc8ccdb6",
+    "payloads/stream_053_H_1780957889654_MUON_BPM_10.200.22.33_HP315_TBT_POSITION_RAW.bin": "23ae8f60cd133b062cfa3b77b78589ed199206472ce7bd5343144e545438ecda",
+    "payloads/stream_054_V_1780957889654_MUON_BPM_10.200.22.33_VP314_TBT_POSITION_RAW.bin": "1c5abbcc4d7413057727bd3bd0122df7f533e3845ef58d9c1af6010e79504789",
+    "payloads/stream_055_V_1780957889654_MUON_BPM_10.200.22.33_VP316_TBT_POSITION_RAW.bin": "6e91d7cdfb7e2cc4a8f2b93f920785e234c7703bf0c9d07ad199a5d436384938",
+    "payloads/stream_056_H_1780957889654_MUON_BPM_10.200.22.34_HP317_TBT_POSITION_RAW.bin": "0318cc3351d1deb0b279d9a0bb53f51993d1bd26b3ad8b2c66a0d3881bb0fef8",
+    "payloads/stream_057_H_1780957889654_MUON_BPM_10.200.22.34_HP319_TBT_POSITION_RAW.bin": "17f73a525bb448d446ddb8eba42b549fd3facdd8b6007c41dcb98f107a9e5db4",
+    "payloads/stream_058_V_1780957889654_MUON_BPM_10.200.22.34_VP318_TBT_POSITION_RAW.bin": "4fec67bfacc709987389d73a637109700fc333d4e70be92a28535bdf3194979e",
+    "payloads/stream_059_V_1780957889654_MUON_BPM_10.200.22.34_VP319_TBT_POSITION_RAW.bin": "7bd0351dc25ae250b8ca261b497c84a9a097299906fa55c6dc4fa20a87a3c28e",
+    "payloads/stream_060_H_1780957889654_MUON_BPM_10.200.22.40_HP417_TBT_POSITION_RAW.bin": "6dae103767eb7c46aa70a472f31a8d4385cceebca37f410c8aeb5a1ce4242b29",
+    "payloads/stream_061_H_1780957889654_MUON_BPM_10.200.22.40_HP419_TBT_POSITION_RAW.bin": "8343a06727ee9567ffc2b043209b4bda3f3a586361699538f5b2d2634b719115",
+    "payloads/stream_062_V_1780957889654_MUON_BPM_10.200.22.40_VP418_TBT_POSITION_RAW.bin": "aa07e6514c3331161a9320e84c9ccc4b16633c3395b77908883f382350ae18cb",
+    "payloads/stream_063_V_1780957889654_MUON_BPM_10.200.22.40_VP419_TBT_POSITION_RAW.bin": "10bcc8ef938b511ea40f8a51c80be441db3131eec24faad1211f63b2ec6c2d04",
+    "payloads/stream_064_H_1780957889653_MUON_BPM_10.200.22.41_HP413_TBT_POSITION_RAW.bin": "8ac5de27fc116d173e534a27561642b13ea64396d167437c29af1ae8e95ad50a",
+    "payloads/stream_065_H_1780957889653_MUON_BPM_10.200.22.41_HP415_TBT_POSITION_RAW.bin": "18080d315647b327b01ca86883ab4d02358183d99b821b0b288238ede4e6ae8f",
+    "payloads/stream_066_V_1780957889653_MUON_BPM_10.200.22.41_VP414_TBT_POSITION_RAW.bin": "a300ffa77b4c8f3880154fb7d0be88edfc0177ed179ba02aa37003bb2282f1b2",
+    "payloads/stream_067_V_1780957889653_MUON_BPM_10.200.22.41_VP416_TBT_POSITION_RAW.bin": "f3fa7ff3b0f35725038df4b26e858eff5b14a308e1a027c624da84bbcc991da6",
+    "payloads/stream_068_H_1780957889654_MUON_BPM_10.200.22.42_HP409_TBT_POSITION_RAW.bin": "b319408eaefb2a0acd052b953711805b522e0378bfc201deefcd863dd86068a1",
+    "payloads/stream_069_H_1780957889654_MUON_BPM_10.200.22.42_HP411_TBT_POSITION_RAW.bin": "d43c4f03c3cd9e1f8f87a46d1d4050267a2ca60258ea626b54fee1bc373c3ae0",
+    "payloads/stream_070_V_1780957889654_MUON_BPM_10.200.22.42_VP410_TBT_POSITION_RAW.bin": "c5d4418c75eb3c01ad877e139037eff40166a58bbff700c3fbe121ec7ea3251d",
+    "payloads/stream_071_V_1780957889654_MUON_BPM_10.200.22.42_VP412_TBT_POSITION_RAW.bin": "ca7d30f486b2e472a1d710ab350c17faff12a9a2aef6a9850b08d19bc2bd98e9",
+    "payloads/stream_072_H_1780957889654_MUON_BPM_10.200.22.43_HP405_TBT_POSITION_RAW.bin": "b312f07d903703e29e50071938430f889565f4042772cf0bbb6cab8563a7e3f4",
+    "payloads/stream_073_H_1780957889654_MUON_BPM_10.200.22.43_HP407_TBT_POSITION_RAW.bin": "a08012f19c9def656bfc0a0871ced1b2acee0d61ef7d19e3199280950e5b5b76",
+    "payloads/stream_074_V_1780957889654_MUON_BPM_10.200.22.43_VP406_TBT_POSITION_RAW.bin": "0d925e5a36561418f0740cc190052c12139865fca7549d0005c37ebb00774adf",
+    "payloads/stream_075_V_1780957889654_MUON_BPM_10.200.22.43_VP408_TBT_POSITION_RAW.bin": "c4a469d054ec84821d09cff41074b3ced5be88aa4ccfa760dd002db6f3fb63fe",
+    "payloads/stream_076_H_1780957889654_MUON_BPM_10.200.22.44_HP401_TBT_POSITION_RAW.bin": "2f97f5d891cdb1adf33cdfc9fcefbf038f25ee6f19cfca3692df3916f132d38d",
+    "payloads/stream_077_H_1780957889654_MUON_BPM_10.200.22.44_HP403_TBT_POSITION_RAW.bin": "2c01566a3a49321e48f36ee71bf95801f1eb4a2276692c4eb9f0babdb4b20df5",
+    "payloads/stream_078_V_1780957889654_MUON_BPM_10.200.22.44_VP402_TBT_POSITION_RAW.bin": "786b7c2e1b4780d0e3829a841dab01132c31287f623eb08683e862762055e542",
+    "payloads/stream_079_V_1780957889654_MUON_BPM_10.200.22.44_VP404_TBT_POSITION_RAW.bin": "a8d0742e3addad7d0529ccf029d7a1945e233bc6d54bd5efb8258eeee141d8db",
+    "payloads/stream_080_H_1780957889653_MUON_BPM_10.200.22.50_HP501_TBT_POSITION_RAW.bin": "0d7ac9c248c4c7eae87b67d8a56fcf159b3e794925e4d99d5d434064ea43abcd",
+    "payloads/stream_081_H_1780957889653_MUON_BPM_10.200.22.50_HP503_TBT_POSITION_RAW.bin": "3cf7590b9b8a8397b8bc068a3aabd426c011dfd0cdca732c873103c836a8d07e",
+    "payloads/stream_082_V_1780957889653_MUON_BPM_10.200.22.50_VP502_TBT_POSITION_RAW.bin": "6b09142137d2da552e25de2e0c3fa85038402076db165a0c85f1eecebd9546e4",
+    "payloads/stream_083_V_1780957889653_MUON_BPM_10.200.22.50_VP504_TBT_POSITION_RAW.bin": "bf80f824fb1f827a1a099fc4e1d6eb4d07de18471583119b20d2de8f306d360c",
+    "payloads/stream_084_H_1780957889654_MUON_BPM_10.200.22.51_HP505_TBT_POSITION_RAW.bin": "1840bb32ac2b14959745cf804a2f96113cedffbb88aacf47e0c29639c9f88bc3",
+    "payloads/stream_085_H_1780957889654_MUON_BPM_10.200.22.51_HP507_TBT_POSITION_RAW.bin": "218467f0e89a5cb3ecb05c18b842a55db80ee653ff6a70ef8cc26e4b6bc679d9",
+    "payloads/stream_086_V_1780957889654_MUON_BPM_10.200.22.51_VP506_TBT_POSITION_RAW.bin": "c707819b5b4e62b47cfb2186574f1b86625f0133af93289366f2596c5ae83fdc",
+    "payloads/stream_087_V_1780957889654_MUON_BPM_10.200.22.51_VP508_TBT_POSITION_RAW.bin": "7c6eec5719105875576ff0e7a8fae8582c6ee3469c11e70e17646e27616e500a",
+    "payloads/stream_088_H_1780957889654_MUON_BPM_10.200.22.52_HP509_TBT_POSITION_RAW.bin": "f4974eef9c40eb24e7bef7f866c4324cf37ce6f4e67c033e8238a4d962101b1c",
+    "payloads/stream_089_H_1780957889654_MUON_BPM_10.200.22.52_HP511_TBT_POSITION_RAW.bin": "423766973ab3314c88594f02160609cad93d799f435359a2eb129596a4f6a871",
+    "payloads/stream_090_V_1780957889654_MUON_BPM_10.200.22.52_VP510_TBT_POSITION_RAW.bin": "28036d0709b5af30584eeeb00b6d19b2aa610017f1e3292ee0e1a777be58fdc4",
+    "payloads/stream_091_V_1780957889654_MUON_BPM_10.200.22.52_VP512_TBT_POSITION_RAW.bin": "6d2028eb6ba4d745f89c56e3de9e45e60f0d620adac2e2fafda8982b4ed4e16d",
+    "payloads/stream_092_H_1780957889654_MUON_BPM_10.200.22.53_HP513_TBT_POSITION_RAW.bin": "43897f77be5283848d59999cce65e39c6354967868e357e8ada1e424a3ca42e7",
+    "payloads/stream_093_H_1780957889654_MUON_BPM_10.200.22.53_HP515_TBT_POSITION_RAW.bin": "da13df43149dfb0499003ce692b67e4cfdeebb30a300239b944c5dfffcfefbd0",
+    "payloads/stream_094_V_1780957889654_MUON_BPM_10.200.22.53_VP514_TBT_POSITION_RAW.bin": "628aaab22cf01d2b3812cc00adf8c4a57bab2e59cb508a440a569e57d3dad106",
+    "payloads/stream_095_V_1780957889654_MUON_BPM_10.200.22.53_VP516_TBT_POSITION_RAW.bin": "14d299a024cf934f1dc5b83d9a9670c2ed03b869ad35081be7102b5cccd753fb",
+    "payloads/stream_096_H_1780957889654_MUON_BPM_10.200.22.54_HP517_TBT_POSITION_RAW.bin": "7e9e2d44e3eacc0445df8f3905bdbf0e16c0e95d54cc29e47ec4c863b2c87377",
+    "payloads/stream_097_H_1780957889654_MUON_BPM_10.200.22.54_HP519_TBT_POSITION_RAW.bin": "5d877e9c4699732d145056da5f93c1706e5dd1fbe8d5d71a3a0ee734da0515f6",
+    "payloads/stream_098_V_1780957889654_MUON_BPM_10.200.22.54_VP518_TBT_POSITION_RAW.bin": "72949a769871fdc285cf83e6c0f6cf79b496d5af1cc63a3da30f0b0367dceeb0",
+    "payloads/stream_099_V_1780957889654_MUON_BPM_10.200.22.54_VP519_TBT_POSITION_RAW.bin": "1892e03c85fd7af4c36771b17eaea82b877c5c02df2a33964f83a070e82cdf68",
+    "payloads/stream_100_H_1780957889653_MUON_BPM_10.200.22.60_HP617_TBT_POSITION_RAW.bin": "5c6e070db05fb68c62910339b7899512d0f8f0949e7343a388c056d0eec3d983",
+    "payloads/stream_101_H_1780957889653_MUON_BPM_10.200.22.60_HP619_TBT_POSITION_RAW.bin": "24fd24b6cb8177b911c87046b53605a49102934d98b644a8af862a03d6e1d069",
+    "payloads/stream_102_V_1780957889653_MUON_BPM_10.200.22.60_VP618_TBT_POSITION_RAW.bin": "c9dfc2dffa82f44037c3501ba127cca5f8e8da499d51d2494318623a1967edf6",
+    "payloads/stream_103_V_1780957889653_MUON_BPM_10.200.22.60_VP619_TBT_POSITION_RAW.bin": "721b2edacadf54cd3957be8a8e442b5d22916c48febc9bf9f418eb46f9dd2a8b",
+    "payloads/stream_104_H_1780957889653_MUON_BPM_10.200.22.61_HP613_TBT_POSITION_RAW.bin": "ad3784d815e765b594e80a2477a73e284390088256ebd3491a624b4ec8f169b4",
+    "payloads/stream_105_H_1780957889653_MUON_BPM_10.200.22.61_HP615_TBT_POSITION_RAW.bin": "6a6c1d4303137e94efd5721035ffbf936749b74825b527d93d8f1aef968edfbc",
+    "payloads/stream_106_V_1780957889653_MUON_BPM_10.200.22.61_VP614_TBT_POSITION_RAW.bin": "1600c59c0c1c823bb3b33ea54485d5984677e6d117650cb7f0866d0bb23008d9",
+    "payloads/stream_107_V_1780957889653_MUON_BPM_10.200.22.61_VP616_TBT_POSITION_RAW.bin": "3563573db12a40ad28e6339fc64f4b4809388483fcfd0e3b818646178c4d960b",
+    "payloads/stream_108_H_1780957889654_MUON_BPM_10.200.22.62_HP609_TBT_POSITION_RAW.bin": "a6f3b5dd4edcf7699fad1358c49ffe741144faa68c07f514fae4a0efa32d00f0",
+    "payloads/stream_109_H_1780957889654_MUON_BPM_10.200.22.62_HP611_TBT_POSITION_RAW.bin": "228e8257ea5f8ff831a165903b72eefc18b67164baeee8e6ab2a5e5a92257abe",
+    "payloads/stream_110_V_1780957889654_MUON_BPM_10.200.22.62_VP610_TBT_POSITION_RAW.bin": "b856b6cfc7bdd4e9b2eefe1199773ab75440ad15c2fb47c950148ce6ad87c45d",
+    "payloads/stream_111_V_1780957889654_MUON_BPM_10.200.22.62_VP612_TBT_POSITION_RAW.bin": "7171d030ffc498988c2369480fae5f3d6d806320cd73e605e8b14bf47d5187cb",
+    "payloads/stream_112_H_1780957889653_MUON_BPM_10.200.22.63_HP605_TBT_POSITION_RAW.bin": "8a72942e76e4552e0cf73129fb4e36dae126433db86c4d5d8b26c87c7ecb90a4",
+    "payloads/stream_113_H_1780957889653_MUON_BPM_10.200.22.63_HP607_TBT_POSITION_RAW.bin": "2554606f68081340692bf06d24bff8c48e3d56317e078a391404f45b86fe20ec",
+    "payloads/stream_114_V_1780957889653_MUON_BPM_10.200.22.63_VP606_TBT_POSITION_RAW.bin": "a635beb7a650949f05e76ce46d5948dfe02a1e440f0d5b63d318f439556ba04b",
+    "payloads/stream_115_V_1780957889653_MUON_BPM_10.200.22.63_VP608_TBT_POSITION_RAW.bin": "bc822f98018db895930c991589f240c46ecef58375cc9eb90d3f4bbdbde8106a",
+    "payloads/stream_116_H_1780957889653_MUON_BPM_10.200.22.64_HP601_TBT_POSITION_RAW.bin": "d74902ca9e1f69bdf7ad81333cec044f198200d83b9cd92e686f0b42f65a841a",
+    "payloads/stream_117_H_1780957889653_MUON_BPM_10.200.22.64_HP603_TBT_POSITION_RAW.bin": "a9e52c3438d03cebd327c95edd680a0028d2f7082c9bb2870d41595fd90bcc32",
+    "payloads/stream_118_V_1780957889653_MUON_BPM_10.200.22.64_VP602_TBT_POSITION_RAW.bin": "b04f6860f97a2c61cb3ed5e9abc078f0a9baa8e8c261ec221b291bfaedde556e",
+    "payloads/stream_119_V_1780957889653_MUON_BPM_10.200.22.64_VP604_TBT_POSITION_RAW.bin": "c12f0fd987f4bc5b30854ae3fe29cd229e1002af351bfeb2935635382f18cd43"
+  }
+}

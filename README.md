@@ -56,6 +56,11 @@ terminal interface. It covers live operation, capture, and routine offline
 analysis. The Python tools provide the larger CPU/GPU studies, validation
 controls, publication figures, and reproducibility checks.
 
+The headless `tbt-processor` adds the operational Delivery Ring TUNE path:
+raw Redis → Rust ensemble analysis → result Redis → IOC PVs → bpm-hub-tui.
+Its shared measurement specification, paper defaults, expert overrides, and
+quality/time semantics are documented in [TUNE prototype](docs/TUNE_PROTOTYPE.md).
+
 ## Quick start
 
 The Rust application requires Rust 1.88 or newer.
