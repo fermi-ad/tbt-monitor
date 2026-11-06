@@ -1,0 +1,20 @@
+# syntax=docker/dockerfile:1.7
+ARG RUST_VERSION=1.88
+FROM --platform=$TARGETPLATFORM rust:${RUST_VERSION}-bookworm AS builder
+ARG VCS_REF=unknown
+ENV TBT_GIT_REV=${VCS_REF}
+WORKDIR /build
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
+RUN cargo build --release --locked --bin tbt-processor
+
+FROM --platform=$TARGETPLATFORM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --uid 10001 --create-home processor \
+    && mkdir /state && chown processor:processor /state
+COPY --from=builder /build/target/release/tbt-processor /usr/local/bin/tbt-processor
+USER 10001:10001
+VOLUME ["/state"]
+ENTRYPOINT ["tbt-processor"]
+CMD ["serve", "--sources", "/app/config/tune_sources.json", "--state-dir", "/state", "--redis-url", "redis://127.0.0.1:6391/"]

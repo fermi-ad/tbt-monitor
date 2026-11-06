@@ -5,6 +5,10 @@ edition = "2024"
 rust-version = "1.88"
 description = "Monitor, capture, and analyze turn-by-turn beam-position data for the Fermilab Mu2e Delivery Ring"
 license = "BSD-3-Clause"
+default-run = "tbt-monitor-tui"
+
+[lib]
+name = "tbt_monitor"
 
 [dependencies]
 anyhow = "1.0"
@@ -13,7 +17,12 @@ crossterm = "0.29"
 ratatui = { version = "0.30", default-features = false, features = ["crossterm_0_29"] }
 redis = "0.27"
 roxmltree = "0.20"
-serde_json = "1.0"
+serde_json = { version = "1.0", features = ["float_roundtrip"] }
+serde = { version = "1.0", features = ["derive"] }
+schemars = "0.8"
+rustfft = "6.4"
+half = "2.7"
+rayon = "1.11"
 
 [profile.release]
 lto = true
